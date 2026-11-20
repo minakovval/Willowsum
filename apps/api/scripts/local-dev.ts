@@ -8,7 +8,8 @@
  *
  * The database is prepared the way the local environment documents it (README): `db:bootstrap` once, the
  * migrations on every start, a login for every module role with a password made for this run (never printed),
- * every release flag on. Letters stay inside the API process (synthetic mail), so the prompt prints the confirmation
+ * every release flag on (and the operational flags they require, where unset). Every role process gets the same file
+ * storage and link key: the S3 of `pnpm local:up`, or without Docker the directory `<state>/files`. Letters stay inside the API process (synthetic mail), so the prompt prints the confirmation
  * link of an email typed there. Module roles belong to the whole cluster and this run sets their passwords, so it
  * holds the cluster lock (tools/test-guards/cluster-lock.mjs) until it stops: integration runs on the same server wait.
  *
@@ -60,11 +61,14 @@ import {
   pickRolePorts,
   processIdentity,
   readinessTimeoutMessage,
+  localFiles,
   releaseFlagKeys,
+  requiredOperationalFlagKeys,
   roleEnv,
   webEnv,
   webOrigin,
   type LocalDevOptions,
+  type LocalFiles,
   type LocalDevSettings,
   type LockHolder,
   type PidEntry,
@@ -81,9 +85,11 @@ process.stderr.on("error", () => {});
 
 let options: LocalDevOptions;
 let settings: LocalDevSettings;
+let files: LocalFiles;
 try {
   options = parseLocalDevArgs(process.argv.slice(2));
   settings = localDevSettings(process.env, path.join(repoDir, "infra/local/.state/dev"));
+  files = localFiles(process.env, settings.stateDir);
 } catch (error) {
   console.error(`${(error as Error).message}\n${LOCAL_DEV_USAGE}`);
   process.exit(2);
@@ -181,6 +187,16 @@ async function prepareDatabase(created: boolean, password: string): Promise<void
           `INSERT INTO feature_flags.flags (key, stage, percent, fully_enabled_at) VALUES ($1, 'all', 100, now())
            ON CONFLICT (key) DO UPDATE SET stage = 'all', percent = 100,
              fully_enabled_at = COALESCE(feature_flags.flags.fully_enabled_at, now()), changed_at = now()`,
+          [key],
+        )
+        .catch((error: Error) => console.log(`Flag ${key} is not turned on: ${error.message}`));
+    }
+    // The operational flags those release flags require: on where they have no state yet (a state set by hand stays).
+    for (const key of requiredOperationalFlagKeys(FLAGS)) {
+      await owner
+        .query(
+          `INSERT INTO feature_flags.flags (key, stage, percent, fully_enabled_at) VALUES ($1, 'all', 100, now())
+           ON CONFLICT (key) DO NOTHING`,
           [key],
         )
         .catch((error: Error) => console.log(`Flag ${key} is not turned on: ${error.message}`));
@@ -362,6 +378,13 @@ try {
   const created = await ensureDatabase();
   const password = randomBytes(24).toString("hex");
   await prepareDatabase(created, password);
+  // One storage and one link key for every role: the API stores an import's original, the worker parses it.
+  if (files.kind === "directory") {
+    // A new (or --fresh) database has no files: the objects of a dropped one go with it.
+    if (created) rmSync(files.dir, { recursive: true, force: true });
+    mkdirSync(files.dir, { recursive: true, mode: 0o700 });
+  }
+  const fileLinkKey = randomBytes(32).toString("base64");
 
   for (const role of ROLES) {
     const env = roleEnv({
@@ -371,6 +394,8 @@ try {
       password,
       modules,
       path: process.env["PATH"] ?? "",
+      files,
+      fileLinkKey,
     });
     const entry = start(role, [path.join(apiDir, "src/main.ts"), "--role", role], apiDir, env);
     await waitReady(`http://${LOCAL_HOST}:${ports[role]}/health/ready`, entry);

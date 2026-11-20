@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ensureWritable, s3Url, signV4, signingKey } from '../lib/s3.mjs';
+import { ensureWritable, localDevS3Env, s3Url, signV4, signingKey, withoutLocalS3 } from '../lib/s3.mjs';
 
 test('SigV4 signing key matches the AWS documentation test vector', () => {
   // docs.aws.amazon.com, «Deriving the signing key»: secret, 20120215, us-east-1, iam.
@@ -84,4 +84,24 @@ test('CICD-04 local: a refused key (403) fails at once instead of retrying', asy
   } finally {
     await gw.close();
   }
+});
+
+test('CICD-04 local:dev: the S3 of local:up is handed to the app (all five values), stray ones are dropped', () => {
+  const values = {
+    WS_LOCAL_PG_PASSWORD: 'pg-secret',
+    WS_LOCAL_S3_PORT: '8333',
+    WS_LOCAL_S3_REGION: 'eu-local-1',
+    WS_LOCAL_S3_BUCKET: 'willowsum-files',
+    WS_LOCAL_S3_ACCESS_KEY: 'WSLOCALABC',
+    WS_LOCAL_S3_SECRET_KEY: 'synthetic-secret',
+  };
+  assert.deepEqual(localDevS3Env(values), {
+    WS_LOCAL_S3_PORT: '8333',
+    WS_LOCAL_S3_REGION: 'eu-local-1',
+    WS_LOCAL_S3_BUCKET: 'willowsum-files',
+    WS_LOCAL_S3_ACCESS_KEY: 'WSLOCALABC',
+    WS_LOCAL_S3_SECRET_KEY: 'synthetic-secret',
+  });
+  assert.throws(() => localDevS3Env({ ...values, WS_LOCAL_S3_SECRET_KEY: '' }), /WS_LOCAL_S3_SECRET_KEY/);
+  assert.deepEqual(withoutLocalS3({ PATH: '/bin', WS_LOCAL_S3_PORT: '1' }), { PATH: '/bin' });
 });

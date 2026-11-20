@@ -14,6 +14,7 @@ import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
 import { SpendableCard } from "./spendable/SpendableCard.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
+  budgetFailureKey,
   loadBudget,
   monthOf,
   periodFromHash,
@@ -162,14 +163,6 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
       </PageTabs>
     </AppLayout>
   );
-}
-
-/** The refusal in the budget's words: «Реєстрація і вхід недоступні» of the sign-in is not about the budget. */
-function budgetFailureKey(failure: Parameters<typeof failureOf>[0]): MessageKey {
-  const key = failureOf(failure).key;
-  return key === "auth.error.unavailable" || key === "auth.error.captcha"
-    ? "planning.budget.error.body"
-    : key;
 }
 
 /** The future month's banner (S-289), the note of a past month and the approximate-rate marks (BUD-02 AC3, AC8). */

@@ -1,7 +1,9 @@
 import type { ApiClient, operations } from "@willowsum/api-contract";
 import { Decimal } from "@willowsum/domain-kernel";
 import { usageState, type UsageState } from "@willowsum/ui";
+import type { MessageKey } from "@willowsum/i18n";
 import { outcome, type Outcome } from "../../auth/api.ts";
+import { failureOf } from "../../auth/failure.ts";
 import type { Load } from "../../recurring/data.ts";
 
 type Json<T> = T extends { responses: { 200: { content: { "application/json": infer B } } } } ? B : never;
@@ -243,4 +245,16 @@ export function optionalLimits(rows: readonly Row[]): string {
     sum = sum.plus(r.limit.amount);
   }
   return sum.toFixed();
+}
+
+/**
+ * The refusal in the budget's words (S-121 and the wizard S-122 … S-124): «Реєстрація і вхід недоступні» of the sign-in
+ * is not about the budget, so a function switched off or not found (404 NOT_FOUND, 503 MODULE_UNAVAILABLE) reads
+ * «Бюджет зараз недоступний».
+ */
+export function budgetFailureKey(failure: Parameters<typeof failureOf>[0]): MessageKey {
+  const key = failureOf(failure).key;
+  return key === "auth.error.unavailable" || key === "auth.error.captcha"
+    ? "planning.budget.error.body"
+    : key;
 }

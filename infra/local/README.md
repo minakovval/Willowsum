@@ -1,6 +1,6 @@
 # Local environment
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-18 (`pnpm local:backup`, `pnpm local:restore`; 2026-11-16: `pnpm local:dev`; free ports, closing the window, leftovers — #363)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-20 (one file storage for every process; 2026-11-18: `pnpm local:backup`, `pnpm local:restore`; 2026-11-16: `pnpm local:dev`; free ports, closing the window, leftovers — #363)
 
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
@@ -60,7 +60,8 @@ pnpm local:dev
 
 It starts the services (`local:up`), then on the database `ws_dev` of the same PostgreSQL: `db:bootstrap` the
 first time, the migrations on every start, a login for every module role with a password made for this run (never
-printed or written), every release flag on (CICD-06; operational flags keep their state). Then the processes
+printed or written), every release flag on (CICD-06; an operational flag keeps its state, and one a release flag
+requires, such as `household.core`, is turned on when it has none yet). Then the processes
 `api`, `worker` and `scheduler` (ARC-02) on free ports picked on every start, listening only on `127.0.0.1`
 (`WS_HOST`), and the web dev server on `http://localhost:5173` with `/v1` passed to the API (`WS_API_ORIGIN`).
 Other tools on this Mac (Colima/Lima port forwards, other containers) may hold any port 8080–8089: the run does
@@ -68,6 +69,9 @@ not need them. Providers are synthetic (`WS_PROVIDER_MODE=test`): no
 CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machine. Process output goes to
 `infra/local/.state/dev/<process>.log` (git-ignored).
 
+- **Stored files** (import originals): every process uses the same storage and the same key of signed links — the
+  S3 storage of `local:up`, or without Docker the directory `infra/local/.state/dev/files` (git-ignored; emptied with
+  `--fresh`). Never each process's own memory: the worker reads the file the API stored.
 - **Confirming an email.** The synthetic mail adapter keeps letters inside the API process. After signing up, type
   the email in the terminal and press Enter: it prints the confirmation link. `limits` clears the sign-up limits.
 - **Data is kept** between runs (`ws_dev`). `pnpm local:dev --fresh` drops it and starts empty; `pnpm local:reset`

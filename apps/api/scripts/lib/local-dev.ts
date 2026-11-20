@@ -5,6 +5,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
+import path from "node:path";
 import type { FlagKind } from "../../src/modules/feature-flags/index.ts";
 import { modulePasswordVariable } from "../../src/platform/config/config.ts";
 
@@ -83,6 +84,51 @@ export function databaseUrlFor(adminUrl: string, database: string): string {
 }
 
 /**
+ * Where the stored files of one run live (ARC-06 FR 4; IMP-01: the API stores an original, the worker parses it): one
+ * storage for every role process, never each process's own memory. With `pnpm local:up` (Docker) its S3 — the
+ * `WS_LOCAL_S3_*` values tools/local-env passes, all or none; without Docker (`WS_TEST_PG_ADMIN_URL`) a directory of
+ * this run (`<stateDir>/files`), which the configuration refuses in staging and production.
+ */
+export type LocalFiles =
+  | {
+      readonly kind: "s3";
+      readonly endpoint: string;
+      readonly region: string;
+      readonly bucket: string;
+      readonly accessKeyId: string;
+      readonly secretAccessKey: string;
+    }
+  | { readonly kind: "directory"; readonly dir: string };
+
+const LOCAL_S3 = [
+  "WS_LOCAL_S3_PORT",
+  "WS_LOCAL_S3_REGION",
+  "WS_LOCAL_S3_BUCKET",
+  "WS_LOCAL_S3_ACCESS_KEY",
+  "WS_LOCAL_S3_SECRET_KEY",
+] as const;
+
+export function localFiles(env: Readonly<Record<string, string | undefined>>, stateDir: string): LocalFiles {
+  const given = LOCAL_S3.filter((name) => env[name] !== undefined && env[name] !== "");
+  if (given.length === 0) return { kind: "directory", dir: path.join(stateDir, "files") };
+  const missing = LOCAL_S3.filter((name) => !given.includes(name));
+  if (missing.length > 0)
+    throw new Error(`the local S3 settings come together; missing: ${missing.join(", ")}`);
+  const port = Number(env["WS_LOCAL_S3_PORT"]);
+  if (!Number.isInteger(port) || port < 1 || port > 65535)
+    throw new Error("WS_LOCAL_S3_PORT: a port 1–65535");
+  return {
+    kind: "s3",
+    // The `pnpm local:up` storage publishes its port on this machine's loopback address only (infra/local/compose.yaml).
+    endpoint: `http://${LOCAL_HOST}:${port}`,
+    region: env["WS_LOCAL_S3_REGION"]!,
+    bucket: env["WS_LOCAL_S3_BUCKET"]!,
+    accessKeyId: env["WS_LOCAL_S3_ACCESS_KEY"]!,
+    secretAccessKey: env["WS_LOCAL_S3_SECRET_KEY"]!,
+  };
+}
+
+/**
  * Environment of one role process: only what it needs (configuration comes only from the environment, ARC-02
  * FR 3), synthetic providers and in-process telemetry, so nothing leaves the machine (ARC-05, ARC-09).
  */
@@ -93,6 +139,10 @@ export function roleEnv(options: {
   readonly password: string;
   readonly modules: readonly string[];
   readonly path: string;
+  /** The same storage for every role (localFiles). */
+  readonly files: LocalFiles;
+  /** The key of signed file links, base64 of 32 bytes drawn for this run: the same for every role. */
+  readonly fileLinkKey: string;
 }): Record<string, string> {
   const u = new URL(options.databaseUrl);
   const web = options.webOrigin ?? WEB_ORIGIN;
@@ -112,6 +162,16 @@ export function roleEnv(options: {
     WS_TELEMETRY_ENVIRONMENT: "local",
     WS_ALLOWED_ORIGINS: web,
     WS_WEB_ORIGIN: web,
+    ...(options.files.kind === "s3"
+      ? {
+          WS_S3_ENDPOINT: options.files.endpoint,
+          WS_S3_REGION: options.files.region,
+          WS_S3_BUCKET: options.files.bucket,
+          WS_S3_ACCESS_KEY_ID: options.files.accessKeyId,
+          WS_S3_SECRET_ACCESS_KEY: options.files.secretAccessKey,
+        }
+      : { WS_FILES_DIR: options.files.dir }),
+    WS_FILE_LINK_KEY: options.fileLinkKey,
   };
 }
 
@@ -121,6 +181,28 @@ export function releaseFlagKeys(flags: Readonly<Record<string, { readonly kind: 
     .filter(([, flag]) => flag.kind === "release")
     .map(([key]) => key)
     .sort();
+}
+
+/**
+ * The operational flags a release flag requires, directly or through another flag (CICD-06; `household.core` under
+ * `household.space-settings`). A new database has no state for them, so they are off and every release flag under them
+ * is off too: locally `GET /v1/space` answered 404 and «Новий бюджет» showed an error. `pnpm local:dev` turns them on
+ * only where they have no state yet, so a state a person set (switched off to try something) is kept.
+ */
+export function requiredOperationalFlagKeys(
+  flags: Readonly<Record<string, { readonly kind: FlagKind; readonly requires?: string }>>,
+): string[] {
+  const keys = new Set<string>();
+  for (const flag of Object.values(flags)) {
+    if (flag.kind !== "release") continue;
+    for (let key = flag.requires, depth = 0; key !== undefined && depth < 10; depth++) {
+      const required = flags[key];
+      if (!required) break;
+      if (required.kind !== "release") keys.add(key);
+      key = required.requires;
+    }
+  }
+  return [...keys].sort();
 }
 
 /** The link of the confirmation letter (ACC-01 FR 4), in the letter's own format. */

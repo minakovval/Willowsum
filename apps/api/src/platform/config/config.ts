@@ -102,6 +102,12 @@ export interface Config {
       readonly secretAccessKey: string;
     };
     readonly linkKey?: Buffer;
+    /**
+     * Local only (`pnpm local:dev` without the S3 of `pnpm local:up`): the directory the api, worker and scheduler
+     * processes share for the objects (`WS_FILES_DIR`, an absolute path). Refused in staging and production and
+     * together with the S3 settings.
+     */
+    readonly dir?: string;
   };
   readonly database: {
     readonly host: string;
@@ -270,6 +276,10 @@ export function loadConfig(
       .regex(/^[A-Za-z0-9+/]+={0,2}$/)
       .refine((v) => Buffer.from(v, "base64").length >= 32)
       .optional(),
+    WS_FILES_DIR: z
+      .string()
+      .regex(/^\/[^\0\r\n]{1,500}$/)
+      .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -363,6 +373,12 @@ export function loadConfig(
       for (const [name, value] of Object.entries(s3)) if (value === undefined) problems.push(name);
     if (DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT) && d.WS_S3_ENDPOINT?.startsWith("http://"))
       problems.push("WS_S3_ENDPOINT");
+    // A directory of this machine is never the storage of a deployed process, nor a second storage beside S3.
+    if (
+      d.WS_FILES_DIR !== undefined &&
+      (DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT) || d.WS_S3_ENDPOINT !== undefined)
+    )
+      problems.push("WS_FILES_DIR");
   }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;
@@ -429,6 +445,7 @@ export function loadConfig(
       ...(v["WS_FILE_LINK_KEY"] !== undefined
         ? { linkKey: Buffer.from(v["WS_FILE_LINK_KEY"] as string, "base64") }
         : {}),
+      ...(v["WS_FILES_DIR"] !== undefined ? { dir: v["WS_FILES_DIR"] as string } : {}),
     },
     database: {
       host: v["WS_DB_HOST"] as string,

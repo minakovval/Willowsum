@@ -20,7 +20,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable, dockerRunning } from './lib/docker.mjs';
-import { ensureBucket, ensureWritable } from './lib/s3.mjs';
+import { ensureBucket, ensureWritable, localDevS3Env, withoutLocalS3 } from './lib/s3.mjs';
 import { connectionInfo } from './lib/info.mjs';
 import { ensureState, readState } from './lib/state.mjs';
 import {
@@ -224,15 +224,20 @@ async function dev() {
   const server = resolveServer({ env: process.env, docker: dockerAvailable() });
   if (server.kind === 'none') fail(server.message);
   let url = server.url;
+  // The role processes share the S3 storage started here (the API stores an import's original, the worker reads it);
+  // without Docker (WS_TEST_PG_ADMIN_URL) the script gives them one directory instead.
+  let s3 = {};
   if (server.kind === 'compose') {
     await up();
-    url = adminUrlFromState(readState(STATE_DIR).values);
+    const { values } = readState(STATE_DIR);
+    url = adminUrlFromState(values);
+    s3 = localDevS3Env(values);
   }
   const script = path.join(REPO_ROOT, 'apps/api/scripts/local-dev.ts');
   const child = spawn(process.execPath, [script, ...process.argv.slice(3)], {
     cwd: path.join(REPO_ROOT, 'apps/api'),
     stdio: 'inherit',
-    env: { ...process.env, DATABASE_URL: url },
+    env: { ...withoutLocalS3(process.env), ...s3, DATABASE_URL: url },
   });
   // Ctrl+C reaches both; the child stops the app and exits, this process follows it.
   process.on('SIGINT', () => {});
