@@ -294,11 +294,15 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
         recurringOutsideLimits: eur("0"),
         unallocated: eur("2740"),
         debtMinimums: eur("0"),
+        // Q5 а: the goals' planned contributions (no goal here).
+        goalContributions: eur("0"),
         difference: eur("2740"),
         kind: "surplus",
         amount: eur("2740"),
       },
       choice: null,
+      // AC6: «Можна витратити в листопаді ≈ 3 600 €» — 5 600 − nothing spent yet − «Продукти» (mandatory) 2 000 still needed.
+      spendable: { period: "2026-11", amount: eur("3600"), missing: [] },
     });
     expect(seen).toEqual([{ householdId: space.householdId, period: "2026-11", currency: "EUR" }]);
     // Read only: nothing is saved.
@@ -344,6 +348,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
       recurringOutsideLimits: eur("15.99"),
       unallocated: eur("84.01"),
       debtMinimums: eur("120.01"),
+      goalContributions: eur("0"),
       difference: eur("-36"),
       kind: "deficit",
       amount: eur("36"),
@@ -408,6 +413,8 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
       limits: eur("0"),
       balance: null,
       choice: null,
+      // AC6: no «Можна витратити в листопаді ≈ …» without the month's payments either.
+      spendable: { period: "2026-11", amount: null, missing: ["obligations"] },
     });
   });
 });
