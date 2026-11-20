@@ -213,3 +213,222 @@
   border-radius: var(--ws-radius-pill);
   background: var(--ws-surface-300);
 }
+
+/*
+ * IMP-08@PoC b) (wave 2, row 137): S-171 «Перевірка розпізнавання» — canvas PocMoneyImport2. Tokens only. The right panel of
+ * the board («Як ми прочитали») is the main column here; the original of the file (part 2) takes the first column of
+ * `.imp-review-body`. Long names and one long word wrap inside their cells; nothing scrolls the page sideways.
+ */
+.imp-review-title {
+  margin: 0;
+  font-family: var(--ws-font-display);
+  font-size: var(--ws-text-display-l-size);
+  line-height: var(--ws-text-display-l-line);
+  font-weight: var(--ws-text-display-l-weight);
+}
+
+.imp-review-file {
+  max-inline-size: 480px;
+}
+
+.imp-review-file-name {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0;
+  color: var(--ws-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.imp-banner:is(section) {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+}
+
+.imp-banner p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.imp-banner-ok {
+  border-color: var(--ws-border-control);
+  background: var(--ws-tint-positive);
+  color: var(--ws-gain);
+}
+
+.imp-banner-warn {
+  border-color: var(--ws-warning-line);
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.imp-banner-error {
+  border-color: var(--ws-loss);
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
+}
+
+.imp-review-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ws-space-5);
+  min-width: 0;
+}
+
+.imp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  min-width: 0;
+  max-inline-size: 880px;
+}
+
+.imp-panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.imp-panel-title {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.imp-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2) var(--ws-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ws-ink-muted);
+}
+
+.imp-counter-n {
+  color: var(--ws-ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.imp-group,
+.imp-dups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  overflow-wrap: anywhere;
+}
+
+.imp-group p,
+.imp-dups p {
+  margin: 0;
+}
+
+.imp-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  overflow: hidden;
+}
+
+.imp-r {
+  border-block-end: 1px solid var(--ws-surface-300);
+}
+
+.imp-r:last-child {
+  border-block-end: 0;
+}
+
+/* The row the person asked about is marked on its own side and by a border, not by colour alone. */
+.imp-r[data-open] {
+  background: var(--ws-tint-info);
+  outline: 2px solid var(--ws-link);
+  outline-offset: -2px;
+}
+
+.imp-r-line {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr) minmax(0, 160px) minmax(0, 170px);
+  align-items: center;
+  gap: var(--ws-space-3);
+  inline-size: 100%;
+  min-block-size: var(--ws-space-8);
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.imp-r-date {
+  color: var(--ws-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.imp-r-text {
+  overflow-wrap: anywhere;
+}
+
+.imp-r-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.imp-r-marks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ws-space-1);
+}
+
+.imp-r-detail {
+  padding: 0 var(--ws-space-3) var(--ws-space-3);
+}
+
+.imp-r-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  overflow-wrap: anywhere;
+}
+
+.imp-r-body p {
+  margin: 0;
+}
+
+.imp-why summary {
+  cursor: pointer;
+  color: var(--ws-link);
+}
+
+.imp-why ul {
+  margin: var(--ws-space-2) 0 0;
+  padding-inline-start: var(--ws-space-5);
+}
+
+.imp-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.imp-review .imp-actions {
+  justify-content: flex-start;
+}

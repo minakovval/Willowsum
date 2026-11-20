@@ -14,7 +14,16 @@ import {
 import { childPath, importPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { type AccountItem } from "./api.ts";
-import { choiceLabel, choicesOf, countsOf, nextBlock, sizeText, type Choice, type FileRow } from "./model.ts";
+import {
+  choiceLabel,
+  choicesOf,
+  countsOf,
+  nextBlock,
+  rowsText,
+  sizeText,
+  type Choice,
+  type FileRow,
+} from "./model.ts";
 import "./import.css";
 import { useImportStep } from "./useImportStep.ts";
 
@@ -49,12 +58,6 @@ const KNOWN_CODES: ReadonlySet<string> = new Set([
   "BATCH_TOO_MANY_FILES",
   "BATCH_TOO_LARGE",
 ]);
-
-const rowsText = (t: Translate, locale: string, count: number): string => {
-  const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en-GB").select(count);
-  const form = rule === "one" || rule === "few" || rule === "many" ? rule : "other";
-  return t(`import.rows.${form}` as MessageKey, { count });
-};
 
 /**
  * The text of a refusal by its code (IMP-01 FR 15): the catalogue's, or — for a code it does not know — the API's own
