@@ -840,6 +840,10 @@ export const uk = {
     "Це план: гроші не переказуються. Суми з’являться в «Бюджет → План» у розділах «Цілі й заощадження» і «Погашення боргів».",
   "planning.budget.wizard.dist.planOnly.deficit":
     "Це план: гроші не переказуються. Покриття з’явиться в «Бюджет → План» у рядку «Не розподілено / Дефіцит».",
+  "planning.budget.wizard.dist.planOff.surplus":
+    "Це план: гроші не переказуються. Обрані суми буде збережено разом із бюджетом.",
+  "planning.budget.wizard.dist.planOff.deficit":
+    "Це план: гроші не переказуються. Покриття буде збережено разом із бюджетом.",
   "planning.budget.wizard.dist.amountOf": "Сума: {name}",
   "planning.budget.wizard.dist.reason.deficit": "Покрийте дефіцит повністю",
   "planning.budget.wizard.dist.reason.over": "Обрано більше, ніж треба розподілити",

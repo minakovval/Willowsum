@@ -843,6 +843,10 @@ export const en: Messages = {
     "This is a plan: no money is transferred. The amounts will appear in «Budget → Plan» in the sections «Goals and savings» and «Debt payoff».",
   "planning.budget.wizard.dist.planOnly.deficit":
     "This is a plan: no money is transferred. The cover will appear in «Budget → Plan» in the row «Unallocated / Deficit».",
+  "planning.budget.wizard.dist.planOff.surplus":
+    "This is a plan: no money is transferred. The chosen amounts will be saved with the budget.",
+  "planning.budget.wizard.dist.planOff.deficit":
+    "This is a plan: no money is transferred. The cover will be saved with the budget.",
   "planning.budget.wizard.dist.amountOf": "Amount: {name}",
   "planning.budget.wizard.dist.reason.deficit": "Cover the deficit in full",
   "planning.budget.wizard.dist.reason.over": "More is chosen than there is to allocate",

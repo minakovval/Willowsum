@@ -36,6 +36,11 @@ export interface Distribution {
   readonly debts: readonly DebtRow[];
   readonly savings: readonly SourceRow[];
   readonly cards: readonly SourceRow[];
+  /**
+   * `budget.plan` is on for the space (`GET /v1/me/features`): only then do the chosen amounts «з'являться в Бюджет → План».
+   * A features read that failed counts as off — the closing text never promises a screen that may not exist.
+   */
+  readonly planOn: boolean;
 }
 
 const wallet = (a: AccountItem, currency: string): Money | null => {
@@ -47,16 +52,18 @@ export async function loadDistribution(
   api: ApiClient,
   currency: string,
 ): Promise<{ ok: true; data: Distribution } | { ok: false }> {
-  const [goals, debts, accounts] = await Promise.all([
+  const [goals, debts, accounts, features] = await Promise.all([
     outcome(api.GET("/v1/goals")),
     outcome(api.GET("/v1/debts")),
     outcome(api.GET("/v1/accounts", { params: { query: { limit: 100 } } })),
+    outcome(api.GET("/v1/me/features")),
   ]);
   if (!goals.ok || !debts.ok || !accounts.ok) return { ok: false };
   const active = accounts.data.items.filter((a) => a.status === "active");
   return {
     ok: true,
     data: {
+      planOn: features.ok && (features.data.features as readonly string[]).includes("budget.plan"),
       goals: goals.data.goals.filter((g) => !g.achieved && g.target.currency === currency),
       debts: debts.data.debts
         .filter((d: DebtItem) => d.balance.currency === currency && d.balance.amount !== "0")
