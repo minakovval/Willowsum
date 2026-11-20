@@ -66,6 +66,7 @@ import {
   createTransactionRuleInputs,
   createTransactionRuleTags,
   createTransactionTexts,
+  createImportedTransactions,
   createTransactionPendingPostings,
   createTransactionWalletUsage,
   createTransactionsServices,
@@ -514,6 +515,16 @@ const server = buildServer({
                       recipes: createImportRecipesReader(databases.for("import-recipes")),
                       accounts: createAccountDirectory(databases.for("accounts")),
                       keys: createSpaceKeys(databases.for("household"), audit, kms),
+                    },
+                    // IMP-01 FR 11: «Застосувати» — module transactions writes the batch's rows (journal by hand-off).
+                    apply: {
+                      transactions: createImportedTransactions(databases.for("transactions"), {
+                        accounts: createAccountDirectory(databases.for("accounts")),
+                        ledger: createLedger(databases.for("ledger")),
+                        audit,
+                        newId: randomUUID,
+                        now: () => systemClock.now(),
+                      }),
                     },
                   }),
                 }
