@@ -6,6 +6,7 @@ import { byId, countsFrom, isIncluded, periodPlan, planCellsInEffect } from "../
 import {
   daysLeft,
   goalContributions,
+  incomePlanApproximate,
   isPeriod,
   mandatoryNeeds,
   periodFigures,
@@ -115,16 +116,25 @@ const spendableSchema = z.object({
   daysLeft: z.number().int(),
   /** Null — a source has no figure (`unavailable`): «Не вдалося розрахувати суму», never a sum without it. */
   figures: figuresSchema.nullable(),
-  /** The sources without a figure (an amount without any rate, or out of range); empty with `figures`. */
+  /**
+   * The sources without a figure (an amount without any rate, or out of range); empty with `figures`. A transaction of
+   * the period without any rate is `approximate.unavailableCount` > 0 with `figures` null (EC4: no partial sum shown as
+   * complete; #651 — the enum stays as /v1 published it).
+   */
   unavailable: z.array(z.enum(SOURCES)),
   /**
-   * «приблизно»: transactions at the nearest rate (`nearestRateCount`) or left out (`unavailableCount`), as the period's;
-   * `obligations` — a regular payment or loan at the nearest rate.
+   * «приблизно» (EC4, «Стани»): transactions at the nearest rate (`nearestRateCount`) or without any (`unavailableCount`
+   * — then `figures` is null), as the period's; `obligations` — a regular payment or loan at the nearest rate; `incomes`
+   * — a regular income still expected, or the month's income plan made of the regular incomes; `goals` — a goal's required or contributed amount; `plannedExpenses` — a debt's
+   * planned expense. The card shows «приблизно» when any is set.
    */
   approximate: z.object({
     nearestRateCount: z.number().int(),
     unavailableCount: z.number().int(),
     obligations: z.boolean(),
+    incomes: z.boolean(),
+    goals: z.boolean(),
+    plannedExpenses: z.boolean(),
   }),
 });
 
@@ -172,11 +182,16 @@ export const getSpendableRoute = defineRoute({
     const accountIds = (await deps.reads.accounts(householdId))
       .filter((a) => isIncluded(a, choices))
       .map((a) => a.accountId);
-    const [counted, obligations, goals, extra] = await Promise.all([
-      deps.reads.amounts(householdId, accountIds, period, budget.currency, from),
+    const [counted, obligations, goals, extra, incomes] = await Promise.all([
+      // EC5: «Витратити з цілі» — those transactions no longer lower the sum (BUD-05@PoC FR 8).
+      deps.reads.amounts(householdId, accountIds, period, budget.currency, from, undefined, {
+        withoutGoalSpends: true,
+      }),
       deps.obligations ? deps.obligations.month(householdId, period, budget.currency, from) : null,
       deps.planSources ? deps.planSources.goals(householdId, budget.currency) : [],
       deps.planSources ? deps.planSources.extraPayments(householdId, period, budget.currency) : [],
+      // EC4 «приблизно» (#651): the regular incomes the month's income plan may be.
+      deps.planSources ? deps.planSources.incomes(householdId, period, budget.currency) : [],
     ]);
     const figures = periodFigures(plan, categories, counted.amounts);
     const contributions = goalContributions(
@@ -194,9 +209,22 @@ export const getSpendableRoute = defineRoute({
       nearestRateCount: counted.nearestRateCount,
       unavailableCount: counted.unavailableCount,
       obligations: obligations?.approximate ?? false,
+      // A regular income still expected, or the month's income plan made of the regular incomes, at the nearest rate.
+      incomes:
+        (obligations?.incomeApproximate ?? false) || incomePlanApproximate(plan.incomePlan, cells, incomes),
+      // EC4: an amount that enters the goal's row at the nearest rate — what is contributed, and the required
+      // contribution when it is the month's plan (no cell of its own).
+      goals:
+        contributions?.rows.some((r) => {
+          const g = goals.find((x) => x.goalId === r.goalId);
+          return g?.contributedApproximate === true || (r.fromRequired && g?.requiredApproximate === true);
+        }) ?? false,
+      plannedExpenses: extra?.some((e) => e.approximate === true) ?? false,
     };
     const base = { period, currency: budget.currency, daysLeft: daysLeft(today, period) };
-    if (!obligations || !contributions || !extra || obligations.incomeExpected === null)
+    // EC4: a transaction without any rate (or out of range) — no sum, never a partial one shown as complete; the
+    // client reads it from `approximate.unavailableCount` (#651: `unavailable` keeps its published values).
+    if (unavailable.length > 0 || counted.unavailableCount > 0 || !obligations || !contributions || !extra)
       return { ...base, figures: null, unavailable, approximate };
     const zero = Money.zero(budget.currency);
     const stillExpected = obligations.incomeExpected ?? zero;
