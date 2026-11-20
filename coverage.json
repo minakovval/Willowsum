@@ -1,25 +1,25 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-20T10:32:55.889Z",
-  "sha": "a4d49238b60aaee0fa06acaa4cd0b291826df15b",
+  "generatedAt": "2026-11-20T11:31:04.224Z",
+  "sha": "fa4c4067db45838edb7fc225a9e884c06ff203dc",
   "releases": [
     {
       "release": "PoC",
       "slices": 152,
       "FR": {
-        "covered": 785,
+        "covered": 791,
         "total": 1392
       },
       "AC": {
-        "covered": 619,
+        "covered": 622,
         "total": 1075
       },
       "EC": {
-        "covered": 116,
+        "covered": 118,
         "total": 201
       },
       "items": {
-        "covered": 1520,
+        "covered": 1531,
         "total": 2668
       }
     },
@@ -27,19 +27,19 @@
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 378,
+        "covered": 380,
         "total": 1197
       },
       "AC": {
-        "covered": 336,
+        "covered": 339,
         "total": 1014
       },
       "EC": {
-        "covered": 76,
+        "covered": 78,
         "total": 245
       },
       "items": {
-        "covered": 790,
+        "covered": 797,
         "total": 2456
       }
     },
@@ -47,19 +47,19 @@
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 470,
+        "covered": 472,
         "total": 3390
       },
       "AC": {
-        "covered": 429,
+        "covered": 431,
         "total": 2980
       },
       "EC": {
-        "covered": 89,
+        "covered": 90,
         "total": 723
       },
       "items": {
-        "covered": 988,
+        "covered": 993,
         "total": 7093
       }
     },
@@ -87,19 +87,19 @@
       "release": "v1",
       "slices": 169,
       "FR": {
-        "covered": 120,
+        "covered": 122,
         "total": 1762
       },
       "AC": {
-        "covered": 118,
+        "covered": 120,
         "total": 1645
       },
       "EC": {
-        "covered": 43,
+        "covered": 44,
         "total": 486
       },
       "items": {
-        "covered": 281,
+        "covered": 286,
         "total": 3893
       }
     },
