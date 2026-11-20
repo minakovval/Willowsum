@@ -51,9 +51,15 @@ export function createBudgetPlanSources(ports: {
         currency,
       );
       const byGoal = new Map(required.map((g, i) => [g.goalId, converted[i] ?? null]));
-      return goals.map((g) => ({
+      // BUD-03@PoC FR 6: what is already contributed this month, at today's rate too (null — no rate).
+      const contributed = await convert(
+        goals.map((g) => g.contributedThisMonth),
+        currency,
+      );
+      return goals.map((g, i) => ({
         goalId: g.goalId,
         required: byGoal.get(g.goalId) ?? null,
+        contributed: contributed[i] ?? null,
         // No date or past it (BUD-05 FR 5: no required contribution) — nothing is planned for the goal.
         lastPeriod: g.requiredMonthly === null || g.targetDate === null ? null : periodOf(g.targetDate),
       }));
