@@ -246,7 +246,67 @@ export interface Readiness {
   readonly files: readonly FilePlan[];
 }
 
-type Disposition = RowAction | GroupAction | null;
+export type Disposition = RowAction | GroupAction | null;
+
+/** A file's decisions as the readiness and the review's rows read them (one rule for both). */
+export interface FileDispositions {
+  /** The file's own group decision, else the batch's. */
+  readonly group: (g: Group) => GroupAction | null;
+  /** A row's own decision, else its groups' («виключити» over «перевернути знак» over «прийняти»). */
+  readonly disposition: (row: number) => Disposition;
+  /** The row's own decision; null — none (its groups may still decide it). */
+  readonly own: (row: number) => RowAction | null;
+  /** The rows with an amount question (FR 7). */
+  readonly amountRows: ReadonlySet<number>;
+}
+
+/** FR 7, FR 8: an amount question with no reading is closed by taking the row as read or leaving it out. */
+export const closesQuestion = (d: Disposition): boolean =>
+  d === "accept" || d === "exclude" || d === "import-anyway";
+
+/** The slots of the decisions, as `readiness` and `dispositionsOf` read them. */
+const slotsOf = (decisions: readonly Decided[]): ReadonlyMap<string, StoredDecision> =>
+  new Map(decisions.map((d) => [d.slot, d.decision]));
+
+/** One file's dispositions under the batch's decisions (IMP-08@PoC FR 6, AC6: the review shows what readiness reads). */
+export const dispositionsOf = (f: FileReview, decisions: readonly Decided[]): FileDispositions =>
+  dispositionsAt(f, slotsOf(decisions));
+
+function dispositionsAt(f: FileReview, at: ReadonlyMap<string, StoredDecision>): FileDispositions {
+  const id = f.batchFileId;
+  const { checks } = f;
+  const group = (g: Group): GroupAction | null => {
+    const own = at.get(`group:${id}:${g}`) ?? at.get(`group:batch:${g}`);
+    return own?.kind === "group" ? own.action : null;
+  };
+  const rowOwn = (row: number): RowAction | null => {
+    const d = at.get(`row:${id}:${row}`);
+    return d?.kind === "row" ? d.action : null;
+  };
+  const unconfirmed = new Set(checks.signs.unconfirmed);
+  // FR 6: «знак картки» answered by flipping the sign for the file (its flag not confirmed) flips every row of the
+  // file, also the ones the balance chain holds as printed — the chain of a card confirms no sign (#654, #655: the
+  // flag was closed and nothing flipped, so purchases were written as income).
+  const cardFlip =
+    checks.flags.some((flag) => flag.code === "card-sign") &&
+    at.get(`flag:${id}:card-sign`)?.kind !== "flag" &&
+    at.get("flag:batch:card-sign")?.kind !== "flag";
+  const amountRows = new Set(checks.clarifications.flatMap((c) => (c.kind === "amount" ? [c.row] : [])));
+  const disposition = (row: number): Disposition => {
+    const own = rowOwn(row);
+    if (own) return own;
+    const groups = [
+      ...(unconfirmed.has(row) || cardFlip ? [group("review")] : []),
+      ...(amountRows.has(row) ? [group("clarify")] : []),
+    ].filter((g): g is GroupAction => g !== null);
+    return groups.includes("exclude")
+      ? "exclude"
+      : groups.includes("flip-sign")
+        ? "flip-sign"
+        : (groups[0] ?? null);
+  };
+  return { group, disposition, own: rowOwn, amountRows };
+}
 
 /**
  * FR 11, AC3, AC8, AC9: the batch may be applied only when every file's account is confirmed (FR 4), every
@@ -255,7 +315,7 @@ type Disposition = RowAction | GroupAction | null;
  * decision at all (AC9).
  */
 export function readiness(files: readonly FileReview[], decisions: readonly Decided[]): Readiness {
-  const at = new Map(decisions.map((d) => [d.slot, d.decision]));
+  const at = slotsOf(decisions);
   const accounts: Extract<Refusal, { code: "confirm-account" }>["files"][number][] = [];
   const questions: (RowsLeft & { dateOrder: boolean })[] = [];
   const review: RowsLeft[] = [];
@@ -270,36 +330,7 @@ export function readiness(files: readonly FileReview[], decisions: readonly Deci
   for (const f of files) {
     const id = f.batchFileId;
     const { checks } = f;
-    const group = (g: Group): GroupAction | null => {
-      const own = at.get(`group:${id}:${g}`) ?? at.get(`group:batch:${g}`);
-      return own?.kind === "group" ? own.action : null;
-    };
-    const rowOwn = (row: number): RowAction | null => {
-      const d = at.get(`row:${id}:${row}`);
-      return d?.kind === "row" ? d.action : null;
-    };
-    const unconfirmed = new Set(checks.signs.unconfirmed);
-    // FR 6: «знак картки» answered by flipping the sign for the file (its flag not confirmed) flips every row of the
-    // file, also the ones the balance chain holds as printed — the chain of a card confirms no sign (#654, #655: the
-    // flag was closed and nothing flipped, so purchases were written as income).
-    const cardFlip =
-      checks.flags.some((flag) => flag.code === "card-sign") &&
-      at.get(`flag:${id}:card-sign`)?.kind !== "flag" &&
-      at.get("flag:batch:card-sign")?.kind !== "flag";
-    const amountRows = new Set(checks.clarifications.flatMap((c) => (c.kind === "amount" ? [c.row] : [])));
-    const disposition = (row: number): Disposition => {
-      const own = rowOwn(row);
-      if (own) return own;
-      const groups = [
-        ...(unconfirmed.has(row) || cardFlip ? [group("review")] : []),
-        ...(amountRows.has(row) ? [group("clarify")] : []),
-      ].filter((g): g is GroupAction => g !== null);
-      return groups.includes("exclude")
-        ? "exclude"
-        : groups.includes("flip-sign")
-          ? "flip-sign"
-          : (groups[0] ?? null);
-    };
+    const { group, disposition, amountRows } = dispositionsAt(f, at);
 
     // FR 4, AC3; a file with no account yet is never applied: the account is chosen first (`missing`).
     if (f.accountId === null)
@@ -330,7 +361,7 @@ export function readiness(files: readonly FileReview[], decisions: readonly Deci
       if (reading) readings.push({ row: c.row, value: reading.value });
       else {
         const d = disposition(c.row);
-        if (d !== "accept" && d !== "exclude" && d !== "import-anyway") unanswered.push(c.row);
+        if (!closesQuestion(d)) unanswered.push(c.row);
       }
     }
     const order = at.get(`date-order:${id}`);
