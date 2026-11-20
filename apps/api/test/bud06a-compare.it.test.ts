@@ -974,3 +974,51 @@ describe("BUD-06@PoC (security review of #625): the edges of a past year's «З 
     }
   });
 });
+
+describe("BUD-06@PoC (#625 follow-up): the last day the plan fact of a proportional first period counts", () => {
+  it("BUD-06@PoC AC10 (server part): «± до плану» of a past year's «З початку року» counts the window's last day and not the day after", async () => {
+    now = at("2025-11-10");
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, {
+      firstPeriod: "2025-11",
+      proportional: true,
+      limits: [{ categoryId: groceries, amount: eur("300.00") }],
+    });
+    now = at("2026-11-19");
+    const acc = await account(space);
+    await spend(space, acc, "-10.00", "2025-11-12", "Продукти");
+    await spend(space, acc, "-20.00", "2025-11-19", "Продукти");
+    await spend(space, acc, "-40.00", "2025-11-20", "Продукти");
+    const v = await compare(space, "type=ytd&period=2025");
+    const r = rowOf(v.expenses.categories, groceries)!;
+    expect(value(r.current)).toBe("30.00");
+    expect(value(r.plan)).toBe("210.00");
+    // 10 + 20 − 210: 19 November is in, 20 November is not.
+    expect(value(r.planDifference!.amount)).toBe("-180.00");
+  });
+
+  it("BUD-06@PoC AC10 (server part): a proportional first period before the window's last month is read to its own last day — a later month's amounts are counted once", async () => {
+    now = at("2025-10-10");
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, {
+      firstPeriod: "2025-10",
+      proportional: true,
+      limits: [{ categoryId: groceries, amount: eur("300.00") }],
+    });
+    now = at("2026-11-19");
+    const acc = await account(space);
+    await spend(space, acc, "-7.00", "2025-10-05", "Продукти");
+    await spend(space, acc, "-10.00", "2025-10-12", "Продукти");
+    await spend(space, acc, "-100.00", "2025-11-05", "Продукти");
+    await spend(space, acc, "-500.00", "2025-11-25", "Продукти");
+    const v = await compare(space, "type=ytd&period=2025");
+    const r = rowOf(v.expenses.categories, groceries)!;
+    expect(value(r.current)).toBe("117.00");
+    // The plan fact: October from the 10th (10) and November up to the 19th (100), each once.
+    expect(new Decimal(r.planDifference!.amount.amount).toFixed(2)).toBe(
+      new Decimal("110").minus(r.plan!.amount).toFixed(2),
+    );
+  });
+});
