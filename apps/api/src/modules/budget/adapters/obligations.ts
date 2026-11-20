@@ -51,11 +51,15 @@ export function createBudgetObligations(ports: {
         currency,
       );
       let total = zero;
+      let approximate = false;
       for (const item of reported.items) {
         if (item.kind === "rate-unavailable" || tooBig(item.value)) return null;
         total = total.plus(item.value);
+        // Nothing at any rate is still nothing: a zero amount is exact (as plan-sources' `convert`, #651).
+        if (item.kind === "converted" && item.conversion.approximate && !item.value.isZero())
+          approximate = true;
       }
-      return tooBig(total) ? null : { sum: total, approximate: reported.approximate };
+      return tooBig(total) ? null : { sum: total, approximate };
     } catch (error) {
       if (error instanceof AmountOutOfRangeError) return null;
       throw error;

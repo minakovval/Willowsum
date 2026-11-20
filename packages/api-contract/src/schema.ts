@@ -6990,7 +6990,7 @@ export interface operations {
                             };
                         } | null;
                         period: string;
-                        unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses" | "transactions")[];
+                        unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses")[];
                     };
                 };
             };

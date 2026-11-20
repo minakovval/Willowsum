@@ -62,6 +62,8 @@ const sum = (xs: readonly Money[], currency: string): Money =>
 export interface PlanIncome {
   readonly paymentId: string;
   readonly amount: Money | null;
+  /** BUD-03@PoC EC4 «приблизно»: `amount` at the nearest rate (a zero amount is exact); left out — exact. */
+  readonly approximate?: boolean;
 }
 
 /**
@@ -87,16 +89,43 @@ const larger = (a: Money, b: Money): Money => (a.compare(b) < 0 ? b : a);
  * negative row). A month without any regular income — «План доходу».
  */
 export function incomeOf(base: Money, cells: readonly PlanCell[], incomes: readonly PlanIncome[]): Money {
-  const own = (lineId: string | null) =>
-    cells.find((c) => c.kind === "income" && c.lineId === lineId && c.amount !== null)?.amount ?? null;
-  const regular = sum(
+  const own = ownIncome(cells);
+  return larger(own(null) ?? base, regularIncome(own, incomes, base.currency));
+}
+
+const ownIncome = (cells: readonly PlanCell[]) => (lineId: string | null) =>
+  cells.find((c) => c.kind === "income" && c.lineId === lineId && c.amount !== null)?.amount ?? null;
+
+const regularIncome = (
+  own: (lineId: string | null) => Money | null,
+  incomes: readonly PlanIncome[],
+  currency: string,
+): Money =>
+  sum(
     incomes.flatMap((i) => {
       const a = own(i.paymentId) ?? i.amount;
       return a ? [a] : [];
     }),
-    base.currency,
+    currency,
   );
-  return larger(own(null) ?? base, regular);
+
+/**
+ * BUD-03@PoC EC4 «приблизно» (#651): the month's income plan `incomePlan` (`incomeOf`) is the regular incomes' sum and
+ * one of them without a cell of its own enters it at the nearest rate. A «План доходу» that happens to equal that sum
+ * is marked too — the safe direction.
+ */
+export function incomePlanApproximate(
+  incomePlan: Money,
+  cells: readonly PlanCell[],
+  incomes: readonly PlanIncome[],
+): boolean {
+  const own = ownIncome(cells);
+  const nearest = incomes.some(
+    (i) => own(i.paymentId) === null && i.amount !== null && i.approximate === true,
+  );
+  if (!nearest) return false;
+  const regular = regularIncome(own, incomes, incomePlan.currency);
+  return !regular.isZero() && regular.equals(incomePlan);
 }
 
 /**

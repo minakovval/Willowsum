@@ -278,6 +278,8 @@ beforeAll(async () => {
             goals: createGoalPlans(db.databases.for("goals"), goals),
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
+            // FR 1 «Надходження»: the month's expected regular incomes (the income plan of «План», #651).
+            recurring: createRecurringMonth(db.databases.for("recurring"), recurring),
           }),
           goalSpends: createGoalSpends(db.databases.for("goals")),
         }),
@@ -748,6 +750,46 @@ describe("BUD-03@PoC EC5: a goal spent through «Витратити з цілі�
     expect(f.spent.total).toEqual(eur("0"));
   });
 
+  it("BUD-03@PoC EC5: a spend from the goal in a mandatory category — it leaves «Витрачено» and the category still needs its whole limit", async () => {
+    const space = await newSpace();
+    const acc = await current(space);
+    const groceries = await category(space, "Продукти"); // mandatory by default
+    await createBudget(space, {
+      incomePlan: eur("1000"),
+      limits: [{ categoryId: groceries, amount: eur("620") }],
+    });
+    await categorised(space, acc, "1000.00", "2026-11-03", "Зарплата");
+    const res = await call(space, "POST", "/v1/goals", {
+      template: "travel",
+      name: "Синтетична відпустка",
+      target: eur("6000.00"),
+      targetDate: "2027-12-01",
+      part: { kind: "envelope", accountId: acc, startAmount: "700.00" },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const goalId = res.json().id as string;
+    await plannedContribution(space, goalId, "0");
+    const bought = await categorised(space, acc, "-590.13", "2026-11-04", "Продукти");
+    let f = (await spendable(space)).figures!;
+    // 1 000 − 590,13 spent − 29,87 still needed by «Продукти» = 380.
+    expect(f.mandatory).toEqual({
+      categories: [{ categoryId: groceries, amount: eur("29.87") }],
+      total: eur("29.87"),
+    });
+    expect(f.amount).toEqual(eur("380"));
+    const spent = await call(space, "POST", `/v1/goals/${goalId}/spends`, {
+      transactions: [{ transactionId: bought, accountId: acc }],
+    });
+    expect(spent.statusCode, spent.body).toBe(201);
+    f = (await spendable(space)).figures!;
+    expect(f.spent).toEqual({ total: eur("0"), limited: eur("0"), outsidePlan: eur("0") });
+    expect(f.mandatory).toEqual({
+      categories: [{ categoryId: groceries, amount: eur("620") }],
+      total: eur("620"),
+    });
+    expect(f.amount).toEqual(eur("380"));
+  });
+
   it("BUD-03@PoC EC5: only «Можна витратити» leaves the spend out — the period's «Витрачено» on «Бюджет» still counts it", async () => {
     const { space, acc, spendFromGoal } = await ec5("200.25");
     await spendFromGoal("150.37");
@@ -823,11 +865,46 @@ describe("BUD-03@PoC «приблизно» and EC4: the nearest rate is marked,
     });
     expect(goalRes.statusCode, goalRes.body).toBe(201);
     expect((await spendable(space)).approximate).toMatchObject({ goals: true });
-    await plannedContribution(space, goalRes.json().id as string, "30");
+    const goalId = goalRes.json().id as string;
+    await plannedContribution(space, goalId, "30");
     expect((await spendable(space)).approximate).toMatchObject({ goals: false });
+    // #651: what is contributed in USD this month enters the goal's row at the nearest rate — «приблизно» again.
+    const paid = await call(space, "POST", `/v1/goals/${goalId}/contributions`, {
+      amount: { amount: "10.00", currency: "USD" },
+    });
+    expect(paid.statusCode, paid.body).toBe(201);
+    const s = await spendable(space);
+    // max(30 planned, 8 contributed) — the planned cell; the 8 € entered at the 5 November rate.
+    expect(s.figures!.goals.total).toEqual(eur("30"));
+    expect(s.figures!.goals.items).toEqual([expect.objectContaining({ goalId, contributed: eur("8") })]);
+    expect(s.approximate).toMatchObject({ goals: true });
   });
 
-  it("BUD-03@PoC EC4: a transaction with no rate at all — `figures: null` with the source `transactions`, no partial sum shown as complete", async () => {
+  it("BUD-03@PoC EC4: the month's income plan made of a regular income in USD at the nearest rate — «приблизно» (#651)", async () => {
+    const space = await newSpace();
+    await current(space);
+    await createBudget(space, { incomePlan: eur("100") });
+    await rate("2026-11-05", "USD", "41.6");
+    await rate("2026-11-05", "EUR", "52");
+    // 1 000 USD = 800 € at the 5 November rate: more than «План доходу» 100 €, so the month's plan is 800 €.
+    await payment(space, {
+      type: "income",
+      amount: { amount: "1000", currency: "USD" },
+      anchorDate: "2026-11-01",
+      name: "Синтетичний дохід",
+    });
+    let s = await spendable(space);
+    expect(s.figures!.income).toMatchObject({ plan: eur("800") });
+    expect(s.approximate).toMatchObject({ incomes: true });
+    // Today's rates: the plan is exact.
+    await rate("2026-11-12", "USD", "41.6");
+    await rate("2026-11-12", "EUR", "52");
+    s = await spendable(space);
+    expect(s.figures!.income).toMatchObject({ plan: eur("800") });
+    expect(s.approximate).toMatchObject({ incomes: false });
+  });
+
+  it("BUD-03@PoC EC4: a transaction with no rate at all — `figures: null` with `approximate.unavailableCount`, no partial sum shown as complete", async () => {
     const space = await newSpace();
     const acc = await current(space);
     const usd = await account(space, {
@@ -846,8 +923,9 @@ describe("BUD-03@PoC «приблизно» and EC4: the nearest rate is marked,
     });
     expect(res.statusCode, res.body).toBe(201);
     const none = await spendable(space);
+    // #651: `unavailable` keeps its published values; the no-rate transaction is `unavailableCount`.
     expect(none.figures).toBeNull();
-    expect(none.unavailable).toEqual(["transactions"]);
+    expect(none.unavailable).toEqual([]);
     expect(none.approximate).toMatchObject({ unavailableCount: 1 });
     expect(leakText(JSON.stringify(none))).not.toContain("975");
     // The rate of the transaction's date comes: the sum is back, exact.
@@ -857,5 +935,50 @@ describe("BUD-03@PoC «приблизно» and EC4: the nearest rate is marked,
     expect(s.unavailable).toEqual([]);
     expect(s.approximate).toMatchObject({ nearestRateCount: 0, unavailableCount: 0 });
     expect(s.figures!.amount).toEqual(eur("980"));
+  });
+});
+
+describe("sec651: «Витратити з цілі» in «Можна витратити» is bound to one space", () => {
+  it("sec651 isolation: another space's goal spend naming this space's transaction id never leaves it out of this space's sum, and nothing of it is answered", async () => {
+    // Space A: income 1 000 €, a purchase of 150,37 € that no goal of A wrote off.
+    const a = await newSpace();
+    const accA = await current(a);
+    await createBudget(a, { incomePlan: eur("1000") });
+    await categorised(a, accA, "1000.00", "2026-11-03", "Зарплата");
+    const bought = await transaction(a, accA, "-150.37", "2026-11-10");
+    expect((await spendable(a)).figures!.amount).toEqual(eur("849.63"));
+    // Space B: a real spend from its own goal, then a forged row of B's spends naming A's transaction id.
+    const b = await ec5("200.25");
+    await b.spendFromGoal("123.45");
+    const { rows } = await db.owner.query<{ id: string }>(
+      `SELECT id FROM goals.spends WHERE household_id = $1`,
+      [b.space.householdId],
+    );
+    expect(rows).toHaveLength(1);
+    await db.owner.query(
+      `INSERT INTO goals.spends (household_id, id, goal_id, transaction_id, account_id, entry_id, amount, currency, spent_on)
+       SELECT household_id, $2, goal_id, $3, account_id, $4, 987.65, currency, spent_on FROM goals.spends
+        WHERE household_id = $1 AND id = $5`,
+      [b.space.householdId, randomUUID(), bought, randomUUID(), rows[0]!.id],
+    );
+    const res = await call(a, "GET", "/v1/budget/periods/2026-11/spendable");
+    expect(res.statusCode, res.body).toBe(200);
+    const s = res.json() as Spendable;
+    expect(s.figures!.amount).toEqual(eur("849.63"));
+    expect(s.figures!.spent.total).toEqual(eur("150.37"));
+    for (const leaked of [b.goalId, b.space.householdId, "987.65", "123.45", "Синтетична відпустка"])
+      expect(leakText(res.body)).not.toContain(leaked);
+    // B's own sum still leaves its real spend out (799,75 €), whatever the forged row.
+    expect((await spendable(b.space)).figures!.amount).toEqual(eur("799.75"));
+  });
+
+  it("sec651 exact: a goal spend leaves out exactly its transaction — 0,01 € and an 8-digit amount add up without rounding", async () => {
+    const { space, acc, spendFromGoal } = await ec5(null);
+    await spendFromGoal("0.01");
+    await transaction(space, acc, "-0.01", "2026-11-11");
+    await transaction(space, acc, "-12345678.91", "2026-11-11");
+    const f = (await spendable(space)).figures!;
+    expect(f.spent.total).toEqual(eur("12345678.92"));
+    expect(f.amount).toEqual(eur("-12344678.92"));
   });
 });

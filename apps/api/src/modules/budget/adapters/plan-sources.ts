@@ -93,15 +93,22 @@ export function createBudgetPlanSources(ports: {
         currency,
       );
       const byPayment = new Map<string, Money | null>();
+      // BUD-03@PoC EC4 «приблизно» (#651): a charge of the payment at the nearest rate.
+      const nearest = new Set<string>();
       charges.forEach((c, i) => {
         const prev = byPayment.get(c.paymentId);
         const value = converted[i]?.value ?? null;
+        if (converted[i]?.approximate === true) nearest.add(c.paymentId);
         byPayment.set(
           c.paymentId,
           prev === undefined ? value : prev === null || value === null ? null : prev.plus(value),
         );
       });
-      return [...byPayment].map(([paymentId, amount]) => ({ paymentId, amount }));
+      return [...byPayment].map(([paymentId, amount]) => ({
+        paymentId,
+        amount,
+        approximate: amount !== null && nearest.has(paymentId),
+      }));
     },
     async extraPayments(householdId, period, currency) {
       const planned = await ports.debts.inMonth(householdId, period);

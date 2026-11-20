@@ -495,7 +495,7 @@ describe("sec641: «Можна витратити» — guards, breakdown, missi
     expect(JSON.stringify(s)).not.toContain('"amount"');
   });
 
-  it("sec641 no rate: a TRANSACTION left out for want of any rate is always signalled — approximate.unavailableCount, and no sum (#649 item 3, EC4)", async () => {
+  it("sec641 no rate: a TRANSACTION left out for want of any rate is always signalled — approximate.unavailableCount, and no sum (#649 item 3, EC4, #651)", async () => {
     const space = await newSpace();
     const eurAcc = await current(space);
     const usdAcc = await account(space, {
@@ -517,7 +517,8 @@ describe("sec641: «Можна витратити» — guards, breakdown, missi
     expect(s.approximate).toMatchObject({ unavailableCount: 1 });
     // #649 item 3: never the sum without the 900 USD (1000) shown as complete — no figure, the source named.
     expect(s.figures).toBeNull();
-    expect(s.unavailable).toEqual(["transactions"]);
+    // #651: `unavailable` keeps its published values (ARC-07 FR 3); `unavailableCount` names the transaction.
+    expect(s.unavailable).toEqual([]);
   });
 
   it("sec641 overflow: amounts at and over the cap never answer 500 and never give a partial sum", async () => {

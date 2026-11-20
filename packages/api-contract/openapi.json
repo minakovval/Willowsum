@@ -14158,8 +14158,7 @@
                           "obligations",
                           "incomes",
                           "goals",
-                          "plannedExpenses",
-                          "transactions"
+                          "plannedExpenses"
                         ]
                       }
                     },
