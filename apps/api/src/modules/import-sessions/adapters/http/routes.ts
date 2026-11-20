@@ -16,6 +16,7 @@ import {
   applyBatch,
   batchResult,
   followUpOf,
+  hasFollowUp,
   ApplyNotReady,
   ApplyRowsRefused,
   ApplyTooLarge,
@@ -983,14 +984,20 @@ export const getImportBatchResultRoute = defineRoute({
       /** The same counts as the apply's response (IMP-04 outcomes and excluded, zero, files). */
       result: applyCountsSchema,
       appliedAt: z.string(),
-      followUp: z.object({
-        /** «N платежів на картку записано як переказ» (IMP-03 FR 15): 0 until the apply records them. */
-        cardPaymentTransfers: z.number().int(),
-        /** «N пар переказів», «Пари · N»: proposals with a side of this batch; `more` — the read was capped. */
-        transferProposals: z.object({ count: z.number().int(), more: z.boolean() }),
-        /** «N без категорії» (the queue «До розбору»): shown, not split, no side of a transfer. */
-        uncategorized: z.number().int(),
-      }),
+      /**
+       * What is left after the apply, as the space is now; null — the batch is «відкочено» (`batch.state`
+       * `rolled-back`): its transactions are rolled back, nothing is left, and `result` is only the record of the apply.
+       */
+      followUp: z
+        .object({
+          /** «N платежів на картку записано як переказ» (IMP-03 FR 15): 0 until the apply records them. */
+          cardPaymentTransfers: z.number().int(),
+          /** «N пар переказів», «Пари · N»: proposals with a side of this batch; `more` — the read was capped. */
+          transferProposals: z.object({ count: z.number().int(), more: z.boolean() }),
+          /** «N без категорії» (the queue «До розбору»): shown, not split, no side of a transfer. */
+          uncategorized: z.number().int(),
+        })
+        .nullable(),
     }),
   },
   handler: async ({ params }, ctx) => {
@@ -1003,19 +1010,22 @@ export const getImportBatchResultRoute = defineRoute({
     const { batch, application } = await guarded(() =>
       ctx.inHousehold((q) => batchResult(applyTx(q), params.batchId)),
     );
-    const followUp = await followUpOf(
-      {
-        transactions: (query) => services.transactions.page(householdId, query),
-        categoriesOf: (ids) => services.categories.categoriesOf(householdId, ids),
-        proposals: (batchId) => services.proposals.countFor(householdId, batchId),
-      },
-      batch.id,
-    );
+    // #673: a rolled-back batch has nothing left to do — no module is asked, and its old counts are not shown as current.
+    const followUp = hasFollowUp(batch)
+      ? await followUpOf(
+          {
+            transactions: (query) => services.transactions.page(householdId, query),
+            categoriesOf: (ids) => services.categories.categoriesOf(householdId, ids),
+            proposals: (batchId) => services.proposals.countFor(householdId, batchId),
+          },
+          batch.id,
+        )
+      : null;
     return {
       batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
       result: { counts: { ...application.result.counts } },
       appliedAt: application.appliedAt.toISOString(),
-      followUp: {
+      followUp: followUp && {
         cardPaymentTransfers: followUp.cardPaymentTransfers,
         transferProposals: { ...followUp.transferProposals },
         uncategorized: followUp.uncategorized,

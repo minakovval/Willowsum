@@ -17002,7 +17002,7 @@ export interface operations {
                                 more: boolean;
                             };
                             uncategorized: number;
-                        };
+                        } | null;
                         result: {
                             counts: {
                                 [key: string]: number;

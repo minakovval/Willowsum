@@ -24,7 +24,7 @@ export interface ImportBatchTransactionsQuery {
 export const IMPORT_BATCH_TRANSACTIONS_SQL = `SELECT t.id, t.import_file_id, t.import_row
      FROM transactions t
     WHERE t.household_id = $1 AND t.import_batch_id = $2 AND t.import_file_id IS NOT NULL
-      AND NOT t.hidden AND t.split_mode IS NULL AND t.transfer_id IS NULL
+      AND NOT t.hidden AND t.rolled_back_at IS NULL AND t.split_mode IS NULL AND t.transfer_id IS NULL
       AND ($3::uuid IS NULL OR (t.import_file_id, t.import_row) > ($3::uuid, $4::int))
     ORDER BY t.import_file_id, t.import_row
     LIMIT $5`;

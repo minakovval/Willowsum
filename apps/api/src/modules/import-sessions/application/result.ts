@@ -60,6 +60,12 @@ export async function batchResult(
   return { batch, application };
 }
 
+/**
+ * #673: only an applied batch has something left to do. A rolled-back one (IMP-04 FR 8, IMP-16) keeps the record of its
+ * apply, but its follow-up is none (null in the route): the step «Результат» shows «відкочено».
+ */
+export const hasFollowUp = (batch: Pick<Batch, "state">): boolean => batch.state === "applied";
+
 /** What is left to do after the apply, read from the modules that own it (bounded: pages of `RESULT_PAGE`). */
 export async function followUpOf(ports: ResultPorts, batchId: string): Promise<BatchFollowUp> {
   let uncategorized = 0;

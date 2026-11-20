@@ -38429,43 +38429,50 @@
                       "type": "string"
                     },
                     "followUp": {
-                      "type": "object",
-                      "properties": {
-                        "cardPaymentTransfers": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "transferProposals": {
+                      "anyOf": [
+                        {
                           "type": "object",
                           "properties": {
-                            "count": {
+                            "cardPaymentTransfers": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "more": {
-                              "type": "boolean"
+                            "transferProposals": {
+                              "type": "object",
+                              "properties": {
+                                "count": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "more": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "count",
+                                "more"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "uncategorized": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
                             }
                           },
                           "required": [
-                            "count",
-                            "more"
+                            "cardPaymentTransfers",
+                            "transferProposals",
+                            "uncategorized"
                           ],
                           "additionalProperties": false
                         },
-                        "uncategorized": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
+                        {
+                          "type": "null"
                         }
-                      },
-                      "required": [
-                        "cardPaymentTransfers",
-                        "transferProposals",
-                        "uncategorized"
-                      ],
-                      "additionalProperties": false
+                      ]
                     }
                   },
                   "required": [

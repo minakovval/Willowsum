@@ -7,7 +7,10 @@ import { buildServer } from "../src/platform/process/server.ts";
 import { createWorker } from "../src/platform/queue/index.ts";
 import type { AccountDirectory, PostingAccount } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
-import { createTransactionCategories } from "../src/modules/categorization/index.ts";
+import {
+  createTransactionCategories,
+  createTransactionCategoryRead,
+} from "../src/modules/categorization/index.ts";
 import { isolatedStatementParser } from "../src/modules/file-parsers/index.ts";
 import { createFileStorage, linkKey, type FileStorage } from "../src/modules/file-storage/index.ts";
 import { createSpaceKeys, type HouseholdSpaces, type SpaceKeys } from "../src/modules/household/index.ts";
@@ -50,6 +53,8 @@ let audit: AuditLog;
 let files: FileStorage;
 let keys: SpaceKeys;
 let app: ReturnType<typeof buildServer>;
+/** Calls of the result's module ports (transactions, categorization, transfer-matching) so far. */
+let portCalls = 0;
 const accountsOf = new Map<string, PostingAccount>();
 const accounts: Pick<AccountDirectory, "postingAccount"> = {
   postingAccount: async (householdId, accountId) => accountsOf.get(`${householdId}/${accountId}`) ?? null,
@@ -254,17 +259,25 @@ beforeAll(async () => {
               audit,
               newId: randomUUID,
               now: clock.now,
+              // IMP-16 FR 4: the rollback reads the categories set by hand.
+              categories: createTransactionCategoryRead(db.databases.for("categorization")),
             }),
           },
-          result: {
-            transactions: createImportBatchTransactions(db.databases.for("transactions")),
-            categories: createTransactionCategories(db.databases.for("categorization")),
+          result: ((): NonNullable<Parameters<typeof createImportSessionsServices>[0]["result"]> => {
+            const transactions = createImportBatchTransactions(db.databases.for("transactions"));
+            const categories = createTransactionCategories(db.databases.for("categorization"));
             // One currency only in these batches: no rate is asked.
-            proposals: createImportBatchProposals({
+            const proposals = createImportBatchProposals({
               candidates: createTransferCandidates(db.databases.for("transactions")),
               rates: async (requests) => requests.map(() => null),
-            }),
-          },
+            });
+            // Every call of a module port is counted: a refused read reaches none (П-5).
+            return {
+              transactions: { page: (h, q) => (portCalls++, transactions.page(h, q)) },
+              categories: { categoriesOf: (h, ids) => (portCalls++, categories.categoriesOf(h, ids)) },
+              proposals: { countFor: (h, b) => (portCalls++, proposals.countFor(h, b)) },
+            };
+          })(),
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -385,25 +398,65 @@ describe("IMP-08@PoC FR 11: the step «Результат» reads the apply's re
   });
 });
 
+describe("IMP-08@PoC FR 11: a batch rolled back or still being applied (#673)", () => {
+  it("IMP-08@PoC FR 11: a rolled-back batch is shown «відкочено» — the record of its apply, no follow-up counts, no module asked", async () => {
+    const space = await newSpace();
+    const batch = await appliedPair(space);
+    const rolled = await call(space, "POST", `/v1/import/batches/${batch.batchId}/rollback`, {});
+    expect(rolled.statusCode, rolled.body).toBe(200);
+    const before = portCalls;
+    const res = await result(space, batch.batchId);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toEqual({
+      batch: expect.objectContaining({ id: batch.batchId, state: "rolled-back", rollbackUntil: null }),
+      result: batch.applied.result,
+      appliedAt: batch.applied.appliedAt,
+      followUp: null,
+    });
+    expect(portCalls).toBe(before);
+  });
+
+  it("IMP-08@PoC FR 11: an apply still «in progress» has no result yet — 409 BATCH_STATE_CONFLICT, no module asked", async () => {
+    const space = await newSpace();
+    const batch = await appliedPair(space);
+    // The state a request that ended between the apply's steps leaves (apply.ts step A done, C not yet).
+    await db.owner.query(
+      `UPDATE import_sessions.batch_applications SET in_progress = true WHERE household_id = $1 AND batch_id = $2`,
+      [space.householdId, batch.batchId],
+    );
+    const before = portCalls;
+    const res = await result(space, batch.batchId);
+    expect(res.statusCode, res.body).toBe(409);
+    expect(res.json()).toMatchObject({ code: "BATCH_STATE_CONFLICT" });
+    expect(leakText(res.body)).not.toContain("followUp");
+    expect(portCalls).toBe(before);
+  });
+});
+
 describe("IMP-08@PoC FR 11: scope of the result (П-5)", () => {
   it("IMP-08@PoC FR 11: another space's batch is «not found» — no counts of it", async () => {
     const owner = await newSpace();
     const other = await newSpace();
     const batch = await appliedPair(owner);
+    const before = portCalls;
     const res = await result(other, batch.batchId);
     expect(res.statusCode, res.body).toBe(404);
     expect(leakText(res.body)).not.toContain("followUp");
     expect(leakText(res.body)).not.toContain("counts");
     const unknown = await result(owner, randomUUID());
     expect(unknown.statusCode).toBe(404);
+    // No module is asked about a batch the caller may not see.
+    expect(portCalls).toBe(before);
   });
 
   it("IMP-08@PoC FR 11: a scoped member sees no batch — 404, no counts", async () => {
     const space = await newSpace();
     const batch = await appliedPair(space);
+    const before = portCalls;
     const res = await result(space, batch.batchId, true);
     expect(res.statusCode, res.body).toBe(404);
     expect(leakText(res.body)).not.toContain("followUp");
+    expect(portCalls).toBe(before);
   });
 });
 
