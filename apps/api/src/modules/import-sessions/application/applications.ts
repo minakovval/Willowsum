@@ -18,6 +18,8 @@ export interface StoredApplication {
   readonly inProgress: boolean;
   /** The batch's state before the apply started; null — stored before it was kept. */
   readonly fromState?: "parsed" | "needs-review" | null;
+  /** The attempt that started it (#654): every request that joins it writes under this id. */
+  readonly attemptId: string;
 }
 
 /** At most this many counts; a name is lower-case words with hyphens. */

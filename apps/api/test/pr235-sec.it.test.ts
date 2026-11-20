@@ -212,6 +212,7 @@ describe("PR #235 security: isolation, whitelists, idempotency, erasure", () => 
       { relname: "duplicate_dismissals", relrowsecurity: true, relforcerowsecurity: true },
       { relname: "idempotency_keys", relrowsecurity: true, relforcerowsecurity: true },
       // The write records of import batches (IMP-01 FR 11, migrations/0010_import_rows.sql).
+      { relname: "import_voids", relrowsecurity: true, relforcerowsecurity: true },
       { relname: "import_writes", relrowsecurity: true, relforcerowsecurity: true },
       // The hand-off queue (ARC-04, migrations/0003_queue.sql).
       { relname: "jobs", relrowsecurity: true, relforcerowsecurity: true },

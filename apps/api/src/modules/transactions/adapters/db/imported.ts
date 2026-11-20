@@ -1,5 +1,5 @@
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
-import type { ImportCounts, ImportWriteTx } from "../../application/index.ts";
+import { IMPORT_WAITERS_MAX, type ImportCounts, type ImportWriteTx } from "../../application/index.ts";
 import { importCandidates } from "./import-candidates.ts";
 import { transactionsTx } from "./store.ts";
 
@@ -9,10 +9,20 @@ import { transactionsTx } from "./store.ts";
  */
 export const IMPORT_LOCK_WAIT = "60s";
 
+/** One waiter's place of the space (application/imported.ts step 0): tried without waiting, held to the end. */
+const SLOT_LOCK = `SELECT pg_try_advisory_xact_lock(hashtextextended('transactions.import-slot:' || $1 || ':' || $2, 0)) AS ok`;
+
 /** The write of an import batch in one transactions transaction (application/imported.ts). */
 export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
   const tx = transactionsTx(q);
   return {
+    async enterImport(householdId) {
+      for (let slot = 0; slot < IMPORT_WAITERS_MAX; slot++) {
+        const { rows } = await q.query<{ ok: boolean }>(SLOT_LOCK, [householdId, String(slot)]);
+        if (rows[0]!.ok) return true;
+      }
+      return false;
+    },
     async lockImport(householdId, accountIds) {
       const { rows } = await q.query<{ before: string }>(`SELECT current_setting('lock_timeout') AS before`);
       await q.query(`SELECT set_config('lock_timeout', $1, true)`, [IMPORT_LOCK_WAIT]);
@@ -29,6 +39,20 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
         [householdId, batchId],
       );
       return rows[0]?.counts ?? null;
+    },
+    async voided(householdId, batchId, attemptId) {
+      const { rows } = await q.query(
+        `SELECT 1 FROM import_voids WHERE household_id = $1 AND import_batch_id = $2 AND attempt_id = $3`,
+        [householdId, batchId, attemptId],
+      );
+      return rows.length > 0;
+    },
+    async voidAttempt(householdId, batchId, attemptId, at) {
+      await q.query(
+        `INSERT INTO import_voids (household_id, import_batch_id, attempt_id, voided_at) VALUES ($1, $2, $3, $4)
+         ON CONFLICT DO NOTHING`,
+        [householdId, batchId, attemptId, at],
+      );
     },
     lockAccounts: (householdId, accountIds) => tx.lockAccounts(householdId, accountIds),
     async insertImported(householdId, t) {

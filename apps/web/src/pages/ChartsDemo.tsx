@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "@willowsum/i18n";
-import { BarChart, LineChart, type BarCategory, type LineSeries } from "@willowsum/ui";
+import { BarChart, CHART_PERCENT, LineChart, type BarCategory, type LineSeries } from "@willowsum/ui";
 
 /**
  * CMP-47@PoC BarChart and CMP-42@PoC LineChart in the design-system gallery: every state of the canvas board
@@ -176,6 +176,51 @@ export function ChartsDemo() {
               },
             ]}
             currency="EUR"
+            height={240}
+          />,
+        )}
+        {case_(
+          "bar-dotted",
+          t("gallery.charts.barDotted"),
+          <BarChart
+            label={t("gallery.charts.balanceLabel")}
+            categories={categories.slice(6, 11)}
+            series={[
+              {
+                id: "net",
+                name: t("gallery.charts.balance"),
+                values: ["2751.07", "2883.93", "1624.23", "2618.41", "3094.01"],
+                tone: "brand-2",
+              },
+              {
+                id: "goal",
+                name: t("gallery.charts.fromGoals"),
+                values: [null, null, "1450.00", null, null],
+                tone: "brand-2",
+                dotted: true,
+              },
+            ]}
+            currency="EUR"
+            height={240}
+          />,
+        )}
+        {case_(
+          "bar-percent",
+          t("gallery.charts.barPercent"),
+          <BarChart
+            label={t("gallery.charts.rateLabel")}
+            categories={categories.slice(6, 11)}
+            series={[]}
+            lines={[
+              {
+                id: "rate",
+                name: t("gallery.charts.rate"),
+                values: ["51.1", "53.6", null, "47.2", "55.7"],
+                tone: "brand-2",
+                goodWhen: "up",
+              },
+            ]}
+            currency={CHART_PERCENT}
             height={240}
           />,
         )}

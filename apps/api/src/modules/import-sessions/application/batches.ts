@@ -27,6 +27,8 @@ export interface Batch {
   readonly version: number;
   readonly createdAt: Date;
   readonly lastActionAt: Date;
+  /** #654: «застосовано» with its apply still «in progress» (its rows being written, or stuck until the recovery). */
+  readonly applying?: boolean;
 }
 
 export interface BatchFile {

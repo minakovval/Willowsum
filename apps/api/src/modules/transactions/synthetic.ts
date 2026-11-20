@@ -107,6 +107,20 @@ export const synthetic = [
         };
     },
   }),
+  // IMP-01 FR 11 (#654): a given-up attempt of applying another synthetic batch (ids only).
+  defineSyntheticTable({
+    table: "transactions.import_voids",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          import_batch_id: key(household.id, "batch", 100 + i),
+          attempt_id: key(household.id, "attempt", i),
+          voided_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
   defineSyntheticTable({
     table: "transactions.duplicate_dismissals",
     perHousehold: 1,

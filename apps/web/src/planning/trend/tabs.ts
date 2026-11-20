@@ -2,7 +2,7 @@ import { useI18n } from "@willowsum/i18n";
 import { BUDGET, childPath } from "../../routing/routes.ts";
 import { hrefFor } from "../../routing/useHashPath.ts";
 
-/** The tabs of «Бюджет» that exist so far (UX-09@PoC EC 1): «Бюджет», «План», «Порівняння» and «Тренд»; «Грошовий потік» is a later row. */
+/** The tabs of «Бюджет» that exist so far (UX-09@PoC EC 1): «Бюджет», «План», «Порівняння», «Тренд» and «Грошовий потік» (BUD-08@PoC b), row 134). */
 export function useBudgetTabs() {
   const { t } = useI18n();
   return {
@@ -12,6 +12,7 @@ export function useBudgetTabs() {
       { id: "plan", label: t("planning.tab.plan"), href: hrefFor(childPath("budgetPlan")) },
       { id: "compare", label: t("planning.compare.title"), href: hrefFor(childPath("budgetCompare")) },
       { id: "trend", label: t("trend.title"), href: hrefFor(childPath("budgetTrend")) },
+      { id: "flow", label: t("flow.title"), href: hrefFor(childPath("budgetFlow")) },
     ],
   };
 }

@@ -30950,6 +30950,9 @@
                           "lastActionAt": {
                             "type": "string"
                           },
+                          "applying": {
+                            "type": "boolean"
+                          },
                           "files": {
                             "type": "object",
                             "properties": {
@@ -30978,6 +30981,7 @@
                           "version",
                           "createdAt",
                           "lastActionAt",
+                          "applying",
                           "files"
                         ],
                         "additionalProperties": false
@@ -31197,6 +31201,9 @@
                     "lastActionAt": {
                       "type": "string"
                     },
+                    "applying": {
+                      "type": "boolean"
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -31225,6 +31232,7 @@
                     "version",
                     "createdAt",
                     "lastActionAt",
+                    "applying",
                     "files"
                   ],
                   "additionalProperties": false
@@ -31550,6 +31558,9 @@
                     "lastActionAt": {
                       "type": "string"
                     },
+                    "applying": {
+                      "type": "boolean"
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -31654,6 +31665,7 @@
                     "version",
                     "createdAt",
                     "lastActionAt",
+                    "applying",
                     "files",
                     "fileList"
                   ],
@@ -31826,6 +31838,9 @@
                         "lastActionAt": {
                           "type": "string"
                         },
+                        "applying": {
+                          "type": "boolean"
+                        },
                         "files": {
                           "type": "object",
                           "properties": {
@@ -31854,6 +31869,7 @@
                         "version",
                         "createdAt",
                         "lastActionAt",
+                        "applying",
                         "files"
                       ],
                       "additionalProperties": false
@@ -31967,7 +31983,7 @@
             }
           },
           "429": {
-            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route); Too many requests; try again shortly (RATE_LIMITED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -32077,6 +32093,9 @@
                     "lastActionAt": {
                       "type": "string"
                     },
+                    "applying": {
+                      "type": "boolean"
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -32105,6 +32124,7 @@
                     "version",
                     "createdAt",
                     "lastActionAt",
+                    "applying",
                     "files"
                   ],
                   "additionalProperties": false
@@ -33385,6 +33405,9 @@
                         "lastActionAt": {
                           "type": "string"
                         },
+                        "applying": {
+                          "type": "boolean"
+                        },
                         "files": {
                           "type": "object",
                           "properties": {
@@ -33413,6 +33436,7 @@
                         "version",
                         "createdAt",
                         "lastActionAt",
+                        "applying",
                         "files"
                       ],
                       "additionalProperties": false
@@ -34342,6 +34366,9 @@
                         "lastActionAt": {
                           "type": "string"
                         },
+                        "applying": {
+                          "type": "boolean"
+                        },
                         "files": {
                           "type": "object",
                           "properties": {
@@ -34370,6 +34397,7 @@
                         "version",
                         "createdAt",
                         "lastActionAt",
+                        "applying",
                         "files"
                       ],
                       "additionalProperties": false
@@ -34900,6 +34928,9 @@
                     "lastActionAt": {
                       "type": "string"
                     },
+                    "applying": {
+                      "type": "boolean"
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -34928,6 +34959,7 @@
                     "version",
                     "createdAt",
                     "lastActionAt",
+                    "applying",
                     "files"
                   ],
                   "additionalProperties": false

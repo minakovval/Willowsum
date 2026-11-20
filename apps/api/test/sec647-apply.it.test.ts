@@ -279,6 +279,7 @@ function portsOf(
       }
       return transactions.write(space.householdId, input, plan);
     },
+    settle: (input) => transactions.settle(space.householdId, input),
     plan: (planDeps, request) => planImport(planDeps, space.householdId, request),
   };
 }
