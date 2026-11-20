@@ -120,7 +120,16 @@
     },
     "import-sessions": {
       "layer": "subject",
-      "dependsOn": ["accounts", "audit", "file-parsers", "file-storage", "household", "import-recipes"]
+      "dependsOn": [
+        "accounts",
+        "audit",
+        "duplicate-matching",
+        "file-parsers",
+        "file-storage",
+        "household",
+        "import-recipes",
+        "transactions"
+      ]
     },
     "ledger": {
       "layer": "subject",

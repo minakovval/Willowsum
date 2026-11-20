@@ -60,15 +60,34 @@ async function addBatch(
   return { batchId, fileId };
 }
 
+/** The stored result of a finished apply, as the apply step stores it (application/apply.ts step C). */
+async function storeResult(householdId: string, batchId: string, actorId: string, counts: object) {
+  await db.owner.query(
+    `INSERT INTO import_sessions.batch_applications (household_id, batch_id, result, applied_by, applied_at)
+     VALUES ($1, $2, $3::jsonb, $4, now())`,
+    [householdId, batchId, JSON.stringify({ counts }), actorId],
+  );
+}
+
+/** The file's checks with its account (the parse step's record), so FR 3 compares the same account. */
+async function checkedFor(
+  householdId: string,
+  batch: { batchId: string; fileId: string },
+  accountId: string,
+) {
+  await db.owner.query(
+    `INSERT INTO import_sessions.file_checks (household_id, batch_file_id, batch_id, account_id, checks, history)
+     VALUES ($1, $2, $3, $4, '{}', '{}')`,
+    [householdId, batch.fileId, batch.batchId, accountId],
+  );
+}
+
 const WINDOW = { from: "2026-04-01", to: "2026-04-30", limit: 1_000 };
 
 beforeAll(async () => {
   db = await setupRealModules(4);
   candidates = createImportCandidates(db.databases.for("transactions"));
-  applications = createImportSessionsApplications({
-    db: db.databases.for("import-sessions"),
-    now: () => now,
-  });
+  applications = createImportSessionsApplications({ db: db.databases.for("import-sessions") });
 });
 
 afterAll(async () => {
@@ -132,11 +151,7 @@ describe("ARC-03 FR 2: row-level security of the table and columns of this slice
     const other = await newSpace();
     const sha = createHash("sha256").update(randomUUID()).digest("hex");
     const theirs = await addBatch(other.householdId, other.accountId, { state: "applied", sha });
-    await applications.recordOnce(other.householdId, {
-      batchId: theirs.batchId,
-      actorId: other.accountId,
-      result: { counts: { import: 7 } },
-    });
+    await storeResult(other.householdId, theirs.batchId, other.accountId, { import: 7 });
     const account = randomUUID();
     await addTransaction(other.householdId, account);
 
@@ -158,71 +173,44 @@ describe("IMP-04@PoC FR 3: the same file — only a batch that is applied and st
   it("IMP-04@PoC FR 3: an applied batch being deleted is not «already imported»", async () => {
     const space = await newSpace();
     const sha = createHash("sha256").update(randomUUID()).digest("hex");
-    await addBatch(space.householdId, space.accountId, { state: "applied", deleting: true, sha });
+    const account = randomUUID();
+    const gone = await addBatch(space.householdId, space.accountId, {
+      state: "applied",
+      deleting: true,
+      sha,
+    });
+    await checkedFor(space.householdId, gone, account);
+    await storeResult(space.householdId, gone.batchId, space.accountId, { import: 1 });
     const again = await addBatch(space.householdId, space.accountId, { sha });
-    expect(await applications.sameFileApplied(space.householdId, again.fileId)).toBeNull();
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, account)).toBeNull();
   });
 
   it("IMP-04@PoC FR 3: a file without a hash (uploaded before it was kept) matches no other file without one", async () => {
     const space = await newSpace();
-    await addBatch(space.householdId, space.accountId, { state: "applied" });
+    const account = randomUUID();
+    const first = await addBatch(space.householdId, space.accountId, { state: "applied" });
+    await checkedFor(space.householdId, first, account);
+    await storeResult(space.householdId, first.batchId, space.accountId, { import: 1 });
     const again = await addBatch(space.householdId, space.accountId);
-    expect(await applications.sameFileApplied(space.householdId, again.fileId)).toBeNull();
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, account)).toBeNull();
   });
 });
 
-describe("IMP-04@PoC FR 7: one stored result per batch, under the batch lock", () => {
+describe("IMP-04@PoC FR 7: one stored result per batch", () => {
   it("IMP-04@PoC FR 7: the stored result of one batch is never returned for another batch of the space", async () => {
     const space = await newSpace();
     const one = await addBatch(space.householdId, space.accountId);
     const two = await addBatch(space.householdId, space.accountId);
-    await applications.recordOnce(space.householdId, {
-      batchId: one.batchId,
-      actorId: space.accountId,
-      result: { counts: { import: 5 } },
-    });
+    await storeResult(space.householdId, one.batchId, space.accountId, { import: 5 });
     expect(await applications.find(space.householdId, two.batchId)).toBeNull();
-    const second = await applications.recordOnce(space.householdId, {
+    await storeResult(space.householdId, two.batchId, space.accountId, { duplicate: 5 });
+    expect(await applications.find(space.householdId, two.batchId)).toMatchObject({
       batchId: two.batchId,
-      actorId: space.accountId,
+      inProgress: false,
       result: { counts: { duplicate: 5 } },
     });
-    expect(second).toMatchObject({
-      first: true,
-      application: { batchId: two.batchId, result: { counts: { duplicate: 5 } } },
+    expect((await applications.find(space.householdId, one.batchId))?.result).toEqual({
+      counts: { import: 5 },
     });
-  });
-
-  it("IMP-04@PoC FR 7: `recordOnce` waits for the batch lock and returns the result stored under it", async () => {
-    const space = await newSpace();
-    const batch = await addBatch(space.householdId, space.accountId);
-    // Another apply holds the batch and stores its result before it commits.
-    await db.owner.query(`BEGIN`);
-    let settled = false;
-    try {
-      await db.owner.query(`SELECT 1 FROM import_sessions.batches WHERE id = $1 FOR UPDATE`, [batch.batchId]);
-      const waiting = applications
-        .recordOnce(space.householdId, {
-          batchId: batch.batchId,
-          actorId: space.accountId,
-          result: { counts: { import: 9 } },
-        })
-        .finally(() => (settled = true));
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      expect(settled).toBe(false);
-      await db.owner.query(
-        `INSERT INTO import_sessions.batch_applications (household_id, batch_id, result, applied_by, applied_at)
-         VALUES ($1, $2, '{"counts":{"import":1}}', $3, now())`,
-        [space.householdId, batch.batchId, space.accountId],
-      );
-      await db.owner.query(`COMMIT`);
-      expect(await waiting).toMatchObject({
-        first: false,
-        application: { result: { counts: { import: 1 } } },
-      });
-    } catch (error) {
-      await db.owner.query(`ROLLBACK`).catch(() => undefined);
-      throw error;
-    }
   });
 });

@@ -1,7 +1,7 @@
 /**
- * The idempotent apply of a batch (IMP-04@PoC FR 7; wave 2 row 43): one stored result per batch. The apply step (the
- * next slice) calls `recordOnce` in its own transaction of this module with the batch locked: the first call stores its
- * result, every later one — also a request sent at the same time — gets the stored one back and must create nothing.
+ * The idempotent apply of a batch (IMP-04@PoC FR 7; wave 2 row 43; the apply step, apply.ts): one stored result per
+ * batch. The apply stores it «in progress» before module transactions writes the rows and finishes it with the counts
+ * after (#637: a crash between them is finished by the next apply); every later apply gets the stored one back.
  */
 
 /** Counts by outcome (duplicate-matching `ROW_OUTCOMES`, `outcomeCounts`) and the apply step's own counts. */
@@ -14,6 +14,10 @@ export interface StoredApplication {
   readonly result: ApplicationResult;
   readonly appliedBy: string;
   readonly appliedAt: Date;
+  /** The rows are being written (apply.ts step B); the counts come when they are. */
+  readonly inProgress: boolean;
+  /** The batch's state before the apply started; null — stored before it was kept. */
+  readonly fromState?: "parsed" | "needs-review" | null;
 }
 
 /** At most this many counts; a name is lower-case words with hyphens. */

@@ -5,11 +5,13 @@ import type {
   Decided,
   FileParse,
   FileReview,
+  ApplyBatchesTx,
   ParseBatchesTx,
   SpaceTx,
 } from "../../application/index.ts";
 import type { BatchState } from "../../domain/index.ts";
 import { enqueueHandOff, enqueueParse, PARSE_FILE_JOB } from "../queue/job.ts";
+import { applicationsTx } from "./applications.ts";
 
 interface BatchRow {
   household_id: string;
@@ -389,6 +391,11 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
       );
     },
   };
+}
+
+/** The batch's transaction with the stored result of its apply (application/apply.ts). */
+export function applyTx(q: HouseholdQueryRunner): ApplyBatchesTx {
+  return { ...batchesTx(q), ...applicationsTx(q) };
 }
 
 /** A transaction of the module's database bound to one space. */
