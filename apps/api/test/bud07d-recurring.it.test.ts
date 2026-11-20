@@ -304,7 +304,7 @@ describe("BUD-07@PoC FR 13: «Призупинити» and «Відновити�
       holds: [{ kind: "pause", from: "2026-11-16", until: "2026-12-31" }],
     });
     // November's miss stays counted while paused; «Відновити» counts anew.
-    expect(await statusOf(space, id)).toMatchObject({ state: "paused", missesInRow: 1 });
+    expect(await statusOf(space, id)).toMatchObject({ state: "active", hold: "paused", missesInRow: 1 });
     // November's charge was overdue before the pause began: it stays in the history, not in «Можна витратити».
     expect(await monthOf(space, "2026-11", id)).toEqual([]);
     expect(await monthOf(space, "2026-12", id)).toEqual([]);
