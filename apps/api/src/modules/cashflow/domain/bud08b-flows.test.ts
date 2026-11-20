@@ -178,12 +178,17 @@ describe("BUD-08@PoC: «Залишилось на рахунках»", () => {
       cats,
       "EUR",
     );
-    const lines = [line("2026-08", "debt", "1200"), line("2026-09", "goal", "100", "trip")];
+    const lines = [
+      line("2026-08", "debt", "1200"),
+      line("2026-09", "goal", "100", "trip"),
+      line("2026-09", "from-goals", "40"),
+    ];
     const flows = monthFlows(figures, lines, "EUR");
     expect(flows.map((f) => f.leftOnAccounts.toDecimalString())).toEqual(["-200", "900"]);
     const period = periodFlows(periodTotals(figures, "EUR"), months, lines, "EUR");
     expect(period.leftOnAccounts.toDecimalString()).toBe("700");
     expect(period.debtRepayment.toDecimalString()).toBe("1200");
+    expect(period.fromGoals.toDecimalString()).toBe("40");
   });
 });
 

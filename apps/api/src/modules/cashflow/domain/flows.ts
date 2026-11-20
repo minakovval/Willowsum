@@ -4,7 +4,7 @@ import type { Month, MonthFigures, PeriodTotals } from "./cashflow.ts";
 /**
  * Pure rules of where the net flow went (BUD-08@PoC; server part b): contributions to goals (FR 5) and investments with
  * withdrawals (FR 6), the split of a loan payment into interest and «Погашення боргу» (FR 7), «Залишилось на рахунках»
- * (FR 4). The layer «з цілей» (FR 10) is not in PoC (owner decision 2026-11-20, item 2; it returns with BUD-05). No I/O.
+ * (FR 4) and the layer «з цілей» of the spending (FR 10). No I/O.
  */
 
 /** FR 5, FR 6: a marked transfer between own accounts, by its accounts and the outflow's date. */
@@ -174,7 +174,7 @@ export function loanMonths(
 /** One amount of where the money went, in the report's currency at the rate of its date, in its month. */
 export interface FlowLine {
   readonly month: Month;
-  readonly kind: "goal" | "investment" | "withdrawal" | "debt";
+  readonly kind: "goal" | "investment" | "withdrawal" | "debt" | "from-goals";
   readonly amount: Money;
   /** The goal of a contribution («goal»); null otherwise. */
   readonly goalId: string | null;
@@ -191,6 +191,8 @@ export interface Flows {
   readonly debtRepayment: Money;
   /** FR 4: net flow − goals − investments − debt repayment; may be negative. */
   readonly leftOnAccounts: Money;
+  /** FR 10, AC2: the spending paid from goals, part of the month's spending, shown as its own layer. */
+  readonly fromGoals: Money;
 }
 
 function sumFlows(netFlow: Money, lines: readonly FlowLine[], currency: string): Flows {
@@ -211,6 +213,7 @@ function sumFlows(netFlow: Money, lines: readonly FlowLine[], currency: string):
     investmentWithdrawals: sum("withdrawal"),
     debtRepayment,
     leftOnAccounts: netFlow.minus(goalContributions).minus(investmentContributions).minus(debtRepayment),
+    fromGoals: sum("from-goals"),
   };
 }
 

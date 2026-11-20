@@ -1,6 +1,6 @@
 # Модуль cashflow
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-08@PoC b: внески в цілі, інвестиції, поділ платежу по кредиту, «Залишилось на рахунках»; відсотки попередніх місяців у боргу; без шару «з цілей»); 2026-11-19 (BUD-08@PoC a: дохід, витрати, чистий потік і норма заощаджень місяця і періоду)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-08@PoC b: внески в цілі, інвестиції, поділ платежу по кредиту, «Залишилось на рахунках», шар «з цілей»; відсотки попередніх місяців у боргу); 2026-11-19 (BUD-08@PoC a: дохід, витрати, чистий потік і норма заощаджень місяця і періоду)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -20,8 +20,8 @@ BUD-08@PoC a) (хвиля 2, рядок 37 — серверна частина):
 транзакції); AC3, AC4, AC6, AC5 (серверна частина); граничні випадки 1, 3 (лише «Перекази без пари»), 4.
 BUD-08@PoC b) (серверна частина, перед рядком 134): п. 2 (серверна частина: показники вигляду «Місяць»), 4
 («Залишилось на рахунках»), 5 (внески в цілі), 6 (інвестиції й виведення; у PoC брокерських рахунків немає — нуль), 7
-(поділ платежу по кредиту, «Погашення боргу»); AC1, AC2 (без шару), AC7; граничні випадки 2, 3. Шар «з цілей» (п. 10) не
-в PoC — рішення власника 2026-11-20 п. 2, повертається з BUD-05. Далі: UI — рядок 134; рахунки, перемкнені в «Рахунках бюджету» (follow-up частини a).
+(поділ платежу по кредиту, «Погашення боргу»), 10 (шар «з цілей»); AC1, AC2, AC7; граничні випадки 2, 3. Далі: UI —
+рядок 134; рахунки, перемкнені в «Рахунках бюджету» (follow-up частини a).
 
 ## Публічний інтерфейс
 
@@ -34,7 +34,7 @@ BUD-08@PoC b) (серверна частина, перед рядком 134): п
   місяця, — 400 `period: invalid`. → `type`, `period`, `view` (`month` / `monthly`), `currency` (валюта простору),
   `months` (`month`, `income`, `expenses`, `netFlow`, `savingsRate` — відсоток з одним знаком, до парного, null — «–»;
   `uncategorizedInflows` — `count`, `amount`; куди пішов потік — `goalContributions` (`total`, `goals` — `goalId`,
-  `amount`), `investmentContributions`, `investmentWithdrawals`, `debtRepayment`, `leftOnAccounts`), `totals` (`income`, `expenses`, `netFlow`, `savingsRate` — за сумами
+  `amount`), `investmentContributions`, `investmentWithdrawals`, `debtRepayment`, `leftOnAccounts`, `fromGoals`), `totals` (`income`, `expenses`, `netFlow`, `savingsRate` — за сумами
   періоду, `averageMonthlyRate` — середнє місячних норм за місяцями з доходом, `highest`, `lowest` — місяці з найбільшим і
   найменшим чистим потоком; ті самі поля «куди пішов потік» за період), `loansWithoutRate` (кредити, платежі яких не
   поділено без ставки — підказка «внести ставку»), `unpairedTransfers`, `approximate` (`nearestRateCount`, `unavailableCount`), `empty`.
@@ -43,7 +43,7 @@ liabilities, ledger, clock })` →
   `CashflowServices` (`src/api.ts` → `ctx.services`; `main.ts`): `CategoryDirectory.categories` (categories),
   `AccountList` (accounts), `BudgetTransactions.inPeriod` (transactions), `TransactionCategories` (categorization),
   `TransferProposalSides` (transfer-matching), `FxReporting.total` (fx-rates); частина b — `CashflowMovements`
-  (transactions: перекази, операції рахунку кредиту), `GoalFlows` (goals), `CreditAccounts.list`
+  (transactions: перекази, операції рахунку кредиту), `GoalFlows` і `GoalSpends` (goals), `CreditAccounts.list`
   (accounts: активні кредити), `Liabilities.termsHistory` (liabilities: валюта, ставки за датами), `Ledger.balancesAt`
   (ledger: борг гаманця); «сьогодні» — дата за Києвом, як у бюджету;
   валюта — `SPACE_REPORTING_CURRENCY`.
@@ -69,7 +69,7 @@ liabilities, ledger, clock })` →
 — погашення, а розраховані раніше відсотки далі не додаються (борг журналу вже справжній). Без ставки — усе погашення.
 «Залишилось на рахунках» = чистий потік − цілі − інвестиції − погашення. Читання: кредити з історією ставок (по одному
 на кредит), операції кредитів від найранішого відкриття одним запитом, борг журналу на всі потрібні дні — одним
-читанням на кредит.
+читанням на кредит. Шар «з цілей» — сума списань з цілей серед врахованих транзакцій місяця (уже у витратах).
 
 ## Залежності
 

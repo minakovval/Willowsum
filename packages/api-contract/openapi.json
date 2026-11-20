@@ -17248,6 +17248,22 @@
                               "currency"
                             ],
                             "additionalProperties": false
+                          },
+                          "fromGoals": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -17261,7 +17277,8 @@
                           "investmentContributions",
                           "investmentWithdrawals",
                           "debtRepayment",
-                          "leftOnAccounts"
+                          "leftOnAccounts",
+                          "fromGoals"
                         ],
                         "additionalProperties": false
                       }
@@ -17462,6 +17479,22 @@
                             "currency"
                           ],
                           "additionalProperties": false
+                        },
+                        "fromGoals": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -17476,7 +17509,8 @@
                         "investmentContributions",
                         "investmentWithdrawals",
                         "debtRepayment",
-                        "leftOnAccounts"
+                        "leftOnAccounts",
+                        "fromGoals"
                       ],
                       "additionalProperties": false
                     },

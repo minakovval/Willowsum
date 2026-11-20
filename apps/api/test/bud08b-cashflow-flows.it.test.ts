@@ -21,7 +21,7 @@ import {
   createTransactionCategories,
 } from "../src/modules/categorization/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
-import { createGoalFlows, createGoalsServices } from "../src/modules/goals/index.ts";
+import { createGoalFlows, createGoalSpends, createGoalsServices } from "../src/modules/goals/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
@@ -224,7 +224,10 @@ beforeAll(async () => {
           }),
           fx,
           movements: createCashflowMovements(db.databases.for("transactions")),
-          goals: createGoalFlows(db.databases.for("goals")),
+          goals: {
+            ...createGoalFlows(db.databases.for("goals")),
+            ...createGoalSpends(db.databases.for("goals")),
+          },
           credit: createCreditAccounts(db.databases.for("accounts")),
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           ledger,
@@ -331,6 +334,7 @@ describe("BUD-08@PoC b: where the net flow went", () => {
       investmentWithdrawals: eur("0"),
       debtRepayment: eur("0"),
       leftOnAccounts: eur("1000"),
+      fromGoals: eur("0"),
     });
     expect(view.totals).toMatchObject({
       goalContributions: { total: eur("500") },
@@ -339,7 +343,7 @@ describe("BUD-08@PoC b: where the net flow went", () => {
     expect(view.loansWithoutRate).toEqual([]);
   });
 
-  it("BUD-08@PoC AC2: 2 900 € spent from the goal «Відпустка» in July is in July's spending; the year's rate counts all 12 months (the layer «з цілей» is not in PoC: owner decision 2026-11-20, item 2)", async () => {
+  it("BUD-08@PoC AC2, FR 10: 2 900 € spent from the goal «Відпустка» in July is in July's spending and its layer «з цілей»; the year's rate counts all 12 months", async () => {
     const space = await newSpace();
     const current = await account(space);
     const vacation = await goal(space, "Відпустка", { kind: "marks", startAmount: "3000.00" });
@@ -356,12 +360,17 @@ describe("BUD-08@PoC b: where the net flow went", () => {
     expect(view.view).toBe("monthly");
     expect(view.months).toHaveLength(12);
     const july = view.months[6];
-    expect(july).toMatchObject({ month: "2026-07", expenses: eur("3000") });
-    expect(july).not.toHaveProperty("fromGoals");
+    expect(july).toMatchObject({ month: "2026-07", expenses: eur("3000"), fromGoals: eur("2900") });
+    expect(
+      view.months.filter(
+        (m: { fromGoals: unknown }) => JSON.stringify(m.fromGoals) !== JSON.stringify(eur("0")),
+      ),
+    ).toHaveLength(1);
     // (6 000 − 3 500) ÷ 6 000 over the 12 months; spending from goals is no contribution.
     expect(view.totals).toMatchObject({
       expenses: eur("3500"),
       savingsRate: "41.7",
+      fromGoals: eur("2900"),
       goalContributions: { total: eur("0"), goals: [] },
     });
   });

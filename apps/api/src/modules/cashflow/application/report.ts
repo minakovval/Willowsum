@@ -106,6 +106,8 @@ export interface CashflowFlowReads {
     from: string,
     to: string,
   ): Promise<readonly { readonly goalId: string; readonly amount: Money; readonly date: string }[]>;
+  /** FR 10: what of these transactions is spent from a goal, in the goal's currency (goals). */
+  goalSpends(householdId: string, transactionIds: readonly string[]): Promise<ReadonlyMap<string, Money>>;
   /** FR 7: the space's active loans (accounts). */
   loans(householdId: string): Promise<readonly CashflowLoan[]>;
   /** FR 7: the operations of the loans' accounts in the dates, oldest first (transactions). */
@@ -131,7 +133,7 @@ export interface CashflowReport {
   readonly currency: string;
   readonly months: readonly MonthFigures[];
   readonly totals: PeriodTotals;
-  /** FR 2, FR 4–7: where each month's net flow went, and the period's. */
+  /** FR 2, FR 4–7, FR 10: where each month's net flow went, and the period's. */
   readonly monthFlows: readonly Flows[];
   readonly periodFlows: Flows;
   /** Edge case 2: the loans whose payments in the period were not split for want of a rate («внести ставку»). */
@@ -305,7 +307,17 @@ export async function cashflowReport(
   // FR 5: the «Внести» marks of envelopes and mark-only goals.
   for (const m of await reads.goalMarks(householdId, from, to))
     flows.push({ kind: "goal", goalId: m.goalId, amount: m.amount, date: m.date });
-  // FR 10 «з цілей» is not in PoC (owner decision 2026-11-20, item 2): it returns with BUD-05.
+  // FR 10, AC2: the counted spending paid from goals — the layer «з цілей».
+  if (counted.length > 0) {
+    const spent = await reads.goalSpends(
+      householdId,
+      counted.map((r) => r.id),
+    );
+    for (const r of counted) {
+      const amount = spent.get(r.id);
+      if (amount) flows.push({ kind: "from-goals", goalId: null, amount, date: r.date });
+    }
+  }
 
   const converted = await reads.convert(
     [...lines, ...flows].map((l) => ({ amount: l.amount, date: l.date })),

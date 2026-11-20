@@ -28,6 +28,7 @@ function deps(over: Partial<CashflowReads & CashflowFlowReads>): CashflowDeps {
     transfers: async () => [],
     goalAccounts: async () => [],
     goalMarks: async () => [],
+    goalSpends: async () => new Map(),
     loans: async () => [
       {
         accountId: "loan",

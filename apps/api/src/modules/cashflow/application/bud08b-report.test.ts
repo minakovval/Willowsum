@@ -31,6 +31,7 @@ interface World {
   transfers?: Awaited<ReturnType<CashflowFlowReads["transfers"]>>;
   investment?: string[];
   marks?: { goalId: string; amount: Money; date: string }[];
+  spends?: Record<string, Money>;
   loanOps?: CashflowLoanOperation[];
   rate?: string | null;
   /** Dated rates; default — `rate` since the registration. */
@@ -58,6 +59,7 @@ function deps(w: World): CashflowDeps & { calls: string[] } {
     transfers: async () => w.transfers ?? [],
     goalAccounts: async () => [],
     goalMarks: async () => w.marks ?? [],
+    goalSpends: async (_h, ids) => new Map(Object.entries(w.spends ?? {}).filter(([id]) => ids.includes(id))),
     loans: async () => [
       {
         accountId: "loan",
@@ -204,16 +206,18 @@ describe("BUD-08@PoC b: the report", () => {
     expect(report.unpairedTransfers).toBe(1);
   });
 
-  it("BUD-08@PoC AC2: spending paid from a goal stays in the month's spending (the layer «з цілей» is not in PoC: owner decision 2026-11-20, item 2)", async () => {
+  it("BUD-08@PoC FR 10: spending paid from a goal stays in the month's spending and is its layer «з цілей»", async () => {
     const report = await cashflowReport(
       deps({
         transactions: [tx("trip", "-2900", "2026-07-10"), tx("shop", "-100", "2026-07-11")],
         categoriesOf: { trip: "food", shop: "food" },
+        spends: { trip: eur("2900") },
       }),
       H,
       ["2026-07", "2026-08"],
     );
     expect(report.months[0]!.expenses.toDecimalString()).toBe("3000");
+    expect(report.monthFlows.map((f) => f.fromGoals.toDecimalString())).toEqual(["2900", "0"]);
   });
 
   it("BUD-08@PoC FR 7: the interest of earlier months is in the debt — 120 000,00 € at 4,2 %, 650,00 € a month: October 419,20 €, November 418,39 €", async () => {
