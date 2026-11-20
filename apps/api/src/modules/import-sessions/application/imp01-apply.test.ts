@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StatementEvent } from "../../file-parsers/index.ts";
-import { fileRows } from "./apply.ts";
+import { checkedResult, ApplicationResultError } from "./applications.ts";
+import { fileRows, recoverStuckApplications, type ApplyBatchesTx } from "./apply.ts";
 import type { FilePlan, FileReview } from "./review.ts";
 
 /** IMP-01@PoC FR 11 (#637 item 1): what the apply writes of one file's rows under its plan — pure. Synthetic rows. */
@@ -85,5 +86,81 @@ describe("IMP-01@PoC FR 11: the rows the apply writes", () => {
     // A zero row moves no money: counted, not written.
     expect(out.zero).toBe(1);
     expect(out.rows).toEqual([]);
+  });
+
+  it("IMP-04@PoC FR 4: a bank description over 1 000 characters is planned as it is stored — clipped to 1 000, so an overlapping statement finds the row (#654)", () => {
+    const long = `${"Оплата ".repeat(200)}кінець`;
+    const out = fileRows(
+      [event(1, "-5.00", { description: long, counterparty: "К".repeat(250) })],
+      plan(),
+      review,
+    );
+    expect(out.issues).toEqual([]);
+    expect([...out.rows[0]!.description!]).toHaveLength(1000);
+    expect(out.rows[0]!.description).toBe([...long].slice(0, 1000).join("").trim());
+    expect([...out.rows[0]!.counterparty!]).toHaveLength(200);
+  });
+
+  it("IMP-01@PoC FR 11: a bank text the books refuse (a direction mark) is named by its row, never written in part", () => {
+    const out = fileRows(
+      [event(1, "-5.00", { description: "Оплата \u202e" }), event(2, "-1.00")],
+      plan(),
+      review,
+    );
+    expect(out.issues).toEqual([{ row: 1, issue: "text" }]);
+    expect(out.rows.map((r) => r.row)).toEqual([2]);
+  });
+});
+
+describe("IMP-04@PoC FR 7: the stored result is counts only (#654)", () => {
+  it("IMP-04@PoC FR 7: named whole counts are kept; a text, a fraction, a negative or too many counts are refused", () => {
+    expect(checkedResult({ counts: { import: 2, "already-imported": 0 } })).toEqual({
+      counts: { import: 2, "already-imported": 0 },
+    });
+    for (const counts of [
+      { "Опис рядка": 1 },
+      { import: 1.5 },
+      { import: -1 },
+      Object.fromEntries(
+        Array.from({ length: 33 }, (_, i) => [
+          `count-${String.fromCharCode(97 + (i % 26))}${String.fromCharCode(97 + Math.floor(i / 26))}`,
+          1,
+        ]),
+      ),
+    ])
+      expect(() => checkedResult({ counts })).toThrow(ApplicationResultError);
+  });
+});
+
+describe("IMP-04@PoC FR 7: the daily recovery never fails silently (#655)", () => {
+  it("IMP-04@PoC FR 7: a stuck apply module transactions cannot settle is counted as failed and left «in progress»", async () => {
+    const stuck = {
+      batchId: "b",
+      result: { counts: {} },
+      appliedBy: "u",
+      appliedAt: new Date("2026-11-20T09:00:00Z"),
+      inProgress: true,
+      fromState: "parsed" as const,
+      attemptId: "a",
+    };
+    let dropped = false;
+    const tx = {
+      stuckApplications: async () => [stuck],
+      reviews: async () => [],
+      dropApplication: async () => {
+        dropped = true;
+      },
+    } as unknown as ApplyBatchesTx;
+    const out = await recoverStuckApplications(
+      { newId: () => "id", now: () => new Date("2026-11-20T10:00:00Z") },
+      {
+        run: (work) => work(tx),
+        settle: async () => {
+          throw new Error("lock wait");
+        },
+      },
+    );
+    expect(out.result).toEqual({ settled: 0, failed: 1 });
+    expect(dropped).toBe(false);
   });
 });

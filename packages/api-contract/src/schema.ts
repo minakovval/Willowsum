@@ -14097,6 +14097,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -14218,6 +14219,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         files: {
                             accepted: number;
@@ -14336,6 +14338,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         fileList: {
                             createdAt: string;
@@ -14567,6 +14570,7 @@ export interface operations {
                     "application/json": {
                         appliedAt: string;
                         batch: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -14652,7 +14656,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route); Too many requests; try again shortly (RATE_LIMITED) */
             429: {
                 headers: {
                     /** @description Seconds until the current one-minute window ends */
@@ -14701,6 +14705,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         files: {
                             accepted: number;
@@ -15209,6 +15214,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         batch: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -15626,6 +15632,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         batch: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -15803,6 +15810,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         files: {
                             accepted: number;

@@ -46,6 +46,7 @@ import {
 import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./modules/debt-payoff/index.ts";
 import type { FileStorage } from "./modules/file-storage/index.ts";
 import {
+  createImportSessionsApplyRecovery,
   createImportSessionsCleanup,
   createImportSessionsHandOffRecovery,
   createImportSessionsWorkerQueue,
@@ -67,6 +68,7 @@ import {
   createLiabilitiesWorkerQueue,
 } from "./modules/liabilities/index.ts";
 import {
+  createImportedTransactions,
   createTransactionLookup,
   createTransactionRuleInputs,
   createTransactionRuleTags,
@@ -347,6 +349,30 @@ export function schedulerDailyTasks(deps: {
         const requeued = await importRecovery.run();
         if (requeued > 0)
           logEvent("import_sessions.hand_off_requeued", "warn", { "ws.module": "import-sessions" });
+      },
+    },
+    // IMP-01 FR 11 (#654): an apply stuck «in progress» after a crash, never retried — finished with its written rows'
+    // counts, or given up with the batch back in its state (module transactions settles it under the import lock).
+    {
+      name: "import-sessions.apply-recovery",
+      run: async () => {
+        const settled = await createImportSessionsApplyRecovery({
+          db: deps.databases.for("import-sessions"),
+          transactions: createImportedTransactions(deps.databases.for("transactions"), {
+            accounts: createAccountDirectory(deps.databases.for("accounts")),
+            ledger: createLedger(deps.databases.for("ledger")),
+            audit: deps.audit,
+            newId: randomUUID,
+            now,
+          }),
+          audit: deps.audit,
+          households: () => deps.spaces.spaceIds(),
+          now,
+          newId: randomUUID,
+        }).run();
+        // A count only: never a space or a batch.
+        if (settled > 0)
+          logEvent("import_sessions.applies_recovered", "warn", { "ws.module": "import-sessions" });
       },
     },
     // The same for the import-recipes queue (ARC-04, ADR-0015, #249): the audit entries of saved and deleted recipes.
