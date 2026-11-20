@@ -107,7 +107,8 @@ export type ChildId =
   | "budgetNew"
   | "budgetCompare"
   | "budgetPlan"
-  | "budgetTrend";
+  | "budgetTrend"
+  | "budgetFlow";
 export interface ChildDef {
   id: ChildId;
   parent: PageDef;
@@ -161,6 +162,8 @@ export const CHILDREN: readonly ChildDef[] = [
   { id: "budgetPlan", parent: BUDGET, path: `${BUDGET.path}/plan`, title: "planning.tab.plan" },
   // BUD-16@PoC b) (row 133): the tab «Тренд» of «Бюджет» (S-133).
   { id: "budgetTrend", parent: BUDGET, path: `${BUDGET.path}/trend`, title: "trend.title" },
+  // BUD-08@PoC b) (row 134): the tab «Грошовий потік» of «Бюджет» (S-134, `/planning/budget/money-flow`).
+  { id: "budgetFlow", parent: BUDGET, path: `${BUDGET.path}/money-flow`, title: "flow.title" },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
 

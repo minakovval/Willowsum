@@ -11,6 +11,7 @@ import {
   Swatch,
   TipTable,
   money,
+  PERCENT as CHART_PERCENT,
   placeTip,
   shortMoney,
   toneVar,
@@ -38,6 +39,8 @@ export interface BarSeries {
   tone?: ChartTone;
   /** Stripes (3 px at 45°) instead of a fill; the fifth series «Інші · N» and a part such as «з цілей». */
   hatched?: boolean;
+  /** A dot pattern in the series' colour: a part of the same whole, such as the spending «з цілей» (BUD-08@PoC FR 10). */
+  dotted?: boolean;
   goodWhen?: "up" | "down";
 }
 
@@ -63,7 +66,7 @@ export interface BarChartProps extends ChartStateProps {
   lines?: readonly ChartLine[];
   /** `stacked`: segments of one column 2 px apart; `percent`: every column is 100 %. Default: `stacked` for several series, else a single bar. */
   mode?: "single" | "stacked" | "percent";
-  /** ISO currency code of all values. */
+  /** ISO currency code of all values, or `%` when they are per cent (a rate): then they are shown as «25,0 %». */
   currency: string;
   /** The height of the plot in px; the width is the container's. */
   height?: number;
@@ -272,6 +275,7 @@ function BarChartView({
       name: s.name,
       tone: toneOf(s, i),
       hatched: s.hatched ?? false,
+      dotted: s.dotted ?? false,
       value: s.values[c] ?? null,
       previous: c > 0 ? (s.values[c - 1] ?? null) : null,
       goodWhen: s.goodWhen,
@@ -312,7 +316,7 @@ function BarChartView({
   };
 
   const tickLabel = (v: number): string => {
-    if (kind === "percent") return `${formatNumber(locale, String(v))} %`;
+    if (kind === "percent" || currency === CHART_PERCENT) return `${formatNumber(locale, String(v))} %`;
     const text = String(Math.round(v * 100) / 100);
     return formatCompactNumber({ value: text, locale, axis: true }) ?? formatNumber(locale, text);
   };
@@ -353,7 +357,10 @@ function BarChartView({
         })()
       : null;
 
-  const empty = n === 0 || series.every((s) => s.values.every((v) => v === null));
+  const empty =
+    n === 0 ||
+    (series.every((s) => s.values.every((v) => v === null)) &&
+      lines.every((l) => l.values.every((v) => v === null)));
 
   return (
     <div className="ws-chart" ref={box} data-chart="bar" onKeyDown={onKey}>
@@ -363,7 +370,14 @@ function BarChartView({
             {series.map((s, i) => (
               <LegendItem
                 key={s.id}
-                swatch={<Swatch kind="bar" tone={toneOf(s, i)} hatched={s.hatched ?? false} />}
+                swatch={
+                  <Swatch
+                    kind="bar"
+                    tone={toneOf(s, i)}
+                    hatched={s.hatched ?? false}
+                    dotted={s.dotted ?? false}
+                  />
+                }
                 name={s.name}
                 category={
                   categories[legendIndexOf(s.values)]?.full ?? categories[legendIndexOf(s.values)]?.label
@@ -408,6 +422,17 @@ function BarChartView({
                   >
                     <rect width="6" height="6" fill="var(--ws-surface-200)" />
                     <rect width="3" height="6" fill={toneVar(toneOf(s, i))} />
+                  </pattern>
+                ) : s.dotted ? (
+                  <pattern
+                    key={s.id}
+                    id={`${patternId}-${s.id}`}
+                    width="4"
+                    height="4"
+                    patternUnits="userSpaceOnUse"
+                  >
+                    <rect width="4" height="4" fill="var(--ws-surface-200)" />
+                    <circle cx="2" cy="2" r="1" fill={toneVar(toneOf(s, i))} />
                   </pattern>
                 ) : null,
               )}
@@ -466,13 +491,14 @@ function BarChartView({
                 onFocus: () => select(s.category),
                 onBlur: () => setActive((a) => (a === s.category ? null : a)),
               };
-              const fill = s.series.hatched ? `url(#${patternId}-${s.series.id})` : toneVar(s.tone);
+              const patterned = s.series.hatched || s.series.dotted;
+              const fill = patterned ? `url(#${patternId}-${s.series.id})` : toneVar(s.tone);
               const path = (
                 <path
                   d={barPath(s.x, s.y, s.w, s.h, s.round)}
                   fill={fill}
-                  stroke={s.series.hatched ? toneVar(s.tone) : undefined}
-                  strokeWidth={s.series.hatched ? 1 : undefined}
+                  stroke={patterned ? toneVar(s.tone) : undefined}
+                  strokeWidth={patterned ? 1 : undefined}
                 />
               );
               return clickable ? (
