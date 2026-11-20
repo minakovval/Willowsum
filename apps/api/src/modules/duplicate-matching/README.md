@@ -1,6 +1,6 @@
 # Модуль duplicate-matching
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (крок застосування import-sessions викликає `planImport`; IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -45,6 +45,7 @@ IMP-04@PoC a) (хвиля 2, рядок 43): п. 1–6 — план партії
   (IMP-04 п. 1–6): читає транзакції рахунку у вікні дат рядків ± 10 днів через публічний `ImportCandidates` модуля
   transactions сторінками по `PLAN_PAGE` (1 000) за індексом рахунку й дати; понад `PLAN_EXISTING_MAX` (50 000) —
   `PlanTooLargeError`; з `sameFileAppliedIn` (import-sessions `sameFileApplied`) нічого не читає. Нічого не пише.
+  Викликає крок застосування import-sessions у транзакції запису transactions (кандидати бачать уже записані рядки партії).
 - `planBatch(input)` — те саме правило, чисте (`domain/import-plan.ts`; порядок кроків — у його коментарі),
   `duplicateKey`, `normalizeDescription` (NFKC, нижній регістр, один пробіл, обрізано), `planWindow`, `outcomeCounts`,
   `ROW_OUTCOMES`, `REPLACE_WINDOW_DAYS` (10), `REPLACE_TOLERANCE` («0.25»); типи `IncomingRow`, `KnownTransaction`,

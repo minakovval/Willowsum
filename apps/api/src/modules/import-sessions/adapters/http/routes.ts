@@ -3,9 +3,15 @@ import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platf
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, DOWNLOAD_RESPONSE, type ProtectedContext } from "../../../../platform/http/route.ts";
 import { FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
+import { PlanTooLargeError, planImport } from "../../../duplicate-matching/index.ts";
 import { FileNotFoundError } from "../../../file-storage/index.ts";
+import { ImportWriteRefused } from "../../../transactions/index.ts";
 import {
   addFiles,
+  applyBatch,
+  ApplyNotReady,
+  ApplyRowsRefused,
+  ApplyUnsupported,
   BALANCE_CHOICES,
   decide,
   DecisionRefused,
@@ -44,7 +50,10 @@ import {
   type ParseRequest,
 } from "../../application/index.ts";
 import { BATCH_LIMITS, BATCH_STATES, BatchStateError } from "../../domain/index.ts";
-import { batchesTx } from "../db/store.ts";
+import { applyTx, batchesTx } from "../db/store.ts";
+import { maskNumbers } from "../../domain/index.ts";
+
+export { maskNumbers };
 import { storageRejection } from "../parse-ports.ts";
 import { handOffNow, importSessionsServices } from "./services.ts";
 
@@ -135,6 +144,38 @@ function refusal(error: unknown): unknown {
   if (error instanceof ParseRequestRefused)
     return new ApiProblem("IMPORT_PARSE_INVALID", {
       errors: [{ in: "body", path: `files[${error.index}].${error.field}`, issue: error.issue }],
+    });
+  // IMP-01 FR 11: the apply's refusals — codes and row numbers only, never a value of a row.
+  if (error instanceof ApplyNotReady)
+    return new ApiProblem("IMPORT_NOT_READY", {
+      errors: error.codes.map((code) => ({ in: "path", path: "batchId", issue: code })),
+    });
+  if (error instanceof ApplyRowsRefused)
+    return new ApiProblem("IMPORT_ROWS_REFUSED", {
+      errors: error.rows.map((r) => ({
+        in: "path",
+        path: r.row === null ? `files[${r.fileId}]` : `files[${r.fileId}].rows[${r.row}]`,
+        issue: r.issue,
+      })),
+    });
+  if (error instanceof ImportWriteRefused) {
+    if (error.issue === "account-closed") return new ApiProblem("ACCOUNT_CLOSED");
+    const issue =
+      error.issue === "account-not-found" || error.issue === "file-not-in-batch" ? "account" : error.issue;
+    return new ApiProblem("IMPORT_ROWS_REFUSED", {
+      errors: [
+        {
+          in: "path",
+          path: error.fileId === null ? "batchId" : `files[${error.fileId}].rows[${error.row ?? 0}]`,
+          issue: issue === "amount" ? "too-precise" : issue === "date" ? "unreadable" : issue,
+        },
+      ],
+    });
+  }
+  if (error instanceof PlanTooLargeError) return new ApiProblem("IMPORT_PLAN_TOO_LARGE");
+  if (error instanceof ApplyUnsupported)
+    return new ApiProblem("IMPORT_APPLY_UNSUPPORTED", {
+      errors: [{ in: "path", path: "batchId", issue: error.reason }],
     });
   // #624: the space's parse requests are bounded per hour (a technical ceiling, never 402).
   if (error instanceof ParseRateLimited) return new ApiProblem("RATE_LIMITED", { retryAfterS: 3600 });
@@ -763,20 +804,6 @@ const rowSchema = z.object({
   flags: z.array(z.string().meta({ "x-extensible-enum": true })),
 });
 
-/** IMP-05 business rule: an IBAN or a card or account number in a bank's text shows only its last 4 characters. */
-export function maskNumbers(text: string | null): string | null {
-  if (text === null) return null;
-  const last4 = (run: string) => `…${run.replace(/[\s.-]/g, "").slice(-4)}`;
-  // Groups are printed with a space of any kind (a no-break one too), a hyphen or (an IBAN) a dot, one or two of them; a number
-  // glued to a label («IBANUA…», «N4111…», «PAY_UA…») is a number all the same; full-width forms count as their ASCII.
-  return text
-    .replace(
-      /[A-Zａ-ｚＡ-Ｚ]{2}[\d０-９]{2}(?:[\s.-]{0,2}[A-Z0-9ａ-ｚＡ-Ｚ０-９]){11,30}(?![A-Z0-9])/gi,
-      last4,
-    )
-    .replace(/(?<![\d０-９])[\d０-９](?:[\s-]{0,2}[\d０-９*Xx•]){11,22}(?![\d０-９])/g, last4);
-}
-
 export const listImportFileRowsRoute = defineRoute({
   module: MODULE,
   method: "GET",
@@ -830,6 +857,68 @@ export const listImportFileRowsRoute = defineRoute({
   },
 });
 
+// ——— «Застосувати» (IMP-01@PoC FR 11; IMP-04@PoC FR 7, AC9; #637) ———
+
+export const applyImportBatchRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/import/batches/{batchId}/apply",
+  operationId: "applyImportBatch",
+  summary:
+    "«Застосувати» (IMP-01 FR 11): the batch's rows become transactions in one write under the locks of its accounts, each duplicate left out; applying it again returns the stored result and writes nothing (IMP-04 FR 7)",
+  access: WRITE,
+  request: { params: batchParams },
+  problems: [
+    "BATCH_STATE_CONFLICT",
+    "IMPORT_NOT_READY",
+    "IMPORT_ROWS_REFUSED",
+    "IMPORT_PLAN_TOO_LARGE",
+    "IMPORT_APPLY_UNSUPPORTED",
+    "ACCOUNT_CLOSED",
+  ],
+  response: {
+    status: 200,
+    description: "The batch, «застосовано», and the stored result of its apply",
+    schema: z.object({
+      batch: batchSchema,
+      /** Counts by outcome (IMP-04: import, repeat, duplicate, already-imported, merge, possible-duplicate, replace) and excluded, zero, files. */
+      result: z.object({ counts: z.record(z.string(), z.number().int()) }),
+      appliedAt: z.string(),
+      /** False — the stored result of an earlier apply: nothing was written now. */
+      first: z.boolean(),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    const { deps, audit, parse, apply } = importSessionsServices(ctx);
+    if (!parse || !apply) throw new ApiProblem("INTERNAL");
+    const { householdId, userId } = ctx.principal;
+    const { result, handOffs } = await guarded(() =>
+      applyBatch(
+        deps,
+        {
+          run: (work) => ctx.inHousehold((q) => work(applyTx(q))),
+          open: (purpose, sealed) => parse.keys.openBytes(householdId, purpose, sealed),
+          write: (input, plan) => apply.transactions.write(householdId, input, plan),
+          plan: (planDeps, request) => planImport(planDeps, householdId, request),
+        },
+        userId,
+        params.batchId,
+      ),
+    );
+    await handOffNow(audit, householdId, handOffs);
+    const run = routeTx(ctx);
+    const batch = await run((tx) => tx.findBatch(params.batchId));
+    if (!batch) throw new ApiProblem("NOT_FOUND");
+    return {
+      batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
+      result: { counts: { ...result.application.result.counts } },
+      appliedAt: result.application.appliedAt.toISOString(),
+      first: result.first,
+    };
+  },
+});
+
 export const importSessionsRoutes = [
   createImportBatchRoute,
   listImportBatchesRoute,
@@ -845,4 +934,5 @@ export const importSessionsRoutes = [
   parseImportBatchRoute,
   getImportBatchParseRoute,
   listImportFileRowsRoute,
+  applyImportBatchRoute,
 ];

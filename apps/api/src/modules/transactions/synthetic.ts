@@ -92,6 +92,21 @@ export const synthetic = [
         };
     },
   }),
+  // IMP-01 FR 11: the write record of an import batch (counts only; no transaction of it is generated here).
+  defineSyntheticTable({
+    table: "transactions.import_writes",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          import_batch_id: key(household.id, "batch", i),
+          counts: JSON.stringify({ import: 2, duplicate: 1 }),
+          written_by: key(household.id, "account", 0),
+          written_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
   defineSyntheticTable({
     table: "transactions.duplicate_dismissals",
     perHousehold: 1,

@@ -6,6 +6,7 @@ import type { AuditLog } from "../../../audit/index.ts";
 import { PARSE_ENGINE_VERSION } from "../../../file-parsers/index.ts";
 import type { SpaceKeys } from "../../../household/index.ts";
 import type { ImportRecipesReader } from "../../../import-recipes/index.ts";
+import type { ImportedTransactions } from "../../../transactions/index.ts";
 import {
   cleanFileName,
   FILE_LIMITS,
@@ -100,6 +101,14 @@ export interface ParseServices {
   readonly keys: Pick<SpaceKeys, "openBytes">;
 }
 
+/**
+ * «Застосувати» (IMP-01 FR 11): module transactions' write of the batch's rows; the parse services open the sealed
+ * rows. Omitted: the route answers 500.
+ */
+export interface ApplyServices {
+  readonly transactions: ImportedTransactions;
+}
+
 /** What the API process wires for the import-sessions routes (src/api.ts → `ctx.services`). */
 export interface ImportSessionsServices {
   readonly [BRAND]: true;
@@ -107,6 +116,7 @@ export interface ImportSessionsServices {
   readonly originals: BatchOriginals;
   readonly audit: BatchesAudit;
   readonly parse?: ParseServices;
+  readonly apply?: ApplyServices;
 }
 
 export function createImportSessionsServices(options: {
@@ -115,6 +125,7 @@ export function createImportSessionsServices(options: {
   readonly clock: { now(): number };
   readonly newId: () => string;
   readonly parse?: ParseServices;
+  readonly apply?: ApplyServices;
 }): ImportSessionsServices {
   return {
     [BRAND]: true,
@@ -126,6 +137,7 @@ export function createImportSessionsServices(options: {
     originals: fileOriginals(options.files),
     audit: batchesAudit(options.audit),
     ...(options.parse ? { parse: options.parse } : {}),
+    ...(options.apply ? { apply: options.apply } : {}),
   };
 }
 
