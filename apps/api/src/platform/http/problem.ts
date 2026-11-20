@@ -284,6 +284,30 @@ export const PROBLEMS = {
    * space does not have (another space's is the same answer); `errors` names the field. Nothing was written.
    */
   IMPORT_PARSE_INVALID: { status: 422, title: "The parse request does not fit the batch" },
+  /**
+   * IMP-01@PoC FR 11, IMP-05@PoC FR 11: the batch is not ready to apply; `errors` names each readiness code (the
+   * readiness route explains them). Nothing was written.
+   */
+  IMPORT_NOT_READY: { status: 409, title: "The batch is not ready to apply" },
+  /**
+   * IMP-01@PoC FR 11 (#637 item 1): rows that cannot be written as they are — unreadable, without the account's currency,
+   * with more decimals than the currency has, with a fee; `errors` names at most 20 (`files[<id>].rows[<n>]`) and the
+   * issue. The person excludes or answers them; nothing was written.
+   */
+  IMPORT_ROWS_REFUSED: { status: 422, title: "Some rows of the batch cannot be written" },
+  /**
+   * IMP-04@PoC FR 1–6 (#637 comment item 8): an account has too many transactions in the batch's dates for one plan — a
+   * technical ceiling, the same for every plan; split the file by period. Nothing was written.
+   */
+  IMPORT_PLAN_TOO_LARGE: {
+    status: 422,
+    title: "The batch covers too many transactions of the account at once",
+  },
+  /**
+   * IMP-01@PoC FR 11: the batch needs a step of the apply that is not available yet (`errors` names it: the balance
+   * update, another date order, a pending row replaced). Nothing was written; the batch stays as it is.
+   */
+  IMPORT_APPLY_UNSUPPORTED: { status: 409, title: "The batch needs a step the apply does not take yet" },
   /** IMP-06@PoC FR 2, FR 3, FR 14: the recipe is not valid; `recipeErrors` holds each error's code and field path. */
   RECIPE_INVALID: { status: 422, title: "The parsing recipe is not valid" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },

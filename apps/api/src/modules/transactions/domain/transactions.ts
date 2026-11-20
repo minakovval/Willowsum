@@ -15,7 +15,8 @@ export const EARLIEST_DATE = "1900-01-01";
  */
 export const TRANSACTION_STATUSES = ["posted", "pending"] as const;
 export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
-export const TRANSACTION_SOURCES = ["manual"] as const;
+/** «imported» — written by the apply of an import batch (IMP-01@PoC FR 11; #637). */
+export const TRANSACTION_SOURCES = ["manual", "imported"] as const;
 /** FR 3: «надходження» is income, «списання» an expense. */
 export const TRANSACTION_TYPES = ["income", "expense"] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];

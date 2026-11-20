@@ -1105,6 +1105,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/import/batches/{batchId}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Застосувати» (IMP-01 FR 11): the batch's rows become transactions in one write under the locks of its accounts, each duplicate left out; applying it again returns the stored result and writes nothing (IMP-04 FR 7) */
+        post: operations["applyImportBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/import/batches/{batchId}/cancel": {
         parameters: {
             query?: never;
@@ -1942,7 +1959,7 @@ export type paths = {
         get: operations["getTransaction"];
         put?: never;
         post?: never;
-        /** «Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35) */
+        /** «Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35). An imported one is hidden instead, its journal entry kept (FR 16, AC9; IMP-04 FR 9) */
         delete: operations["deleteTransaction"];
         options?: never;
         head?: never;
@@ -2221,7 +2238,7 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "RECIPE_INVALID" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "IMPORT_NOT_READY" | "IMPORT_ROWS_REFUSED" | "IMPORT_PLAN_TOO_LARGE" | "IMPORT_APPLY_UNSUPPORTED" | "RECIPE_INVALID" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
             /** @description VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload */
             currentCategoryId?: string | null;
             /** @description VERSION_CONFLICT: the current version of the record */
@@ -14608,6 +14625,142 @@ export interface operations {
             };
         };
     };
+    applyImportBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The batch, «застосовано», and the stored result of its apply */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appliedAt: string;
+                        batch: {
+                            createdAt: string;
+                            files: {
+                                accepted: number;
+                                rejected: number;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            name: string | null;
+                            /** @enum {string} */
+                            state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
+                            version: number;
+                        };
+                        first: boolean;
+                        result: {
+                            counts: {
+                                [key: string]: number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT); The batch is not ready to apply (IMPORT_NOT_READY); The batch needs a step the apply does not take yet (IMPORT_APPLY_UNSUPPORTED); The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Some rows of the batch cannot be written (IMPORT_ROWS_REFUSED); The batch covers too many transactions of the account at once (IMPORT_PLAN_TOO_LARGE) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     cancelImportBatch: {
         parameters: {
             query?: never;
@@ -21213,7 +21366,7 @@ export interface operations {
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
-                            source: "manual";
+                            source: "manual" | "imported";
                             split: {
                                 /** @enum {string} */
                                 mode: "categories" | "months";
@@ -21433,7 +21586,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -21600,7 +21753,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -21885,7 +22038,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -22059,7 +22212,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -22465,7 +22618,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -22870,7 +23023,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -23037,7 +23190,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -23211,7 +23364,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -23385,7 +23538,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -23559,7 +23712,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -23726,7 +23879,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -23913,7 +24066,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -24080,7 +24233,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -24254,7 +24407,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -24421,7 +24574,7 @@ export interface operations {
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
-                        source: "manual";
+                        source: "manual" | "imported";
                         split: {
                             /** @enum {string} */
                             mode: "categories" | "months";
@@ -24728,7 +24881,7 @@ export interface operations {
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
-                            source: "manual";
+                            source: "manual" | "imported";
                             split: {
                                 /** @enum {string} */
                                 mode: "categories" | "months";
@@ -24791,7 +24944,7 @@ export interface operations {
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
-                            source: "manual";
+                            source: "manual" | "imported";
                             split: {
                                 /** @enum {string} */
                                 mode: "categories" | "months";

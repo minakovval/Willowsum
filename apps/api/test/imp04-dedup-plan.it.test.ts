@@ -16,7 +16,6 @@ import { createFileStorage, linkKey } from "../src/modules/file-storage/index.ts
 import { csv } from "../src/modules/file-storage/synthetic-files.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import {
-  BatchNotFoundError,
   createImportSessionsApplications,
   createImportSessionsServices,
 } from "../src/modules/import-sessions/index.ts";
@@ -89,6 +88,21 @@ async function batchWithFile(space: Space, bytes: Buffer): Promise<{ batchId: st
 const setState = (batchId: string, state: string) =>
   db.owner.query(`UPDATE import_sessions.batches SET state = $2 WHERE id = $1`, [batchId, state]);
 
+/** A batch applied to `accountId` as the apply step leaves it: «застосовано», the file's account, the stored result. */
+async function applied(space: Space, batch: { batchId: string; fileId: string }, accountId: string) {
+  await setState(batch.batchId, "applied");
+  await db.owner.query(
+    `INSERT INTO import_sessions.file_checks (household_id, batch_file_id, batch_id, account_id, checks, history)
+     VALUES ($1, $2, $3, $4, '{}', '{}')`,
+    [space.householdId, batch.fileId, batch.batchId, accountId],
+  );
+  await db.owner.query(
+    `INSERT INTO import_sessions.batch_applications (household_id, batch_id, result, applied_by, applied_at)
+     VALUES ($1, $2, '{"counts":{"import":1}}', $3, now())`,
+    [space.householdId, batch.batchId, space.accountId],
+  );
+}
+
 /**
  * `count` imported transactions of `batchId` on an account, one every few hours from 2025-01-01: amounts −1,00 …
  * −50,00 EUR, descriptions «SHOP 0» … «SHOP 36», a printed balance on every third. Returns nothing; SQL only.
@@ -141,10 +155,7 @@ beforeAll(async () => {
     now: () => new Date(clock.now()),
   });
   candidates = createImportCandidates(db.databases.for("transactions"));
-  applications = createImportSessionsApplications({
-    db: db.databases.for("import-sessions"),
-    now: clock.now,
-  });
+  applications = createImportSessionsApplications({ db: db.databases.for("import-sessions") });
   app = buildServer({
     readiness: async () => ({ ready: true }),
     api: (a) =>
@@ -346,84 +357,43 @@ describe("IMP-04@PoC FR 3: the same file by content", () => {
     );
     expect(rows[0]!.content_sha256).toBe(createHash("sha256").update(bytes).digest("hex"));
 
-    expect(await applications.sameFileApplied(space.householdId, again.fileId)).toBeNull();
-    await setState(first.batchId, "applied");
-    expect(await applications.sameFileApplied(space.householdId, again.fileId)).toBe(first.batchId);
+    const account = randomUUID();
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, account)).toBeNull();
+    await applied(space, first, account);
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, account)).toBe(first.batchId);
+    // #637 comment item 4: the same bytes applied to another account are not «already imported» on this one.
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, randomUUID())).toBeNull();
     // The applied batch's own file is not «the same file» of itself.
-    expect(await applications.sameFileApplied(space.householdId, first.fileId)).toBeNull();
+    expect(await applications.sameFileApplied(space.householdId, first.fileId, account)).toBeNull();
 
     const different = await batchWithFile(
       space,
       Buffer.concat([bytes, Buffer.from("2026-05-30,Synthetic,-1.00\r\n")]),
     );
-    expect(await applications.sameFileApplied(space.householdId, different.fileId)).toBeNull();
+    expect(await applications.sameFileApplied(space.householdId, different.fileId, account)).toBeNull();
+
+    // An apply still writing (its result «in progress») is not «already imported» yet.
+    await db.owner.query(
+      `UPDATE import_sessions.batch_applications SET in_progress = true WHERE batch_id = $1`,
+      [first.batchId],
+    );
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, account)).toBeNull();
+    await db.owner.query(
+      `UPDATE import_sessions.batch_applications SET in_progress = false WHERE batch_id = $1`,
+      [first.batchId],
+    );
 
     // A rolled-back batch is no longer «already imported».
     await setState(first.batchId, "rolled-back");
-    expect(await applications.sameFileApplied(space.householdId, again.fileId)).toBeNull();
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, account)).toBeNull();
 
     // Another space with the same bytes applied: never seen from this one.
     const other = await newSpace();
     const theirs = await batchWithFile(other, bytes);
-    await setState(theirs.batchId, "applied");
-    expect(await applications.sameFileApplied(space.householdId, again.fileId)).toBeNull();
-    expect(await applications.sameFileApplied(other.householdId, again.fileId)).toBeNull();
+    await applied(other, theirs, account);
+    expect(await applications.sameFileApplied(space.householdId, again.fileId, account)).toBeNull();
+    expect(await applications.sameFileApplied(other.householdId, again.fileId, account)).toBeNull();
   });
 });
 
-describe("IMP-04@PoC FR 7: the stored result of the apply", () => {
-  it("IMP-04@PoC AC9: a second apply gets the stored result back, also when both arrive at once", async () => {
-    const space = await newSpace();
-    const batch = await batchWithFile(space, csv());
-    expect(await applications.find(space.householdId, batch.batchId)).toBeNull();
-
-    const [a, b] = await Promise.all([
-      applications.recordOnce(space.householdId, {
-        batchId: batch.batchId,
-        actorId: space.accountId,
-        result: { counts: { import: 2, duplicate: 1 } },
-      }),
-      applications.recordOnce(space.householdId, {
-        batchId: batch.batchId,
-        actorId: space.accountId,
-        result: { counts: { import: 3, duplicate: 0 } },
-      }),
-    ]);
-    expect([a.first, b.first].sort()).toEqual([false, true]);
-    expect(a.application.result).toEqual(b.application.result);
-    const later = await applications.recordOnce(space.householdId, {
-      batchId: batch.batchId,
-      actorId: space.accountId,
-      result: { counts: { import: 9 } },
-    });
-    expect(later).toMatchObject({ first: false, application: { result: a.application.result } });
-    expect((await applications.find(space.householdId, batch.batchId))?.result).toEqual(a.application.result);
-    const { rows } = await db.owner.query<{ n: number }>(
-      `SELECT count(*)::int AS n FROM import_sessions.batch_applications WHERE batch_id = $1`,
-      [batch.batchId],
-    );
-    expect(rows[0]!.n).toBe(1);
-  });
-
-  it("IMP-04@PoC FR 7: a batch of another space is not found and nothing is stored; a result with text is refused", async () => {
-    const space = await newSpace();
-    const other = await newSpace();
-    const batch = await batchWithFile(other, csv());
-    await expect(
-      applications.recordOnce(space.householdId, {
-        batchId: batch.batchId,
-        actorId: space.accountId,
-        result: { counts: { import: 1 } },
-      }),
-    ).rejects.toBeInstanceOf(BatchNotFoundError);
-    expect(await applications.find(space.householdId, batch.batchId)).toBeNull();
-    await expect(
-      applications.recordOnce(other.householdId, {
-        batchId: batch.batchId,
-        actorId: other.accountId,
-        result: { counts: { "Кава 3,20": 1 } },
-      }),
-    ).rejects.toThrow(/not a set of counts/u);
-    expect(await applications.find(other.householdId, batch.batchId)).toBeNull();
-  });
-});
+// FR 7 and AC9 on the apply route itself: test/imp01-apply.it.test.ts.
