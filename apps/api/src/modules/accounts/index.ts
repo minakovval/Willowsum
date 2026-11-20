@@ -75,6 +75,8 @@ export function createAccountsHandOffRecovery(
   };
 }
 export { NUMBER_FIELD } from "./application/index.ts";
+/** The «Оновити залишок» adjustment in effect of a subaccount, read from the journal (FIN-12 FR 15; BUD-08 FR 7). */
+export { liveAdjustment } from "./application/adjustments.ts";
 export type {
   AccountView,
   NumberSeal,
@@ -235,6 +237,7 @@ export interface CreditAccount {
   readonly kind: "credit-card" | "loan";
   readonly name: string;
   readonly subaccounts: readonly {
+    readonly id: string;
     readonly currency: string;
     readonly ledgerAccountId: string;
     readonly balanceDate: string;
@@ -269,6 +272,7 @@ export function createCreditAccounts(db: ModuleDatabase): CreditAccounts {
           subaccounts: subaccounts
             .filter((s) => s.accountId === a.id)
             .map((s) => ({
+              id: s.id,
               currency: s.currency,
               ledgerAccountId: s.ledgerAccountId,
               balanceDate: s.balanceDate,

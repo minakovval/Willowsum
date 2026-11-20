@@ -557,7 +557,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** Income, spending, net flow and savings rate of a month or of each month of a period (BUD-08 FR 1, FR 3, FR 11) */
+        /** Income, spending, net flow, savings rate and where the net flow went, of a month or of each month of a period (BUD-08) */
         get: operations["getCashflow"];
         put?: never;
         post?: never;
@@ -8557,12 +8557,46 @@ export interface operations {
                         };
                         currency: string;
                         empty: boolean;
+                        loansWithoutRate: string[];
                         months: {
+                            debtRepayment: {
+                                amount: string;
+                                currency: string;
+                            };
                             expenses: {
                                 amount: string;
                                 currency: string;
                             };
+                            fromGoals: {
+                                amount: string;
+                                currency: string;
+                            };
+                            goalContributions: {
+                                goals: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    goalId: string;
+                                }[];
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
                             income: {
+                                amount: string;
+                                currency: string;
+                            };
+                            investmentContributions: {
+                                amount: string;
+                                currency: string;
+                            };
+                            investmentWithdrawals: {
+                                amount: string;
+                                currency: string;
+                            };
+                            leftOnAccounts: {
                                 amount: string;
                                 currency: string;
                             };
@@ -8583,12 +8617,45 @@ export interface operations {
                         period: string;
                         totals: {
                             averageMonthlyRate: string | null;
+                            debtRepayment: {
+                                amount: string;
+                                currency: string;
+                            };
                             expenses: {
                                 amount: string;
                                 currency: string;
                             };
+                            fromGoals: {
+                                amount: string;
+                                currency: string;
+                            };
+                            goalContributions: {
+                                goals: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    goalId: string;
+                                }[];
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
                             highest: string | null;
                             income: {
+                                amount: string;
+                                currency: string;
+                            };
+                            investmentContributions: {
+                                amount: string;
+                                currency: string;
+                            };
+                            investmentWithdrawals: {
+                                amount: string;
+                                currency: string;
+                            };
+                            leftOnAccounts: {
                                 amount: string;
                                 currency: string;
                             };

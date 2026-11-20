@@ -5,6 +5,7 @@ export {
   assertMoment,
   BALANCE_ATTEMPTS,
   balanceAt,
+  balancesAt,
   correct,
   dailyIntegrityCheck,
   hasLiveEntries,

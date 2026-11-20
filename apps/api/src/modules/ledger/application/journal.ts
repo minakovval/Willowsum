@@ -561,6 +561,39 @@ export async function balanceAt(
 }
 
 /**
+ * The balances of one account at the end of each date (inclusive), in one database transaction — `balanceAt` for many
+ * dates (BUD-08@PoC FR 7: a loan's debt before each month's first payment). At most 1 200 dates.
+ */
+export async function balancesAt(
+  deps: JournalDeps,
+  householdId: string,
+  accountId: string,
+  dates: readonly string[],
+): Promise<Money[]> {
+  if (dates.length > 1200) throw new RangeError("At most 1 200 dates");
+  dates.forEach(assertDate);
+  assertId(accountId, "UNKNOWN_ACCOUNT");
+  if (dates.length === 0) return [];
+  return deps.store.inHousehold(householdId, async (tx) => {
+    const [account] = await tx.accounts([accountId]);
+    if (!account) throw new LedgerError("UNKNOWN_ACCOUNT", "No such account in this space");
+    const result: Money[] = [];
+    for (const date of dates) {
+      const totals =
+        (await tx.cachedTotals(account.id, date, null)) ?? (await tx.totals(account.id, date, null));
+      result.push(
+        naturalBalance(
+          account.type,
+          Money.of(totals.debits, account.currency),
+          Money.of(totals.credits, account.currency),
+        ),
+      );
+    }
+    return result;
+  });
+}
+
+/**
  * The rebuild command of the daily balance cache (ARC-11 «Баланси і продуктивність»): every account of the space, or
  * one, rebuilt from its postings in one transaction, each under a new version (so an update that read the old
  * version retries on the rebuilt cache). A rebuild gives the same numbers as the cache it replaces.

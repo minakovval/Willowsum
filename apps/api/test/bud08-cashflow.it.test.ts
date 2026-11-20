@@ -11,6 +11,7 @@ import {
   createAccountDirectory,
   createAccountList,
   createAccountsServices,
+  createCreditAccounts,
 } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { createCashflowServices } from "../src/modules/cashflow/index.ts";
@@ -20,11 +21,13 @@ import {
   createTransactionCategories,
 } from "../src/modules/categorization/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
+import { createGoalFlows, createGoalSpends } from "../src/modules/goals/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import {
   createBudgetTransactions,
+  createCashflowMovements,
   createTransactionLookup,
   createTransactionsServices,
   createTransferCandidates,
@@ -89,6 +92,15 @@ function call(
 }
 
 const eur = (amount: string) => ({ amount, currency: "EUR" });
+/** Part b's fields (FR 4–7, FR 10) when nothing went to goals, investments or loans. */
+const noFlows = (netFlow: string) => ({
+  goalContributions: { total: eur("0"), goals: [] },
+  investmentContributions: eur("0"),
+  investmentWithdrawals: eur("0"),
+  debtRepayment: eur("0"),
+  leftOnAccounts: eur(netFlow),
+  fromGoals: eur("0"),
+});
 
 async function runWorker(householdId: string): Promise<void> {
   const worker = createWorker({ ...workerQueues(db.databases), households: async () => [householdId] });
@@ -225,6 +237,14 @@ beforeAll(async () => {
             rates: (requests) => rates.rates(requests),
           }),
           fx,
+          movements: createCashflowMovements(db.databases.for("transactions")),
+          goals: {
+            ...createGoalFlows(db.databases.for("goals")),
+            ...createGoalSpends(db.databases.for("goals")),
+          },
+          credit: createCreditAccounts(db.databases.for("accounts")),
+          liabilities: createLiabilities(db.databases.for("liabilities"), audit),
+          ledger,
           clock,
         }),
         allowedOrigins: new Set([WEB]),
@@ -256,6 +276,7 @@ describe("BUD-08@PoC: a month", () => {
         netFlow: eur("1500"),
         savingsRate: "25.0",
         uncategorizedInflows: { count: 0, amount: eur("0") },
+        ...noFlows("1500"),
       },
     ]);
     expect(view.totals).toMatchObject({ netFlow: eur("1500"), savingsRate: "25.0" });
@@ -513,6 +534,7 @@ describe("BUD-08@PoC: the months of a period", () => {
       averageMonthlyRate: "25.0",
       highest: "2026-07",
       lowest: "2026-08",
+      ...noFlows("4500"),
     });
   });
 });
