@@ -73,6 +73,7 @@ import {
   createTransactionRuleInputs,
   createTransactionRuleTags,
   createTransactionTexts,
+  createImportCandidates,
   createImportedTransactions,
   createTransactionPendingPostings,
   createTransactionWalletUsage,
@@ -546,6 +547,8 @@ const server = buildServer({
                         merged: createImportCategoryCarry(databases.for("categorization")),
                       }),
                     },
+                    // IMP-08 FR 6: the duplicate preview reads the accounts' transactions as the apply's plan does.
+                    preview: { candidates: createImportCandidates(databases.for("transactions")) },
                   }),
                 }
               : {}),
