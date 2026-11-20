@@ -1,6 +1,8 @@
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { IMPORT_WAITERS_MAX, type ImportCounts, type ImportWriteTx } from "../../application/index.ts";
 import { importCandidates } from "./import-candidates.ts";
+import { publishEvent } from "../../../../platform/queue/index.ts";
+import { transactionImportMerged } from "../../events.ts";
 import { transactionsTx } from "./store.ts";
 
 /**
@@ -55,12 +57,26 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
       );
     },
     lockAccounts: (householdId, accountIds) => tx.lockAccounts(householdId, accountIds),
+    lock: (householdId, id) => tx.lock(householdId, id),
+    find: (householdId, id) => tx.find(householdId, id),
+    async tryLock(householdId, id) {
+      const { rows } = await q.query(
+        `SELECT 1 FROM transactions WHERE household_id = $1 AND id = $2 FOR UPDATE SKIP LOCKED`,
+        [householdId, id],
+      );
+      if (rows.length > 0) return tx.find(householdId, id);
+      return (await tx.find(householdId, id)) === null ? null : "busy";
+    },
+    publishImportMerged: (householdId, merge) =>
+      publishEvent({ ...q, householdId }, transactionImportMerged, merge).then(() => undefined),
+    update: (householdId, row) => tx.update(householdId, row),
+    duplicatesOf: (householdId, id) => tx.duplicatesOf(householdId, id),
     async insertImported(householdId, t) {
       const { rows } = await q.query<{ id: string }>(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
                                    counterparty, description, status, source, version, review, import_batch_id,
-                                   import_file_id, import_row, bank_description, balance_after)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+                                   import_file_id, import_row, bank_description, balance_after, note, tag_ids)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::uuid[])
          ON CONFLICT (household_id, import_batch_id, import_file_id, import_row) WHERE import_file_id IS NOT NULL
          DO NOTHING RETURNING id`,
         [
@@ -82,6 +98,8 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
           t.importRow,
           t.bankDescription,
           t.balanceAfter?.toDecimalString() ?? null,
+          t.note,
+          [...t.tagIds],
         ],
       );
       return rows[0] ? tx.find(householdId, rows[0].id) : null;

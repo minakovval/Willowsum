@@ -1,5 +1,6 @@
 import {
   categoryAllowed,
+  rankOf,
   refusal,
   UNCATEGORIZED,
   type CategorizableFacts,
@@ -192,6 +193,46 @@ export async function applyMerge(
   // (`moveRulesToCategory`: under the rules lock, with an audit entry per rule).
   await rules?.moveRules(householdId, event.sourceId, target);
   return tx.move(householdId, event.sourceId, target);
+}
+
+/**
+ * IMP-04@PoC FR 5 (#658, «Злиття» on apply): a manual transaction merged into the bank's row gives it its category. The
+ * user's category («вручну») wins over what a rule or the bank set; otherwise the stronger source stays (as
+ * `proposalApplies`). The manual one's row stays as it is, for «Роз'єднати». Run right after the apply and again by the
+ * job of `transactions.import-merged`: the second run finds the category set and changes nothing.
+ */
+export async function carryImportMerged(
+  tx: CategorizationTx,
+  householdId: string,
+  merge: { readonly transactionId: string; readonly duplicateId: string; readonly actorAccountId: string },
+): Promise<CategoryHandOff | null> {
+  const from = (await tx.read(householdId, [merge.duplicateId])).get(merge.duplicateId);
+  if (!from || from.source === "none" || from.categoryId === null) return null;
+  const kept = await tx.lock(householdId, merge.transactionId);
+  const current: TransactionCategory = kept ?? UNCATEGORIZED;
+  // «Без категорії» past the row's first version is a user's (or an undo's) choice: a late run never undoes it.
+  const untouched = kept === null || (kept.source === "none" && kept.version === 1);
+  const takes =
+    untouched ||
+    (current.source !== "none" &&
+      current.source !== "manual" &&
+      rankOf(from.source) <= rankOf(current.source));
+  if (!takes) return null;
+  const outcome = await writeCategory(tx, householdId, merge.transactionId, {
+    categoryId: from.categoryId,
+    source: from.source,
+    ruleId: from.ruleId,
+  });
+  if (outcome.kind !== "changed") return null;
+  const handOff: CategoryHandOff = {
+    transactionId: merge.transactionId,
+    actorAccountId: merge.actorAccountId,
+    version: outcome.row.version,
+    before: { categoryId: outcome.before.categoryId, source: outcome.before.source },
+    after: { categoryId: from.categoryId, source: from.source },
+  };
+  await tx.enqueueHandOff(householdId, handOff);
+  return handOff;
 }
 
 /**

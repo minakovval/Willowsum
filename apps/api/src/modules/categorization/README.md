@@ -1,6 +1,6 @@
 # Модуль categorization
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17 (FIN-03 FR 30, FR 31: підказки категорії форми «Нова транзакція» — `/v1/category-suggestions`; BUD-14 b2: «Застосувати до N наявних», «Відмінити», «Видалити», дія «теги»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 п. 5, #658: категорія ручної, злитої в банківський рядок при застосуванні — `createImportCategoryCarry`, подія `transactions.import-merged`; FIN-03 FR 30, FR 31: підказки категорії форми «Нова транзакція» — `/v1/category-suggestions`; BUD-14 b2: «Застосувати до N наявних», «Відмінити», «Видалити», дія «теги»)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -119,6 +119,12 @@ FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): �
   модуля categories, журнал аудиту; `rules` — `categorizationRulePorts({ accounts, merchants, inputs, tags? })` з
   `AccountDirectory`, `MerchantDirectory`, `TransactionRuleInputs` і `TransactionRuleTags` (без перших трьох маршрути
   правил — 500; без `tags` правила не додають тегів); `clock` — час запусків і 7 днів «Відмінити».
+- `createImportCategoryCarry(db)` → `(householdId, { transactionId, duplicateId, actorAccountId })` (IMP-04@PoC п. 5,
+  #658): банківський рядок, у який злито ручну при застосуванні партії, бере категорію ручної (її джерело й правило),
+  якщо своєї немає або її джерело не «вручну» і не сильніше; рядок ручної не змінюється («Роз'єднати»); передача в
+  аудит (`categorization.hand-off`). Порт `merged` `createImportedTransactions` модуля transactions (`src/main.ts`) —
+  одразу після коміту; задача `categorization.import-merged` події `transactions.import-merged` — ще раз (вдруге нічого
+  не змінює).
 - `createCategorizationCategoryUsage(db, transactions)` → `CategoryUsage` модуля categories (п. 12): які з категорій
   мають наявні транзакції простору (рядок видаленої транзакції — не вжиток). З'єднує `src/main.ts`.
 - `createCategoryBulkActions({ db, transactions, categories })` → `{ targets, actions }` для `createBulkActionsServices`
@@ -180,6 +186,7 @@ transactions; повтор нічого не додає; запис аудиту
 | --- | --- | --- |
 | `categories.merged` | 1 | BUD-01 п. 8: транзакції об'єднаної категорії отримують цільову (задача `categorization.category-merged`); BUD-14 п. 10: правила теж |
 | `transactions.created` | 1 | BUD-14 п. 8: нова транзакція проходить правила категорій (задача `categorization.transaction-created`) |
+| `transactions.import-merged` | 1 | IMP-04 п. 5: банківський рядок бере категорію злитої в нього ручної (задача `categorization.import-merged`) |
 
 ## Власні таблиці
 

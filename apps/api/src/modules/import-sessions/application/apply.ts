@@ -51,8 +51,7 @@ import { readiness, type FilePlan, type FileReview, type ReadinessCode } from ".
  *
  * A crash after A leaves the result «in progress» (the batch read says `applying`): the next apply goes on from B under
  * the same attempt (B writes nothing twice), and the daily recovery (`recoverStuckApplications`) settles one nobody
- * retried. B refused (`ApplyRowsRefused`, `PlanTooLargeError`, `ApplyUnsupported` of a pending row replaced, a closed
- * account, `ImportBusy`) — the attempt is given up (module transactions `settle`, under the accounts' import lock: a
+ * retried. B refused (`ApplyRowsRefused`, `PlanTooLargeError`, a closed account, `ImportBusy`) — the attempt is given up (module transactions `settle`, under the accounts' import lock: a
  * write of the same attempt by a request that joined it finishes first and is kept), then the batch goes back to its
  * state and the result is removed, nothing written; a write of the given-up attempt that comes later is refused there
  * (`ImportWriteVoided` → 409, try again; #654).
@@ -64,8 +63,6 @@ export const APPLY_UNSUPPORTED = [
   "balance-update",
   // IMP-05 FR 8: an order of day and month other than the engine's — the dates are read again.
   "date-order",
-  // IMP-04 FR 6: a posted row in place of a pending one.
-  "replace",
 ] as const;
 export type ApplyUnsupportedReason = (typeof APPLY_UNSUPPORTED)[number];
 
@@ -498,11 +495,21 @@ export async function applyBatch(
         },
         async (context) => {
           const outcomes: RowOutcome[] = [];
+          // FR 6: the amount of each pending transaction as the plan read it — a replacement is made only while the
+          // pending one still has it (module transactions checks it under the row's lock).
+          const pendingAmounts = new Map<string, Money>();
+          const candidates: PlanDeps["candidates"] = {
+            page: async (householdId, query) => {
+              const page = await context.candidates.page(householdId, query);
+              for (const t of page) if (t.status === "pending") pendingAmounts.set(t.transactionId, t.amount);
+              return page;
+            },
+          };
           for (const p of prepared) {
             const fileId = p.file.review.batchFileId;
             const accountId = p.file.review.accountId;
             const planned = await ports.plan(
-              { candidates: context.candidates },
+              { candidates },
               {
                 batchId,
                 accountId,
@@ -512,24 +519,25 @@ export async function applyBatch(
                 creditCard: context.creditCard(accountId),
               },
             );
-            if (planned.some((o) => o.kind === "replace")) throw new ApplyUnsupported("replace");
             const byRow = new Map(p.rows.map((r) => [r.row, r]));
             const create: ImportedRowInput[] = [];
             for (const o of planned) {
-              // FR 5: the merge with a manual one is a later part; until then the row is written and shows as
-              // «Можливий дубль» of it (the search of duplicate-matching), nothing merged or hidden.
-              const outcome: RowOutcome =
-                o.kind === "merge"
-                  ? { row: o.row, occurrence: o.occurrence, kind: "possible-duplicate", candidates: [o.with] }
-                  : o;
-              outcomes.push(outcome);
-              if (
-                outcome.kind !== "import" &&
-                outcome.kind !== "repeat" &&
-                outcome.kind !== "possible-duplicate"
-              )
-                continue;
               const r = byRow.get(o.row)!;
+              // What is written: a new transaction (import, repeat, «Можливий дубль»); the row a manual one is merged
+              // into (FR 5: merged with it, or a key match with it — a duplicate, still one operation in the balance);
+              // the posted row in place of a pending one (FR 6). A duplicate of anything else, and «уже імпортовано», —
+              // nothing.
+              const link: Pick<ImportedRowInput, "mergeInto" | "replaces" | "ifUnlinked"> | null =
+                o.kind === "import" || o.kind === "repeat" || o.kind === "possible-duplicate"
+                  ? {}
+                  : o.kind === "merge"
+                    ? { mergeInto: o.with }
+                    : o.kind === "duplicate" && o.merge
+                      ? { mergeInto: o.of, ifUnlinked: "skip" }
+                      : o.kind === "replace"
+                        ? { replaces: { transactionId: o.replaces, amount: pendingAmounts.get(o.replaces)! } }
+                        : null;
+              if (link === null) continue;
               create.push({
                 fileId,
                 row: r.row,
@@ -539,9 +547,32 @@ export async function applyBatch(
                 description: r.description,
                 counterparty: r.counterparty,
                 balanceAfter: r.balance,
+                ...link,
               });
             }
-            await context.create(create);
+            const { unlinked } = await context.create(create);
+            // A link the other transaction no longer takes (it changed since the plan): a merge is written as
+            // «Можливий дубль» of it, a replacement as a new transaction, a key match stays a duplicate (nothing written).
+            const missed = new Set(unlinked.filter((u) => u.fileId === fileId).map((u) => u.row));
+            for (const o of planned) {
+              if (!missed.has(o.row)) outcomes.push(o);
+              else if (o.kind === "merge")
+                outcomes.push({
+                  row: o.row,
+                  occurrence: o.occurrence,
+                  kind: "possible-duplicate",
+                  candidates: [o.with],
+                });
+              else if (o.kind === "replace")
+                outcomes.push({
+                  row: o.row,
+                  occurrence: o.occurrence,
+                  kind: o.occurrence > 1 ? "repeat" : "import",
+                });
+              else if (o.kind === "duplicate")
+                outcomes.push({ row: o.row, occurrence: o.occurrence, kind: "duplicate", of: o.of });
+              else outcomes.push(o);
+            }
           }
           const counted: Record<string, number> = { ...outcomeCounts(outcomes) };
           counted["excluded"] = prepared.reduce((n, p) => n + p.excluded, 0);

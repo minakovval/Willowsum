@@ -55,7 +55,7 @@ import {
   type AccountOperation,
   type MovementSide,
 } from "./adapters/db/cashflow-reads.ts";
-import { transactionCreated } from "./events.ts";
+import { transactionCreated, transactionImportMerged, type TransactionImportMerged } from "./events.ts";
 import {
   applyHandOff,
   settleImport,
@@ -70,12 +70,17 @@ import { logEvent } from "../../platform/telemetry/signals.ts";
 
 export const transactionsModule = defineModule({
   name: "transactions",
-  publishes: [transactionCreated],
+  publishes: [transactionCreated, transactionImportMerged],
   consumes: [],
   routes: transactionsRoutes,
 });
 
-export { transactionCreated, type TransactionCreated } from "./events.ts";
+export {
+  transactionCreated,
+  transactionImportMerged,
+  type TransactionCreated,
+  type TransactionImportMerged,
+} from "./events.ts";
 
 export { createTransactionsServices, type TransactionsServices } from "./adapters/index.ts";
 export { TRANSACTION_TYPES, typeOf } from "./domain/index.ts";
@@ -203,6 +208,7 @@ export {
   ImportWriteRefused,
   ImportWriteVoided,
   type ImportCounts,
+  type ImportCreated,
   type ImportedRowInput,
   type ImportPlanContext,
   type ImportWriteInput,
@@ -247,6 +253,11 @@ export function createImportedTransactions(
     readonly audit: Pick<AuditLog, "record">;
     readonly newId: () => string;
     readonly now: () => number;
+    /**
+     * IMP-04 FR 5 (#658): run right away after the write for each merge with a manual transaction (module
+     * categorization carries its category); the event `transactions.import-merged` makes it happen later too.
+     */
+    readonly merged?: (householdId: string, merge: TransactionImportMerged) => Promise<void>;
   },
 ): ImportedTransactions {
   const deps: HandOffDeps = {
@@ -256,7 +267,7 @@ export function createImportedTransactions(
   };
   return {
     async write(householdId, input, plan) {
-      const { handOffs, ...result } = await db.inHousehold(householdId, (q) =>
+      const { handOffs, merges, ...result } = await db.inHousehold(householdId, (q) =>
         writeImport(
           { accounts: ports.accounts, newId: ports.newId, now: () => new Date(ports.now()) },
           importWriteTx(q),
@@ -280,6 +291,14 @@ export function createImportedTransactions(
           "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
         });
       }
+      // FR 5 (#658): the manual ones' categories right away; the event's job does it if this fails.
+      for (const m of ports.merged ? merges : [])
+        await ports.merged!(householdId, { ...m, actorAccountId: input.actorId }).catch((error: unknown) =>
+          logEvent("transactions.import_merge_deferred", "warn", {
+            "ws.module": "transactions",
+            "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+          }),
+        );
       return result;
     },
     settle: (householdId, input) =>

@@ -117,12 +117,17 @@ describe("BUD-02@PoC d) security probes PR545", () => {
     });
     renderAt("#/planning/budget", client);
     await screen.findByRole("table");
-    const own = calls.filter((c) => c.path !== "/v1/space" && c.path !== "/v1/session");
+    // The card «Можна витратити» (BUD-03 b) reads its sum and the features after the period: still body-less GETs.
+    const ownCalls = () => calls.filter((c) => c.path !== "/v1/space" && c.path !== "/v1/session");
+    await waitFor(() => expect(ownCalls().map((c) => c.path)).toContain("/v1/me/features"));
+    const own = ownCalls();
     for (const c of own) expect(c).toMatchObject({ method: "GET", body: undefined });
     expect(own.map((c) => c.path).sort()).toEqual([
       "/v1/budget",
       "/v1/budget/periods/2026-11",
+      "/v1/budget/periods/2026-11/spendable",
       "/v1/categories",
+      "/v1/me/features",
     ]);
     expect(seen.sort()).toEqual(["/v1/budget", "/v1/budget/periods/2026-11", "/v1/categories"]);
   });
@@ -141,9 +146,12 @@ describe("BUD-02@PoC d) security probes PR545", () => {
     const { client, calls } = ok();
     renderAt("#/planning/budget?period=..%2F..%2Fspace", client);
     await screen.findByRole("table");
-    expect(calls.filter((c) => c.path.startsWith("/v1/budget/periods/")).map((c) => c.path)).toEqual([
-      "/v1/budget/periods/2026-11",
-    ]);
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path.startsWith("/v1/budget/periods/")).map((c) => c.path)).toEqual([
+        "/v1/budget/periods/2026-11",
+        "/v1/budget/periods/2026-11/spendable",
+      ]),
+    );
   });
 
   it.each([

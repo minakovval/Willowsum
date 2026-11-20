@@ -1,0 +1,190 @@
+/* BUD-03@PoC b) (row 126), S-121: the card «Можна витратити» and its breakdown. Tokens only. */
+.bud-spend {
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+/* The breakdown opens under the heading, from the card's left edge (as on the board), not from the «›» button. */
+.bud-spend-head {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.bud-spend-head .ws-popover-host {
+  position: static;
+}
+
+.bud-spend-head > div,
+.bud-spend-source-head > div {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.bud-spend-head p,
+.bud-spend-source-head p {
+  margin: 0;
+}
+
+.bud-spend-amount {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ws-space-2);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.bud-spend-amount bdi {
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-spend-daily {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.bud-spend[data-state="unavailable"] .bud-spend-fail {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0;
+  color: var(--ws-loss);
+  font-weight: 600;
+}
+
+.bud-spend-over {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+}
+
+.bud-spend-over-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.bud-spend-over-bar {
+  display: block;
+  block-size: var(--ws-space-2);
+  border-radius: var(--ws-radius-md);
+}
+
+.bud-spend-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+}
+
+/* A long action wraps inside the card instead of pushing past it. */
+.bud-spend-actions .ws-button {
+  max-inline-size: 100%;
+  block-size: auto;
+  min-block-size: var(--ws-space-6);
+  white-space: normal;
+  text-align: start;
+}
+
+.bud-spend-mini > div {
+  align-items: baseline;
+  padding-block-end: var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.bud-spend-mini dt {
+  overflow-wrap: anywhere;
+}
+
+.bud-spend-mini dd {
+  flex: none;
+  white-space: nowrap;
+}
+
+.bud-spend-break {
+  display: grid;
+  gap: var(--ws-space-3);
+  inline-size: min(calc(var(--ws-space-6) * 14), 90vw);
+  max-block-size: 70vh;
+  overflow-y: auto;
+}
+
+.bud-spend-break-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+}
+
+.bud-spend-source {
+  display: grid;
+  gap: var(--ws-space-1);
+  padding-block-end: var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.bud-spend-source-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+}
+
+.bud-spend-source-head > div {
+  flex: 1;
+}
+
+.bud-spend-source-label {
+  font-weight: 600;
+}
+
+.bud-spend-source-amount {
+  flex: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-spend-items {
+  display: grid;
+  gap: var(--ws-space-1);
+  margin: 0;
+  padding: 0 var(--ws-space-3);
+  list-style: none;
+}
+
+.bud-spend-items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+  color: var(--ws-ink-muted);
+}
+
+.bud-spend-item-name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.bud-spend-item-amount {
+  flex: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-spend-total {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+  margin: 0;
+}

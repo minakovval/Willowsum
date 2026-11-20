@@ -72,6 +72,13 @@ export async function readPlanGrid(
           minimum: rows.get(e.accountId)?.minimum ?? null,
           extra: e.amount,
         });
+      // BUD-02 FR 15: the extra payment «Розподіл» planned for a debt this month is the month's own value — it wins
+      // over the saved payoff plan's (BUD-17 FR 2); a debt the month no longer owes does not come back for it.
+      for (const c of cells)
+        if (c.period === p && c.kind === "debt" && c.amount !== null && c.lineId !== null) {
+          const row = rows.get(c.lineId);
+          if (row) rows.set(c.lineId, { ...row, extra: c.amount });
+        }
       return { incomes, debts: [...rows.values()] };
     }),
   );
@@ -173,6 +180,7 @@ export async function setPlanCell(
   if (before === null ? after === null : after !== null && before.equals(after))
     return none({ kind: "ok", value: { amount: before, version } });
   await ensureSnapshots(
+    deps,
     tx,
     caller.householdId,
     budget,

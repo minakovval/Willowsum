@@ -1,6 +1,6 @@
 # Модуль duplicate-matching
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (#654, #655: залишок у ключі дубля — спершу значення, потім для кредитної картки модуль, `creditCard`; крок застосування import-sessions викликає `planImport`; IMP-04 FR 6: допуск min(0,25; 10 % суми), рішення власника 2026-11-20, п. 8; раніше IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 c, #654 п. 6: збіг ключа з ручною — `duplicate` з `merge`; `KnownTransaction.merged`; #654, #655: залишок у ключі дубля — спершу значення, потім для кредитної картки модуль, `creditCard`; крок застосування import-sessions викликає `planImport`; IMP-04 FR 6: допуск min(0,25; 10 % суми), рішення власника 2026-11-20, п. 8; раніше IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -51,7 +51,10 @@ IMP-04@PoC a) (хвиля 2, рядок 43): п. 1–6 — план партії
 - `planBatch(input)` — те саме правило, чисте (`domain/import-plan.ts`; порядок кроків — у його коментарі),
   `duplicateKey`, `normalizeDescription` (NFKC, нижній регістр, один пробіл, обрізано), `planWindow`, `outcomeCounts`,
   `ROW_OUTCOMES`, `REPLACE_WINDOW_DAYS` (10), `REPLACE_TOLERANCE` («0.25», межа допуску), `REPLACE_TOLERANCE_SHARE` («0.1»), `replaceTolerance(posted)`; типи `IncomingRow`, `KnownTransaction`,
-  `PlanInput`, `RowOutcome`, `RowOutcomeKind`.
+  `PlanInput`, `RowOutcome`, `RowOutcomeKind`. `duplicate` з `merge: true` — збіг ключа з ручною, ще ні з чим не
+  зіставленою (показана, проведена, не переказ): крок застосування записує рядок і зливає ручну в нього (#637 п. 6,
+  #658); `KnownTransaction.merged` — злита в іншу (імпортована: замінена очікувана): збіг ключа свого рядка, але
+  ніколи не кандидат злиття чи заміни.
 - `isPossibleDuplicate(a, b)`, `decideIncoming(incoming, existing)` → `merge` / `possible-duplicate` / `new`,
   `MATCH_WINDOW_DAYS` (3); типи `DuplicateSide`, `ExistingTransaction`, `IncomingDecision` (`domain/matching.ts`).
 

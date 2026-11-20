@@ -27,6 +27,7 @@ import {
   createCategorizationCategoryUsage,
   categorizationRulePorts,
   createCategorizationServices,
+  createImportCategoryCarry,
   createTransactionCategories,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
@@ -451,6 +452,10 @@ const server = buildServer({
                 // #613: «План» off — «Бюджет» keeps the budget's own income plan.
                 planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               }),
+              // BUD-03 EC5: «Витратити з цілі» — a goal's spends leave «Можна витратити» (goals).
+              goalSpends: createGoalSpends(databases.for("goals")),
+              // BUD-17 (owner decision 2026-11-20, batch 2, item 2): «План» off — its typed values act nowhere.
+              planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               obligations: createBudgetObligations({
                 recurring: createRecurringMonth(databases.for("recurring"), recurring),
                 credit: createCreditAccounts(databases.for("accounts")),
@@ -538,6 +543,7 @@ const server = buildServer({
                         audit,
                         newId: randomUUID,
                         now: () => systemClock.now(),
+                        merged: createImportCategoryCarry(databases.for("categorization")),
                       }),
                     },
                   }),

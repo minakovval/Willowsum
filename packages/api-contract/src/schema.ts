@@ -5248,6 +5248,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
+                    allocation?: ({
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "goal";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "from-goal";
+                    } | {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "debt";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "from-savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "to-debt";
+                    })[];
                     /** @description A calendar month, YYYY-MM */
                     firstPeriod: string;
                     incomePlan?: {
@@ -5711,7 +5777,73 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here */
+                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
+                    allocation?: ({
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "goal";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "from-goal";
+                    } | {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "debt";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "from-savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "to-debt";
+                    })[];
+                    /** @description The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here. Each amount counts in full (N already holds the goals' planned contributions: `allocation` counts a goal's change against it). Not with `allocation` */
                     chosen?: {
                         /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
@@ -5748,7 +5880,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @description Null — the month's regular payments and loans' monthly payments are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead */
+                        /** @description Null — the month's regular payments and loans' monthly payments, or a goal's planned contribution, are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead */
                         balance: {
                             amount: {
                                 amount: string;
@@ -5759,6 +5891,10 @@ export interface operations {
                                 currency: string;
                             };
                             difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            goalContributions: {
                                 amount: string;
                                 currency: string;
                             };
@@ -5773,7 +5909,7 @@ export interface operations {
                                 currency: string;
                             };
                         } | null;
-                        /** @description Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact` */
+                        /** @description Null — no `chosen` or `allocation` in the request, or `balance` is null; a deficit counts as covered only when status is `exact` */
                         choice: {
                             chosen: {
                                 amount: string;
@@ -5795,6 +5931,15 @@ export interface operations {
                             currency: string;
                         };
                         period: string;
+                        spendable: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** @description Why `amount` is null: `obligations` (the month's payments unknown), `rates` (an amount without a rate: a transaction, a goal's contribution, a regular income, a payoff plan's payment). Never show a figure without them */
+                            missing: ("obligations" | "rates")[];
+                            period: string;
+                        };
                     };
                 };
             };
@@ -6855,8 +7000,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         approximate: {
+                            goals: boolean;
+                            incomes: boolean;
                             nearestRateCount: number;
                             obligations: boolean;
+                            plannedExpenses: boolean;
                             unavailableCount: number;
                         };
                         currency: string;

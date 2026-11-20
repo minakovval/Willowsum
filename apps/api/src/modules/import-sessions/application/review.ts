@@ -279,12 +279,19 @@ export function readiness(files: readonly FileReview[], decisions: readonly Deci
       return d?.kind === "row" ? d.action : null;
     };
     const unconfirmed = new Set(checks.signs.unconfirmed);
+    // FR 6: «знак картки» answered by flipping the sign for the file (its flag not confirmed) flips every row of the
+    // file, also the ones the balance chain holds as printed — the chain of a card confirms no sign (#654, #655: the
+    // flag was closed and nothing flipped, so purchases were written as income).
+    const cardFlip =
+      checks.flags.some((flag) => flag.code === "card-sign") &&
+      at.get(`flag:${id}:card-sign`)?.kind !== "flag" &&
+      at.get("flag:batch:card-sign")?.kind !== "flag";
     const amountRows = new Set(checks.clarifications.flatMap((c) => (c.kind === "amount" ? [c.row] : [])));
     const disposition = (row: number): Disposition => {
       const own = rowOwn(row);
       if (own) return own;
       const groups = [
-        ...(unconfirmed.has(row) ? [group("review")] : []),
+        ...(unconfirmed.has(row) || cardFlip ? [group("review")] : []),
         ...(amountRows.has(row) ? [group("clarify")] : []),
       ].filter((g): g is GroupAction => g !== null);
       return groups.includes("exclude")

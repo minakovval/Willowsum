@@ -3,6 +3,7 @@
 export { applyHandOff, auditKey, handOffKey, type CategoryAudit, type CategoryHandOff } from "./hand-off.ts";
 export {
   applyMerge,
+  carryImportMerged,
   categoriesInUse,
   categoryOf,
   checkChange,

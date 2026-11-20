@@ -38,8 +38,11 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    Before every merge check `gh api repos/{owner}/{repo}/pulls/<n> --jq .mergeable_state` (`dirty` is a conflict, CI
    does not run on it, #249; `unknown` → ask again after a few seconds) and run the check below. Sync only when the
    PR conflicts, when GitHub refuses the merge, or when `main` changed since the PR's merge-base any of: the PR's own
-   files, `packages/api-contract/**`, `apps/api/module-rules.json`, or migrations of a module the PR touches.
-   Otherwise merge with `behind_by` > 0, no sync and no confirmation (CI green and the verdicts on the PR's own head
+   files, `packages/api-contract/**` other than `openapi.json` and `src/schema.ts`, `apps/api/module-rules.json`, or
+   migrations of a module the PR touches. `packages/api-contract/openapi.json` and `packages/api-contract/src/schema.ts`
+   no longer require a sync by themselves: the workflow «Contract check on main»
+   (`.github/workflows/main-contract-check.yml`) runs `pnpm contract:check` after every push to `main`, so a broken
+   contract shows up at once as a red `main` (owner, 2026-11-20). Otherwise merge with `behind_by` > 0, no sync and no confirmation (CI green and the verdicts on the PR's own head
    as above). CI on `main` after every merge catches the rest: **a red `main` is the top priority** — stop merging,
    start `investigate-ci-failure` on `main`, merge again only when `main` is green. The daily check of `main`
    (ADR-0008) stays. Check (from the repository root):
@@ -55,7 +58,7 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    const pr = new Set(fs.readFileSync(`${d}/pr.txt`, "utf8").split("\n").filter(Boolean));
    const mod = (f) => /^apps\/api\/src\/modules\/([^/]+)\//.exec(f)?.[1];
    const mods = new Set([...pr].map(mod).filter(Boolean));
-   const why = (f) => pr.has(f) ? "PR file" : f.startsWith("packages/api-contract/") ? "api-contract"
+   const why = (f) => pr.has(f) ? "PR file" : f.startsWith("packages/api-contract/") && !["packages/api-contract/openapi.json", "packages/api-contract/src/schema.ts"].includes(f) ? "api-contract"
      : f === "apps/api/module-rules.json" ? "module-rules" : f.includes("/migrations/") && mods.has(mod(f)) ? "migration" : "";
    const bad = main.filter(why).map((f) => `${f} (${why(f)})`);
    console.log(!/^\d+$/.test(count) || +count >= 300 ? "sync: no or truncated file list"

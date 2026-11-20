@@ -28,17 +28,25 @@ export const PLAN_GRID_MONTHS = 12;
 export const PLAN_LINE_KINDS = ["income", "limit", "goal", "savings"] as const;
 export type PlanLineKind = (typeof PLAN_LINE_KINDS)[number];
 
+/**
+ * BUD-02@PoC FR 15: what a cell may hold — a line of the grid, or `debt` — the extra payment above the minimum that
+ * «Розподіл» planned for one debt in the first period (module accounts' id of the debt). The grid shows it as that
+ * month's «додатковий платіж» of the debt, read only (FR 1); it is a planned expense, not planned savings (BUD-02 FR 11).
+ */
+export const PLAN_CELL_KINDS = [...PLAN_LINE_KINDS, "debt"] as const;
+export type PlanCellKind = (typeof PLAN_CELL_KINDS)[number];
+
 /** A month's own value of a line; `amount` null — back to the line's default (the row stays, so its version goes on). */
 export interface PlanCell {
   readonly period: Period;
-  readonly kind: PlanLineKind;
+  readonly kind: PlanCellKind;
   readonly lineId: string | null;
   readonly amount: Money | null;
   /** FR 3: the version the page saw; a line without a row is version 0. */
   readonly version: number;
 }
 
-export const cellKey = (kind: PlanLineKind, lineId: string | null): string => `${kind}:${lineId ?? ""}`;
+export const cellKey = (kind: PlanCellKind, lineId: string | null): string => `${kind}:${lineId ?? ""}`;
 
 /** FR 1, FR 6: the grid's months — the current one and the 11 next. */
 export function gridMonths(today: string): Period[] {
@@ -62,6 +70,8 @@ const sum = (xs: readonly Money[], currency: string): Money =>
 export interface PlanIncome {
   readonly paymentId: string;
   readonly amount: Money | null;
+  /** BUD-03@PoC EC4 «приблизно»: `amount` at the nearest rate (a zero amount is exact); left out — exact. */
+  readonly approximate?: boolean;
 }
 
 /**
@@ -87,16 +97,43 @@ const larger = (a: Money, b: Money): Money => (a.compare(b) < 0 ? b : a);
  * negative row). A month without any regular income — «План доходу».
  */
 export function incomeOf(base: Money, cells: readonly PlanCell[], incomes: readonly PlanIncome[]): Money {
-  const own = (lineId: string | null) =>
-    cells.find((c) => c.kind === "income" && c.lineId === lineId && c.amount !== null)?.amount ?? null;
-  const regular = sum(
+  const own = ownIncome(cells);
+  return larger(own(null) ?? base, regularIncome(own, incomes, base.currency));
+}
+
+const ownIncome = (cells: readonly PlanCell[]) => (lineId: string | null) =>
+  cells.find((c) => c.kind === "income" && c.lineId === lineId && c.amount !== null)?.amount ?? null;
+
+const regularIncome = (
+  own: (lineId: string | null) => Money | null,
+  incomes: readonly PlanIncome[],
+  currency: string,
+): Money =>
+  sum(
     incomes.flatMap((i) => {
       const a = own(i.paymentId) ?? i.amount;
       return a ? [a] : [];
     }),
-    base.currency,
+    currency,
   );
-  return larger(own(null) ?? base, regular);
+
+/**
+ * BUD-03@PoC EC4 «приблизно» (#651): the month's income plan `incomePlan` (`incomeOf`) is the regular incomes' sum and
+ * one of them without a cell of its own enters it at the nearest rate. A «План доходу» that happens to equal that sum
+ * is marked too — the safe direction.
+ */
+export function incomePlanApproximate(
+  incomePlan: Money,
+  cells: readonly PlanCell[],
+  incomes: readonly PlanIncome[],
+): boolean {
+  const own = ownIncome(cells);
+  const nearest = incomes.some(
+    (i) => own(i.paymentId) === null && i.amount !== null && i.approximate === true,
+  );
+  if (!nearest) return false;
+  const regular = regularIncome(own, incomes, incomePlan.currency);
+  return !regular.isZero() && regular.equals(incomePlan);
 }
 
 /**

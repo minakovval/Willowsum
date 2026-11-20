@@ -192,6 +192,7 @@ beforeAll(async () => {
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
         budget: createBudgetServices({
+          planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
           transactions: createBudgetTransactions(db.databases.for("transactions")),
