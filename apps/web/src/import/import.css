@@ -432,3 +432,109 @@
 .imp-review .imp-actions {
   justify-content: flex-start;
 }
+
+/*
+ * IMP-08@PoC c) (wave 2, row 138): S-174 «Результат» — canvas PocMoneyImport3. Tokens only. Three tiles of counts, the lines of
+ * what is left to do, the refused rows. Long file names wrap inside their cell; nothing scrolls the page sideways.
+ */
+.imp-result-sub {
+  color: var(--ws-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.imp-result-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.imp-result-tile {
+  flex: 1 1 160px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  padding: var(--ws-space-4) var(--ws-space-5);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.imp-result-tile-label {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+}
+
+.imp-result-tile-n {
+  font-family: var(--ws-font-display);
+  font-size: var(--ws-text-display-l-size);
+  line-height: var(--ws-text-display-l-line);
+  font-weight: var(--ws-text-display-l-weight);
+  overflow-wrap: anywhere;
+}
+
+.imp-result-follow {
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.imp-result-line {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-height: 56px;
+  padding: var(--ws-space-2) var(--ws-space-5);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.imp-result-line:last-child {
+  border-block-end: 0;
+}
+
+.imp-result-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.imp-result-rollback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+}
+
+.imp-result-heading {
+  margin: 0;
+  padding: var(--ws-space-3) var(--ws-space-5);
+  font-size: var(--ws-text-body-size);
+}
+
+.imp-result-issue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  padding: var(--ws-space-2) var(--ws-space-5);
+  border-block-start: 1px solid var(--ws-line);
+  overflow-wrap: anywhere;
+}
+
+.imp-result-more {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3) var(--ws-space-5) var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.imp-result-more .imp-summary {
+  margin: 0;
+}

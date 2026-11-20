@@ -1,6 +1,7 @@
 import { useT } from "@willowsum/i18n";
 import { FocusShell } from "@willowsum/ui";
 import { FilesStep } from "../import/FilesStep.tsx";
+import { ResultStep } from "../import/ResultStep.tsx";
 import { ReviewStep } from "../import/ReviewStep.tsx";
 import { type ImportStep, TRANSACTIONS } from "../routing/routes.ts";
 import { hasEarlierPage } from "../routing/session.ts";
@@ -12,7 +13,7 @@ import { EmptyState } from "./SectionPage.tsx";
  * The statement import wizard in focus mode (UX-09@PoC items 10, 14; IMP-08@PoC FR 1): no navigation; «×» goes back
  * by history to the page the user came from, or to «Гроші → Транзакції» when opened directly. Each step has its own
  * address (`/import`, `/import/<batch>`, `/import/<batch>/review`, `/import/<batch>/result`). «Рахунок і файли» is
- * wave 2 row 136; «Перевірка розпізнавання» is row 137 (`ReviewStep`); «Результат» (row 138) takes its place in `step`.
+ * wave 2 row 136; «Перевірка розпізнавання» is row 137 (`ReviewStep`); «Результат» is row 138 (`ResultStep`).
  */
 export function ImportWizardPage({ batchId, step }: { batchId: string | null; step: ImportStep }) {
   const t = useT();
@@ -28,8 +29,10 @@ export function ImportWizardPage({ batchId, step }: { batchId: string | null; st
         <FilesStep batchId={batchId} onClose={close} />
       ) : step === "review" && batchId ? (
         <ReviewStep batchId={batchId} />
+      ) : step === "result" && batchId ? (
+        // «Результат» (row 138): `/import/<batch>/result`, where «Застосувати» of the review leads; it applies the batch.
+        <ResultStep batchId={batchId} />
       ) : (
-        // «Результат» (row 138) takes this place: `/import/<batch>/result`, where «Застосувати» of the review leads.
         <EmptyState icon="upload" />
       )}
     </FocusShell>
