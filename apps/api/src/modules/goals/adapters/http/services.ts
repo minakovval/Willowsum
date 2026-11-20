@@ -130,13 +130,24 @@ export function goalReads(ports: CushionPorts): GoalReads {
         const categories = new Map(tree.map((c) => [c.id, c]));
         // As the budget period counts them: a share «На кілька місяців» on its month's first day, a part of a split
         // by categories and a whole transaction on its date; only what falls in the window.
-        const counted: { categoryId: string | null; amount: Money; date: string }[] = [];
+        // The rate is of the transaction's own date for every part, as the budget converts it (#592).
+        const counted: { categoryId: string | null; amount: Money; date: string; rateDate: string }[] = [];
         for (const r of rows) {
           if (r.parts === null)
-            counted.push({ categoryId: own.get(r.id) ?? null, amount: r.amount, date: r.date });
+            counted.push({
+              categoryId: own.get(r.id) ?? null,
+              amount: r.amount,
+              date: r.date,
+              rateDate: r.date,
+            });
           else
             for (const p of r.parts)
-              counted.push({ categoryId: p.categoryId, amount: p.amount, date: p.month ?? r.date });
+              counted.push({
+                categoryId: p.categoryId,
+                amount: p.amount,
+                date: p.month ?? r.date,
+                rateDate: r.date,
+              });
         }
         const inWindow = counted.filter(
           (c) =>
@@ -145,7 +156,7 @@ export function goalReads(ports: CushionPorts): GoalReads {
             countsAsSpending(categories, c.categoryId, c.amount),
         );
         const reported = await fx.total(
-          inWindow.map((c) => ({ amount: c.amount, date: c.date })),
+          inWindow.map((c) => ({ amount: c.amount, date: c.rateDate })),
           currency,
         );
         const converted: { categoryId: string | null; amount: Money }[] = [];

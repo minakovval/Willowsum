@@ -28,6 +28,9 @@ import { overBudgetCap } from "../money-range.ts";
  */
 const BUDGET_MAX_ABSOLUTE_SUM = new Decimal("1e18");
 
+/** The most amounts read one by one when the rates' reader leaves the money type on the whole sum (#594). */
+const ONE_BY_ONE_MAX_AMOUNTS = 1000;
+
 const BRAND = Symbol("willowsum-budget-services");
 
 /** What the API process wires for the budget routes (src/api.ts → `ctx.services`). */
@@ -113,22 +116,45 @@ export function budgetReads(options: {
     // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
     const inRange = counted.filter((c) => !overBudgetCap(c.amount));
     const allLeftOut = { amounts: [], nearestRateCount: 0, unavailableCount: counted.length };
-    let total: Awaited<ReturnType<typeof options.fx.total>>;
-    try {
-      total = await options.fx.total(
-        inRange.map((c) => ({ amount: c.amount, date: c.date })),
+    const read = (xs: typeof inRange) =>
+      options.fx.total(
+        xs.map((c) => ({ amount: c.amount, date: c.date })),
         currency,
       );
+    let items: Awaited<ReturnType<typeof read>>["items"][number][];
+    let unavailable = 0;
+    let nearest = 0;
+    try {
+      const all = await read(inRange);
+      items = [...all.items];
+      unavailable = all.unavailableCount;
+      nearest = all.nearestRateCount;
     } catch (error) {
       // The rates' reader adds the converted amounts up itself: past the money type, no figure, never a 500 (#573).
-      if (error instanceof AmountOutOfRangeError) return allLeftOut;
-      throw error;
+      if (!(error instanceof AmountOutOfRangeError)) throw error;
+      // #594: then one by one, so only an amount that leaves the type alone is left out (as the cash flow does). Bounded:
+      // not above 1 000 amounts, nor when the originals alone pass the bound — no rates call per transaction of a big read.
+      const originals = inRange.reduce((sum, c) => sum.plus(c.amount.amount.abs()), new Decimal("0"));
+      if (inRange.length > ONE_BY_ONE_MAX_AMOUNTS || originals.greaterThan(BUDGET_MAX_ABSOLUTE_SUM))
+        return allLeftOut;
+      items = [];
+      for (const c of inRange) {
+        try {
+          const one = await read([c]);
+          items.push(one.items[0]!);
+          unavailable += one.unavailableCount;
+          nearest += one.nearestRateCount;
+        } catch (e) {
+          if (!(e instanceof AmountOutOfRangeError)) throw e;
+          items.push({ kind: "rate-unavailable", original: c.amount });
+          unavailable += 1;
+        }
+      }
     }
     const amounts: (CountedAmount & { period: string })[] = [];
-    let leftOut = counted.length - inRange.length + total.unavailableCount;
-    let nearest = total.nearestRateCount;
+    let leftOut = counted.length - inRange.length + unavailable;
     let absolute = new Decimal("0");
-    total.items.forEach((item, i) => {
+    items.forEach((item, i) => {
       if (item.kind === "rate-unavailable") return;
       if (overBudgetCap(item.value)) {
         leftOut += 1;

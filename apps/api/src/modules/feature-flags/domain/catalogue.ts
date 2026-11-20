@@ -216,6 +216,7 @@ export const FLAGS = {
     kind: "release",
     owner: "product-owner",
     reviewBy: "2027-02-19",
+    requires: "budget.period",
     description:
       "Тренд бюджету (BUD-16@PoC a): «План місяця» = сума лімітів місяця (завершений — зі знімка), витрати й дохід за місяцями, фільтр категорії; метод лише «Ліміти»; маршрут /v1/budget/trend",
   },

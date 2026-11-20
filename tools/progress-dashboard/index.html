@@ -312,7 +312,7 @@ footer { color: var(--muted); font-size: 12px; }
 
     if (prs.length) {
       text('done', done);
-      text('donenote', state.total ? 'продуктових PR злито з 13 листопада, оцінка плану хвилі 2 ≈ ' + state.total : 'продуктових PR злито з 13 листопада (план хвилі 2)');
+      text('donenote', 'продуктових PR злито з 13 листопада (план хвилі 2)');
       var since = Date.now() - 72 * 36e5;
       var recent = product.filter(function (p) { return new Date(p.m).getTime() >= since; }).length;
       var pace = recent / 3;

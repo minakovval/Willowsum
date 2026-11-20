@@ -102,6 +102,10 @@ export function reviewerPatchViolations(files, diff = '') {
       if (why) out.push(`${p}: ${why}`);
     }
     if (f.status === 'removed' && TEST_FILE.test(String(f.filename).toLowerCase())) out.push(`removed test file: ${f.filename}`);
+    // A rename to a name the runner does not collect (`a.test.ts` → `a.md`) removes the test without a hunk.
+    if (f.previous_filename && TEST_FILE.test(String(f.previous_filename).toLowerCase()) && !TEST_FILE.test(String(f.filename).toLowerCase())) {
+      out.push(`test file renamed to a non-test name: ${f.previous_filename} -> ${f.filename}`);
+    }
   }
   const { lines, unparsed } = changedLines(diff ?? '');
   if (unparsed.length > 0) out.push(`diff line outside a hunk, cannot check: ${unparsed[0].trim()}`);

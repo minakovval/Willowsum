@@ -316,7 +316,8 @@ export function averageMonthlyExpenses(
   firstExpenseDate: string | null,
   today: string,
 ): { readonly average: Money | null; readonly months: number } {
-  if (firstExpenseDate === null) return { average: null, months: 0 };
+  // No net spending (refunds cover the window's outflows): nothing to average — the target is then typed (#592).
+  if (firstExpenseDate === null || total.isZero() || total.isNegative()) return { average: null, months: 0 };
   const months = Math.min(
     CUSHION_HISTORY_MONTHS,
     Math.max(1, monthIndex(today) - monthIndex(firstExpenseDate)),

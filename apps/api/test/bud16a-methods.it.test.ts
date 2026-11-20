@@ -485,4 +485,70 @@ describe("BUD-16@PoC: the method «Ліміти»", () => {
     expect(view.months.map((m: { spent: unknown }) => m.spent)).toEqual([eur("12"), eur("0"), eur("45")]);
     expect(view.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 3 });
   });
+
+  // ---- #603: tests for the mutants of the security review of #600 that survived ----
+
+  it("BUD-16@PoC FR 4 (#603): an account switched out of the budget counts in no month of the trend — as in the period", async () => {
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, { limits: [{ categoryId: groceries, amount: eur("500.00") }] });
+    const inBudget = await account(space);
+    const out = await account(space, "cash");
+    const off = await call(space, "PUT", `/v1/budget/accounts/${out}`, { included: false });
+    expect(off.statusCode, off.body).toBe(200);
+    await spend(space, inBudget, "-45.00", "2026-11-03", "Продукти");
+    await spend(space, out, "-7777.00", "2026-11-04", "Продукти");
+    await spend(space, out, "-6666.00", "2026-10-04", null);
+    await spend(space, out, "8888.00", "2026-11-05", "Зарплата");
+    const res = await call(space, "GET", "/v1/budget/trend?from=2026-10&to=2026-11");
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().months.map((m: { spent: unknown; income: unknown }) => [m.spent, m.income])).toEqual([
+      [eur("0"), eur("0")],
+      [eur("45"), eur("0")],
+    ]);
+    for (const amount of ["7777", "6666", "8888"]) expect(leakText(res.body)).not.toContain(amount);
+    const byCategory = await trend(space, `from=2026-11&to=2026-11&categoryId=${groceries}`);
+    expect(byCategory.months[0]!.spent).toEqual(eur("45"));
+  });
+
+  it("BUD-16@PoC FR 4 (#603): a proportional first period counts spending and income from its first day only (BUD-02 FR 14)", async () => {
+    const space = await newSpace();
+    const acc = await account(space);
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, {
+      proportional: true,
+      limits: [{ categoryId: groceries, amount: eur("600.00") }],
+    });
+    await spend(space, acc, "-80.00", "2026-11-10", "Продукти");
+    await spend(space, acc, "-45.00", "2026-11-18", "Продукти");
+    await spend(space, acc, "1000.00", "2026-11-05", "Зарплата");
+    const view = await trend(space, "from=2026-11&to=2026-11");
+    const period = (await call(space, "GET", "/v1/budget/periods/2026-11")).json();
+    expect(view.months[0]).toMatchObject({ spent: eur("45"), income: eur("0"), plan: eur("260") });
+    expect(view.months[0]!.spent).toEqual(period.totals.spent);
+  });
+
+  it("BUD-16@PoC FR 4 (#603): a category merged away (out of use) is no filter of the trend — 400 not_found", async () => {
+    const space = await newSpace();
+    await createBudget(space);
+    const tree = (await call(space, "GET", "/v1/categories")).json().groups as {
+      id: string;
+      categories: { id: string; name: string }[];
+    }[];
+    const group = tree.find((g) => g.categories.some((c) => c.name === "Продукти"))!;
+    const made = await call(space, "POST", "/v1/categories", { groupId: group.id, name: "Синтетична зайва" });
+    expect(made.statusCode, made.body).toBe(201);
+    const merged = await call(space, "POST", `/v1/categories/${made.json().id}/merge`, {
+      targetId: await category(space, "Продукти"),
+    });
+    expect(merged.statusCode, merged.body).toBe(200);
+    expect(merged.json().sourceState).toBe("retired");
+    const res = await call(
+      space,
+      "GET",
+      `/v1/budget/trend?from=2026-11&to=2026-11&categoryId=${made.json().id}`,
+    );
+    expect(res.statusCode, res.body).toBe(400);
+    expect(res.json().errors).toEqual([{ in: "query", path: "categoryId", issue: "not_found" }]);
+  });
 });

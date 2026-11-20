@@ -249,7 +249,9 @@ test('PRC-02 (owner, 2026-11-19): main publishes the progress page and coverage.
   const wf = read('.github/workflows/progress-dashboard.yml');
   assert.match(wf, /^on:\n {2}push:\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m);
   assert.match(wf, /^permissions: \{\}$/m);
-  assert.match(wf, /^concurrency:\n {2}group: progress-dashboard\n/m);
+  // #621: the group is on `publish` only, and never cancels a running publish.
+  assert.doesNotMatch(wf, /^concurrency:/m);
+  assert.match(wf, /^ {2}publish:\n(?: {4}.*\n)*? {4}concurrency:\n {6}group: progress-dashboard\n {6}cancel-in-progress: false\n/m);
   assert.deepEqual(jobPermissions(wf, 'build'), { contents: 'read' });
   assert.deepEqual(jobPermissions(wf, 'publish'), { contents: 'write' });
   for (const job of ['build', 'publish']) {
