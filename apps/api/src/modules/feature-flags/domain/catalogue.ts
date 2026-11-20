@@ -236,6 +236,14 @@ export const FLAGS = {
     description:
       "Порівняння періодів (BUD-06@PoC a): витрати й дохід за категоріями проти бази (попередній період на ту саму дату, минулий рік, середнє за 3 / 6 / 12 міс.) і плану зі знімка, три найбільші зміни, «Рік: план і факт»; маршрути /v1/budget/compare",
   },
+  "budget.spendable": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-20",
+    requires: "budget.period",
+    description:
+      "«Можна витратити» (BUD-03@PoC c): сума до кінця поточного періоду, денний ліміт, перевитрата, 5 рядків картки і повна розбивка — регулярні платежі, внески в цілі за «Планом», заплановані витрати, обов'язкові категорії; маршрут /v1/budget/periods/{period}/spendable",
+  },
   "budget.cashflow": {
     kind: "release",
     owner: "product-owner",

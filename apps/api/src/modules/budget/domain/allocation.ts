@@ -20,6 +20,13 @@ export interface PeriodObligations {
     readonly categoryId: string | null;
     readonly amount: Money;
     readonly paid: boolean;
+    /**
+     * BUD-03@PoC FR 5, FR 8: the charge's payment, date, and «Прострочено на N дн.» (null — not overdue) — the list of the
+     * breakdown. Left out by a test's port only.
+     */
+    readonly paymentId?: string;
+    readonly dueOn?: string;
+    readonly overdueDays?: number | null;
   }[];
   readonly debtMinimums: readonly {
     readonly accountId: string;
@@ -27,6 +34,12 @@ export interface PeriodObligations {
     readonly paid: boolean;
   }[];
   readonly approximate?: boolean;
+  /**
+   * BUD-03@PoC FR 3: the regular incomes still expected in the month («Очікується», «Прострочено»), summed — added to the
+   * actual income against the plan. Null — one has no rate (no figure of «Можна витратити»); left out (a test's port) —
+   * none.
+   */
+  readonly incomeExpected?: Money | null;
 }
 
 /** FR 1: one budget — one currency; an amount of another currency is never added (no figure beats a wrong one). */

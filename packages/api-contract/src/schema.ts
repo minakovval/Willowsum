@@ -363,6 +363,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/budget/periods/{period}/spendable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Можна витратити» of the current period: the sum, the daily limit, the overspend, the five rows and the breakdown (BUD-03 FR 2–10, FR 14, FR 15) */
+        get: operations["getBudgetSpendable"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/budget/plan": {
         parameters: {
             query?: never;
@@ -6722,6 +6739,255 @@ export interface operations {
                                 currency: string;
                             } | null;
                         };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space; The budget did not exist yet in this period (BUDGET_PERIOD_BEFORE_START) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getBudgetSpendable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The current calendar month, YYYY-MM (another month — 400 `period: not_current`) */
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description «Можна витратити» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approximate: {
+                            nearestRateCount: number;
+                            obligations: boolean;
+                            unavailableCount: number;
+                        };
+                        currency: string;
+                        daysLeft: number;
+                        figures: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            daily: {
+                                amount: string;
+                                currency: string;
+                            };
+                            goals: {
+                                items: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    contributed: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    goalId: string;
+                                    planned: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                }[];
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
+                            income: {
+                                actual: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                expected: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                pending: boolean;
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                stillExpected: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                value: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
+                            mandatory: {
+                                categories: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    categoryId: string;
+                                }[];
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
+                            mini: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** @enum {string} */
+                                row: "income" | "spent" | "regular" | "goals" | "mandatory";
+                            }[];
+                            overspend: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                base: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | null;
+                            plannedExpenses: {
+                                items: {
+                                    /** Format: uuid */
+                                    accountId: string;
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                }[];
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
+                            regularPayments: {
+                                items: ({
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    categoryId: string | null;
+                                    dueOn: string | null;
+                                    /** @constant */
+                                    kind: "recurring";
+                                    overdueDays: number | null;
+                                    paymentId: string | null;
+                                } | {
+                                    /** Format: uuid */
+                                    accountId: string;
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** @constant */
+                                    kind: "loan";
+                                })[];
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
+                            spent: {
+                                limited: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                outsidePlan: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            };
+                        } | null;
+                        period: string;
+                        unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses")[];
                     };
                 };
             };
@@ -16252,7 +16518,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.cashflow" | "data.import" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.cashflow" | "data.import" | "debts.payoff")[];
                     };
                 };
             };

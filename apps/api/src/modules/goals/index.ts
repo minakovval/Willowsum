@@ -108,7 +108,8 @@ export function createGoalFlows(db: ModuleDatabase): GoalFlows {
 
 /**
  * The goals as «План» of the budget (BUD-17@PoC FR 1) plans them: each active goal with its required monthly
- * contribution as the goal's card shows it today (FR 5; null — no date or past it) and its date. Read only; every call
+ * contribution as the goal's card shows it today (FR 5; null — no date or past it), its date and what was contributed
+ * to it in this calendar month (the card's «цього місяця»; «Можна витратити», BUD-03@PoC FR 6). Read only; every call
  * is bound to one space.
  */
 export interface GoalPlans {
@@ -117,6 +118,8 @@ export interface GoalPlans {
       readonly goalId: string;
       readonly requiredMonthly: Money | null;
       readonly targetDate: string | null;
+      /** In the goal's currency; an own account's goal — its growth this month (never below 0). */
+      readonly contributedThisMonth: Money;
     }[]
   >;
 }
@@ -139,6 +142,7 @@ export function createGoalPlans(db: ModuleDatabase, services: GoalsServices): Go
         goalId: v.goal.id,
         requiredMonthly: v.progress.requiredMonthly,
         targetDate: v.goal.targetDate,
+        contributedThisMonth: v.contributedThisMonth,
       }));
     },
   };

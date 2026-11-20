@@ -1,4 +1,4 @@
-import { AmountOutOfRangeError, type Money } from "@willowsum/domain-kernel";
+import { AmountOutOfRangeError, Money } from "@willowsum/domain-kernel";
 import type { CreditAccounts } from "../../accounts/index.ts";
 import type { FxReporting } from "../../fx-rates/index.ts";
 import type { Liabilities } from "../../liabilities/index.ts";
@@ -20,7 +20,9 @@ export const OBLIGATION_MAX_INTEGER_DIGITS = BUDGET_MAX_INTEGER_DIGITS;
  * - `debtMinimums` — the monthly payment of each active «Кредит» account with one (liabilities; a loan without it —
  *   «Додайте ставку і платіж» — adds nothing), once a month; `paid` — the account got a payment in the month
  *   (transactions). A loan's payment is here only, never in `recurring` (recurring refuses a loan account), so
- *   «Розподіл» takes it once as a minimum payment and D adds it once while unpaid (lead decision, #567).
+ *   «Розподіл» takes it once as a minimum payment and D adds it once while unpaid (lead decision, #567);
+ * - `incomeExpected` — the income charges of the month still to come (BUD-03@PoC FR 3), from `from` on as well; null —
+ *   one has no rate (only «Можна витратити» needs it, so the rest of the month's figures stay).
  * Every amount in `currency` at today's rate (BUD-03 «Суми в інших валютах — за поточним курсом»; the nearest one —
  * `approximate`). Null — some amount has no rate at all, or one is over 15 integer digits: no figure beats a wrong one,
  * and no sum overflows the money type.
@@ -32,11 +34,37 @@ export function createBudgetObligations(ports: {
   readonly payments: AccountPayments;
   readonly fx: Pick<FxReporting, "total">;
 }): BudgetObligations {
+  /** The incomes' sum in `currency` at today's rate; null — one without a rate or out of range (their own figure only). */
+  async function incomeSum(amounts: readonly Money[], currency: string): Promise<Money | null> {
+    const zero = Money.zero(currency);
+    if (amounts.length === 0) return zero;
+    if (amounts.some(tooBig)) return null;
+    try {
+      const reported = await ports.fx.total(
+        amounts.map((amount) => ({ amount, date: null })),
+        currency,
+      );
+      let total = zero;
+      for (const item of reported.items) {
+        if (item.kind === "rate-unavailable" || tooBig(item.value)) return null;
+        total = total.plus(item.value);
+      }
+      return tooBig(total) ? null : total;
+    } catch (error) {
+      if (error instanceof AmountOutOfRangeError) return null;
+      throw error;
+    }
+  }
   return {
     async month(householdId, period, currency, from) {
       const days = periodDays(period);
-      const charges = (await ports.recurring.chargesIn(householdId, period)).filter(
-        (c) => c.type === "expense" && (from === undefined || c.dueOn >= from),
+      const month = (await ports.recurring.chargesIn(householdId, period)).filter(
+        (c) => from === undefined || c.dueOn >= from,
+      );
+      const charges = month.filter((c) => c.type === "expense");
+      // BUD-03@PoC FR 3: the regular incomes not come yet — only «Очікується» and «Прострочено» are still to come.
+      const incomes = month.filter(
+        (c) => c.type === "income" && (c.status === "expected" || c.status === "overdue"),
       );
       const loans: { accountId: string; amount: Money }[] = [];
       for (const a of await ports.credit.list(householdId)) {
@@ -77,6 +105,9 @@ export function createBudgetObligations(ports: {
           categoryId: c.categoryId,
           amount: values[i]!,
           paid: c.status !== "expected" && c.status !== "overdue",
+          paymentId: c.paymentId,
+          dueOn: c.dueOn,
+          overdueDays: c.status === "overdue" ? c.overdueDays : null,
         })),
         debtMinimums: loans.map((l, i) => ({
           accountId: l.accountId,
@@ -84,6 +115,10 @@ export function createBudgetObligations(ports: {
           paid: paid.has(l.accountId),
         })),
         approximate: reported.approximate,
+        incomeExpected: await incomeSum(
+          incomes.map((c) => c.expected),
+          currency,
+        ),
       };
       return result;
     },
