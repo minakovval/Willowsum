@@ -1697,6 +1697,14 @@
       "x": 9520,
       "y": 31860
     },
+    "PocMoneyImport2Texts.dc.html": {
+      "h": 5240,
+      "page": "poc",
+      "title": "S-171 Імпорт · перевірка · Тексти",
+      "w": 2640,
+      "x": 12240,
+      "y": 31860
+    },
     "PocMoneyImport2.dc.html": {
       "h": 1100,
       "is_interactive": true,
@@ -4457,6 +4465,7 @@
     "PocMoneyImport1.dc.html",
     "PocMoneyImport1Texts.dc.html",
     "PocMoneyImport2.dc.html",
+    "PocMoneyImport2Texts.dc.html",
     "PocMoneyImportRules.dc.html",
     "PocMoneyImportMismatch.dc.html",
     "PocMoneyImport3.dc.html",

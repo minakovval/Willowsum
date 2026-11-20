@@ -155,3 +155,10 @@ export function sizeText(t: Translate, locale: Locale, bytes: number): string {
       : `${Math.floor(tenths / 10)}.${tenths % 10}`;
   return t(`import.size.${unit}` as MessageKey, { value: formatNumber(locale, value) });
 }
+
+/** «186 рядків»: the plural form of the row count in the user's language (uk: one, few, many, other). */
+export const rowsText = (t: Translate, locale: string, count: number): string => {
+  const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en-GB").select(count);
+  const form = rule === "one" || rule === "few" || rule === "many" ? rule : "other";
+  return t(`import.rows.${form}` as MessageKey, { count });
+};

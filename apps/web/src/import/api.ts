@@ -7,7 +7,7 @@ import { outcome, type Outcome } from "../auth/api.ts";
  * (its «Підтвердіть рахунок» entry carries the masked evidence and the suggested account). The screen computes nothing
  * with money: it shows what the API says about a file and counts files.
  */
-type Json<T> = T extends { responses: { 200: { content: { "application/json": infer B } } } }
+export type Json<T> = T extends { responses: { 200: { content: { "application/json": infer B } } } }
   ? B
   : T extends { responses: { 201: { content: { "application/json": infer B } } } }
     ? B
