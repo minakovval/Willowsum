@@ -343,6 +343,22 @@ describe("BUD-05@PoC FR 10: the average monthly expenses of «Подушка б�
     expect(bad.json().errors).toEqual([{ in: "query", path: "currency", issue: "invalid" }]);
   });
 
+  it("BUD-05@PoC FR 10: a share «На кілька місяців» in another currency is converted at its transaction's date, as the budget does (#592)", async () => {
+    const space = await newSpace();
+    const uah = await account(space, "current", "UAH", "900000.00");
+    await rate("2026-09-01", "EUR", "40.00");
+    await rate("2026-09-20", "EUR", "50.00");
+    const id = await transaction(space, uah, "-4000.00", "2026-09-20", { currency: "UAH" });
+    await db.owner.query(`UPDATE transactions.transactions SET split_mode = 'months' WHERE id = $1`, [id]);
+    await db.owner.query(
+      `INSERT INTO transactions.transaction_parts (household_id, transaction_id, position, category_id, month, amount, currency)
+       VALUES ($1, $2, 0, $3, '2026-09-01', '-4000.00', 'UAH')`,
+      [space.householdId, id, await categoryId(space, "Одяг")],
+    );
+    // 4 000 UAH at the 20 September rate (50) = 80 €, not at the rate of the share's month (40) = 100 €; ÷ 2 months.
+    expect(await average(space)).toMatchObject({ average: eur("40"), months: 2, approximate: false });
+  });
+
   it("BUD-05@PoC FR 10: without expenses there is no average; another space's expenses are never counted; a scoped member is refused", async () => {
     const owner = await newSpace();
     const current = await account(owner);
