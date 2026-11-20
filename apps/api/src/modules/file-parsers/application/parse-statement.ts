@@ -3,6 +3,7 @@ import {
   hasCardMask,
   maskedMismatch,
   matchAccount,
+  readCardDebt,
   readFigures,
   reviewStatement,
   type StatementChecks,
@@ -54,15 +55,11 @@ export function parseStatement(
   const labelled = readFigures(rows, headerRow, firstRow, analyzeTable(rows, headerRow, firstRow)).exclude;
   const table = labelled.size === 0 ? rows : rows.map((r, i) => (labelled.has(i) ? [] : r));
   const analysis = analyzeTable(table, headerRow, firstRow);
-  const { figures, exclude } = readFigures(rows, headerRow, firstRow, analysis);
-  const events = readEvents(
-    rows,
-    headerRow,
-    firstRow,
-    analysis,
-    statement,
-    new Set([...labelled, ...exclude]),
-  );
+  const { figures: printed, exclude } = readFigures(rows, headerRow, firstRow, analysis);
+  const read = readEvents(rows, headerRow, firstRow, analysis, statement, new Set([...labelled, ...exclude]));
+  // IMP-05 FR 6 (Рішення власника (2026-11-20), п. 6): a credit card's positive balance is debt; the reading is
+  // inverted only when the balance chain confirms it.
+  const { events, figures, debt } = readCardDebt(read, printed, statement.account?.kind);
   const preamble = rows.slice(firstRow, headerRow ?? firstRow);
   const account = binding ? matchAccount(preamble, binding.by, binding.value) : null;
   const checks = reviewStatement({
@@ -75,6 +72,7 @@ export function parseStatement(
     match: account,
     masked: binding ? maskedMismatch(preamble, binding.by, binding.value) : null,
     cardInFile: hasCardMask(preamble),
+    cardDebt: debt,
   });
   return { reading, analysis, events, account, checks };
 }
