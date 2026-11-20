@@ -66,6 +66,8 @@ export const HAND_OFF_ACTIONS = [
   "merge",
   "unmerge",
   "not-duplicate",
+  // IMP-04 FR 8, IMP-16 FR 2 (application/rollback.ts): rolled back with its import batch — its event reversed.
+  "rollback",
 ] as const;
 
 /** The job's key (the queue's `dedupe_key`): one hand-off per change of a transaction. */

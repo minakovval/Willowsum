@@ -25,7 +25,9 @@ import {
   readinessOf,
   recordChecks,
   recoverStuckApplications,
+  recoverStuckRollbacks,
   type BatchReadiness,
+  type RollbackPorts,
   type FileReview,
   type RecordInput,
 } from "./application/index.ts";
@@ -168,11 +170,13 @@ export function createImportSessionsHandOffRecovery(
  * The scheduler's daily recovery of applies stuck «in progress» (IMP-01@PoC FR 11, IMP-04@PoC FR 7; #654): in every
  * space, an apply whose request ended after it stored its result «in progress» and that nobody retried for
  * `STUCK_AFTER_MS` is settled with module transactions — its rows written: finished with their counts and its audit
- * entry; not written: given up, the batch back in its state. Returns how many were settled.
+ * entry; not written: given up, the batch back in its state. Also a rollback whose request ended after module
+ * transactions rolled the batch back (IMP-16@PoC FR 3, FR 9): the batch «відкочено» with the recorded mode, actor and
+ * count, and its audit entry. Returns how many were settled or finished.
  */
 export function createImportSessionsApplyRecovery(options: {
   readonly db: ModuleDatabase;
-  readonly transactions: Pick<ImportedTransactions, "settle">;
+  readonly transactions: Pick<ImportedTransactions, "settle" | "rolledBackSince">;
   readonly audit: Pick<AuditLog, "record">;
   readonly households: () => Promise<readonly string[]>;
   readonly now: () => number;
@@ -186,15 +190,22 @@ export function createImportSessionsApplyRecovery(options: {
       let failed = 0;
       for (const householdId of await options.households()) {
         try {
-          const { result, handOffs } = await recoverStuckApplications(deps, {
-            run: (work) => options.db.inHousehold(householdId, (q) => work(applyTx(q))),
+          const run: RollbackPorts["run"] = (work) =>
+            options.db.inHousehold(householdId, (q) => work(applyTx(q)));
+          const applies = await recoverStuckApplications(deps, {
+            run,
             settle: (input) => options.transactions.settle(householdId, input),
           });
-          settled += result.settled;
-          // An apply that could not be settled stays «in progress» for the next run: the task fails (a count only).
-          if (result.failed > 0) failed += 1;
           // The entries right away; a failure leaves them to the worker (the jobs are queued, ARC-04 FR 2).
-          for (const h of handOffs) await applyHandOff(audit, householdId, h).catch(() => undefined);
+          for (const h of applies.handOffs) await applyHandOff(audit, householdId, h).catch(() => undefined);
+          const rollbacks = await recoverStuckRollbacks(deps, run, (since, before) =>
+            options.transactions.rolledBackSince(householdId, since, before),
+          );
+          for (const h of rollbacks.handOffs)
+            await applyHandOff(audit, householdId, h).catch(() => undefined);
+          settled += applies.result.settled + rollbacks.result.finished;
+          // An apply or a rollback that could not be finished stays for the next run: the task fails (a count only).
+          if (applies.result.failed > 0 || rollbacks.result.failed > 0) failed += 1;
         } catch {
           // One space's failure does not keep the others'; the task still fails (a count, never the space).
           failed += 1;

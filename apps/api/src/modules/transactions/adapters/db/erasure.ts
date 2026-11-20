@@ -1,7 +1,7 @@
 import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
 
 /**
- * Erasure of a space's transactions (NFR-12@PoC FR 3): every transaction with the parts of its split, the space's tags, its transfer, its «Не дубль» pairs, the write records of its import batches and their given-up attempts, the stored responses of its create requests
+ * Erasure of a space's transactions (NFR-12@PoC FR 3): every transaction with the parts of its split, the space's tags, its transfer, its «Не дубль» pairs, the write records of its import batches and their given-up attempts and rollbacks, the stored responses of its create requests
  * and its queue rows (hand-off jobs, migrations/0003_queue.sql), in one transaction of the module's own role (the
  * tables are not append-only). Their journal entries go with the ledger's own erasure.
  */
@@ -16,6 +16,8 @@ export async function eraseHouseholdTransactions(
     // IMP-01 FR 11: the write records of the space's import batches (counts only).
     await q.query(`DELETE FROM import_writes WHERE household_id = $1`, [householdId]);
     await q.query(`DELETE FROM import_voids WHERE household_id = $1`, [householdId]);
+    // IMP-16 FR 3: the rollback records of the space's import batches (counts and kept ids only).
+    await q.query(`DELETE FROM import_rollbacks WHERE household_id = $1`, [householdId]);
     const transactions = await q.query(`DELETE FROM transactions WHERE household_id = $1`, [householdId]);
     // BUD-13 FR 2: the space's tags (the transactions carried them by id).
     await q.query(`DELETE FROM tags WHERE household_id = $1`, [householdId]);
