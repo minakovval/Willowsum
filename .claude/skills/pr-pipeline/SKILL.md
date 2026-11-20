@@ -87,17 +87,20 @@ proposals: [lead communication](references/lead-communication.md).
    fix after «Changes requested» is confirmed only by a reviewer agent; the lead confirms only a sync with an unchanged
    diff, no exceptions ([merge checklist](references/merge-checklist.md), «The lead confirms a sync itself»;
    `sensitive` too). A confirmation (of
-   fixes or a sync) of a `sensitive` PR always goes to **one** Opus agent, never Fable (token economy, item 1) that loads `review-pr` and `security-review` and
+   fixes or a sync) of a `sensitive` PR always goes to **one** Opus agent, never Fable (token economy, item 1), except
+   when the diff since the last reviewed head changes only tests, texts or a merge of main: then **one** Sonnet agent
+   (it hands back to the lead, who gives it to Opus, if it finds a code change outside tests). The agent loads `review-pr` and `security-review` and
    posts both verdicts as two PR reviews with `commit_id`, in a session other than the
    author's and the fix agent's; it switches to a full security review (`security-review` §7) when the diff adds a
-   guard, endpoint, query or sensitive path, or the PR gains a `sensitive:<category>`.
+   guard, endpoint, query or sensitive path, or the PR gains a `sensitive:<category>`. Reviews of PRs without `sensitive` (tests, docs, process, flaky tests,
+   non-sensitive screens and UI components) run on Sonnet (token economy, item 1).
 6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for `sensitive`
    `Security verdict: Ready`) names it, the owner decision recorded for `owner-decision` PRs, the owner's approval
    for cloud or production, no unanswered owner «stop» or question (read the PR comments before every merge). Order, `behind_by`, syncs, confirmations and the CI wait command:
    [merge checklist](references/merge-checklist.md) (read before every merge).
 7. **After merge**: unsubscribe; the branch is deleted; reset the worktree to the new `main`
    (`git fetch origin main && git reset --hard origin/main`) or remove it; drop its test databases. The PR's
-   «Follow-ups» go to one follow-up PR (lighter model) or an issue each, linked from the merged PR. Unmerged
+   «Follow-ups» go to one follow-up PR (Sonnet for sweeps, rows R) or an issue each, linked from the merged PR. Unmerged
    **reviewer probes and tests** are posted at once on that issue inside `<details>`, split if over 65 000
    characters. The repository is public: what shows how to exploit a security finding not yet fixed in `main` is
    never posted in an issue or a PR — one line in the issue (module, rule broken), the detail (the reviewer's
