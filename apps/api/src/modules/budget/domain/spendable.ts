@@ -217,6 +217,59 @@ export function goalContributions(
   };
 }
 
+/** FR 6: a debt's planned expense of the month — the payoff plan's extra payment, or the month's cell of «План». */
+export interface DebtPlannedExpense {
+  readonly accountId: string;
+  readonly amount: Money;
+  /** EC4 «приблизно»: the plan's amount at the nearest rate; a cell (the budget's currency) is exact. */
+  readonly approximate: boolean;
+}
+
+/**
+ * FR 6 «Заплановані витрати» (BUD-02 FR 15, BUD-17 FR 2; #661): each debt's planned expense of `period` — the saved
+ * payoff plan's extra payment, and a month's own `debt` cell of «План» in place of it (never added to it), as the grid
+ * shows the debt's «додатковий платіж». A cell counts only for a debt the month owes (`owed`: a minimum payment or a
+ * plan's extra payment) — a debt it no longer owes does not come back for it; an empty cell is no value.
+ */
+export function plannedDebtExpenses(
+  period: Period,
+  plan: readonly { readonly accountId: string; readonly amount: Money; readonly approximate?: boolean }[],
+  owed: ReadonlySet<string>,
+  cells: readonly {
+    readonly period: Period;
+    readonly kind: string;
+    readonly lineId: string | null;
+    readonly amount: Money | null;
+  }[],
+  currency: string,
+): { readonly items: readonly DebtPlannedExpense[]; readonly total: Money; readonly approximate: boolean } {
+  const byDebt = new Map<string, DebtPlannedExpense>(
+    plan.map((p) => [
+      p.accountId,
+      { accountId: p.accountId, amount: p.amount, approximate: p.approximate === true },
+    ]),
+  );
+  for (const c of cells)
+    if (
+      c.period === period &&
+      c.kind === "debt" &&
+      c.lineId !== null &&
+      c.amount !== null &&
+      owed.has(c.lineId)
+    )
+      byDebt.set(c.lineId, { accountId: c.lineId, amount: c.amount, approximate: false });
+  const items = [...byDebt.values()];
+  assertCurrency(
+    currency,
+    items.map((i) => i.amount),
+  );
+  return {
+    items,
+    total: items.reduce((t, i) => t.plus(i.amount), Money.zero(currency)),
+    approximate: items.some((i) => i.approximate),
+  };
+}
+
 /**
  * FR 8, AC9: «Обов'язкові категорії: ще потрібно N €» by category — as FR 14 counts it: max(0, limit − spent − the
  * category's own unpaid payments). Only the categories that still need something.

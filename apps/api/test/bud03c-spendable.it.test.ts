@@ -1004,3 +1004,121 @@ describe("BUD-03@PoC EC4: the income plan alone at the nearest rate (#651 confir
     expect(s.approximate).toMatchObject({ incomes: true });
   });
 });
+
+/** The wizard's «Можна витратити в <місяць> ≈ M» of a plan not saved yet (POST /v1/budget/allocation, BUD-02 FR 3). */
+async function wizard(space: Space, body: Record<string, unknown>) {
+  const res = await call(space, "POST", "/v1/budget/allocation", body);
+  expect(res.statusCode, res.body).toBe(200);
+  return res.json().spendable as { period: string; amount: { amount: string; currency: string } | null };
+}
+
+describe("BUD-03@PoC FR 6 (#661): a debt's cell of «План» replaces its payoff plan's extra payment in «Заплановані витрати»", () => {
+  // Income 6 000 € (the plan, nothing came in yet), no limits, no regular payments; the payoff plan's extra payment 100 €.
+  for (const [what, own, sum] of [
+    ["above", "250.25", "5749.75"],
+    ["below", "40.1", "5959.9"],
+  ] as const)
+    it(`BUD-03@PoC FR 6: «Розподіл»'s ${own} € for the debt (${what} the plan's 100 €) is the month's planned expense in place of it — ${sum} €, as the wizard and the grid`, async () => {
+      const space = await newSpace();
+      await current(space);
+      const loanId = randomUUID();
+      extras.set(space.householdId, [{ accountId: loanId, amount: Money.of("100", "EUR") }]);
+      const plan = {
+        firstPeriod: "2026-11",
+        incomePlan: eur("6000"),
+        allocation: [{ kind: "debt", accountId: loanId, amount: eur(own) }],
+      };
+      expect((await wizard(space, plan)).amount).toEqual(eur(sum));
+      await createBudget(space, plan);
+      const f = (await spendable(space)).figures!;
+      expect(f.plannedExpenses).toEqual({
+        items: [{ accountId: loanId, amount: eur(own) }],
+        total: eur(own),
+      });
+      // 6 000 − the cell; never 6 000 − 100 − the cell, nor 6 000 − 100.
+      expect(f.amount).toEqual(eur(sum));
+      expect(f.mini.find((r) => r.row === "goals")?.amount).toEqual(eur(own));
+      const grid = await call(space, "GET", "/v1/budget/plan-grid");
+      expect(grid.statusCode, grid.body).toBe(200);
+      const row = (grid.json().debts.rows as { accountId: string; cells: { extra: unknown }[] }[]).find(
+        (r) => r.accountId === loanId,
+      )!;
+      expect(row.cells[0]!.extra).toEqual(eur(own));
+      // A debt the month no longer owes (its plan is gone): its cell does not bring it back.
+      extras.set(space.householdId, []);
+      const gone = (await spendable(space)).figures!;
+      expect(gone.plannedExpenses).toEqual({ items: [], total: eur("0") });
+      expect(gone.amount).toEqual(eur("6000"));
+      extras.delete(space.householdId);
+    });
+
+  it("BUD-03@PoC EC4: a payoff plan's extra payment at the nearest rate replaced by the debt's cell in euro is not «приблизно»", async () => {
+    const space = await newSpace();
+    await current(space);
+    await rate("2026-11-05", "USD", "41.6");
+    await rate("2026-11-05", "EUR", "52");
+    const loanId = randomUUID();
+    const other = randomUUID();
+    extras.set(space.householdId, [
+      { accountId: loanId, amount: Money.of("50", "USD") },
+      { accountId: other, amount: Money.of("12.34", "EUR") },
+    ]);
+    await createBudget(space, {
+      incomePlan: eur("6000"),
+      allocation: [{ kind: "debt", accountId: loanId, amount: eur("70.07") }],
+    });
+    const s = await spendable(space);
+    expect(s.figures!.plannedExpenses).toEqual({
+      items: [
+        { accountId: loanId, amount: eur("70.07") },
+        { accountId: other, amount: eur("12.34") },
+      ],
+      total: eur("82.41"),
+    });
+    expect(s.figures!.amount).toEqual(eur("5917.59"));
+    expect(s.approximate).toMatchObject({ plannedExpenses: false });
+    extras.delete(space.householdId);
+  });
+});
+
+describe("BUD-02@PoC FR 3 (#661): the wizard's «≈ M» and «Можна витратити» read the period's facts by one rule", () => {
+  it("BUD-02@PoC FR 3: a first period next month subtracts the share «На кілька місяців» already dated into it — 4 900 €, what «Можна витратити» shows on 1 December", async () => {
+    const space = await newSpace();
+    const acc = await current(space);
+    const groceries = await category(space, "Продукти");
+    // 1 200 € on 10 November over 12 months from November: 100 € a month, December's share dated 1 December.
+    const yearly = await transaction(space, acc, "-1200.00", "2026-11-10");
+    const split = await call(space, "POST", `/v1/transactions/${yearly}/split`, {
+      mode: "months",
+      startMonth: "2026-11",
+      months: 12,
+      categoryId: groceries,
+    });
+    expect(split.statusCode, split.body).toBe(200);
+    const plan = { firstPeriod: "2026-12", incomePlan: eur("5000") };
+    // 5 000 − December's share 100; November's share is not December's.
+    expect(await wizard(space, plan)).toEqual({ period: "2026-12", amount: eur("4900"), missing: [] });
+    await createBudget(space, plan);
+    now = at("2026-12-01");
+    expect((await spendable(space, "2026-12")).figures!.amount).toEqual(eur("4900"));
+    // The current month counts November's share as the budget page does: 5 000 − 100.
+    now = at("2026-11-12");
+    expect((await wizard(space, { ...plan, firstPeriod: "2026-11" })).amount).toEqual(eur("4900"));
+  });
+
+  it("BUD-02@PoC FR 3: a spend «Витратити з цілі» leaves the wizard's «≈ M» of the current month unchanged, as it leaves «Можна витратити» (BUD-03 EC5)", async () => {
+    const { space, goalId, spendFromGoal } = await ec5(null);
+    // As the budget's «План»: the goal planned 0 € in November, so only the facts move the figure.
+    const plan = {
+      firstPeriod: "2026-11",
+      incomePlan: eur("1000"),
+      allocation: [{ kind: "goal", goalId, amount: eur("0") }],
+    };
+    expect((await wizard(space, plan)).amount).toEqual(eur("1000"));
+    const before = await spendFromGoal("250.50");
+    // The hotel before «Витратити з цілі» is spending on both: 1 000 − 250,50.
+    expect(before.amount).toEqual(eur("749.5"));
+    expect((await wizard(space, plan)).amount).toEqual(eur("1000"));
+    expect((await spendable(space)).figures!.amount).toEqual(eur("1000"));
+  });
+});

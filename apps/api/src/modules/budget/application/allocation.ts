@@ -11,6 +11,7 @@ import {
   periodDays,
   periodFigures,
   periodOf,
+  plannedDebtExpenses,
   scalePlan,
   shareFrom,
   spendable,
@@ -186,11 +187,14 @@ export interface WizardSpendable {
 
 /**
  * FR 3, AC6: «Можна витратити в <місяць> ≈ M» of the plan not saved yet — BUD-03 FR 2 (`spendable`) for the first
- * period as it would start: the current month as of today (its income and spending so far, on `accountIds` — the
- * accounts the budget would take, what is contributed to goals this month, the regular incomes still expected), or the
- * next month as of its 1st (nothing spent, contributed or received yet). The goals' planned contributions are
+ * period as it would start: the current month as of today, or the next month as of its 1st. Either way the period's
+ * facts on `accountIds` (the accounts the budget would take) are read by the rule of «Можна витратити»
+ * (`spendableAmounts`, #661): what is already dated into it — this month's income and spending so far, or a share «На
+ * кілька місяців» dated into the next month. What is contributed to goals this month counts in the current month only;
+ * the regular incomes still expected as `BudgetObligations` gives them. The goals' planned contributions are
  * «Розподіл»'s cells, else the required ones (BUD-03 FR 6, `goalContributions`); the planned expenses are the payoff
- * plans' extra payments, a debt's cell in its place. Null with what is missing — never a partial figure.
+ * plans' extra payments, a debt's cell in its place (`plannedDebtExpenses`). Null with what is missing — never a
+ * partial figure.
  */
 export async function wizardSpendable(
   deps: Pick<BudgetDeps, "today" | "reads" | "planSources">,
@@ -207,9 +211,7 @@ export async function wizardSpendable(
   const [goals, extra, counted] = await Promise.all([
     a.lines?.goals ?? (sources ? sources.goals(householdId, currency) : []),
     sources ? sources.extraPayments(householdId, a.period, currency) : [],
-    current
-      ? deps.reads.amounts(householdId, accountIds, a.period, currency, a.from ?? undefined)
-      : { amounts: [], nearestRateCount: 0, unavailableCount: 0 },
+    spendableAmounts(deps, householdId, accountIds, a.period, currency, a.from ?? undefined),
   ]);
   // BUD-03 FR 6: less what is contributed this month (null — no rate: no figure) — nothing yet in a month to come;
   // a test's port without `contributed` — nothing.
@@ -226,8 +228,13 @@ export async function wizardSpendable(
     missing.add("rates");
   if (missing.size > 0 || a.obligations === null || contributions === null || extra === null)
     return { period: a.period, amount: null, missing: SPENDABLE_MISSING.filter((m) => missing.has(m)) };
-  const expenses = new Map(extra.map((e) => [e.accountId, e.amount]));
-  for (const c of a.cells) if (c.kind === "debt" && c.lineId !== null) expenses.set(c.lineId, c.amount);
+  const expenses = plannedDebtExpenses(
+    a.period,
+    extra,
+    a.lines?.debtAccountIds ?? new Set(extra.map((e) => e.accountId)),
+    a.cells.map((c) => ({ ...c, period: a.period })),
+    currency,
+  );
   const figures = periodFigures(a.plan, categories, counted.amounts);
   const result = spendable({
     today: current ? today : periodDays(a.period).from,
@@ -241,8 +248,27 @@ export async function wizardSpendable(
     obligations: a.obligations,
     // As «Можна витратити» (#641): what is contributed this month and what is still planned.
     goalContributions: contributions.total.plus(contributions.contributed),
-    plannedExpenses: [...expenses.values()].reduce((t, x) => t.plus(x), zero),
+    plannedExpenses: expenses.total,
     plannedSavings: contributions.plannedSavings,
   });
   return { period: a.period, amount: result.amount, missing: [] };
+}
+
+/**
+ * BUD-03@PoC FR 2, EC5 (#661): the period's facts «Можна витратити» counts, on `accountIds` — what is dated into the
+ * period (a share «На кілька місяців» in its month; a proportional first period from `from`), less the transactions
+ * written off from a goal («Витратити з цілі»). One rule for the card and the wizard's «≈ M», so the wizard's figure of
+ * the next month is what the card shows on its 1st.
+ */
+export function spendableAmounts(
+  deps: Pick<BudgetDeps, "reads">,
+  householdId: string,
+  accountIds: readonly string[],
+  period: Period,
+  currency: string,
+  from: string | undefined,
+): ReturnType<BudgetDeps["reads"]["amounts"]> {
+  return deps.reads.amounts(householdId, accountIds, period, currency, from, undefined, {
+    withoutGoalSpends: true,
+  });
 }
