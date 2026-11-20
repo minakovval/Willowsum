@@ -8,7 +8,7 @@ Moved out of AGENTS.md without change. Read when you add or change a workflow, o
 public since 2026-11-13, so GitHub Actions minutes are free, but jobs stay lean and path-filtered): a new push cancels the PR's run in progress;
 the pnpm store is cached; the job `changes` skips `web`, `api`, `local-env`, `infra` and `e2e`
 when the PR's paths do not need them (docs-only PRs skip all five; `e2e`, NFR-07@PoC, runs on every code change
-except `infra/`, `tools/` and the root lint, format and ignore files, with only Chromium and WebKit installed and cached; a skipped job concludes `skipped` and
+except `infra/`, `tools/` and the root lint, format and ignore files, with only Chromium installed and cached (WebKit dropped from CI, owner 2026-11-20); a skipped job concludes `skipped` and
 counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not need it). Do not add
 scheduled or frequent workflows without counting their minutes. «Requirements traceability» runs once per push to
 `main` (about a minute) to publish the generated traceability files.

@@ -59,7 +59,7 @@ versions inside the app until the design-system components exist in `packages/ui
 
 ## End-to-end tests (NFR-07@PoC)
 
-`e2e/` — Playwright in Chromium and WebKit at 1280 × 800, light theme (Firefox from PoC v2). `global-setup.ts` starts
+`e2e/` — Playwright in Chromium and WebKit at 1280 × 800, light theme (Firefox from PoC v2); CI runs only the chromium project (owner, 2026-11-20), WebKit stays for local runs. `global-setup.ts` starts
 the stack once: a fresh database on the server of `DATABASE_URL` (a PostgreSQL superuser URL) with `db:bootstrap`, every
 migration and the module logins, the real API process (`apps/api/test/e2e-support.ts`, synthetic providers), and the
 `vite build --mode ci` output behind `vite preview` over HTTPS with a certificate made for the run (production headers
@@ -78,7 +78,7 @@ the live link's digest.
 Run: `DATABASE_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm test:e2e` (builds, then tests; extra Playwright
 arguments go at the end, e.g. `--project=chromium`). Integration runs share the cluster's roles, so on a shared server
 wrap it: `pnpm db:test run -- pnpm test:e2e`. `WS_E2E_CHROMIUM_PATH` uses an already installed Chromium. CI job `e2e`
-installs and caches only Chromium and WebKit.
+installs and caches only Chromium.
 
 ## Scripts
 
