@@ -1,46 +1,63 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { formatNumber, useI18n } from "@willowsum/i18n";
+import { formatNumber, useI18n, type MessageKey } from "@willowsum/i18n";
 import { AmountField, Button, Skeleton } from "@willowsum/ui";
 import { useAuthApi } from "../../auth/api.ts";
 import { GoalDialog } from "../goals/GoalDialog.tsx";
 import {
   loadDistribution,
   previewAllocation,
+  PLAN,
+  SRC,
   type Allocation,
+  type AllocationRows,
   type Distribution,
   type PlanArgs,
 } from "./distribution.ts";
 import { createBody, type Money } from "./wizard.ts";
+
+export { PLAN, SRC };
 
 /** What the server said about the plan not saved yet; `pending` while a newer request is on its way. */
 export interface AllocationState {
   readonly allocation: Allocation | null;
   readonly pending: boolean;
   readonly failed: boolean;
+  /**
+   * The server refused the typed rows (`400 VALIDATION_FAILED` on `allocation…`): `short` — a deficit not covered
+   * exactly, `over` — anything else (more than N, more than a goal's contribution). The step stays open; no figure of
+   * the refused rows is shown.
+   */
+  readonly refused: "short" | "over" | null;
   readonly retry: () => void;
 }
 
 /**
  * The server's calculation for the plan on screen (BUD-02@PoC FR 3, FR 15, AC6, AC7): runs again on every change of the
- * limits, the income plan or the chosen amounts; an answer to an older request is dropped.
+ * limits, the income plan or the typed rows; an answer to an older request is dropped.
  */
-export function useAllocation(args: PlanArgs | null, chosen: readonly string[]): AllocationState {
+export function useAllocation(args: PlanArgs | null, rows: AllocationRows): AllocationState {
   const api = useAuthApi();
   // The last answer and the request (its key) it answers; `pending` is derived: the key of the screen moved on.
-  const [done, setDone] = useState<{ key: string; allocation: Allocation | null; failed: boolean }>({
-    key: "",
-    allocation: null,
-    failed: false,
-  });
+  const [done, setDone] = useState<{
+    key: string;
+    allocation: Allocation | null;
+    failed: boolean;
+    refused: "short" | "over" | null;
+  }>({ key: "", allocation: null, failed: false, refused: null });
   const [attempt, setAttempt] = useState(0);
-  const key = args ? `${attempt}${JSON.stringify([createBody(args), chosen])}` : "";
+  const key = args ? `${attempt}${JSON.stringify(createBody({ ...args, rows }))}` : "";
   const latest = useRef(key);
   useEffect(() => {
     latest.current = key;
     if (!args) return;
-    void previewAllocation(api, args, chosen).then((o) => {
+    void previewAllocation(api, args, rows).then((o) => {
       if (latest.current !== key) return;
-      setDone((s) => ({ key, allocation: o.ok ? o.data : s.allocation, failed: !o.ok }));
+      const refused = o.ok ? null : refusal(o);
+      setDone((s) =>
+        refused
+          ? { key, allocation: s.allocation && { ...s.allocation, choice: null }, failed: false, refused }
+          : { key, allocation: o.ok ? o.data : s.allocation, failed: !o.ok, refused: null },
+      );
     });
     // The arguments are rebuilt on every render; the key stands for their content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,24 +66,76 @@ export function useAllocation(args: PlanArgs | null, chosen: readonly string[]):
     allocation: done.allocation,
     pending: args !== null && done.key !== key,
     failed: args !== null && done.key === key && done.failed,
+    refused: args !== null && done.key === key ? done.refused : null,
     retry: () => setAttempt((n) => n + 1),
   };
 }
 
+/** `400 VALIDATION_FAILED` whose every error is on `allocation…`: the rows typed on the step, not a failure. */
+function refusal(o: {
+  kind: string;
+  problem?: { code: string; errors?: readonly { path?: string; issue?: string }[] };
+}) {
+  const errors =
+    o.kind === "problem" && o.problem?.code === "VALIDATION_FAILED" ? (o.problem.errors ?? []) : [];
+  if (errors.length === 0 || !errors.every((e) => e.path?.startsWith("allocation"))) return null;
+  return errors.some((e) => e.path === "allocation" && e.issue === "short")
+    ? ("short" as const)
+    : ("over" as const);
+}
+
+/**
+ * BUD-03@PoC FR 2 (BUD-02@PoC FR 3, AC6): «Можна витратити в <місяць> ≈ M» as the server calculated it for the plan on
+ * screen. Without a figure (`amount` null) the reason is said and no amount is shown: never a partial one.
+ */
+export function SpendableLine({
+  spendable,
+  hint,
+  money,
+}: {
+  spendable: Spendable;
+  hint: string;
+  money: (m: Money) => string;
+}) {
+  const { t } = useI18n();
+  const month = t(`planning.budget.month.${spendable.period.slice(5, 7)}.loc` as MessageKey);
+  const missing = spendable.missing[0];
+  return (
+    <span className="bud-wiz-spend">
+      <strong>
+        {spendable.amount
+          ? t("planning.budget.wizard.spendable", { month, amount: money(spendable.amount) })
+          : t("planning.budget.wizard.spendable.unknown", { month })}
+      </strong>
+      <span className="ws-muted">
+        {spendable.amount
+          ? hint
+          : t(
+              missing === "rates"
+                ? "planning.budget.wizard.spendable.rates"
+                : "planning.budget.wizard.spendable.obligations",
+            )}
+      </span>
+    </span>
+  );
+}
+type Spendable = Allocation["spendable"];
+
 /**
  * AC6: the bottom strip of the limits step. Nothing while the server cannot tell (`balance: null`), has not answered,
  * has a newer calculation on its way or failed: a figure that does not match the limits on screen is never shown. The
- * live region is always mounted and filled, so a screen reader announces the change.
+ * live region is always mounted and filled, so a screen reader announces the change. «Можна витратити» is under the
+ * difference (FR 3) and shown whenever the answer is current, also when the difference is unknown.
  */
 export function LimitsStrip({ state, money }: { state: AllocationState; money: (m: Money) => string }) {
   const { t } = useI18n();
   const a = state.allocation;
   const b = a?.balance;
-  const show = a && b && !state.pending && !state.failed;
+  const current = a !== null && !state.pending && !state.failed;
   return (
-    <div className="bud-wiz-strip" role="status" data-empty={!show}>
-      {show ? (
-        <>
+    <div className="bud-wiz-strip" role="status" data-empty={!current}>
+      {current && b ? (
+        <span className="bud-wiz-strip-diff">
           <strong>{t("planning.budget.wizard.strip.unallocated", { amount: money(b.unallocated) })}</strong>
           <span className="ws-muted">
             {t("planning.budget.wizard.strip.formula", {
@@ -75,17 +144,26 @@ export function LimitsStrip({ state, money }: { state: AllocationState; money: (
               recurring: money(b.recurringOutsideLimits),
             })}
           </span>
-        </>
+        </span>
+      ) : null}
+      {current ? (
+        <SpendableLine
+          spendable={a.spendable}
+          hint={t("planning.budget.wizard.spendable.hint.limits")}
+          money={money}
+        />
       ) : null}
     </div>
   );
 }
 
-type Row = { readonly key: string; readonly title: string; readonly hint: string | null };
-
-/** Keys of the chosen amounts: `plan:` rows of a surplus, `src:` rows of a deficit. */
-export const PLAN = "plan:";
-export const SRC = "src:";
+type Row = {
+  readonly key: string;
+  readonly title: string;
+  readonly hint: string | null;
+  /** «Із заощаджень», «У борг»: not saved in PoC (owner Q3 а), shown with the reason, no amount can be typed. */
+  readonly notSaved?: boolean;
+};
 
 export function DistributionStep({
   currency,
@@ -136,13 +214,20 @@ export function DistributionStep({
     <div className="bud-wiz-row" key={row.key}>
       <span>
         <strong>{row.title}</strong>
-        {row.hint ? <span className="ws-muted">{row.hint}</span> : null}
+        {row.hint || row.notSaved ? (
+          <span className="ws-muted">
+            {[row.hint, row.notSaved ? t("planning.budget.wizard.dist.notSaved") : null]
+              .filter((p) => p !== null)
+              .join(" · ")}
+          </span>
+        ) : null}
       </span>
       <AmountField
         label={t("planning.budget.wizard.dist.amountOf", { name: row.title })}
         labelHidden
         currency={currency}
-        value={chosen.get(row.key) ?? null}
+        value={row.notSaved ? null : (chosen.get(row.key) ?? null)}
+        disabled={row.notSaved === true}
         onChange={(v, problem) => onChosen(row.key, v, problem !== null)}
       />
     </div>
@@ -164,7 +249,7 @@ export function DistributionStep({
     <p className="ws-muted">{t(`planning.budget.wizard.dist.planOnly.${kind}`)}</p>
   );
   const choice = a.choice;
-  const over = choice?.status === "over";
+  const over = choice?.status === "over" || alloc.refused === "over";
   const overNote = over ? (
     <p role="alert" className="bud-wiz-error">
       {t("planning.budget.wizard.dist.over", { amount: money(b?.amount ?? a.limits) })}
@@ -308,6 +393,7 @@ export function DistributionStep({
             key: `${SRC}save:${s.id}`,
             title: t("planning.budget.wizard.dist.fromSavings", { account: accountName(s) }),
             hint: s.amount ? money(s.amount) : null,
+            notSaved: true,
           }),
         ),
         ...d.cards.map((c) =>
@@ -317,6 +403,7 @@ export function DistributionStep({
             hint: c.amount
               ? t("planning.budget.wizard.dist.toDebt.hint", { available: money(c.amount) })
               : null,
+            notSaved: true,
           }),
         ),
         <div className="bud-wiz-row" key="cut">
@@ -331,7 +418,8 @@ export function DistributionStep({
           />
         </div>,
       ])}
-      <div className="bud-wiz-covered" role="status">
+      {/* Refused rows (`short`): no «Покрито» figure of them; the reason is at «Створити бюджет». */}
+      <div className="bud-wiz-covered" role="status" hidden={alloc.refused !== null}>
         <strong>
           {t("planning.budget.wizard.dist.covered", {
             covered: money(choice?.chosen ?? { amount: "0", currency }),
