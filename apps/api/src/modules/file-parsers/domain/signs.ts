@@ -45,7 +45,10 @@ export interface SignReview {
   readonly rows: readonly RowSign[];
   /** The group «потребує перегляду»: rows with an unconfirmed sign, from 1. */
   readonly unconfirmed: readonly number[];
-  /** FR 6 «знак картки»: a credit card, no confirmed sign, most rows positive; null otherwise. */
+  /**
+   * FR 6 «знак картки»: a credit card, no confirmed sign, most rows positive — or a credit card's positive printed
+   * balance the chain does not confirm (Рішення власника (2026-11-20), п. 6); null otherwise.
+   */
   readonly card: { readonly positive: number; readonly negative: number } | null;
 }
 
@@ -58,6 +61,12 @@ export interface SignContext {
   readonly card: boolean;
   /** The account is a credit card (accounts' kind «credit-card», or a card in the file when the kind is not known). */
   readonly creditCard: boolean;
+  /**
+   * A credit card's positive printed balance that the balance chain does not confirm as debt (Рішення власника
+   * (2026-11-20), п. 6): the chain and the totals, read in the debt basis, confirm no sign, and the batch gets «знак
+   * картки» whatever the majority.
+   */
+  readonly debtUnconfirmed?: boolean;
 }
 
 export function reviewSigns(
@@ -67,24 +76,26 @@ export function reviewSigns(
 ): SignReview {
   const mode = analysis.sign?.chosen.value ?? "as-printed";
   const bothSigns = analysis.sign?.evidence.some((e) => e.code === "negative-amounts") ?? false;
+  const debt = context.debtUnconfirmed ?? false;
   const fallback: SignBasis = context.profile ? "profile" : context.card ? "card" : "majority";
   const rows = statement.events
     .filter((e) => e.legs.length > 0)
     .map((e): RowSign => {
       const unclear = e.flags.includes("sign-unclear");
-      const basis: SignBasis = context.chainRows.has(e.row)
-        ? "balance-chain"
-        : context.totalsVerified
-          ? "totals"
-          : unclear
-            ? fallback
-            : mode === "indicator"
-              ? "direction-word"
-              : mode === "debit-credit"
-                ? "debit-credit"
-                : mode === "as-printed" && bothSigns
-                  ? "printed-both-signs"
-                  : fallback;
+      const basis: SignBasis =
+        !debt && context.chainRows.has(e.row)
+          ? "balance-chain"
+          : !debt && context.totalsVerified
+            ? "totals"
+            : unclear
+              ? fallback
+              : mode === "indicator"
+                ? "direction-word"
+                : mode === "debit-credit"
+                  ? "debit-credit"
+                  : mode === "as-printed" && bothSigns
+                    ? "printed-both-signs"
+                    : fallback;
       return { row: e.row, basis, confidence: SIGN_CONFIDENCE[basis], confirmed: !WEAK.has(basis) };
     });
   const amounts = statement.events.flatMap((e) =>
@@ -93,7 +104,7 @@ export function reviewSigns(
   const positive = amounts.filter((a) => a.isPositive() && !a.isZero()).length;
   const negative = amounts.filter((a) => a.isNegative()).length;
   const card =
-    context.creditCard && rows.length > 0 && rows.every((r) => !r.confirmed) && positive > negative
+    debt || (context.creditCard && rows.length > 0 && rows.every((r) => !r.confirmed) && positive > negative)
       ? { positive, negative }
       : null;
   return { rows, unconfirmed: rows.filter((r) => !r.confirmed).map((r) => r.row), card };
