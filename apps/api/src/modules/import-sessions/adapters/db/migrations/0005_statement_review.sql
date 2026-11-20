@@ -8,6 +8,10 @@
 -- Additive: the code before this migration never reads or writes these tables. Both go with their batch (ON DELETE
 -- CASCADE), so «Видалити» and the daily cleanup remove them too. Row-level security on household_id is added by the
 -- migration runner (ARC-03 FR 2).
+-- A row of either table belongs to its file's batch: the unique index below lets the foreign keys name the batch and
+-- the file together. It holds the primary key's columns, so no row of the code before this migration can break it.
+CREATE UNIQUE INDEX batch_files_batch_file ON batch_files (household_id, batch_id, id);
+
 CREATE TABLE file_checks (
   household_id uuid NOT NULL,
   batch_file_id uuid NOT NULL,
@@ -21,8 +25,9 @@ CREATE TABLE file_checks (
   recorded_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (household_id, batch_file_id),
   -- Checked at commit: a load of whole tables in name order (the synthetic data) writes this table before batch_files.
-  FOREIGN KEY (household_id, batch_file_id) REFERENCES batch_files (household_id, id) ON DELETE CASCADE
-    DEFERRABLE INITIALLY DEFERRED
+  -- The file of this batch, never another batch's.
+  FOREIGN KEY (household_id, batch_id, batch_file_id) REFERENCES batch_files (household_id, batch_id, id)
+    ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX file_checks_batch ON file_checks (household_id, batch_id);
 -- FR 3: the previous statement of an account.
@@ -39,5 +44,8 @@ CREATE TABLE decisions (
   decided_at timestamptz NOT NULL,
   PRIMARY KEY (household_id, batch_id, slot),
   FOREIGN KEY (household_id, batch_id) REFERENCES batches (household_id, id) ON DELETE CASCADE
-    DEFERRABLE INITIALLY DEFERRED
+    DEFERRABLE INITIALLY DEFERRED,
+  -- A file's decision names a file of this batch (MATCH SIMPLE: a batch-wide decision has no file).
+  FOREIGN KEY (household_id, batch_id, batch_file_id) REFERENCES batch_files (household_id, batch_id, id)
+    ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );

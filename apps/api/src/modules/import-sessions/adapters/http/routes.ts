@@ -429,7 +429,13 @@ function presentDecided(d: Decided): z.input<typeof decidedSchema> {
   return { decision: sent, decidedAt: d.decidedAt.toISOString() };
 }
 
-const decisionsResponse = z.object({ version: z.number().int(), decisions: z.array(decidedSchema) });
+const decisionsResponse = z.object({
+  version: z.number().int(),
+  decisions: z.array(decidedSchema),
+  /** GET: the cursor of the next page; null on the last page (and always on POST). */
+  nextCursor: z.string().nullable(),
+});
+const decisionCursor = z.object({ s: z.string().min(3).max(120) });
 
 export const decideImportBatchRoute = defineRoute({
   module: MODULE,
@@ -445,7 +451,11 @@ export const decideImportBatchRoute = defineRoute({
     body: z.strictObject({ decisions: z.array(decisionSchema).min(1).max(DECISIONS_PER_REQUEST) }),
   },
   problems: ["BATCH_STATE_CONFLICT", "READING_TOO_PRECISE", "IMPORT_DECISION_INVALID"],
-  response: { status: 200, description: "The batch's decisions now", schema: decisionsResponse },
+  response: {
+    status: 200,
+    description: "This request's decisions as stored (at most 200)",
+    schema: decisionsResponse,
+  },
   handler: async ({ params, body }, ctx) => {
     owner(ctx);
     const { deps, audit } = importSessionsServices(ctx);
@@ -458,7 +468,7 @@ export const decideImportBatchRoute = defineRoute({
       }),
     );
     await handOffNow(audit, householdId, handOffs);
-    return { version, decisions: result.map(presentDecided) };
+    return { version, decisions: result.map(presentDecided), nextCursor: null };
   },
 });
 
@@ -467,20 +477,27 @@ export const listImportDecisionsRoute = defineRoute({
   method: "GET",
   path: "/v1/import/batches/{batchId}/decisions",
   operationId: "listImportDecisions",
-  summary: "The batch's decisions (IMP-05 FR 10)",
+  summary: "The batch's decisions (IMP-05 FR 10), a page at a time by slot",
   access: READ,
-  request: { params: batchParams },
-  response: { status: 200, description: "The batch's decisions", schema: decisionsResponse },
-  handler: async ({ params }, ctx) => {
+  // Paged with pageQuery (≤ 100 a page); the answer keeps `decisions` and the batch's `version` beside the cursor.
+  request: { params: batchParams, query: pageQuery },
+  response: { status: 200, description: "A page of the batch's decisions", schema: decisionsResponse },
+  handler: async ({ params, query }, ctx) => {
     owner(ctx);
     importSessionsServices(ctx);
+    const after = query.cursor ? decodeCursor(query.cursor, decisionCursor).s : undefined;
     return guarded(() =>
       ctx.inHousehold(async (q) => {
         const tx = batchesTx(q);
-        const decisions = await decisionsOf(tx, params.batchId);
+        const rows = await decisionsOf(tx, params.batchId, {
+          limit: query.limit + 1,
+          ...(after !== undefined ? { after } : {}),
+        });
+        const page = rows.slice(0, query.limit);
         return {
           version: (await tx.findBatch(params.batchId))!.version,
-          decisions: decisions.map(presentDecided),
+          decisions: page.map(presentDecided),
+          nextCursor: rows.length > query.limit ? encodeCursor({ s: page.at(-1)!.slot }) : null,
         };
       }),
     );
@@ -507,6 +524,8 @@ const refusalSchema = z.discriminatedUnion("code", [
     files: z.array(
       z.object({
         fileId: z.uuid(),
+        /** The file has no account yet: one is chosen for it first. */
+        missing: z.boolean(),
         /** Masked to the last 4 characters. */
         reasons: z.array(
           z.object({ kind: z.enum(["iban", "card", "currency"]), file: z.string(), account: z.string() }),

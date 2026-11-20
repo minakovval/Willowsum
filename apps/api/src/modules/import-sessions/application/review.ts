@@ -206,6 +206,8 @@ export type Refusal =
       readonly code: "confirm-account";
       readonly files: readonly {
         readonly fileId: string;
+        /** The file has no account yet: one is chosen for it first (no decision confirms it). */
+        readonly missing: boolean;
         /** Masked to the last 4 characters (IBAN, card); a currency by its code. */
         readonly reasons: readonly MismatchReason[];
         readonly suggestedAccountId: string | null;
@@ -292,10 +294,13 @@ export function readiness(files: readonly FileReview[], decisions: readonly Deci
           : (groups[0] ?? null);
     };
 
-    // FR 4, AC3.
-    if (checks.account.status === "mismatch" && at.get(`account:${id}`)?.kind !== "account")
+    // FR 4, AC3; a file with no account yet is never applied: the account is chosen first (`missing`).
+    if (f.accountId === null)
+      accounts.push({ fileId: id, missing: true, reasons: [], suggestedAccountId: f.suggestedAccountId });
+    else if (checks.account.status === "mismatch" && at.get(`account:${id}`)?.kind !== "account")
       accounts.push({
         fileId: id,
+        missing: false,
         reasons: checks.account.reasons,
         suggestedAccountId: f.suggestedAccountId,
       });
@@ -310,7 +315,11 @@ export function readiness(files: readonly FileReview[], decisions: readonly Deci
       const own = at.get(`reading:${id}:${c.row}`);
       const decimal =
         own?.kind === "reading" ? own.decimal : fileReading?.kind === "reading" ? fileReading.decimal : null;
-      const reading = decimal === null ? undefined : c.readings.find((r) => r.decimal === decimal);
+      // AC7: a file-wide answer never brings in a reading the currency refuses; such a row stays a question.
+      const reading =
+        decimal === null
+          ? undefined
+          : c.readings.find((r) => r.decimal === decimal && readingFits(r.value, currencyOf(f)));
       if (reading) readings.push({ row: c.row, value: reading.value });
       else {
         const d = disposition(c.row);
@@ -319,10 +328,9 @@ export function readiness(files: readonly FileReview[], decisions: readonly Deci
     }
     const order = at.get(`date-order:${id}`);
     const dateOrder = order?.kind === "date-order" ? order.order : null;
-    const dateOpen =
-      checks.clarifications.some((c) => c.kind === "date-order") &&
-      dateOrder === null &&
-      group("clarify") === null;
+    // FR 8: the order of day and month needs its own answer; a group decision never closes it (it would leave the
+    // engine's assumed order in the plan).
+    const dateOpen = checks.clarifications.some((c) => c.kind === "date-order") && dateOrder === null;
     if (unanswered.length > 0 || dateOpen) questions.push({ ...left(id, unanswered), dateOrder: dateOpen });
 
     // FR 5, AC4: every row of «потребує перегляду» has a decision.

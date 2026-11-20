@@ -1112,7 +1112,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** The batch's decisions (IMP-05 FR 10) */
+        /** The batch's decisions (IMP-05 FR 10), a page at a time by slot */
         get: operations["listImportDecisions"];
         put?: never;
         /** Decisions on a parsed batch (IMP-05 FR 10): rows, groups, readings, flags, the account and the balance choice; all or none; each replaces the one before until the batch is applied */
@@ -14282,7 +14282,12 @@ export interface operations {
     };
     listImportDecisions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: string;
+                /** @description Items per page, 1–100. */
+                limit?: number;
+            };
             header?: never;
             path: {
                 batchId: string;
@@ -14291,7 +14296,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The batch's decisions */
+            /** @description A page of the batch's decisions */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -14351,6 +14356,7 @@ export interface operations {
                                 kind: "balance";
                             };
                         }[];
+                        nextCursor: string | null;
                         version: number;
                     };
                 };
@@ -14497,7 +14503,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The batch's decisions now */
+            /** @description This request's decisions as stored (at most 200) */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -14557,6 +14563,7 @@ export interface operations {
                                 kind: "balance";
                             };
                         }[];
+                        nextCursor: string | null;
                         version: number;
                     };
                 };
@@ -14980,6 +14987,7 @@ export interface operations {
                             files: {
                                 /** Format: uuid */
                                 fileId: string;
+                                missing: boolean;
                                 reasons: {
                                     account: string;
                                     file: string;

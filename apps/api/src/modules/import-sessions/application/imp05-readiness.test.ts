@@ -162,6 +162,36 @@ describe("IMP-05@PoC FR 11: the readiness to apply", () => {
     expect(r.files[0]!.dateOrder).toBe("mdy");
   });
 
+  it("IMP-05@PoC FR 8: a group decision on «потребує уточнення» never closes the order of day and month", () => {
+    const c = checks({
+      clarifications: [
+        {
+          kind: "date-order",
+          rows: 3,
+          example: {
+            cell: "03.04.2026",
+            readings: [
+              { order: "dmy", value: "2026-04-03" },
+              { order: "mdy", value: "2026-03-04" },
+            ],
+          },
+        },
+      ],
+    });
+    for (const action of ["exclude", "accept"] as const)
+      for (const fileId of [FILE, null]) {
+        const r = readiness(
+          [file(c)],
+          decided([file(c)], [{ kind: "group", fileId, group: "clarify", action }]),
+        );
+        expect(r.ready).toBe(false);
+        expect(r.refusals).toEqual([
+          { code: "clarifications", files: [{ fileId: FILE, rows: [], count: 0, dateOrder: true }] },
+        ]);
+        expect(r.files[0]!.dateOrder).toBeNull();
+      }
+  });
+
   it("IMP-05@PoC FR 11: rows whose sign is not confirmed refuse with «Потрібен перегляд рядків» until each has a decision", () => {
     const c = checks({ signs: unconfirmedSigns([2, 3]) });
     expect(readiness([file(c)], []).refusals).toEqual([
@@ -291,6 +321,7 @@ describe("IMP-05@PoC FR 4: another account's file", () => {
         files: [
           {
             fileId: FILE,
+            missing: false,
             reasons: [{ kind: "iban", file: "…4821", account: "…1190" }],
             suggestedAccountId: SUGGESTED,
           },
@@ -298,6 +329,19 @@ describe("IMP-05@PoC FR 4: another account's file", () => {
       },
     ]);
     expect(readiness(files, decided(files, [{ kind: "account", fileId: FILE }])).ready).toBe(true);
+  });
+
+  it("IMP-05@PoC FR 4: a file with no account yet is refused with «Підтвердіть рахунок» and no decision confirms it", () => {
+    const files = [file(checks(), FILE, { accountId: null })];
+    const r = readiness(files, []);
+    expect(r.ready).toBe(false);
+    expect(r.refusals).toEqual([
+      {
+        code: "confirm-account",
+        files: [{ fileId: FILE, missing: true, reasons: [], suggestedAccountId: null }],
+      },
+    ]);
+    expect(() => decided(files, [{ kind: "account", fileId: FILE }])).toThrow(DecisionRefused);
   });
 
   it("IMP-05@PoC FR 4: the confirmation is refused for a file whose account agrees, and a flag confirmation is no account confirmation", () => {
@@ -343,6 +387,28 @@ describe("IMP-05@PoC FR 7: readings of an ambiguous amount", () => {
       { row: 1, value: "1234" },
       { row: 3, value: "5.678" },
     ]);
+  });
+
+  it("IMP-05@PoC FR 7: «застосувати до файлу» never gives another row a reading its currency refuses", () => {
+    const f = file(
+      checks({
+        currency: null,
+        clarifications: [
+          amountQuestion(1, "1.234", "1234", "1.234"),
+          amountQuestion(2, "12,345", "12.345", "12345"),
+        ],
+      }),
+    );
+    const r = readiness(
+      [f],
+      decided([f], [{ kind: "reading", fileId: FILE, row: 1, value: "1234", applyToFile: true }]),
+    );
+    expect(r.files[0]!.readings).toEqual([{ row: 1, value: "1234" }]);
+    expect(r.ready).toBe(false);
+    expect(r.refusals[0]).toMatchObject({
+      code: "clarifications",
+      files: [{ fileId: FILE, rows: [2], count: 1 }],
+    });
   });
 
   it("IMP-05@PoC AC7: with EUR a reading with three decimals is refused", () => {

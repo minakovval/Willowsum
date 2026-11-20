@@ -555,6 +555,69 @@ describe("IMP-05@PoC FR 7, FR 10: decisions", () => {
   });
 });
 
+describe("IMP-05@PoC FR 10: the schema ties checks and decisions to their file's batch", () => {
+  it("IMP-05@PoC FR 10: a check or a decision that names a file of another batch is refused by the database", async () => {
+    const space = await newSpace();
+    const a = await batchWithFile(space);
+    const b = await batchWithFile(space);
+    const insert = (sql: string, values: unknown[]) =>
+      db.databases.for("import-sessions").inHousehold(space.householdId, (q) => q.query(sql, values));
+    await expect(
+      insert(
+        `INSERT INTO file_checks (household_id, batch_file_id, batch_id, checks, history)
+         VALUES ($1, $2, $3, '{}', '{}')`,
+        [space.householdId, b.fileIds[0], a.batchId],
+      ),
+    ).rejects.toThrow(/foreign key/);
+    await expect(
+      insert(
+        `INSERT INTO decisions (household_id, batch_id, slot, batch_file_id, decision, decided_by, decided_at)
+         VALUES ($1, $2, 'account:x', $3, '{}', $4, now())`,
+        [space.householdId, a.batchId, b.fileIds[0], space.accountId],
+      ),
+    ).rejects.toThrow(/foreign key/);
+    expect(await count("import_sessions.file_checks WHERE household_id = $1", space.householdId)).toBe(0);
+    expect(await count("import_sessions.decisions WHERE household_id = $1", space.householdId)).toBe(0);
+  });
+
+  it("IMP-05@PoC FR 10: «GET …/decisions» is paged by slot; «POST» answers with that request's decisions only", async () => {
+    const space = await newSpace();
+    const batch = await batchWithFile(space);
+    await parsed(
+      space,
+      batch,
+      checks({
+        signs: {
+          rows: [1, 2, 3].map((row) => ({ row, basis: "card" as const, confidence: 0.5, confirmed: false })),
+          unconfirmed: [1, 2, 3],
+          card: null,
+        },
+      }),
+    );
+    const fileId = batch.fileIds[0];
+    await decide(space, batch.batchId, [
+      { kind: "row", fileId, row: 1, action: "accept" },
+      { kind: "row", fileId, row: 2, action: "accept" },
+    ]);
+    const second = await decide(space, batch.batchId, [{ kind: "row", fileId, row: 3, action: "exclude" }]);
+    expect(second.json().decisions.map((d: { decision: { row: number } }) => d.decision.row)).toEqual([3]);
+    expect(second.json().nextCursor).toBeNull();
+    const url = `/v1/import/batches/${batch.batchId}/decisions`;
+    const first = (await call(space, "GET", `${url}?limit=2`)).json();
+    expect(first.decisions).toHaveLength(2);
+    expect(first.nextCursor).toEqual(expect.any(String));
+    const rest = (await call(space, "GET", `${url}?limit=2&cursor=${first.nextCursor}`)).json();
+    expect(rest.decisions).toHaveLength(1);
+    expect(rest.nextCursor).toBeNull();
+    expect(
+      [...first.decisions, ...rest.decisions]
+        .map((d: { decision: { row: number } }) => d.decision.row)
+        .sort(),
+    ).toEqual([1, 2, 3]);
+    expect((await call(space, "GET", `${url}?limit=101`)).statusCode).toBe(400);
+  });
+});
+
 describe("IMP-05@PoC: the space's boundary", () => {
   it("IMP-05@PoC FR 10, FR 11: another space's batch is «not found» on every route, and a scoped member sees none; nothing is written", async () => {
     const space = await newSpace();

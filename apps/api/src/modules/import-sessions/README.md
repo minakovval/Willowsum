@@ -48,8 +48,10 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
   оригіналами; дописує видалення, що зупинилося на півдорозі. Записи аудиту — від системи.
 - `POST /v1/import/batches/{batchId}/decisions` (до 200 рішень, усі або жодного; рішення в тому самому слоті замінює
   попереднє; лише в станах «розібрано» і «потребує перегляду», інакше 409; 422 `READING_TOO_PRECISE` /
-  `IMPORT_DECISION_INVALID` з індексом рішення), `GET …/decisions`, `GET …/readiness` (`ready`, `refusals` з кодами
-  `READINESS_CODES` і текстами, вибір залишку й розрив історії кожного файлу; файл без перевірок — 409). Права
+  `IMPORT_DECISION_INVALID` з індексом рішення; відповідь — рішення цього запиту), `GET …/decisions` (сторінка за слотом,
+  `limit` ≤ 100, `cursor`), `GET …/readiness` (`ready`, `refusals` з кодами
+  `READINESS_CODES` і текстами — файл без рахунку теж «Підтвердіть рахунок» з `missing: true`, вибір залишку й розрив
+  історії кожного файлу; файл без перевірок — 409). Права
   `household.data.write` / `read`; партія іншого простору — 404.
 - `createImportSessionsReview({ db, audit, now, newId })` → `record(householdId, RecordInput)` (партія «в обробці»; новий запис
   файлу скидає рішення цього файлу й партії) і `readiness(householdId, batchId)` → `BatchReadiness` (відмови і `FilePlan`:
@@ -83,7 +85,8 @@ file-storage (збереження, видалення, посилання й в
 - `batch_files` — файл партії за порядком: прийнятий — id оригіналу у file-storage, формат і розмір; відхилений — лише код
   причини. Назва файлу очищена так само, як у file-storage. Байтів у базі немає.
 - `file_checks` — перевірки прийнятого файлу (jsonb), рахунок (id з accounts, без зовнішнього ключа), його валюта,
-  запропонований рахунок, розрив історії й попередня виписка; `decisions` — рішення за слотами (`row:…`, `reading:…`,
+  запропонований рахунок, розрив історії й попередня виписка; ключ `(household_id, batch_id, batch_file_id)` → `batch_files`
+  тримає рядок при файлі своєї партії (так само `decisions` з файлом); `decisions` — рішення за слотами (`row:…`, `reading:…`,
   `date-order:…`, `group:…`, `flag:…`, `account:…`, `balance:…`; `batch` — уся партія). Обидві йдуть разом з партією.
 - `jobs`, `outbox_events` — черга модуля (ARC-04, міграція платформи дослівно); `idempotency_keys` — ключі ідемпотентності
   маршруту створення (ARC-07).
@@ -92,5 +95,6 @@ file-storage (збереження, видалення, посилання й в
 
 `domain/imp01-batch-states.test.ts` (кожен перехід станів, дозволений і заборонений), `test/imp01-import-batches.it.test.ts`
 (маршрути на PostgreSQL), `test/imp01-import-batch-lifecycle.it.test.ts` (скасування, видалення, щоденне прибирання),
-`src/platform/http/upload.test.ts` (читання multipart), `application/imp05-readiness.test.ts` (рішення й готовність),
+`src/platform/http/upload.test.ts` (читання multipart), `application/imp05-readiness.test.ts` (рішення й готовність), `application/sec636-readiness.test.ts`,
+`test/sec636-decisions.it.test.ts` (рецензія безпеки #636),
 `test/imp05-batch-decisions.it.test.ts` (перевірки, розрив історії, рішення й готовність на PostgreSQL).

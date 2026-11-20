@@ -43,7 +43,11 @@ export interface ReviewTx {
     accountId: string,
     batchId: string,
   ): Promise<{ readonly fileId: string; readonly bounds: StatementBounds } | null>;
-  decisions(batchId: string): Promise<Decided[]>;
+  /** All the batch's decisions (the readiness); `page` — at most `limit` after the slot `after`, by slot. */
+  decisions(
+    batchId: string,
+    page?: { readonly limit: number; readonly after?: string; readonly slots?: readonly string[] },
+  ): Promise<Decided[]>;
   upsertDecision(batchId: string, decided: Decided): Promise<void>;
   /** The decisions of one file and the batch's own: a new parse of the file makes them stale. */
   dropDecisions(batchId: string, fileId: string): Promise<void>;
@@ -159,13 +163,20 @@ export async function decide(
       { field: "decisions.kinds", before: null, after: kinds },
     ],
   });
-  return { result: await tx.decisions(batchId), handOffs: [h] };
+  // The answer is this request's decisions as stored (≤ DECISIONS_PER_REQUEST), never the whole batch's.
+  const slots = [...new Set(decided.map((d) => d.slot))];
+  return { result: await tx.decisions(batchId, { limit: slots.length, slots }), handOffs: [h] };
 }
 
-export async function decisionsOf(tx: ReviewBatchesTx, batchId: string): Promise<Decided[]> {
+/** A page of the batch's decisions by slot: at most `limit`, after the slot `after`. */
+export async function decisionsOf(
+  tx: ReviewBatchesTx,
+  batchId: string,
+  page: { readonly limit: number; readonly after?: string },
+): Promise<Decided[]> {
   const batch = await tx.findBatch(batchId);
   if (!batch) throw new BatchNotFoundError();
-  return tx.decisions(batchId);
+  return tx.decisions(batchId, page);
 }
 
 export interface BatchReadiness extends Readiness {

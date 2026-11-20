@@ -236,7 +236,7 @@ export function batchesTx(q: HouseholdQueryRunner): ReviewBatchesTx {
       );
       return rows[0] ? { fileId: rows[0].batch_file_id, bounds: rows[0].bounds } : null;
     },
-    async decisions(batchId) {
+    async decisions(batchId, page) {
       const { rows } = await q.query<{
         slot: string;
         batch_file_id: string | null;
@@ -245,8 +245,10 @@ export function batchesTx(q: HouseholdQueryRunner): ReviewBatchesTx {
         decided_at: Date;
       }>(
         `SELECT slot, batch_file_id, decision, decided_by, decided_at FROM decisions
-         WHERE household_id = $1 AND batch_id = $2 ORDER BY slot`,
-        [h, batchId],
+         WHERE household_id = $1 AND batch_id = $2 AND ($3::text IS NULL OR slot COLLATE "C" > $3)
+           AND ($4::text[] IS NULL OR slot = ANY($4))
+         ORDER BY slot COLLATE "C" LIMIT $5`,
+        [h, batchId, page?.after ?? null, page?.slots ?? null, page?.limit ?? null],
       );
       return rows.map((r) => ({
         slot: r.slot,
