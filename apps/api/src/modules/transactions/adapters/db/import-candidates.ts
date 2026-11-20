@@ -13,6 +13,7 @@ export interface ImportCandidate {
   /** Signed, in the transaction's currency. */
   readonly amount: Money;
   readonly date: string;
+  /** The bank's text of an imported one (kept apart from the user's edits, #637), else the description. */
   readonly description: string | null;
   /** The balance after the operation as the statement printed it; null — none (a manual one). */
   readonly balanceAfter: Money | null;
@@ -54,7 +55,8 @@ interface Row {
 
 /** The statement of one page (exported for the test of its plan on the index). */
 export const IMPORT_CANDIDATES_SQL = `SELECT t.id, t.account_id, t.amount::text AS amount, t.currency, t.occurred_on::text AS occurred_on,
-          t.description, t.balance_after::text AS balance_after, t.status, t.source, t.import_batch_id, t.hidden,
+          COALESCE(t.bank_description, t.description) AS description, t.balance_after::text AS balance_after,
+          t.status, t.source, t.import_batch_id, t.hidden,
           t.transfer_id IS NOT NULL AS transfer,
           EXISTS (SELECT 1 FROM transactions m
                    WHERE m.household_id = t.household_id AND m.merged_into = t.id) AS matched

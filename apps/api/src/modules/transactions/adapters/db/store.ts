@@ -32,7 +32,7 @@ interface Row {
   counterparty: string | null;
   description: string | null;
   status: TransactionStatus;
-  source: "manual";
+  source: "manual" | "imported";
   hidden: boolean;
   split_mode: SplitMode | null;
   split_needs_review: boolean;

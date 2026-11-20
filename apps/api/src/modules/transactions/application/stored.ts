@@ -13,7 +13,8 @@ export interface StoredTransaction {
   readonly description: string | null;
   /** FIN-03 FR 24: «Очікує» has no journal event until it is posted (FR 4). */
   readonly status: TransactionStatus;
-  readonly source: "manual";
+  /** «imported» — a row of a statement file written by the apply of an import batch (IMP-01@PoC FR 11). */
+  readonly source: "manual" | "imported";
   /** FIN-03 FR 16, FR 17: out of the list, the budget and the reports; a manual one (a duplicate) also leaves the balance, an imported one keeps its journal event. */
   readonly hidden: boolean;
   /** BUD-13 FR 6–8: the budget's view of the amount; null — not split. */
