@@ -156,6 +156,7 @@ export function readFigures(
     currency: null,
     rows: [],
   };
+  const figureRows: number[] = [];
   const exclude = new Set<number>();
   const abs = (value: string | null) => (value === null ? null : value.replace(/^-/, ""));
 
@@ -209,10 +210,10 @@ export function readFigures(
     }
     if (!used) continue;
     exclude.add(i);
-    found.rows = [...found.rows, i + 1];
+    figureRows.push(i + 1);
     const mark = markCell ? amountMark(markCell) : null;
     const code = mark ? recognizeCurrency(mark) : null;
     if (found.currency === null && code?.status === "code") found.currency = code.code;
   }
-  return { figures: found, exclude };
+  return { figures: { ...found, rows: figureRows }, exclude };
 }

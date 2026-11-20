@@ -1,4 +1,4 @@
-import { currencyInfo, Decimal, isCurrencyCode } from "@willowsum/domain-kernel";
+import { currencyInfo, Decimal as KernelDecimal, isCurrencyCode } from "@willowsum/domain-kernel";
 import type { StatementEvent, StatementEvents } from "./events.ts";
 import type { DeclaredFigures } from "./figures.ts";
 
@@ -51,6 +51,14 @@ export interface ControlResult {
   /** The statement's own totals (not only the chain) agree with the rows (FR 5, the second basis). */
   readonly totalsVerified: boolean;
 }
+
+/**
+ * The checks add what the file prints, whatever its size: a cell of up to 64 characters (`VALUE_CELL_CHARS`) is below
+ * 1e64 with at most 18 decimals, and 20 000 rows of them sum below 1e69 — 87 significant digits. The kernel's 60
+ * (NUMERIC(38,18)) would round such a sum, and a file that does not add up would be «перевірено».
+ */
+const Decimal = KernelDecimal.clone({ precision: 120 });
+type Decimal = InstanceType<typeof Decimal>;
 
 const zero = new Decimal("0");
 const scaleOf = (text: string): number => (text.includes(".") ? text.length - text.indexOf(".") - 1 : 0);
@@ -238,8 +246,11 @@ export function checkControls(figures: DeclaredFigures, statement: StatementEven
     });
   }
   const status = (kind: CheckKind) => checks.find((c) => c.kind === kind)!.status;
+  // Rows that sum to zero satisfy the equation under either sign: it confirms none then.
   const equationFromStatement =
-    status("balance-equation") === "verified" && (declaredOpening !== null || declaredClosing !== null);
+    status("balance-equation") === "verified" &&
+    (declaredOpening !== null || declaredClosing !== null) &&
+    !sum.isZero();
   return {
     currency,
     checks,

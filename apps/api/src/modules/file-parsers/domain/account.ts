@@ -25,7 +25,8 @@ export interface AccountMatch {
 const IBAN = /(?<![A-Z0-9])[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30}(?![A-Z0-9])/g;
 const ibans = (cell: string): string[] =>
   (cell.normalize("NFKC").toUpperCase().match(IBAN) ?? [])
-    .map((m) => m.replace(/[ -]/g, ""))
+    // A word printed after the IBAN («UA… 4821 EUR») is not part of it: a final group of letters only is dropped.
+    .map((m) => m.replace(/[ -][A-Z]+$/, "").replace(/[ -]/g, ""))
     .filter((m) => m.length >= 15 && m.length <= 34);
 /** Digits grouped by spaces or hyphens, as account numbers are printed. */
 const NUMBER = /\d[\d -]*\d/g;

@@ -120,7 +120,8 @@ export function accountEvidence(
     if (foreign.length > 0)
       reasons.push({ kind: "currency", file: foreign.join(", "), account: account.currencies.join(", ") });
   }
-  if (reasons.length > 0) return { status: "mismatch", reasons };
+  // A mismatch stays one even without a masked reason: it never fails open to «not-checked».
+  if (reasons.length > 0 || match?.status === "mismatch") return { status: "mismatch", reasons };
   return { status: match?.status === "match" ? "match" : "not-checked", reasons };
 }
 
@@ -136,7 +137,12 @@ export function reviewStatement(input: ReviewInput): StatementChecks {
     card,
     creditCard: kind === undefined ? card : kind === "credit-card",
   });
-  const account = accountEvidence(input.match, input.masked, input.account, events.currencies);
+  // EC3: the file's currencies are the rows' and the one printed with the statement's own figures — rows without a
+  // currency take the account's, so only the figures show that the file is another currency's.
+  const fileCurrencies = [
+    ...new Set([...events.currencies, ...(figures.currency ? [figures.currency] : [])]),
+  ].sort();
+  const account = accountEvidence(input.match, input.masked, input.account, fileCurrencies);
   const flags: BatchFlag[] = [];
   const add = (code: BatchFlagCode, extra: Omit<BatchFlag, "code" | "severity"> = {}) =>
     flags.push({ code, severity: FLAG_SEVERITY[code], ...extra });

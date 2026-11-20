@@ -1,4 +1,4 @@
-import { currencyInfo, Decimal, isCurrencyCode } from "@willowsum/domain-kernel";
+import { currencyInfo, Decimal as KernelDecimal, isCurrencyCode } from "@willowsum/domain-kernel";
 import { IN_VALUES, OUT_VALUES, type Role, type StatementAnalysis } from "./analysis.ts";
 import {
   amountMark,
@@ -8,6 +8,14 @@ import {
   type CurrencyHints,
 } from "./currency.ts";
 import { dateCell, numberCell, readDate, readNumber, type DecimalSeparator } from "./values.ts";
+
+/**
+ * A cell of up to 64 characters (`VALUE_CELL_CHARS`) is below 1e64 with at most 18 decimals: the kernel's precision
+ * (60 significant digits) would round «credit − debit» of such cells. The rows are read exactly (security review of
+ * #632).
+ */
+const Decimal = KernelDecimal.clone({ precision: 120 });
+type Decimal = InstanceType<typeof Decimal>;
 
 /**
  * A statement's rows read into events with legs (IMP-02@PoC FR 3–5, FR 8–12; wave 2 row 41 part 2), under the

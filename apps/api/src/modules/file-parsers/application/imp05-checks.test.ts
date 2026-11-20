@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historyGap, readingFits, type StatementOptions } from "../domain/index.ts";
+import { accountEvidence, historyGap, readingFits, type StatementOptions } from "../domain/index.ts";
 import { parseStatement, type OpenedAccountBinding } from "./parse-statement.ts";
 import type { ReadOptions } from "./read-file.ts";
 
@@ -255,6 +255,49 @@ describe("IMP-05@PoC FR 4: another account's file", () => {
     expect(p.checks.account).toEqual({
       status: "mismatch",
       reasons: [{ kind: "currency", file: "PLN", account: "EUR" }],
+    });
+    expect(p.checks.flags).toContainEqual({ code: "foreign-account", severity: "block" });
+  });
+});
+
+describe("IMP-05@PoC FR 4: the masked reason (review of #632)", () => {
+  it("IMP-05@PoC FR 4: a word printed after the IBAN is not part of its last 4 characters", () => {
+    const grouped = IBAN.replace(/(.{4})/g, "$1 ").trim();
+    const p = parse(
+      [`IBAN: ${grouped} EUR`, "Дата;Сума;Опис", "01.03.2026;-1,00;А"],
+      {},
+      {},
+      {
+        by: "iban",
+        value: ACCOUNT_IBAN,
+      },
+    );
+    expect(p.checks.account.reasons).toEqual([{ kind: "iban", file: "…4821", account: "…1190" }]);
+  });
+
+  it("IMP-05@PoC FR 4: a mismatch without a masked reason is still a mismatch, never «not-checked»", () => {
+    expect(accountEvidence({ by: "iban", status: "mismatch" }, null, undefined, [])).toEqual({
+      status: "mismatch",
+      reasons: [],
+    });
+  });
+});
+
+describe("IMP-05@PoC EC3: the currency printed with the figures", () => {
+  it("IMP-05@PoC EC3: a currency printed only with the statement's figures is the file's currency", () => {
+    const p = parse(
+      [
+        "Вхідний залишок:;1 000,00 USD",
+        "Дата;Сума;Опис",
+        "01.03.2026;500,00;А",
+        "Кінцевий залишок:;1 500,00 USD",
+      ],
+      {},
+      { account: { currencies: ["EUR"], multiCurrency: false } },
+    );
+    expect(p.checks.account).toEqual({
+      status: "mismatch",
+      reasons: [{ kind: "currency", file: "USD", account: "EUR" }],
     });
     expect(p.checks.flags).toContainEqual({ code: "foreign-account", severity: "block" });
   });

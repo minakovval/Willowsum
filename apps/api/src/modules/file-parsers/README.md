@@ -111,4 +111,4 @@
 `adapters/isolation/imp06-parse-worker.test.ts`, `sec607-parse-worker-only.test.ts` (читання й збіг — лише у воркері),
 `application/imp02-events.test.ts`, `adapters/isolation/imp02-parse-events.test.ts`, `domain/imp06-followups.test.ts`,
 `domain/sec619-header-bound.test.ts`, `application/imp05-checks.test.ts`,
-`adapters/isolation/imp05-parse-checks.test.ts`.
+`adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`.
