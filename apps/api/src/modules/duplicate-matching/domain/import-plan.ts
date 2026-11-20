@@ -84,9 +84,8 @@ export interface KnownTransaction {
   readonly transfer: boolean;
   readonly matched: boolean;
   /**
-   * Merged into another transaction (an imported one kept as a manual one's link, FR 5, or a pending one replaced,
-   * FR 6): the same operation as the one it is merged into, so still a key match of its own row; never merged, replaced
-   * or offered again. Absent — not merged.
+   * Merged into another transaction (a pending one replaced, FR 6): the same operation as the one it is merged into,
+   * so still a key match of its own row; never merged, replaced or offered again. Absent — not merged.
    */
   readonly merged?: boolean;
 }
@@ -116,8 +115,9 @@ export type RowOutcome = Common &
         readonly kind: "duplicate";
         readonly of: string;
         /**
-         * FR 5 (#637 item 6): `of` is a manual transaction not matched yet — the row is kept merged into it as its
-         * link (the bank's identifier, text and balance), nothing new in the balance. Absent — nothing kept.
+         * FR 5 (#637 item 6): `of` is a manual transaction not matched yet — the row is written and the manual one is
+         * merged into it (the bank's identifier, text and date; the manual one's category and notes), still one
+         * operation in the balance. Absent — nothing written.
          */
         readonly merge?: true;
       }
@@ -125,7 +125,7 @@ export type RowOutcome = Common &
         readonly kind: "already-imported";
         readonly batchId: string;
       }
-    | /** FR 5: merged with this manual transaction (it keeps its category and notes). */ {
+    | /** FR 5: merged with this manual transaction (the row takes its category and notes; the bank's date and text stay). */ {
         readonly kind: "merge";
         readonly with: string;
       }
@@ -307,7 +307,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
 
   const matched = new Set(existing.filter((t) => t.matched).map((t) => t.transactionId));
   const byId = new Map(existing.map((t) => [t.transactionId, t]));
-  /** FR 5 (#637 item 6): a key match the row is kept merged into — a manual one, shown, posted, matched with nothing. */
+  /** FR 5 (#637 item 6): a key match merged into the row — a manual one, shown, posted, matched with nothing. */
   const linkable = (t: KnownTransaction | undefined) =>
     t !== undefined &&
     t.source === "manual" &&

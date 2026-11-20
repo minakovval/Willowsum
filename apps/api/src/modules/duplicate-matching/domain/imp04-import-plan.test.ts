@@ -576,7 +576,7 @@ describe("IMP-04@PoC FR 5: a key match with a manual transaction keeps the row a
     });
   const r = () => row({ amount: EUR("-42.00"), date: "2026-04-11", description: "Кафе" });
 
-  it("IMP-04@PoC FR 5: the same key as a manual one matched with nothing — a duplicate of it, the row kept merged into it (nothing new in the balance)", () => {
+  it("IMP-04@PoC FR 5: the same key as a manual one matched with nothing — a duplicate of it, merged into the bank's row (nothing new in the balance)", () => {
     const m = manual();
     const out = plan([r()], [m]);
     expect(out).toEqual([
@@ -636,5 +636,14 @@ describe("IMP-04@PoC FR 5: a key match with a manual transaction keeps the row a
       status: "pending",
     });
     expect(plan([again], [replaced])[0]).toMatchObject({ kind: "duplicate", of: replaced.transactionId });
+  });
+});
+
+describe("IMP-04@PoC FR 5: only a manual transaction takes a link (sec #658)", () => {
+  it("IMP-04@PoC FR 5: the same key as an imported one of an earlier batch (shown, posted, matched with nothing) — a plain duplicate, nothing kept", () => {
+    const earlier = tx({ amount: EUR("-42.00"), date: "2026-04-11", description: "Кафе" });
+    const out = plan([row({ amount: EUR("-42.00"), date: "2026-04-11", description: "Кафе" })], [earlier]);
+    expect(out[0]).toMatchObject({ kind: "duplicate", of: earlier.transactionId });
+    expect(out[0]).not.toHaveProperty("merge");
   });
 });

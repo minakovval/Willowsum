@@ -523,9 +523,9 @@ export async function applyBatch(
             const create: ImportedRowInput[] = [];
             for (const o of planned) {
               const r = byRow.get(o.row)!;
-              // What is written: a new transaction (import, repeat, «Можливий дубль»); the row kept as a manual one's
-              // link (FR 5: merged with it, or a key match with it — a duplicate, nothing new in the balance); the
-              // posted row in place of a pending one (FR 6). A duplicate of anything else, and «уже імпортовано», —
+              // What is written: a new transaction (import, repeat, «Можливий дубль»); the row a manual one is merged
+              // into (FR 5: merged with it, or a key match with it — a duplicate, still one operation in the balance);
+              // the posted row in place of a pending one (FR 6). A duplicate of anything else, and «уже імпортовано», —
               // nothing.
               const link: Pick<ImportedRowInput, "mergeInto" | "replaces" | "ifUnlinked"> | null =
                 o.kind === "import" || o.kind === "repeat" || o.kind === "possible-duplicate"

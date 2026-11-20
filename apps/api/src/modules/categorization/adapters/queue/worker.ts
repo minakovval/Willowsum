@@ -10,6 +10,7 @@ import {
   applyHandOff,
   applyMerge,
   applyRulesToNew,
+  carryImportMerged,
   moveRulesToCategory,
   runPart,
   RUN_PART_SIZE,
@@ -25,12 +26,20 @@ import {
   AUDIT_JOB,
   CATEGORY_MERGED_JOB,
   HAND_OFF_JOB,
+  IMPORT_MERGED_JOB,
   RULE_RUN_PART_JOB,
   TRANSACTION_CREATED_JOB,
 } from "./job.ts";
 
 /** The jobs whose dead rows the daily recovery puts back; each one is idempotent. */
-const JOBS = [HAND_OFF_JOB, CATEGORY_MERGED_JOB, TRANSACTION_CREATED_JOB, AUDIT_JOB, RULE_RUN_PART_JOB];
+const JOBS = [
+  HAND_OFF_JOB,
+  CATEGORY_MERGED_JOB,
+  TRANSACTION_CREATED_JOB,
+  IMPORT_MERGED_JOB,
+  AUDIT_JOB,
+  RULE_RUN_PART_JOB,
+];
 
 /** As liabilities' (#270 item 2): the space's erasure, which deletes the queue rows, waits for this lock. */
 async function holdsJob(q: HouseholdQueryRunner, householdId: string, id: string): Promise<boolean> {
@@ -45,7 +54,7 @@ async function holdsJob(q: HouseholdQueryRunner, householdId: string, id: string
  * The worker's categorization queue (src/wiring.ts): the store in the categorization schema, the hand-off's handler
  * (the audit entry through the audit log's public interface, ADR-0015, holding the job's row lock), the merge's (the
  * transactions and the rules of the merged category, BUD-01 FR 8, BUD-14 FR 10), the rules of a new transaction
- * (BUD-14 FR 8) and the audit entries of the rules.
+ * (BUD-14 FR 8), the category of a merge on import (IMP-04 FR 5) and the audit entries of the rules.
  */
 export function categorizationWorkerQueue(
   db: ModuleDatabase,
@@ -93,6 +102,12 @@ export function categorizationWorkerQueue(
           );
           // Another writer inserted the row first (a change by hand): run again, which then sees it.
           if (outcome === "conflict") throw new Error("categorization.transaction-created: version conflict");
+        },
+      }),
+      defineJobHandler({
+        job: IMPORT_MERGED_JOB,
+        run: async (job, q) => {
+          await carryImportMerged(categorizationTx(q), job.householdId, job.payload);
         },
       }),
       defineJobHandler({

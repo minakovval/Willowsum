@@ -518,6 +518,69 @@ describe("IMP-05@PoC FR 10: decisions on rows, groups, files and the batch", () 
     expect(confirmed.files[0]!.flipped).toEqual([]);
   });
 
+  it("IMP-05@PoC FR 6: «перевернути знак» flips only the unconfirmed rows when the file has no «знак картки» or the flag is confirmed (#658)", () => {
+    // Rows 1 and 2 held as printed by the balance chain, row 3 unconfirmed.
+    const mixed = { ...checks().signs, unconfirmed: [3] };
+    const plain = checks({ signs: mixed });
+    const flipAll = (fileId: string) => ({
+      kind: "group" as const,
+      fileId,
+      group: "review" as const,
+      action: "flip-sign" as const,
+    });
+    const noCard = [file(plain)];
+    const r1 = readiness(noCard, decided(noCard, [flipAll(FILE)]));
+    expect(r1.ready).toBe(true);
+    expect(r1.files[0]!.flipped).toEqual([3]);
+    // «знак картки» confirmed as printed: the group decision still flips only the unconfirmed row.
+    const card = checks({
+      signs: { ...mixed, card: { positive: 2, negative: 1 } },
+      flags: [{ code: "card-sign", severity: "review", positive: 2, negative: 1 }],
+    });
+    const cardFiles = [file(card)];
+    const r2 = readiness(
+      cardFiles,
+      decided(cardFiles, [{ kind: "flag", fileId: FILE, code: "card-sign" }, flipAll(FILE)]),
+    );
+    expect(r2.ready).toBe(true);
+    expect(r2.files[0]!.flipped).toEqual([3]);
+  });
+
+  it("IMP-05@PoC FR 6: «знак картки» confirmed (for the file or the batch) and the sign flipped for the group — only the rows of «потребує перегляду» flip, never the rows the chain holds (sec #658)", () => {
+    const card = checks({
+      signs: { ...unconfirmedSigns([2]), card: { positive: 2, negative: 1 } },
+      flags: [{ code: "card-sign", severity: "review", positive: 2, negative: 1 }],
+    });
+    const files = [file(card)];
+    for (const flag of [
+      { kind: "flag", fileId: FILE, code: "card-sign" },
+      { kind: "flag", fileId: null, code: "card-sign" },
+    ] as const) {
+      const plan = readiness(
+        files,
+        decided(files, [flag, { kind: "group", fileId: FILE, group: "review", action: "flip-sign" }]),
+      );
+      expect(plan.ready).toBe(true);
+      expect(plan.files[0]!.flipped).toEqual([2]);
+    }
+  });
+
+  it("IMP-05@PoC FR 6: another flag of the file (not «знак картки») never flips the rows the chain holds (sec #658)", () => {
+    const c = checks({
+      signs: unconfirmedSigns([2]),
+      flags: [{ code: "hidden-sheets", severity: "review", count: 1 }],
+    });
+    const files = [file(c)];
+    const plan = readiness(
+      files,
+      decided(files, [
+        { kind: "flag", fileId: FILE, code: "hidden-sheets" },
+        { kind: "group", fileId: FILE, group: "review", action: "flip-sign" },
+      ]),
+    );
+    expect(plan.files[0]!.flipped).toEqual([2]);
+  });
+
   it("IMP-05@PoC FR 10: a decision on an unknown file, a row the file does not have or a flag it does not carry is refused", () => {
     const files = [file(c)];
     expect(() => decided(files, [{ kind: "row", fileId: OTHER, row: 1, action: "accept" }])).toThrow(

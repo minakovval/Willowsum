@@ -16,6 +16,7 @@ import {
   createImportSessionsServices,
   createImportSessionsWorkerQueue,
 } from "../src/modules/import-sessions/index.ts";
+import { createImportCategoryCarry } from "../src/modules/categorization/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createImportedTransactions } from "../src/modules/transactions/index.ts";
 import { unmergeDuplicate } from "../src/modules/transactions/application/index.ts";
@@ -26,11 +27,12 @@ import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./r
 
 /**
  * The apply of an import batch, part c (IMP-04@PoC FR 5, FR 6, AC4, AC6, AC10; #654 item 6) on a real PostgreSQL
- * through the real API, the real parse worker and module transactions: a row merged with a single manual transaction
- * (the manual one keeps its category, note and journal event; the row is kept merged into it, «Роз'єднати» gives it
- * back), a key match with a manual one kept as its link, a posted row in place of a pending one of a previous import,
- * and the same under a concurrent change and two applies at once. The accounts module is the test's port (an EUR
- * account). Synthetic data only; the clock is the test's.
+ * through the real API, the real parse worker and modules transactions and categorization: a row merged with a single
+ * manual transaction (the bank's row stays with its date, text and journal event and takes the manual one's category
+ * and note; the manual one is merged into it, «Роз'єднати» gives it back), a key match whose manual one is merged into
+ * the bank's row too, a posted row in place of a pending one of a previous import, and the same under a concurrent
+ * change and two applies at once. The accounts module is the test's port (an EUR account). Synthetic data only; the
+ * clock is the test's.
  */
 const WEB = "http://localhost:5173";
 const now = Date.parse("2026-11-20T10:00:00Z");
@@ -260,6 +262,7 @@ beforeAll(async () => {
               audit,
               newId: randomUUID,
               now: clock.now,
+              merged: createImportCategoryCarry(db.databases.for("categorization")),
             }),
           },
         }),
@@ -275,7 +278,7 @@ afterAll(async () => {
 });
 
 describe("IMP-04@PoC FR 5: a row and a manual transaction through the apply", () => {
-  it("IMP-04@PoC AC4: a manual −42,00 EUR of 2026-04-10 with «Кафе і ресторани» and a row −42,00 of 2026-04-11 — merged: the category and the note kept, the merge in the audit log, «Роз'єднати» gives the row back", async () => {
+  it("IMP-04@PoC AC4: a manual −42,00 EUR of 2026-04-10 with «Кафе і ресторани» and a row −42,00 of 2026-04-11 — merged: the category and the note kept, the merge in the audit log, «Роз'єднати» gives the manual one back", async () => {
     const space = await newSpace();
     const manualId = await manual(space, "-42.00", "2026-04-10", "Обід");
     const categoryId = randomUUID();
@@ -290,49 +293,66 @@ describe("IMP-04@PoC FR 5: a row and a manual transaction through the apply", ()
     expect(res.json().result.counts).toMatchObject({ merge: 1, import: 1, "possible-duplicate": 0 });
 
     const all = await rows(space.householdId);
-    const stays = all.find((r) => r.id === manualId);
+    const merged = all.find((r) => r.id === manualId);
     const row = all.find((r) => r.source === "imported" && r.amount === "-42");
-    // The manual one as it was: its fields, its note, its version; its category untouched.
-    expect(stays).toMatchObject({
-      id: manualId,
-      source: "manual",
-      hidden: false,
-      note: "Обід з колегами",
-      version: 1,
-    });
-    const { rows: category } = await db.owner.query<{ category_id: string; version: number }>(
-      `SELECT category_id, version FROM categorization.transaction_categories WHERE household_id = $1 AND transaction_id = $2`,
-      [space.householdId, manualId],
-    );
-    expect(category).toEqual([{ category_id: categoryId, version: 1 }]);
-    // The bank's row is kept merged into it: the bank's text and date, hidden, never in «До розбору», no journal event.
+    // FR 5: the bank's row is the one shown — its date and text, the manual one's note, its own journal event.
     expect(row).toMatchObject({
       source: "imported",
       occurred_on: "2026-04-11",
       bank_description: "CAFE CENTRAL",
+      hidden: false,
+      merged_into: null,
+      note: "Обід з колегами",
+      version: 1,
+    });
+    expect(await liveEntries(space.householdId, row!.id)).toBe(1);
+    // The manual one merged into it: hidden, no event of its own, its fields kept for «Роз'єднати».
+    expect(merged).toMatchObject({
+      source: "manual",
+      occurred_on: "2026-04-10",
       hidden: true,
-      merged_into: manualId,
-      review: null,
+      merged_into: row!.id,
+      note: "Обід з колегами",
       version: 2,
     });
-    expect(await liveEntries(space.householdId, row!.id)).toBe(0);
-    // FIN-03 FR 11: the merge is the row's audit entry (field mergedInto), the one «Роз'єднати» undoes.
+    expect(await liveEntries(space.householdId, manualId)).toBe(0);
+    // The category «вручну» carried to the bank's row; the manual one's row untouched.
+    const { rows: categories } = await db.owner.query<{
+      transaction_id: string;
+      category_id: string;
+      source: string;
+    }>(
+      `SELECT transaction_id, category_id, source FROM categorization.transaction_categories
+        WHERE household_id = $1 ORDER BY transaction_id = $2 DESC`,
+      [space.householdId, row!.id],
+    );
+    expect(categories).toEqual([
+      { transaction_id: row!.id, category_id: categoryId, source: "manual" },
+      { transaction_id: manualId, category_id: categoryId, source: "manual" },
+    ]);
+    // The event «Злито з імпортом» in module transactions' outbox: categorization's job carries it again if the
+    // request's own run failed.
+    const { rows: events } = await db.owner.query<{ payload: unknown }>(
+      `SELECT payload FROM transactions.outbox_events WHERE household_id = $1 AND event_name = 'transactions.import-merged'`,
+      [space.householdId],
+    );
+    expect(events.map((e) => e.payload)).toEqual([
+      { transactionId: row!.id, duplicateId: manualId, actorAccountId: space.accountId },
+    ]);
+    // FIN-03 FR 11: the merge is the manual one's audit entry (field mergedInto), the one «Роз'єднати» undoes.
     const { rows: entries } = await db.owner.query<{
       key: string;
       changes: { field: string; after: string }[];
     }>(
       `SELECT dedupe_key AS key, changes FROM audit.entries WHERE household_id = $1 AND entity_id = $2 ORDER BY dedupe_key`,
-      [space.householdId, row!.id],
+      [space.householdId, manualId],
     );
-    expect(entries.map((e) => e.key)).toEqual([
-      `transactions.create:${row!.id}:1`,
-      `transactions.merge:${row!.id}:2`,
-    ]);
-    expect(entries[1]!.changes).toEqual(
-      expect.arrayContaining([expect.objectContaining({ field: "mergedInto", after: manualId })]),
+    expect(entries.map((e) => e.key)).toEqual([`transactions.merge:${manualId}:2`]);
+    expect(entries[0]!.changes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "mergedInto", after: row!.id })]),
     );
 
-    // «Роз'єднати» on the manual one: the row comes back on its own.
+    // «Роз'єднати» on the bank's row: the manual one comes back on its own, with its date.
     const deps = {
       accounts,
       ledger: createLedger(db.databases.for("ledger")),
@@ -347,28 +367,76 @@ describe("IMP-04@PoC FR 5: a row and a manual transaction through the apply", ()
       (work) =>
         db.databases.for("transactions").inHousehold(space.householdId, (q) => work(transactionsTx(q))),
       { householdId: space.householdId, accountId: space.accountId },
-      manualId,
+      row!.id,
     );
     expect(unmerged).toMatchObject({ kind: "ok" });
-    expect((await rows(space.householdId)).find((r) => r.id === row!.id)).toMatchObject({
+    expect((await rows(space.householdId)).find((r) => r.id === manualId)).toMatchObject({
+      occurred_on: "2026-04-10",
       hidden: false,
       merged_into: null,
       version: 3,
     });
   });
 
-  it("IMP-04@PoC FR 5: a key match with a manual one (same date, amount and text) — a duplicate, the row kept as its link; the statement again adds nothing", async () => {
+  it("IMP-04@PoC FR 5: the merged record takes the bank's description and posting date; the manual one's category and note stay (#658)", async () => {
+    const space = await newSpace();
+    const manualId = await manual(space, "-42.00", "2026-04-10", "Обід");
+    const categoryId = randomUUID();
+    await db.owner.query(
+      `INSERT INTO categorization.transaction_categories (household_id, transaction_id, category_id, source)
+       VALUES ($1, $2, $3, 'manual')`,
+      [space.householdId, manualId, categoryId],
+    );
+    const batch = await parsedBatch(space, "kviten.csv", statement("11.04.2026", "-42.00", "CAFE CENTRAL"));
+    const res = await apply(space, batch.batchId);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().result.counts).toMatchObject({ merge: 1 });
+    // One operation is shown: dated by the bank and described by it (FR 5, FIN-03 FR 11, AC5) ...
+    const { rows: shown } = await db.owner.query<{
+      id: string;
+      occurred_on: string;
+      text: string;
+      note: string | null;
+    }>(
+      `SELECT id, occurred_on::text AS occurred_on, COALESCE(bank_description, description) AS text, note
+         FROM transactions.transactions
+        WHERE household_id = $1 AND amount = -42 AND NOT hidden AND merged_into IS NULL`,
+      [space.householdId],
+    );
+    expect(shown).toHaveLength(1);
+    expect(shown[0]).toMatchObject({
+      occurred_on: "2026-04-11",
+      text: "CAFE CENTRAL",
+      note: "Обід з колегами",
+    });
+    // ... with the manual one's category.
+    const { rows: category } = await db.owner.query<{ category_id: string }>(
+      `SELECT category_id FROM categorization.transaction_categories WHERE household_id = $1 AND transaction_id = $2`,
+      [space.householdId, shown[0]!.id],
+    );
+    expect(category).toEqual([{ category_id: categoryId }]);
+  });
+
+  it("IMP-04@PoC FR 5: a key match with a manual one (same date, amount and text) — a duplicate, the manual one merged into the bank's row; the statement again adds nothing", async () => {
     const space = await newSpace();
     const manualId = await manual(space, "-42.00", "2026-04-11", "CAFE CENTRAL");
     const first = await parsedBatch(space, "kviten.csv", statement("11.04.2026", "-42.00", "CAFE CENTRAL"));
     const res = await apply(space, first.batchId);
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json().result.counts).toMatchObject({ duplicate: 1, merge: 0, import: 1 });
-    const link = (await rows(space.householdId)).find((r) => r.source === "imported" && r.amount === "-42");
-    expect(link).toMatchObject({ source: "imported", hidden: true, merged_into: manualId });
-    expect(await liveEntries(space.householdId, link!.id)).toBe(0);
+    const all = await rows(space.householdId);
+    const link = all.find((r) => r.source === "imported" && r.amount === "-42");
+    expect(link).toMatchObject({
+      source: "imported",
+      hidden: false,
+      merged_into: null,
+      note: "Обід з колегами",
+    });
+    expect(all.find((r) => r.id === manualId)).toMatchObject({ hidden: true, merged_into: link!.id });
+    expect(await liveEntries(space.householdId, link!.id)).toBe(1);
+    expect(await liveEntries(space.householdId, manualId)).toBe(0);
 
-    // The same statement in another format: the link is its row's key match — a duplicate, nothing written.
+    // The same statement in another format: the bank's row is its row's key match — a duplicate, nothing written.
     const again = await parsedBatch(
       space,
       "kviten.tsv",
@@ -391,14 +459,17 @@ describe("IMP-04@PoC FR 5: a row and a manual transaction through the apply", ()
         manualId,
       ]);
       const applying = apply(space, batch.batchId);
-      for (let i = 0; i < 2000; i++) {
+      let found = false;
+      for (let i = 0; i < 2000 && !found; i++) {
         const { rows: waiting } = await db.owner.query<{ n: number }>(
           `SELECT count(*)::int AS n FROM pg_stat_activity
             WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%FOR UPDATE%'`,
         );
-        if (waiting[0]!.n > 0) break;
-        await new Promise((r) => setTimeout(r, 5));
+        found = waiting[0]!.n > 0;
+        if (!found) await new Promise((r) => setTimeout(r, 5));
       }
+      // The apply did wait for the row (the change below lands between its plan and its re-check).
+      expect(found).toBe(true);
       await q.query(
         `UPDATE transactions SET hidden = true, version = version + 1 WHERE household_id = $1 AND id = $2`,
         [space.householdId, manualId],
@@ -413,7 +484,7 @@ describe("IMP-04@PoC FR 5: a row and a manual transaction through the apply", ()
     expect(row).toMatchObject({ source: "imported", hidden: false, merged_into: null, review: "queued" });
   });
 
-  it("IMP-04@PoC FR 5: two batches with a row for one manual transaction applied at once — exactly one merges, the other is «Можливий дубль»", async () => {
+  it("IMP-04@PoC FR 5: two batches with a row for one manual transaction applied at once — exactly one merges, the other is «Можливий дубль» on its own", async () => {
     const space = await newSpace();
     const manualId = await manual(space, "-42.00", "2026-04-10", "Обід");
     const a = await parsedBatch(space, "a.csv", statement("11.04.2026", "-42.00", "CAFE CENTRAL"));
@@ -423,9 +494,72 @@ describe("IMP-04@PoC FR 5: a row and a manual transaction through the apply", ()
     expect(rb.statusCode, rb.body).toBe(200);
     const merges = [ra, rb].map((r) => r.json().result.counts.merge as number).sort();
     expect(merges).toEqual([0, 1]);
-    const imported = (await rows(space.householdId)).filter((r) => r.source === "imported");
-    expect(imported.filter((r) => r.merged_into === manualId)).toHaveLength(1);
-    expect(imported.filter((r) => r.amount === "-42" && !r.hidden)).toHaveLength(1);
+    const all = await rows(space.householdId);
+    const kept = all.find((r) => r.id === manualId)!;
+    expect(kept).toMatchObject({ hidden: true });
+    // The import lock of the account orders the two: the second plans after the first commits, when the manual one is
+    // merged already — never a second link. Its row is shown on its own as «Можливий дубль».
+    const second = [ra, rb].find((r) => r.json().result.counts.merge === 0)!;
+    expect(second.json().result.counts).toMatchObject({ "possible-duplicate": 1 });
+    const imported = all.filter((r) => r.source === "imported" && r.amount === "-42");
+    expect(imported).toHaveLength(2);
+    expect(imported.every((r) => !r.hidden && r.merged_into === null)).toBe(true);
+    // The first one's row took the manual one's state; the second one's is in «До розбору».
+    expect(imported.find((r) => r.id !== kept.merged_into)).toMatchObject({ review: "queued", note: null });
+  });
+});
+
+describe("IMP-04@PoC FR 5: the category of a merge on import (module categorization, #658)", () => {
+  async function categorized(householdId: string, transactionId: string, categoryId: string, source: string) {
+    await db.owner.query(
+      `INSERT INTO categorization.transaction_categories (household_id, transaction_id, category_id, source)
+       VALUES ($1, $2, $3, $4)`,
+      [householdId, transactionId, categoryId, source],
+    );
+  }
+  async function categoryOf(householdId: string, transactionId: string) {
+    const { rows: found } = await db.owner.query<{ category_id: string; source: string; version: number }>(
+      `SELECT category_id, source, version FROM categorization.transaction_categories
+        WHERE household_id = $1 AND transaction_id = $2`,
+      [householdId, transactionId],
+    );
+    return found[0] ?? null;
+  }
+
+  it("IMP-04@PoC FR 5: «вручну» wins over the bank's or a rule's category; a weaker source never replaces a stronger one; run again, nothing changes", async () => {
+    const space = await newSpace();
+    const carry = createImportCategoryCarry(db.databases.for("categorization"));
+    const [kept, duplicate, kept2, duplicate2] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const [mine, banks, ruled] = [randomUUID(), randomUUID(), randomUUID()];
+    await categorized(space.householdId, kept, banks, "bank");
+    await categorized(space.householdId, duplicate, mine, "manual");
+    await categorized(space.householdId, kept2, ruled, "rule");
+    await categorized(space.householdId, duplicate2, banks, "bank");
+    const merge = (transactionId: string, duplicateId: string) => ({
+      transactionId,
+      duplicateId,
+      actorAccountId: space.accountId,
+    });
+    await carry(space.householdId, merge(kept, duplicate));
+    await carry(space.householdId, merge(kept2, duplicate2));
+    expect(await categoryOf(space.householdId, kept)).toEqual({
+      category_id: mine,
+      source: "manual",
+      version: 2,
+    });
+    expect(await categoryOf(space.householdId, kept2)).toEqual({
+      category_id: ruled,
+      source: "rule",
+      version: 1,
+    });
+    await carry(space.householdId, merge(kept, duplicate));
+    expect(await categoryOf(space.householdId, kept)).toMatchObject({ version: 2 });
+    // The change of the bank's row is the categorization audit hand-off (keyed by its version).
+    const { rows: jobs } = await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM categorization.jobs WHERE household_id = $1 AND dedupe_key = $2`,
+      [space.householdId, `set:${kept}:2`],
+    );
+    expect(jobs[0]!.n).toBe(1);
   });
 });
 

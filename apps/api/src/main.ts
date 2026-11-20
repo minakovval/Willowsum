@@ -27,6 +27,7 @@ import {
   createCategorizationCategoryUsage,
   categorizationRulePorts,
   createCategorizationServices,
+  createImportCategoryCarry,
   createTransactionCategories,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
@@ -538,6 +539,7 @@ const server = buildServer({
                         audit,
                         newId: randomUUID,
                         now: () => systemClock.now(),
+                        merged: createImportCategoryCarry(databases.for("categorization")),
                       }),
                     },
                   }),

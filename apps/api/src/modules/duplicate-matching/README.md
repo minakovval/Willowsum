@@ -52,9 +52,9 @@ IMP-04@PoC a) (хвиля 2, рядок 43): п. 1–6 — план партії
   `duplicateKey`, `normalizeDescription` (NFKC, нижній регістр, один пробіл, обрізано), `planWindow`, `outcomeCounts`,
   `ROW_OUTCOMES`, `REPLACE_WINDOW_DAYS` (10), `REPLACE_TOLERANCE` («0.25», межа допуску), `REPLACE_TOLERANCE_SHARE` («0.1»), `replaceTolerance(posted)`; типи `IncomingRow`, `KnownTransaction`,
   `PlanInput`, `RowOutcome`, `RowOutcomeKind`. `duplicate` з `merge: true` — збіг ключа з ручною, ще ні з чим не
-  зіставленою (показана, проведена, не переказ): крок застосування зберігає рядок злитим у неї (#637 п. 6);
-  `KnownTransaction.merged` — злита в іншу (імпортована: зв'язок ручної або замінена очікувана): збіг ключа свого
-  рядка, але ніколи не кандидат злиття чи заміни.
+  зіставленою (показана, проведена, не переказ): крок застосування записує рядок і зливає ручну в нього (#637 п. 6,
+  #658); `KnownTransaction.merged` — злита в іншу (імпортована: замінена очікувана): збіг ключа свого рядка, але
+  ніколи не кандидат злиття чи заміни.
 - `isPossibleDuplicate(a, b)`, `decideIncoming(incoming, existing)` → `merge` / `possible-duplicate` / `new`,
   `MATCH_WINDOW_DAYS` (3); типи `DuplicateSide`, `ExistingTransaction`, `IncomingDecision` (`domain/matching.ts`).
 

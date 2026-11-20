@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 c, #654 п. 6: `ImportedTransactions` — злиття з ручною (`mergeInto`), заміна очікуваної (`replaces`), `ImportCandidates.merged`; BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11, частина b, #654: `ImportedTransactions.settle`, `import_voids`, місця очікування, блокування грошей лише навколо запису; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 c, #654 п. 6, #658: `ImportedTransactions` — злиття з ручною (`mergeInto`: ручну злито в банківський рядок, подія `transactions.import-merged`, порт `merged`), заміна очікуваної (`replaces`), `ImportCandidates.merged`; BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11, частина b, #654: `ImportedTransactions.settle`, `import_voids`, місця очікування, блокування грошей лише навколо запису; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -274,10 +274,10 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   (лише читання; правило вирішує той модуль).
 - `createImportCandidates(db)` → `ImportCandidates.page(householdId, { accountId, from, to, limit, after })` — транзакції
   одного рахунку з датою в [from, to] для плану імпорту модуля `duplicate-matching` (IMP-04@PoC п. 1–6): приховані теж,
-  злитий ручний дубль — ні, злита імпортована (зв'язок ручної, замінена очікувана) — так, з `merged`; сума зі знаком, опис, залишок після операції, стан, джерело, партія імпорту, сторона переказу,
+  злитий ручний дубль (і ручна, злита в банківський рядок) — ні, злита імпортована (замінена очікувана) — так, з `merged`; сума зі знаком, опис, залишок після операції, стан, джерело, партія імпорту, сторона переказу,
   `matched` (у неї вже щось злито); сторінка в порядку (дата, id) після `after` за індексом `transactions_by_account`.
   Лише читання.
-- `createImportedTransactions(db, { accounts, ledger, audit, newId, now })` → `ImportedTransactions.write(householdId,
+- `createImportedTransactions(db, { accounts, ledger, audit, newId, now, merged? })` → `ImportedTransactions.write(householdId,
   input, plan)` для кроку застосування `import-sessions` (IMP-01@PoC п. 11, IMP-04@PoC п. 7): в одній транзакції —
   місце очікування простору (до `IMPORT_WAITERS_MAX` = 4 застосувань водночас, інакше `ImportBusy`, #654), блокування
   імпорту рахунків (`transactions.import:<простір>:<рахунок>`, чекає до 60 с), чи партію вже записано
@@ -285,11 +285,14 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   `ImportWriteVoided`), перевірки рахунку (закритий — `ACCOUNT_CLOSED`), план (`plan(ctx)` — `ctx.candidates` для
   `planImport`, `ctx.creditCard(accountId)` — вид рахунку «кредитна картка» і `ctx.create(rows)` → `{ unlinked }`), рядки з джерелом `imported` (ключ `(партія, файл, рядок)` — унікальний, тож другий
   запис того самого рядка нічого не додає), «До розбору», банківський опис окремо (`bank_description`), подія
-  `transactions.created`; IMP-04 п. 5 (`mergeInto`): рядок злито в ручну (прихований, `mergedInto`, без «До розбору» і
-  події `transactions.created`, власна подія журналу не проводиться; передачі `create` і `merge`, «Роз'єднати» повертає
-  його), п. 6 (`replaces` з сумою з плану): очікувану злито в проведений рядок (прихована, передача `merge`); інша
-  транзакція блокується й перевіряється знову (той самий рахунок і гаманець, не злита, не переказ, без злитих у неї;
-  ручна — проведена, показана, та сама сума; очікувана — імпортована, та сама сума, що в плані), інакше зв'язку немає
+  `transactions.created`; IMP-04 п. 5 (`mergeInto`, #658): банківський рядок лишається показаним (дата, опис банку,
+  власна подія журналу) і бере нотатку, теги й стан «До розбору» ручної; ручну злито в нього (прихована, `mergedInto`,
+  її подія журналу сторнується; передачі `merge` ручної, потім `create` рядка; «Роз'єднати» повертає її), подія
+  `transactions.import-merged` — категорію переносить categorization (порт `merged` одразу після коміту, задача — ще
+  раз), п. 6 (`replaces` з сумою з плану): очікувану злито в проведений рядок (прихована, передача `merge`); інша
+  транзакція блокується (рядки зв'язків — за зростанням ідентифікатора, як «Об'єднати»; нижчий за вже взятий — лише
+  без очікування, `SKIP LOCKED`, зайнятий — зв'язку немає) й перевіряється знову (той самий рахунок і гаманець, не злита, не переказ, без злитих у неї;
+  ручна — проведена, показана, не розділена, та сама сума; очікувана — імпортована, та сама сума, що в плані), інакше зв'язку немає
   (`unlinked`; рядок пишеться сам або, з `ifUnlinked: "skip"`, ні); лише потім блокування грошей рахунків і повторна перевірка рахунку (закритий чи замінений
   гаманець — `ImportWriteRefused`, усе відкочено; #654), передачі в журнал, запис `import_writes`. Після коміту виконує
   до 100 (`IMPORT_HAND_OFF_NOW`) передач, решту — воркер. Рядок, який рахунок не приймає, — `ImportWriteRefused` (усе
@@ -354,6 +357,7 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 | Публікує | Версія | Коли |
 | --- | --- | --- |
 | `transactions.created` | 1 | «Нова транзакція»: у транзакції створення, лише ідентифікатор (BUD-14 п. 8 — правила категорій `categorization`) |
+| `transactions.import-merged` | 1 | «Злито з імпортом» (IMP-04 п. 5, #658): у транзакції запису партії — банківський рядок, злита в нього ручна, хто застосував; лише ідентифікатори (категорію переносить `categorization`) |
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |

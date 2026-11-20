@@ -4,9 +4,9 @@ import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 /**
  * What module duplicate-matching reads to plan an import batch (IMP-04@PoC FR 1–6; wave 2 row 43): the transactions of
  * one account dated in [from, to], hidden ones too (a hidden imported one is still in the balance), never a merged
- * manual duplicate (it is the same operation as the one it is merged into); a merged imported one is read (`merged`):
- * the bank's row kept as a manual one's link or a replaced pending one (IMP-04 FR 5, FR 6) is still the key match of
- * the same row in a later statement. One page in the order of (date, id) after a cursor,
+ * manual duplicate (it is the same operation as the one it is merged into — a manual one merged into the bank's row on
+ * apply, IMP-04 FR 5, too); a merged imported one is read (`merged`): a replaced pending one (IMP-04 FR 6) is still the
+ * key match of the same row in a later statement. One page in the order of (date, id) after a cursor,
  * on the index `transactions_by_account`. Read only; the rule of duplicate-matching decides.
  */
 export interface ImportCandidate {
@@ -28,7 +28,7 @@ export interface ImportCandidate {
   readonly transfer: boolean;
   /** Another transaction is merged into it («ще ні з чим не зіставлена» is false). */
   readonly matched: boolean;
-  /** Merged into another transaction (an imported one: a manual one's link, or a replaced pending one). */
+  /** Merged into another transaction (an imported one: a replaced pending one). */
   readonly merged: boolean;
 }
 
