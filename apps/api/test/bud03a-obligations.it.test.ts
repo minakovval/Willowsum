@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Money } from "@willowsum/domain-kernel";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
@@ -571,6 +572,7 @@ describe("#567: the port in another currency and another space", () => {
       recurring: [],
       debtMinimums: [{ accountId: myLoan, amount: expect.anything(), paid: false }],
       approximate: false,
+      incomeExpected: Money.zero("EUR"),
     });
     expect(o!.debtMinimums[0]!.amount.toDecimalString()).toBe("100");
     // A space's id that is not the caller's: the period read through the API is the caller's own.
@@ -583,6 +585,7 @@ describe("#567: the port in another currency and another space", () => {
       recurring: [],
       debtMinimums: [],
       approximate: false,
+      incomeExpected: Money.zero("EUR"),
     });
   });
 });

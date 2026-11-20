@@ -167,7 +167,15 @@ export interface BudgetPlanSources {
   goals(
     householdId: string,
     currency: string,
-  ): Promise<readonly { goalId: string; required: Money | null; lastPeriod: Period | null }[]>;
+  ): Promise<
+    readonly {
+      goalId: string;
+      required: Money | null;
+      lastPeriod: Period | null;
+      /** BUD-03@PoC FR 6: contributed this calendar month; null — no rate; left out (a test's port) — nothing. */
+      contributed?: Money | null;
+    }[]
+  >;
   /**
    * FR 1: the regular incomes expected in the month (module recurring), one per payment with its charges added up;
    * `amount` null — no rate.

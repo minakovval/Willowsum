@@ -239,7 +239,13 @@ beforeAll(async () => {
           newId: randomUUID,
           obligations,
           planSources: createBudgetPlanSources({
-            goals: { active: async (householdId) => goals.get(householdId) ?? [] },
+            goals: {
+              active: async (householdId) =>
+                (goals.get(householdId) ?? []).map((g) => ({
+                  ...g,
+                  contributedThisMonth: Money.of("0", g.requiredMonthly?.currency ?? "EUR"),
+                })),
+            },
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
             recurring: {

@@ -15,7 +15,7 @@ import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./m
  * 3. FR 2 — rows with the same key in the file (the balance left out) are all kept; the second and later get «повтор у
  *    файлі» and their occurrence number (`occurrence`, from 1 in file order, the duplicates of step 2 counted).
  * 4. FR 6 — a posted row replaces a pending one of a previous import on the account: the same currency and sign,
- *    amounts at most 0.25 apart, the posted date on the pending date or up to 10 days after it; the closest amount,
+ *    amounts at most min(0.25, 10 % of the posted amount) apart in the account's currency (exact decimals), the posted date on the pending date or up to 10 days after it; the closest amount,
  *    then the closest date, then the earlier one.
  * 5. FR 5 — the rule `decideIncoming` against the shown transactions of the account (not merged, not a side of a
  *    transfer, imported ones of other batches): a single manual one not matched yet — merged; any other match
@@ -25,8 +25,18 @@ import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./m
  */
 
 export const REPLACE_WINDOW_DAYS = 10;
-/** FR 6: in units of the account's currency. */
+/**
+ * FR 6: the tolerance's cap, in units of the account's currency. The tolerance is min(0.25, 10 % of the posted amount)
+ * (Рішення власника (2026-11-20), п. 8), exact decimals, never rounded.
+ */
 export const REPLACE_TOLERANCE = "0.25";
+/** FR 6: the tolerance's share of the posted row's amount (its absolute value). */
+export const REPLACE_TOLERANCE_SHARE = "0.1";
+
+/** FR 6: how far apart a pending amount and a posted one may be: min(0.25, 10 % of |posted|). */
+export function replaceTolerance(posted: Decimal): Decimal {
+  return Decimal.min(new Decimal(REPLACE_TOLERANCE), posted.abs().times(REPLACE_TOLERANCE_SHARE));
+}
 /**
  * The most transactions the FR 5 and FR 6 steps of one plan may look at (every row counts each transaction of its
  * window). Dense windows (thousands of pending ones or of one amount within days) make the plan rows × transactions;
@@ -257,7 +267,6 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
     return found;
   };
 
-  const tolerance = new Decimal(REPLACE_TOLERANCE);
   const matched = new Set(existing.filter((t) => t.matched).map((t) => t.transactionId));
   const outcomes: RowOutcome[] = [];
   // FR 5: the rows that would merge with each manual transaction (their outcome's index and the gap in days).
@@ -272,6 +281,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
 
     // FR 6: a posted row in place of a pending one of a previous import.
     if (r.status === "posted") {
+      const tolerance = replaceTolerance(r.amount.amount);
       const pending = around(pendingByDay, REPLACE_WINDOW_DAYS, 0, (d) => d, r.date)
         .filter(
           (t) =>
