@@ -52,6 +52,7 @@ import {
 import { transactionCreated } from "./events.ts";
 import {
   applyHandOff,
+  settleImport,
   writeImport,
   type HandOffDeps,
   type ImportCounts,
@@ -190,7 +191,11 @@ export function createImportCandidates(db: ModuleDatabase): ImportCandidates {
 export type { ImportCandidate, ImportCandidatesQuery };
 
 export {
+  IMPORT_WAITERS_MAX,
+  ImportBusy,
+  importedText,
   ImportWriteRefused,
+  ImportWriteVoided,
   type ImportCounts,
   type ImportedRowInput,
   type ImportPlanContext,
@@ -213,6 +218,15 @@ export interface ImportedTransactions {
     input: ImportWriteInput,
     plan: (context: ImportPlanContext) => Promise<ImportCounts>,
   ): Promise<ImportWriteResult>;
+  /**
+   * #654: gives up the attempt unless the batch is written — under the accounts' import lock, so a write in progress
+   * finishes first. The counts of the batch's write (the caller finishes its apply with them), or null: the attempt is
+   * given up and no write of it can follow (`ImportWriteVoided`).
+   */
+  settle(
+    householdId: string,
+    input: Pick<ImportWriteInput, "batchId" | "attemptId" | "accountIds">,
+  ): Promise<ImportCounts | null>;
 }
 
 /** The hand-offs run right away after the write; the worker runs the rest from the queue (ARC-04 FR 2). */
@@ -262,6 +276,10 @@ export function createImportedTransactions(
       }
       return result;
     },
+    settle: (householdId, input) =>
+      db.inHousehold(householdId, (q) =>
+        settleImport({ now: () => new Date(ports.now()) }, importWriteTx(q), householdId, input),
+      ),
   };
 }
 

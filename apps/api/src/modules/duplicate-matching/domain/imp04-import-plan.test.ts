@@ -137,6 +137,31 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
     ]);
   });
 
+  it("IMP-04@PoC FR 4: a card's overlapping statements stored in the debt basis and as printed — the shared rows are duplicates (#654)", () => {
+    // The first statement, applied with the debt basis confirmed (IMP-05 FR 6): its balances stored negative.
+    const debt = [
+      tx({ amount: EUR("-40.00"), date: "2026-05-04", description: "SHOP", balanceAfter: EUR("-140.00") }),
+      tx({ amount: EUR("-10.00"), date: "2026-05-05", description: "CAFE", balanceAfter: EUR("-150.00") }),
+    ];
+    // The overlapping one, its «знак картки» confirmed as printed: the same balances, positive.
+    const printed = [
+      row({ amount: EUR("-40.00"), date: "2026-05-04", description: "SHOP", balance: EUR("140.00") }),
+      row({ amount: EUR("-10.00"), date: "2026-05-05", description: "CAFE", balance: EUR("150.00") }),
+      row({ amount: EUR("-5.00"), date: "2026-05-06", description: "BUS", balance: EUR("155.00") }),
+    ];
+    const out = plan(printed, debt);
+    expect(kinds(out)).toEqual(["duplicate", "duplicate", "import"]);
+    expect(created(out)).toBe(1);
+    // Another size of the balance is still another operation.
+    const other = row({
+      amount: EUR("-40.00"),
+      date: "2026-05-04",
+      description: "SHOP",
+      balance: EUR("141.00"),
+    });
+    expect(plan([other], [debt[0]!])[0]!.kind).not.toBe("duplicate");
+  });
+
   it("IMP-04@PoC FR 1: the normalized description — NFKC, lower case, one space, trimmed", () => {
     expect(normalizeDescription("  CARD  PAYMENT\tＳｈｏｐ ")).toBe("card payment shop");
     expect(normalizeDescription(null)).toBe("");

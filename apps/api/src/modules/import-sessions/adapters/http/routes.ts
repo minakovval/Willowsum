@@ -5,12 +5,13 @@ import { defineRoute, DOWNLOAD_RESPONSE, type ProtectedContext } from "../../../
 import { FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
 import { PlanTooLargeError, planImport } from "../../../duplicate-matching/index.ts";
 import { FileNotFoundError } from "../../../file-storage/index.ts";
-import { ImportWriteRefused } from "../../../transactions/index.ts";
+import { ImportBusy, ImportWriteRefused } from "../../../transactions/index.ts";
 import {
   addFiles,
   applyBatch,
   ApplyNotReady,
   ApplyRowsRefused,
+  ApplyTooLarge,
   ApplyUnsupported,
   BALANCE_CHOICES,
   decide,
@@ -97,6 +98,8 @@ const batchSchema = z.object({
   version: z.number().int(),
   createdAt: z.string(),
   lastActionAt: z.string(),
+  /** #654: «застосовано» with its apply still in progress (the rows being written; settled by a retry or the daily recovery). */
+  applying: z.boolean(),
   /** Accepted and rejected files of the batch. */
   files: z.object({ accepted: z.number().int(), rejected: z.number().int() }),
 });
@@ -125,6 +128,7 @@ function presentBatch(b: Batch, files: readonly BatchFile[]): z.input<typeof bat
     version: b.version,
     createdAt: b.createdAt.toISOString(),
     lastActionAt: b.lastActionAt.toISOString(),
+    applying: b.applying ?? false,
     files: { accepted, rejected: files.length - accepted },
   };
 }
@@ -160,6 +164,8 @@ function refusal(error: unknown): unknown {
     });
   if (error instanceof ImportWriteRefused) {
     if (error.issue === "account-closed") return new ApiProblem("ACCOUNT_CLOSED");
+    // #654: a wallet of the account changed while the rows were planned: nothing written, try again.
+    if (error.issue === "account-changed") return new ApiProblem("BATCH_STATE_CONFLICT");
     const issue =
       error.issue === "account-not-found" || error.issue === "file-not-in-batch" ? "account" : error.issue;
     return new ApiProblem("IMPORT_ROWS_REFUSED", {
@@ -173,6 +179,12 @@ function refusal(error: unknown): unknown {
     });
   }
   if (error instanceof PlanTooLargeError) return new ApiProblem("IMPORT_PLAN_TOO_LARGE");
+  // #654: the ceiling of rows per apply (split the batch), and of applies of the space at once (try again).
+  if (error instanceof ApplyTooLarge)
+    return new ApiProblem("IMPORT_PLAN_TOO_LARGE", {
+      errors: [{ in: "path", path: "batchId", issue: "rows" }],
+    });
+  if (error instanceof ImportBusy) return new ApiProblem("RATE_LIMITED", { retryAfterS: 60 });
   if (error instanceof ApplyUnsupported)
     return new ApiProblem("IMPORT_APPLY_UNSUPPORTED", {
       errors: [{ in: "path", path: "batchId", issue: error.reason }],
@@ -875,6 +887,7 @@ export const applyImportBatchRoute = defineRoute({
     "IMPORT_PLAN_TOO_LARGE",
     "IMPORT_APPLY_UNSUPPORTED",
     "ACCOUNT_CLOSED",
+    "RATE_LIMITED",
   ],
   response: {
     status: 200,
@@ -900,6 +913,7 @@ export const applyImportBatchRoute = defineRoute({
           run: (work) => ctx.inHousehold((q) => work(applyTx(q))),
           open: (purpose, sealed) => parse.keys.openBytes(householdId, purpose, sealed),
           write: (input, plan) => apply.transactions.write(householdId, input, plan),
+          settle: (input) => apply.transactions.settle(householdId, input),
           plan: (planDeps, request) => planImport(planDeps, householdId, request),
         },
         userId,

@@ -9,7 +9,7 @@ import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./m
  * In order, for one account:
  * 1. FR 3 — the same file (by content) as one of an applied batch: every row «дубль — уже імпортовано», nothing created.
  * 2. FR 1, FR 4 — the duplicate key: account, primary date, amount, currency, normalized description, and the balance
- *    after the operation when both sides have one. If the account has k transactions with a key and the file n rows,
+ *    after the operation (its size: either basis of a card's balance, #654) when both sides have one. If the account has k transactions with a key and the file n rows,
  *    max(0, n − k) rows are imported and the first min(n, k) of them (in file order) are duplicates of those k. An
  *    existing «в обробці» (pending) one is a key match only for a pending row: a posted row replaces it (FR 6).
  * 3. FR 2 — rows with the same key in the file (the balance left out) are all kept; the second and later get «повтор у
@@ -141,6 +141,12 @@ export function normalizeDescription(text: string | null): string {
 }
 
 const amountText = (m: Money) => `${m.currency} ${m.amount.toString()}`;
+/**
+ * FR 1, FR 4 (#654): the balance after the operation as the key compares it — its size, never its sign. A credit card's
+ * statement stored in the debt basis (IMP-05 FR 6, «inverted») and an overlapping one stored as printed (its «знак
+ * картки» confirmed) print the same balances with opposite signs; their shared rows are the same operations.
+ */
+const balanceText = (m: Money) => `${m.currency} ${m.amount.abs().toString()}`;
 
 /** FR 1 without the balance: account, primary date, amount, currency, normalized description. */
 export function duplicateKey(
@@ -210,7 +216,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   for (const t of existing) {
     const k = duplicateKey(input.accountId, t);
     push(byKey, listKey(k, t.status, ANY), t);
-    push(byKey, listKey(k, t.status, t.balanceAfter ? amountText(t.balanceAfter) : NONE), t);
+    push(byKey, listKey(k, t.status, t.balanceAfter ? balanceText(t.balanceAfter) : NONE), t);
   }
   /** The first transaction of a list not taken yet. */
   const head = (k: string): KnownTransaction | undefined => {
@@ -229,7 +235,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
     for (const r of ordered) {
       if (duplicateOf.has(r.row)) continue;
       if (exact && r.balance === null) continue;
-      const balance = exact ? amountText(r.balance!) : r.balance === null ? ANY : NONE;
+      const balance = exact ? balanceText(r.balance!) : r.balance === null ? ANY : NONE;
       const match = (r.status === "pending" ? ["posted", "pending"] : ["posted"])
         .map((status) => head(listKey(keyOf(r), status, balance)))
         .filter((t): t is KnownTransaction => t !== undefined)
