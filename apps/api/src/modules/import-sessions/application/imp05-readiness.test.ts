@@ -494,6 +494,30 @@ describe("IMP-05@PoC FR 10: decisions on rows, groups, files and the batch", () 
     expect(readiness(files, confirmed).ready).toBe(true);
   });
 
+  it("IMP-05@PoC FR 6: the sign flipped for the file on «знак картки» flips every row, those the balance chain holds as printed too (#654)", () => {
+    // The chain holds as printed (every row confirmed), yet a card's chain confirms no sign: the batch has the flag.
+    const card = checks({
+      signs: { ...checks().signs, card: { positive: 2, negative: 1 } },
+      flags: [{ code: "card-sign", severity: "review", positive: 2, negative: 1 }],
+    });
+    const files = [file(card)];
+    expect(readiness(files, []).refusals.map((x) => x.code)).toEqual(["flags"]);
+    const flipped = readiness(
+      files,
+      decided(files, [
+        { kind: "group", fileId: FILE, group: "review", action: "flip-sign" },
+        { kind: "row", fileId: FILE, row: 2, action: "accept" },
+      ]),
+    );
+    expect(flipped.ready).toBe(true);
+    // A row's own decision still wins.
+    expect(flipped.files[0]!.flipped).toEqual([1, 3]);
+    // The flag confirmed instead: nothing flips.
+    const confirmed = readiness(files, decided(files, [{ kind: "flag", fileId: FILE, code: "card-sign" }]));
+    expect(confirmed.ready).toBe(true);
+    expect(confirmed.files[0]!.flipped).toEqual([]);
+  });
+
   it("IMP-05@PoC FR 10: a decision on an unknown file, a row the file does not have or a flag it does not carry is refused", () => {
     const files = [file(c)];
     expect(() => decided(files, [{ kind: "row", fileId: OTHER, row: 1, action: "accept" }])).toThrow(

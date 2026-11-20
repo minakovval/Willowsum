@@ -203,6 +203,7 @@ export {
   ImportWriteRefused,
   ImportWriteVoided,
   type ImportCounts,
+  type ImportCreated,
   type ImportedRowInput,
   type ImportPlanContext,
   type ImportWriteInput,

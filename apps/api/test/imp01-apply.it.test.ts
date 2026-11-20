@@ -670,3 +670,63 @@ describe("IMP-01@PoC FR 11: refusals — nothing written, the batch as it was", 
     expect(rows[0]!.n).toBe(0);
   });
 });
+
+describe("IMP-04@PoC FR 4: a credit card's overlapping statements through the apply (#654, #655: `creditCard` from the account's kind)", () => {
+  it("IMP-04@PoC FR 4, IMP-05@PoC FR 6: a card statement in the debt basis, then an overlapping one with its sign flipped — the shared rows are duplicates, only the new row is written", async () => {
+    const space = await newSpace();
+    const card = randomUUID();
+    accountsOf.set(`${space.householdId}/${card}`, {
+      accountId: card,
+      kind: "credit-card",
+      status: "active",
+      subaccounts: [{ subaccountId: randomUUID(), currency: "EUR", ledgerAccountId: randomUUID() }],
+    });
+    const onCard = { ...space, eur: card };
+    // The first statement: the chain confirms the debt basis, so its balances are stored negative.
+    const first = await parsedBatch(onCard, [
+      {
+        name: "kartka-1.csv",
+        bytes: text([
+          "Вхідний залишок:;100,00",
+          "Дата;Сума;Залишок;Опис",
+          "15.03.2026;-50,00;150,00;Магазин",
+          "20.03.2026;-20,00;170,00;Кафе",
+          "25.03.2026;30,00;140,00;Погашення",
+          "Кінцевий залишок:;140,00",
+        ]),
+      },
+    ]);
+    expect((await apply(onCard, first.batchId)).statusCode).toBe(200);
+    // The next one overlaps by two rows, purchases printed positive: its sign flipped, balances stored as printed.
+    const second = await parsedBatch(onCard, [
+      {
+        name: "kartka-2.csv",
+        bytes: text([
+          "Вхідний залишок:;150,00",
+          "Дата;Сума;Залишок;Опис",
+          "20.03.2026;20,00;170,00;Кафе",
+          "25.03.2026;-30,00;140,00;Погашення",
+          "28.03.2026;5,00;145,00;Автобус",
+          "Кінцевий залишок:;145,00",
+        ]),
+      },
+    ]);
+    const decided = await call(onCard, "POST", `/v1/import/batches/${second.batchId}/decisions`, {
+      decisions: [{ kind: "group", fileId: second.fileIds[0], group: "review", action: "flip-sign" }],
+    });
+    expect(decided.statusCode, decided.body).toBe(200);
+    const res = await apply(onCard, second.batchId);
+    expect(res.statusCode, res.body).toBe(200);
+    const { rows } = await db.owner.query<{ amount: string; balance_after: string }>(
+      `SELECT trim_scale(amount)::text AS amount, trim_scale(balance_after)::text AS balance_after
+         FROM transactions.transactions WHERE household_id = $1 ORDER BY occurred_on, import_row`,
+      [onCard.householdId],
+    );
+    expect(rows).toEqual([
+      { amount: "-50", balance_after: "-150" },
+      { amount: "-20", balance_after: "-170" },
+      { amount: "30", balance_after: "-140" },
+      { amount: "-5", balance_after: "145" },
+    ]);
+  });
+});

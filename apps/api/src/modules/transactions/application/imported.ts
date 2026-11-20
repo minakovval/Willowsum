@@ -23,7 +23,8 @@ import type { NewStoredTransaction, StoredTransaction } from "./stored.ts";
  * 3. the accounts' state: unknown or closed — refused, nothing written;
  * 4. the caller's plan, file by file, reading the accounts' transactions in this same transaction (so a file of the
  *    batch is planned after the one before it is written: two copies of one file, or overlapping files, in one batch
- *    are duplicates), each row written once by its key (batch, file, row);
+ *    are duplicates), each row written once by its key (batch, file, row) and its link made with the other transaction locked (IMP-04 FR 5: kept merged into a manual
+ *    one; FR 6: a pending one merged into it);
  * 5. only then the accounts' money lock (accounts `lockAccounts`, which their closing, «Оновити залишок» and wallet
  *    removal take; #654: other writers of the account never wait for the plan) and their state again: closed meanwhile,
  *    or a wallet the rows went to removed — refused, everything rolled back. The rows are invisible to every other
@@ -53,6 +54,28 @@ export interface ImportedRowInput {
   readonly counterparty: string | null;
   /** The balance after the operation as printed; null — none. */
   readonly balanceAfter: Money | null;
+  /**
+   * IMP-04 FR 5 (#637 item 6): the row is kept merged into this manual transaction (its link: the bank's identifier,
+   * text and balance), which stays as it is — its category, notes and journal event; the row's own event never posts.
+   */
+  readonly mergeInto?: string;
+  /**
+   * IMP-04 FR 6: the row, posted, replaces this pending one of a previous import («замінено») — with the amount the
+   * plan compared: the pending one is hidden, merged into the row (no journal event: it had none).
+   */
+  readonly replaces?: { readonly transactionId: string; readonly amount: Money };
+  /**
+   * What happens when the link (`mergeInto` or `replaces`) cannot be made now — the other transaction changed since
+   * the plan read it: `write` (the default) writes the row on its own, `skip` writes nothing. Either way the row is in
+   * `ImportCreated.unlinked`.
+   */
+  readonly ifUnlinked?: "write" | "skip";
+}
+
+/** What `ImportPlanContext.create` did beyond writing each row once. */
+export interface ImportCreated {
+  /** The rows (file, row) whose `mergeInto` or `replaces` was not made. */
+  readonly unlinked: readonly { readonly fileId: string; readonly row: number }[];
 }
 
 export type ImportWriteIssue =
@@ -115,8 +138,8 @@ export interface ImportPlanContext {
   };
   /** FR 4 (#655): the batch's account is a credit card (accounts' kind «credit-card», as read in step 3). */
   creditCard(accountId: string): boolean;
-  /** Writes these rows now (each once by its key); the next file's plan sees them. */
-  create(rows: readonly ImportedRowInput[]): Promise<void>;
+  /** Writes these rows now (each once by its key) and their links; the next file's plan sees them. */
+  create(rows: readonly ImportedRowInput[]): Promise<ImportCreated>;
 }
 
 /** A transaction of the account as the plan reads it (the same as the public `ImportCandidate`). */
@@ -133,6 +156,8 @@ export interface ImportCandidateRow {
   readonly hidden: boolean;
   readonly transfer: boolean;
   readonly matched: boolean;
+  /** Merged into another transaction (an imported one: a manual one's link, or a replaced pending one). */
+  readonly merged: boolean;
 }
 
 export interface ImportWriteInput {
@@ -179,6 +204,11 @@ export interface ImportWriteTx {
   lockAccounts(householdId: string, accountIds: readonly string[]): Promise<void>;
   /** The row unless the batch's file row is written already (then null). */
   insertImported(householdId: string, row: ImportedRow): Promise<StoredTransaction | null>;
+  /** IMP-04 FR 5, FR 6: the other transaction of a link, locked until the transaction ends (as a merge locks it). */
+  lock(householdId: string, id: string): Promise<StoredTransaction | null>;
+  update(householdId: string, row: NewStoredTransaction): Promise<StoredTransaction>;
+  /** The transactions merged into `id`. */
+  duplicatesOf(householdId: string, id: string): Promise<string[]>;
   recordWrite(
     householdId: string,
     batchId: string,
@@ -239,7 +269,24 @@ export async function writeImport(
   const handOffs: TransactionHandOff[] = [];
   // The wallet each (account, currency) of the rows went to: checked again under the money lock (step 5).
   const wallets = new Map<string, { accountId: string; currency: string; subaccountId: string }>();
-  const create = async (rows: readonly ImportedRowInput[]) => {
+  let created = 0;
+  const handOff = async (
+    action: "create" | "merge",
+    before: StoredTransaction | null,
+    after: StoredTransaction,
+  ) => {
+    const h: TransactionHandOff = {
+      transactionId: after.id,
+      actorAccountId: input.actorId,
+      action,
+      version: after.version,
+      audit: transactionAuditValues(action, before, after),
+    };
+    await tx.enqueueHandOff(householdId, h);
+    handOffs.push(h);
+  };
+  const create = async (rows: readonly ImportedRowInput[]): Promise<ImportCreated> => {
+    const unlinked: { fileId: string; row: number }[] = [];
     for (const r of rows) {
       const at = { accountId: r.accountId, fileId: r.fileId, row: r.row };
       if (!files.has(r.fileId)) throw new ImportWriteRefused("file-not-in-batch", at);
@@ -261,6 +308,34 @@ export async function writeImport(
       const description = importedText(r.description, "description");
       const counterparty = importedText(r.counterparty, "counterparty");
       if (description === undefined || counterparty === undefined) throw new ImportWriteRefused("text", at);
+      // IMP-04 FR 5, FR 6: the other side of the link, locked and checked as it is now (a change since the plan read
+      // it — no link: the row is written on its own, or not at all, as the caller asked).
+      const linkId = r.mergeInto ?? r.replaces?.transactionId;
+      let other: StoredTransaction | null = null;
+      if (linkId !== undefined) {
+        const found = await tx.lock(householdId, linkId);
+        const fits =
+          found !== null &&
+          found.accountId.toLowerCase() === account.accountId.toLowerCase() &&
+          found.subaccountId === subaccount.subaccountId &&
+          found.mergedInto === null &&
+          found.transfer === null &&
+          (r.mergeInto !== undefined
+            ? found.source === "manual" &&
+              found.status === "posted" &&
+              !found.hidden &&
+              found.amount.equals(r.amount)
+            : found.source === "imported" &&
+              found.status === "pending" &&
+              found.amount.equals(r.replaces!.amount)) &&
+          (await tx.duplicatesOf(householdId, found.id)).length === 0;
+        if (fits) other = found;
+        else {
+          unlinked.push({ fileId: r.fileId, row: r.row });
+          if (r.ifUnlinked === "skip") continue;
+        }
+      }
+      const merged = other !== null && r.mergeInto !== undefined;
       const row = await tx.insertImported(householdId, {
         id: deps.newId(),
         accountId: account.accountId,
@@ -277,8 +352,9 @@ export async function writeImport(
         mergedInto: null,
         note: null,
         tagIds: [],
-        // BUD-12 FR 8: an imported transaction goes into «До розбору».
-        review: reviewOnCreate({ importedFromStatement: true }),
+        // BUD-12 FR 8: an imported transaction goes into «До розбору»; one kept as a manual one's link does not (the
+        // manual one is the transaction, with its category).
+        review: merged ? null : reviewOnCreate({ importedFromStatement: true }),
         version: 1,
         importBatchId: input.batchId,
         importFileId: r.fileId,
@@ -288,17 +364,32 @@ export async function writeImport(
       });
       // Written already by this batch (the unique key): never twice.
       if (!row) continue;
-      await tx.publishCreated(householdId, row.id);
-      const h: TransactionHandOff = {
-        transactionId: row.id,
-        actorAccountId: input.actorId,
-        action: "create",
-        version: row.version,
-        audit: transactionAuditValues("create", null, row),
-      };
-      await tx.enqueueHandOff(householdId, h);
-      handOffs.push(h);
+      created += 1;
+      // A row kept as a link is no transaction of its own: no category rule runs on it.
+      if (!merged) await tx.publishCreated(householdId, row.id);
+      await handOff("create", null, row);
+      if (merged) {
+        // FR 5: «Злиття» — the row merged into the manual one (hidden; its own event reversed, so the operation counts
+        // once); «Роз'єднати» (`DELETE /v1/transactions/{id}/merge`) gives it back.
+        const after = await tx.update(householdId, {
+          ...row,
+          hidden: true,
+          mergedInto: other!.id,
+          version: row.version + 1,
+        });
+        await handOff("merge", row, after);
+      } else if (other) {
+        // FR 6: «замінено» — the pending one merged into the posted row (hidden, kept for the batch's rollback).
+        const after = await tx.update(householdId, {
+          ...other,
+          hidden: true,
+          mergedInto: row.id,
+          version: other.version + 1,
+        });
+        await handOff("merge", other, after);
+      }
     }
+    return { unlinked };
   };
   const counts = await plan({
     candidates: tx.candidates,
@@ -314,7 +405,7 @@ export async function writeImport(
       throw new ImportWriteRefused("account-changed", { accountId: w.accountId });
   }
   await tx.recordWrite(householdId, input.batchId, counts, input.actorId, deps.now());
-  return { first: true, counts, created: handOffs.length, handOffs };
+  return { first: true, counts, created, handOffs };
 }
 
 /**

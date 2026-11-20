@@ -214,6 +214,33 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
     expect(created(out)).toBe(1);
   });
 
+  it("IMP-04@PoC FR 4: on a credit card too the balance matches by value first — a card balance that crosses zero keeps its +X and −X rows apart (#655)", () => {
+    // A card overpaid to +10.00, then a purchase of the day takes it to −10.00 (repayment in between, not in the file).
+    const first = tx({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balanceAfter: EUR("10.00"),
+    });
+    const later = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("-10.00"),
+    });
+    const same = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("10.00"),
+    });
+    // Newest first: the −10.00 row comes before the +10.00 one, so a size match first would give it the transaction.
+    const out = plan([later, same], [first], null, true);
+    expect(out.find((o) => o.row === same.row)).toMatchObject({ kind: "duplicate", of: first.transactionId });
+    expect(out.find((o) => o.row === later.row)!.kind).not.toBe("duplicate");
+    expect(created(out)).toBe(1);
+  });
+
   it("IMP-04@PoC FR 1: the normalized description — NFKC, lower case, one space, trimmed", () => {
     expect(normalizeDescription("  CARD  PAYMENT\tＳｈｏｐ ")).toBe("card payment shop");
     expect(normalizeDescription(null)).toBe("");
@@ -535,4 +562,79 @@ describe("IMP-04@PoC a): the work of one plan is bounded", () => {
     );
     expect(plan(rows, existing)).toHaveLength(20_000);
   }, 120_000);
+});
+
+describe("IMP-04@PoC FR 5: a key match with a manual transaction keeps the row as its link (#637 item 6, #654)", () => {
+  const manual = (over: Partial<KnownTransaction> = {}) =>
+    tx({
+      amount: EUR("-42.00"),
+      date: "2026-04-11",
+      description: "Кафе",
+      source: "manual",
+      importBatchId: null,
+      ...over,
+    });
+  const r = () => row({ amount: EUR("-42.00"), date: "2026-04-11", description: "Кафе" });
+
+  it("IMP-04@PoC FR 5: the same key as a manual one matched with nothing — a duplicate of it, the row kept merged into it (nothing new in the balance)", () => {
+    const m = manual();
+    const out = plan([r()], [m]);
+    expect(out).toEqual([
+      { row: out[0]!.row, occurrence: 1, kind: "duplicate", of: m.transactionId, merge: true },
+    ]);
+    expect(created(out)).toBe(0);
+  });
+
+  it("IMP-04@PoC FR 5: a manual one matched already, hidden, «Очікує» or a side of a transfer — a plain duplicate, nothing kept", () => {
+    for (const over of [
+      { matched: true },
+      { hidden: true },
+      { status: "pending" as const },
+      { transfer: true },
+    ]) {
+      const m = manual(over);
+      const rows = over.status === "pending" ? [{ ...r(), status: "pending" as const }] : [r()];
+      const out = plan(rows, [m]);
+      expect(out[0]).toMatchObject({ kind: "duplicate", of: m.transactionId });
+      expect(out[0]).not.toHaveProperty("merge");
+    }
+  });
+
+  it("IMP-04@PoC FR 4: an imported row kept as a link (merged) is still the key match of its row — a duplicate, never merged or offered again", () => {
+    const m = manual({ date: "2026-04-10", description: "Обід", matched: true });
+    const link = tx({
+      amount: EUR("-42.00"),
+      date: "2026-04-11",
+      description: "Кафе",
+      hidden: true,
+      merged: true,
+    });
+    const out = plan([r()], [m, link]);
+    expect(out).toEqual([{ row: out[0]!.row, occurrence: 1, kind: "duplicate", of: link.transactionId }]);
+    // Another row of the amount: neither the link (merged) nor the manual one (matched) merges it.
+    const other = row({ amount: EUR("-42.00"), date: "2026-04-12", description: "Інше" });
+    expect(plan([other], [m, link])[0]).toMatchObject({
+      kind: "possible-duplicate",
+      candidates: [m.transactionId],
+    });
+  });
+
+  it("IMP-04@PoC FR 6: a pending one replaced already (merged into its posted one) is never replaced again; the pending row is its duplicate", () => {
+    const replaced = tx({
+      amount: EUR("-30.00"),
+      date: "2026-05-01",
+      description: "HOLD SHOP",
+      status: "pending",
+      hidden: true,
+      merged: true,
+    });
+    expect(plan([row({ amount: EUR("-30.00"), date: "2026-05-02" })], [replaced])[0]!.kind).toBe("import");
+    const again = row({
+      amount: EUR("-30.00"),
+      date: "2026-05-01",
+      description: "HOLD SHOP",
+      status: "pending",
+    });
+    expect(plan([again], [replaced])[0]).toMatchObject({ kind: "duplicate", of: replaced.transactionId });
+  });
 });

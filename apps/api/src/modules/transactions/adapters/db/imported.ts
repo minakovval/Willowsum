@@ -55,6 +55,9 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
       );
     },
     lockAccounts: (householdId, accountIds) => tx.lockAccounts(householdId, accountIds),
+    lock: (householdId, id) => tx.lock(householdId, id),
+    update: (householdId, row) => tx.update(householdId, row),
+    duplicatesOf: (householdId, id) => tx.duplicatesOf(householdId, id),
     async insertImported(householdId, t) {
       const { rows } = await q.query<{ id: string }>(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,

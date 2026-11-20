@@ -12,7 +12,9 @@ import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./m
  *    after the operation when both sides have one — its value first, then (a credit card only) its size: either basis
  *    of a card's balance (#654, #655). If the account has k transactions with a key and the file n rows,
  *    max(0, n − k) rows are imported and the first min(n, k) of them (in file order) are duplicates of those k. An
- *    existing «в обробці» (pending) one is a key match only for a pending row: a posted row replaces it (FR 6).
+ *    existing «в обробці» (pending) one is a key match only for a pending row: a posted row replaces it (FR 6). A key
+ *    match with a manual one not matched yet keeps the row merged into it as its link (`merge`, FR 5; #637 item 6); a
+ *    transaction merged into another (`merged`) is a key match of its own row and nothing else.
  * 3. FR 2 — rows with the same key in the file (the balance left out) are all kept; the second and later get «повтор у
  *    файлі» and their occurrence number (`occurrence`, from 1 in file order, the duplicates of step 2 counted).
  * 4. FR 6 — a posted row replaces a pending one of a previous import on the account: the same currency and sign,
@@ -81,6 +83,12 @@ export interface KnownTransaction {
   readonly hidden: boolean;
   readonly transfer: boolean;
   readonly matched: boolean;
+  /**
+   * Merged into another transaction (an imported one kept as a manual one's link, FR 5, or a pending one replaced,
+   * FR 6): the same operation as the one it is merged into, so still a key match of its own row; never merged, replaced
+   * or offered again. Absent — not merged.
+   */
+  readonly merged?: boolean;
 }
 
 export const ROW_OUTCOMES = [
@@ -107,6 +115,11 @@ export type RowOutcome = Common &
     | /** FR 1, FR 4: nothing created; it is this transaction of the account. */ {
         readonly kind: "duplicate";
         readonly of: string;
+        /**
+         * FR 5 (#637 item 6): `of` is a manual transaction not matched yet — the row is kept merged into it as its
+         * link (the bank's identifier, text and balance), nothing new in the balance. Absent — nothing kept.
+         */
+        readonly merge?: true;
       }
     | /** FR 3: nothing created; the same file was applied in this batch. */ {
         readonly kind: "already-imported";
@@ -269,9 +282,9 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   const shownByAmountDay = new Map<string, KnownTransaction[]>();
   const amountDay = (amount: Money, day: number) => `${amountText(amount)}|${day}`;
   for (const t of existing) {
-    if (t.status === "pending" && t.source === "imported" && t.importBatchId !== input.batchId)
+    if (t.status === "pending" && t.source === "imported" && !t.merged && t.importBatchId !== input.batchId)
       push(pendingByDay, dayNumber(t.date), t);
-    if (!t.hidden && !t.transfer && (t.source === "manual" || t.importBatchId !== input.batchId))
+    if (!t.hidden && !t.transfer && !t.merged && (t.source === "manual" || t.importBatchId !== input.batchId))
       push(shownByAmountDay, amountDay(t.amount, dayNumber(t.date)), t);
   }
   let work = 0;
@@ -293,6 +306,16 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   };
 
   const matched = new Set(existing.filter((t) => t.matched).map((t) => t.transactionId));
+  const byId = new Map(existing.map((t) => [t.transactionId, t]));
+  /** FR 5 (#637 item 6): a key match the row is kept merged into — a manual one, shown, posted, matched with nothing. */
+  const linkable = (t: KnownTransaction | undefined) =>
+    t !== undefined &&
+    t.source === "manual" &&
+    t.status === "posted" &&
+    !t.hidden &&
+    !t.transfer &&
+    !t.merged &&
+    !matched.has(t.transactionId);
   const outcomes: RowOutcome[] = [];
   // FR 5: the rows that would merge with each manual transaction (their outcome's index and the gap in days).
   const mergeRows = new Map<string, { index: number; days: number }[]>();
@@ -300,7 +323,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
     const common = { row: r.row, occurrence: occ(r) };
     const of = duplicateOf.get(r.row);
     if (of !== undefined) {
-      outcomes.push({ ...common, kind: "duplicate", of });
+      outcomes.push({ ...common, kind: "duplicate", of, ...(linkable(byId.get(of)) ? { merge: true } : {}) });
       continue;
     }
 
