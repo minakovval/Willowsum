@@ -209,7 +209,7 @@ export function ReviewStep({ batchId }: { batchId: string }) {
   const file = base.files.find((f) => f.fileId === step.fileId) ?? base.files[0]!;
   const review = step.review.kind === "ready" ? step.review.data : null;
   const banners = bannersOf(file, base.readiness);
-  const blocked = applyBlock(t, locale, base.readiness, review);
+  const blocked = applyBlock(t, locale, base.readiness, step.errorRows);
 
   return (
     <div className="imp imp-review">
@@ -282,12 +282,13 @@ function applyBlock(
   t: Translate,
   locale: Locale,
   readiness: Readiness,
-  review: FileReview | null,
+  errorRows: number | null,
 ): string | null {
   const first = readiness.refusals[0];
   if (first) return first.message[locale === "uk" ? "uk" : "en"];
-  if (review && review.counts.states.error > 0) return t("importReview.apply.errors");
-  if (review === null) return t("importReview.apply.loading");
+  // The apply refuses the batch for a row with an error in any of its files, not only the one on screen.
+  if (errorRows === null) return t("importReview.apply.loading");
+  if (errorRows > 0) return t("importReview.apply.errors");
   return null;
 }
 

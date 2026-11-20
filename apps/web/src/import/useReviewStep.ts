@@ -171,6 +171,25 @@ export function useReviewStep(batchId: string) {
     // `base` changes with each readiness read; the review follows the decisions through `round`.
   }, [api, batchId, fileId, round, base.kind]);
 
+  // The rows with an error in every file of the batch (the apply refuses the whole batch for one): read per file.
+  const [errorRows, setErrorRows] = useState<number | null>(null);
+  const fileKey = base.kind === "ready" ? base.files.map((f) => f.fileId).join(",") : "";
+  useEffect(() => {
+    if (!fileKey) return;
+    let live = true;
+    void (async () => {
+      const all = await Promise.all(fileKey.split(",").map((id) => loadReview(api, batchId, id)));
+      if (!live) return;
+      // A file whose summary cannot be read keeps the button waiting: the batch is not known to be free of errors.
+      setErrorRows(
+        all.every((r) => r.ok) ? all.reduce((n, r) => n + (r.ok ? r.data.counts.states.error : 0), 0) : null,
+      );
+    })();
+    return () => {
+      live = false;
+    };
+  }, [api, batchId, fileKey, round]);
+
   // 3. The rows: one stream of pages (the questions tab chains three filters), kept as far as the person has loaded.
   const stream = useRef({ gen: 0, index: 0, cursor: null as string | null, done: false });
   const cache = useRef({
@@ -331,6 +350,7 @@ export function useReviewStep(batchId: string) {
     filter,
     setFilter,
     review,
+    errorRows,
     duplicates,
     retryReview,
     // Rows of another file, tab or filter are not this list's: it is loading until its own page arrives.

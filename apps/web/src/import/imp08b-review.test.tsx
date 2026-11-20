@@ -843,6 +843,17 @@ describe("IMP-08@PoC — several files in one batch", () => {
     expect(calls.some((c) => c.path.endsWith(`/files/${F2}/duplicates`))).toBe(true);
   });
 
+  it("IMP-08@PoC FR 6: a row with an error in another file of the batch also blocks «Застосувати»", async () => {
+    const clean = new Server([row(1)]);
+    const broken = new Server([row(1), row(2, { state: "error", issue: "unreadable" })]);
+    const { client } = api({ [F1]: clean, [F2]: broken });
+    renderAt(at(), client);
+    // The file on screen is the clean one; the error is in the second file.
+    expect(await screen.findByText("Питань немає")).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/Є рядки з помилкою/)).toBeTruthy());
+    expect(isDisabled(applyButton())).toBe(true);
+  });
+
   it("IMP-08@PoC FR 16: a batch whose files all failed has nothing to review and leads back to the files", async () => {
     const { client } = api(new Server([row(1)]), {
       over: {
