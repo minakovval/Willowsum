@@ -364,6 +364,12 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
     },
     enqueueParse: (job) => enqueueParse(q, job),
     async parsesInLastHour() {
+      // One «Розібрати» of the space at a time from here to its commit: two batches at once would both read the
+      // count before either queued its jobs and pass the ceiling together (security review of #639).
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('import-sessions.parse-rate:' || $1, 0))`,
+        [h],
+      );
       const { rows } = await q.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM jobs WHERE household_id = $1 AND name = $2
            AND created_at > now() - interval '1 hour'`,

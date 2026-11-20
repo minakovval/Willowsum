@@ -27,8 +27,8 @@ import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
- * The parse step of import batches (IMP-01@PoC FR 5, FR 6, FR 9, FR 10, FR 15, FR 19, FR 21; IMP-19@PoC FR 4, FR 5;
- * IMP-05@PoC FR 3, FR 4; IMP-06@PoC FR 1, FR 6, FR 7; #624) on a real PostgreSQL through the real API and the real
+ * The parse step of import batches (IMP-01@PoC FR 5, FR 6, FR 10, FR 15, FR 19, FR 21; IMP-19@PoC FR 4, FR 5;
+ * IMP-05@PoC FR 3, FR 4; IMP-06@PoC FR 1, FR 7; #624) on a real PostgreSQL through the real API and the real
  * worker queue: «Розібрати» queues each accepted file as a heavy job; the worker parses it in the isolated parse worker
  * with the chosen or matched recipe, stores the rows sealed with the space's key and records the checks with the
  * previous statement's history gap; the last file moves the batch. The accounts module is the test's port (an EUR
@@ -345,6 +345,11 @@ describe("IMP-01@PoC FR 5, FR 10: «Розібрати» parses each file in the
       `/v1/import/batches/${batch.batchId}/files/${batch.fileIds[0]}/rows`,
     );
     expect(rows.statusCode).toBe(409);
+    // FR 21: a refusal that asks to parse again (`ACCOUNT_BINDING`) can be followed in the same batch.
+    const again = await parse(space, batch.batchId);
+    expect(again.statusCode, again.body).toBe(200);
+    expect(again.json().state).toBe("processing");
+    expect((await view(space, batch.batchId)).json().progress).toEqual({ pending: 2, parsed: 0, failed: 0 });
   });
 
   it("IMP-01@PoC FR 10: a parsed file and a refused one — «потребує перегляду»; a file without an account is to review too", async () => {
@@ -405,8 +410,8 @@ describe("IMP-01@PoC FR 5, FR 10: «Розібрати» parses each file in the
   });
 });
 
-describe("IMP-06@PoC FR 1, FR 6, FR 7: the chosen or matched recipe", () => {
-  it("IMP-06@PoC FR 7, FR 6: a file of a saved format is parsed with the space's recipe for it — «збіг»", async () => {
+describe("IMP-06@PoC FR 1, FR 7: the chosen or matched recipe", () => {
+  it("IMP-06@PoC FR 7: a file of a saved format is parsed with the space's recipe for it — «збіг»", async () => {
     const space = await newSpace();
     const probe = await isolatedStatementParser().parse(new Uint8Array(CLEAN));
     const fingerprint = probe.reading.format!.fingerprint;
@@ -534,8 +539,8 @@ describe("IMP-01@PoC «Права доступу»: another space gets «not fou
   });
 });
 
-describe("IMP-19@PoC FR 2: the technical ceilings of the parse step (#624)", () => {
-  it("IMP-19@PoC FR 2: a space's parse requests are bounded per hour — 429 with a retry time, never 402", async () => {
+describe("#624: the technical ceilings of the parse step", () => {
+  it("#624: a space's parse requests are bounded per hour — 429 with a retry time, never 402", async () => {
     const space = await newSpace();
     const batch = await batchWith(space, [{ name: "berezen.csv", bytes: CLEAN }]);
     await db.owner.query(

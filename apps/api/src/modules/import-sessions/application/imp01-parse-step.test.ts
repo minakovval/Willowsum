@@ -25,9 +25,9 @@ describe("IMP-01@PoC FR 10: the batch's state once every file is parsed", () => 
     expect(batchStateAfterParse([])).toBeNull();
   });
 
-  it("IMP-01@PoC FR 21: a parse starts from a new batch or again from a parsed one, never from another state", () => {
-    expect(["uploaded", "parsed", "needs-review"].every((s) => takesParse(s as never))).toBe(true);
-    for (const s of ["processing", "failed", "applied", "rolled-back", "cancelled"])
+  it("IMP-01@PoC FR 21: a parse starts from a new batch or again from a parsed or failed one, never from another state", () => {
+    expect(["uploaded", "parsed", "needs-review", "failed"].every((s) => takesParse(s as never))).toBe(true);
+    for (const s of ["processing", "applied", "rolled-back", "cancelled"])
       expect(takesParse(s as never)).toBe(false);
     expect(PARSE_FILES_PER_HOUR).toBe(200);
   });

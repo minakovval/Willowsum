@@ -7,8 +7,12 @@ import type { BatchState } from "./batch.ts";
 export const PARSE_STATES = ["pending", "parsed", "failed"] as const;
 export type ParseState = (typeof PARSE_STATES)[number];
 
-/** The batches a parse may start from: a new one, or a parsed one parsed again (FR 21 «повторний розбір»). */
-const PARSES_FROM: ReadonlySet<BatchState> = new Set(["uploaded", "parsed", "needs-review"]);
+/**
+ * The batches a parse may start from: a new one, or one parsed again (FR 21 «повторний розбір») — a batch whose every file
+ * was refused too, so a refusal that asks to parse again (`ACCOUNT_BINDING`: save the recipe again) can be followed in the
+ * same batch. A failed batch with no accepted file has nothing to parse (409).
+ */
+const PARSES_FROM: ReadonlySet<BatchState> = new Set(["uploaded", "parsed", "needs-review", "failed"]);
 
 export function takesParse(state: BatchState): boolean {
   return PARSES_FROM.has(state);

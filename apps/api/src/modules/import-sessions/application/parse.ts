@@ -241,7 +241,13 @@ export interface SealedParse {
   readonly events: StatementParse["events"];
 }
 
-export const parsePurpose = (parseId: string): string => `parse:${parseId}`;
+/**
+ * The sealed rows are bound to their space (the key and the associated data), to their file and to this parse: the
+ * rows of another file of the space, or of an older parse of this file, do not open in this row's place. The file is
+ * tied to its batch by the table's foreign key. Two UUIDs without hyphens: the 64 characters a purpose's id may have.
+ */
+export const parsePurpose = (batchFileId: string, parseId: string): string =>
+  `parse:${batchFileId.replaceAll("-", "")}${parseId.replaceAll("-", "")}`;
 
 /** FR 10: a parsed file goes to «потребує перегляду» when anything in it waits for the person (IMP-05 FR 2–9). */
 function needsReview(checks: StatementChecks, accountId: string | null): boolean {
@@ -253,6 +259,9 @@ function needsReview(checks: StatementChecks, accountId: string | null): boolean
     checks.signs.unconfirmed.length > 0
   );
 }
+
+/** `file_parses.rows_sealed` holds at most 32 MiB with the seal's 29 bytes (version, IV, tag). */
+export const SEALED_ROWS_MAX_BYTES = 32 * 1024 * 1024 - 29;
 
 const DELIMITED: ReadonlySet<string> = new Set(["csv", "tsv"]);
 
@@ -333,11 +342,11 @@ export async function runParse(
     analysis: parsed.analysis,
     events: parsed.events,
   };
-  const rowsSealed = await ports.seal(
-    householdId,
-    parsePurpose(parse.parseId),
-    new TextEncoder().encode(JSON.stringify(sealed)),
-  );
+  const plain = new TextEncoder().encode(JSON.stringify(sealed));
+  // The worker bounds the answer in characters; as UTF-8 it can be three times that. Over the stored ceiling the file
+  // is refused for good, never retried (a job that fails on every attempt would keep the batch «в обробці»).
+  if (plain.length > SEALED_ROWS_MAX_BYTES) return refuse("CORRUPTED");
+  const rowsSealed = await ports.seal(householdId, parsePurpose(parse.batchFileId, parse.parseId), plain);
   await tx.upsertParse({
     ...parse,
     usedRecipeId: recipe?.id ?? null,
@@ -473,7 +482,7 @@ export async function rowsOf(
   const parse = (await tx.parses(batchId)).find((p) => p.batchFileId === batchFileId);
   if (!parse) throw new BatchNotFoundError();
   if (parse.state !== "parsed" || !parse.rowsSealed) throw new BatchStateErrorFor(batch.state);
-  const plain = await open(parsePurpose(parse.parseId), parse.rowsSealed);
+  const plain = await open(parsePurpose(parse.batchFileId, parse.parseId), parse.rowsSealed);
   const { events } = JSON.parse(new TextDecoder().decode(plain)) as SealedParse;
   const after = events.events.filter((e) => e.row > page.after);
   return { rows: after.slice(0, page.limit), more: after.length > page.limit, state: batch.state };
