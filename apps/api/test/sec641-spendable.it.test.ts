@@ -255,6 +255,7 @@ beforeAll(async () => {
         recurring,
         goals,
         budget: createBudgetServices({
+          planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
           transactions: createBudgetTransactions(db.databases.for("transactions")),

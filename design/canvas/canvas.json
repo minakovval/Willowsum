@@ -2418,6 +2418,14 @@
       "x": 1360,
       "y": 58470
     },
+    "PocPlanFlowTexts.dc.html": {
+      "h": 3780,
+      "page": "poc",
+      "title": "S-134 Грошовий потік · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 58470
+    },
     "PocPlanGoalCard.dc.html": {
       "h": 1040,
       "is_interactive": true,
@@ -4484,6 +4492,7 @@
     "PocPlanTrendTexts.dc.html",
     "PocPlanFlow.dc.html",
     "PocPlanFlowYear.dc.html",
+    "PocPlanFlowTexts.dc.html",
     "PocPlanPeriod.dc.html",
     "PocPlanGoals.dc.html",
     "PocPlanGoalCard.dc.html",
