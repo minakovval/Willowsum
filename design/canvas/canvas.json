@@ -3113,6 +3113,14 @@
       "w": 3960,
       "x": 2720,
       "y": 20070
+    },
+    "PocPlanCompareTexts.dc.html": {
+      "h": 3080,
+      "page": "poc",
+      "title": "S-132 Порівняння · Тексти",
+      "w": 1280,
+      "x": 5440,
+      "y": 55110
     }
   },
   "createdOnFiles": {
@@ -4471,6 +4479,7 @@
     "PocPlanCompareBase.dc.html",
     "PocPlanComparePeriod.dc.html",
     "PocPlanCompareYear.dc.html",
+    "PocPlanCompareTexts.dc.html",
     "PocPlanTrend.dc.html",
     "PocPlanTrendTexts.dc.html",
     "PocPlanFlow.dc.html",
