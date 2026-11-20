@@ -1689,6 +1689,14 @@
       "x": 0,
       "y": 31860
     },
+    "PocMoneyImport1Texts.dc.html": {
+      "h": 3200,
+      "page": "poc",
+      "title": "S-170 Імпорт · файли · Тексти",
+      "w": 2640,
+      "x": 9520,
+      "y": 31860
+    },
     "PocMoneyImport2.dc.html": {
       "h": 1100,
       "is_interactive": true,
@@ -4447,6 +4455,7 @@
     "PocMoneyCloseAccTexts.dc.html",
     "PocMoneyMergeAcc.dc.html",
     "PocMoneyImport1.dc.html",
+    "PocMoneyImport1Texts.dc.html",
     "PocMoneyImport2.dc.html",
     "PocMoneyImportRules.dc.html",
     "PocMoneyImportMismatch.dc.html",
