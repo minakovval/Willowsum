@@ -55,6 +55,7 @@ function deps(over: { failIn?: { port: string; period: string }; delayMs?: numbe
     today: () => TODAY,
     reportingCurrency: "EUR",
     reads: {} as BudgetDeps["reads"],
+    planEnabled: async () => true,
     obligations: {
       month: (householdId, period, currency) =>
         read("obligations", householdId, period, currency, {

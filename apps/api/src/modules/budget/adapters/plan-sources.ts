@@ -76,6 +76,7 @@ export function createBudgetPlanSources(ports: {
         // BUD-03@PoC EC4: «приблизно» — an amount of the goal at the nearest rate.
         requiredApproximate: byGoal.get(g.goalId)?.approximate ?? false,
         contributedApproximate: contributed[i]?.approximate ?? false,
+        currency: g.contributedThisMonth.currency,
         // No date or past it (BUD-05 FR 5: no required contribution) — nothing is planned for the goal.
         lastPeriod: g.requiredMonthly === null || g.targetDate === null ? null : periodOf(g.targetDate),
       }));

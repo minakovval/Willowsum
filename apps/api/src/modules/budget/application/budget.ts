@@ -12,6 +12,7 @@ import {
   shareFrom,
   startChoices,
   withCells,
+  type AllocationCell,
   type BudgetCategory,
   type BudgetIssue,
   type CountedAmount,
@@ -160,6 +161,12 @@ export interface BudgetDeps {
   readonly obligations: BudgetObligations | null;
   /** BUD-17: the goals and the debts' extra payments of the grid; null — not wired (a test's server only). */
   readonly planSources: BudgetPlanSources | null;
+  /**
+   * BUD-17 business rules (owner decision 2026-11-20, batch 2, item 2): whether «План» (release flag `budget.plan`) is
+   * on for the space. While it is off the months' own values typed on «План» act nowhere (`planCellsInEffect`); they
+   * stay stored. Required, so that the wiring in main.ts cannot be left out silently (#652 security review).
+   */
+  readonly planEnabled: (householdId: string) => Promise<boolean>;
 }
 
 /**
@@ -181,6 +188,8 @@ export interface BudgetPlanSources {
       /** BUD-03@PoC EC4 «приблизно»: `required` / `contributed` at the nearest rate; left out — exact. */
       requiredApproximate?: boolean;
       contributedApproximate?: boolean;
+      /** The goal's own currency (BUD-02 FR 15, Q4 а: the wizard shows the goals in the budget's currency). */
+      currency?: string;
     }[]
   >;
   /**
@@ -316,6 +325,7 @@ export function checkLimits(
  * under the budget's row lock. «Обов'язкова» is the categories' attribute (BUD-01 FR 11) as it is at that moment.
  */
 export async function ensureSnapshots(
+  deps: Pick<BudgetDeps, "planEnabled">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
@@ -330,7 +340,7 @@ export async function ensureSnapshots(
   );
   if (missing.length === 0) return;
   const plan = livePlan(budget, await tx.limits(householdId, budget.id), categories);
-  const cells = await tx.planCells(householdId, budget.id);
+  const cells = await planCellsInEffect(deps, tx, householdId, budget.id);
   for (const p of missing)
     await tx.insertSnapshot(
       householdId,
@@ -338,6 +348,22 @@ export async function ensureSnapshots(
       p,
       monthPlan(budget, p, plan, cells, categories, await lines(p)),
     );
+}
+
+/**
+ * BUD-17 business rules (owner decision 2026-11-20, batch 2, item 2): the months' own values of «План» that act on the
+ * plan — on «Бюджет» (limits, income plan, planned savings), in «Можна витратити», «Тренд», «Порівняння» and a snapshot
+ * written now. While `budget.plan` is off for the space — none: the cells stay stored and act again once it is on.
+ */
+export async function planCellsInEffect(
+  deps: Pick<BudgetDeps, "planEnabled">,
+  tx: Pick<BudgetTx, "planCells">,
+  householdId: string,
+  budgetId: string,
+  from?: Period,
+): Promise<PlanCell[]> {
+  if (!(await deps.planEnabled(householdId))) return [];
+  return tx.planCells(householdId, budgetId, from);
 }
 
 /** The lines of a month (domain/plan-grid.ts `PlanLines`), read from modules recurring and goals when asked. */
@@ -424,6 +450,8 @@ export async function createBudget(
     readonly limits?: readonly LimitInput[] | undefined;
   },
   categories: ReadonlyMap<string, BudgetCategory>,
+  /** FR 15: the cells «Розподіл» plans for the first period, checked against its balance (`planAllocation`). */
+  allocation: readonly AllocationCell[] = [],
 ): Promise<Handed<Result<StoredBudget>>> {
   const currency = deps.reportingCurrency;
   const issues: BudgetIssue[] = [];
@@ -477,6 +505,12 @@ export async function createBudget(
         ),
       );
     }
+  // FR 15: «Розподіл» writes only the plan — the first period's cells of «План», in this transaction with the budget.
+  for (const c of allocation) {
+    const cell = { period: budget.firstPeriod, kind: c.kind, lineId: c.lineId };
+    await tx.setPlanCell(caller.householdId, budget.id, { ...cell, amount: c.amount }, currency);
+    handOffs.push(cellHandOff(deps, caller, budget, cell, null, c.amount));
+  }
   for (const h of handOffs) await tx.enqueueHandOff(h);
   return { result: { kind: "ok", value: budget }, handOffs };
 }
@@ -510,6 +544,7 @@ export async function updatePlan(
   if (issues.length > 0 || !(income instanceof Money))
     return { result: { kind: "invalid", issues }, handOffs: [] };
   await ensureSnapshots(
+    deps,
     tx,
     caller.householdId,
     budget,
@@ -596,6 +631,7 @@ export async function setBudgetAccount(
   const before = isIncluded(account, await tx.accountChoices(caller.householdId));
   if (before === included) return { result: { kind: "ok", value: budget }, handOffs: [] };
   await ensureSnapshots(
+    deps,
     tx,
     caller.householdId,
     budget,
@@ -656,7 +692,7 @@ export async function deleteBudget(
  * current and future ones — the plan as it is. Null — a period before the first one (edge case 5).
  */
 export async function periodPlan(
-  deps: Pick<BudgetDeps, "today" | "planSources">,
+  deps: Pick<BudgetDeps, "today" | "planSources" | "planEnabled">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
@@ -670,7 +706,7 @@ export async function periodPlan(
       budget,
       period,
       livePlan(budget, await tx.limits(householdId, budget.id), categories),
-      await tx.planCells(householdId, budget.id, period),
+      await planCellsInEffect(deps, tx, householdId, budget.id, period),
       categories,
       await planLines(deps, householdId, budget.currency)(period),
     );
@@ -679,6 +715,7 @@ export async function periodPlan(
     const locked = await tx.budget(householdId, true);
     if (!locked) return null;
     await ensureSnapshots(
+      deps,
       tx,
       householdId,
       locked,
@@ -696,7 +733,7 @@ export async function periodPlan(
  * pass (under the budget's row lock) when a finished month has none yet. Null — a month before the first one.
  */
 export async function periodPlans(
-  deps: Pick<BudgetDeps, "today" | "planSources">,
+  deps: Pick<BudgetDeps, "today" | "planSources" | "planEnabled">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
@@ -711,11 +748,11 @@ export async function periodPlans(
   const finished = periods.filter((p) => p >= budget.firstPeriod && periodMode(p, today) === "past");
   if (finished.some((p) => !snapshots.has(p))) {
     const locked = await tx.budget(householdId, true);
-    if (locked) await ensureSnapshots(tx, householdId, locked, today, categories, lines);
+    if (locked) await ensureSnapshots(deps, tx, householdId, locked, today, categories, lines);
     snapshots = await tx.snapshots(householdId, budget.id);
   }
   const live = livePlan(budget, await tx.limits(householdId, budget.id), categories);
-  const cells = await tx.planCells(householdId, budget.id, periodOf(today));
+  const cells = await planCellsInEffect(deps, tx, householdId, budget.id, periodOf(today));
   const out = new Map<Period, PeriodPlan | null>();
   for (const p of periods)
     out.set(

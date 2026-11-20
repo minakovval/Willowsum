@@ -212,6 +212,7 @@ beforeAll(async () => {
         }),
         recurring,
         budget: createBudgetServices({
+          planEnabled: (householdId) => FLAGS.isEnabled(householdId, "budget.plan"),
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
           transactions: createBudgetTransactions(db.databases.for("transactions")),

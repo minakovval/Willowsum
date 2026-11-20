@@ -219,6 +219,11 @@ export function createBudgetServices(options: {
   readonly planSources?: BudgetPlanSources;
   /** BUD-03@PoC EC5: «Витратити з цілі» (`createGoalSpends`); left out (a test's server) — no spends left out. */
   readonly goalSpends?: GoalSpends;
+  /**
+   * BUD-17 (owner decision 2026-11-20, batch 2, item 2): whether «План» (`budget.plan`) is on for the space; while it is
+   * off the months' own values act nowhere. Required: a server without it does not build (#652 security review).
+   */
+  readonly planEnabled: (householdId: string) => Promise<boolean>;
 }): BudgetServices {
   return {
     [BRAND]: true,
@@ -230,6 +235,7 @@ export function createBudgetServices(options: {
       reads: budgetReads(options),
       obligations: options.obligations ?? null,
       planSources: options.planSources ?? null,
+      planEnabled: options.planEnabled,
     },
     audit: budgetAudit(options.audit),
   };

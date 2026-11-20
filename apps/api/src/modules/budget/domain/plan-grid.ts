@@ -28,17 +28,25 @@ export const PLAN_GRID_MONTHS = 12;
 export const PLAN_LINE_KINDS = ["income", "limit", "goal", "savings"] as const;
 export type PlanLineKind = (typeof PLAN_LINE_KINDS)[number];
 
+/**
+ * BUD-02@PoC FR 15: what a cell may hold — a line of the grid, or `debt` — the extra payment above the minimum that
+ * «Розподіл» planned for one debt in the first period (module accounts' id of the debt). The grid shows it as that
+ * month's «додатковий платіж» of the debt, read only (FR 1); it is a planned expense, not planned savings (BUD-02 FR 11).
+ */
+export const PLAN_CELL_KINDS = [...PLAN_LINE_KINDS, "debt"] as const;
+export type PlanCellKind = (typeof PLAN_CELL_KINDS)[number];
+
 /** A month's own value of a line; `amount` null — back to the line's default (the row stays, so its version goes on). */
 export interface PlanCell {
   readonly period: Period;
-  readonly kind: PlanLineKind;
+  readonly kind: PlanCellKind;
   readonly lineId: string | null;
   readonly amount: Money | null;
   /** FR 3: the version the page saw; a line without a row is version 0. */
   readonly version: number;
 }
 
-export const cellKey = (kind: PlanLineKind, lineId: string | null): string => `${kind}:${lineId ?? ""}`;
+export const cellKey = (kind: PlanCellKind, lineId: string | null): string => `${kind}:${lineId ?? ""}`;
 
 /** FR 1, FR 6: the grid's months — the current one and the 11 next. */
 export function gridMonths(today: string): Period[] {

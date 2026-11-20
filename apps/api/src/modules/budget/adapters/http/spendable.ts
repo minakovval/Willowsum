@@ -2,7 +2,7 @@ import { z } from "zod";
 import { Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
-import { byId, countsFrom, isIncluded, periodPlan } from "../../application/index.ts";
+import { byId, countsFrom, isIncluded, periodPlan, planCellsInEffect } from "../../application/index.ts";
 import {
   daysLeft,
   goalContributions,
@@ -173,7 +173,8 @@ export const getSpendableRoute = defineRoute({
     if (period !== periodOf(today)) throw invalid("not_current");
     const { plan, cells, choices } = await ctx.inHousehold(async (q) => ({
       plan: await periodPlan(deps, budgetTx(q), householdId, budget, period, categories),
-      cells: await budgetTx(q).planCells(householdId, budget.id, period),
+      // Owner decision 2026-11-20 (batch 2, item 2): with «План» off the goals' typed contributions do not act.
+      cells: await planCellsInEffect(deps, budgetTx(q), householdId, budget.id, period),
       choices: await budgetTx(q).accountChoices(householdId),
     }));
     if (!plan) throw new ApiProblem("BUDGET_PERIOD_BEFORE_START");
