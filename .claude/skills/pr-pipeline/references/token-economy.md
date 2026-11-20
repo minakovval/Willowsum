@@ -1,6 +1,6 @@
 # Token economy (model choice and briefs)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20
 
 Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
 session starts or finishes.
@@ -12,27 +12,48 @@ session starts or finishes.
    model» below; security reviews stay as below; why: the owner asked for cost by risk (brief «легший процес,
    надійна база», item 5):
    - **implementing** sensitive features: the main model (Fable has only the uses below);
-   - **fixes and confirmations**: the lighter model working from ready reviewer patches (`fix-review-findings`),
-     a fresh agent per fix; if it must deviate from a patch, it stops and reports, and the fix moves to the main
-     model;
-     follow-up PRs and status checks also on the lighter model;
+   - **fixes**: the lighter model working from ready reviewer patches (`fix-review-findings`), a fresh agent per
+     fix; if it must deviate from a patch, it stops and reports, and the fix moves to the main model; status checks
+     also on the lighter model;
+   - **authors of follow-up sweeps (rows R) and of flaky-test fixes**: Sonnet (owner decision 2026-11-20, option б,
+     [log](../../../../docs/decisions/log/2026-11-20-owner-sonnet-reviews.md)); **authors of server PRs** stay on Opus;
    - **security reviews**: the main model, except the Fable uses below; **mutation testing of critical modules
      is mandatory on any model**;
    - **Fable** only for:
      (a) the design of A1 and the amendments to ADR-0002 and ADR-0015; (b) the **first** security review of a PR
-     labelled `sensitive:money`, `permissions`, `auth` or `encryption` (crypto) (owner, 2026-11-19); a money PR that
-     only reads (like #338) goes to Opus with mutation testing, in doubt Fable; (c) a confirmation that adds a guard,
-     endpoint or query, or a PR that gains one of those four labels in a later round (full review, `security-review` §7);
-     (d) wave planning (`plan-wave`). At most **2** Fable tasks. Other confirmations and PRs with only
-     `pipeline`, `schema` or `infrastructure`: Opus, `security-review`. Near 90 % of the Fable limit, the auth, encryption and permissions reviews of (b) go to Opus; the lead tells the owner.
-     Everything else — flaky-test root causes, other architecture rows, implementing vault encryption, statement
-     import, requirement sweeps, follow-ups, docs, sync confirmations — is on the main model; the lead stays on
-     Opus. Fable draws on the Ultra subscription limit about twice as fast per token, with longer turns: short
+     labelled `sensitive:permissions`, `auth`, `encryption` or `schema`; (d) wave planning (`plan-wave`). At most **2**
+     Fable tasks. Owner decision (2026-11-20, option а, [log](../../../../docs/decisions/log/2026-11-20-owner-fable-usage.md)),
+     which replaces the owner decision of 2026-11-19 on money PRs:
+     - A PR that is only `sensitive:money`, with none of those four labels, goes to Opus with `security-review`, and
+       **mutation testing of the money logic is mandatory**.
+     - Every confirmation goes to Opus with `review-pr` and `security-review`, including one that adds a guard,
+       endpoint or query, and including the case where a later round adds one of the four labels; that Opus
+       confirmation does a full `security-review` §7 review. PRs with only `pipeline` or `infrastructure`: Opus,
+       `security-review`. One exception (owner decision 2026-11-20 on Sonnet, below): a confirmation where the diff
+       since the last reviewed head changes only tests, texts or a merge of main goes to Sonnet.
+     - Near 90 % of the Fable limit, the first reviews of (b) go to Opus; the lead tells the owner.
+     - Mitigation for money PRs: once a day the lead starts **one** Fable agent that reads only the money PRs merged
+       since the previous run. It runs `security-review`, read-only, and posts one comment per PR only when it finds a
+       defect. The lead opens an issue for each defect.
+     Everything else — flaky-test root causes (finding the cause), other architecture rows, implementing vault
+     encryption, statement import, server PRs — is on the main model, except what the Sonnet decision below moves;
+     the lead stays on Opus. Fable draws on the Ultra subscription limit about twice as fast per token, with longer turns: short
      briefs that state the goal; compare its rows in #180 by the per-model split;
-   - **reviews**: a `review-pr` of a PR whose every file passes `isDocsOnly` (merge checklist)
-     and none is a test or code may use a lighter model; every review and confirmation of a PR that changes code,
-     tools or workflows stays on the main model, as does a `.claude/`- or AGENTS.md-only PR that touches a security
-     rule (hard rules, review procedures, approvals, secrets, sensitive paths).
+   - **Sonnet** (owner decision 2026-11-20, option б,
+     [log](../../../../docs/decisions/log/2026-11-20-owner-sonnet-reviews.md)). Sonnet does:
+     (a) `review-pr` of a PR **without** the `sensitive` label that is tests, docs, process, flaky tests, or a
+     non-sensitive screen or UI component; (b) a confirmation where the diff since the last reviewed head changes only
+     tests, texts or a merge of main (also for a `sensitive` PR); (c) authors of follow-up sweeps (rows R) and of
+     flaky-test fixes. Mitigations, all mandatory:
+     - a Sonnet confirmation that finds a change to code outside tests stops and hands back to the lead, who gives
+       the confirmation to Opus;
+     - a Sonnet reviewer checks that no assertion was removed or weakened (compare the test diff with the head it
+       last reviewed) and says so in its report;
+     - for a screen, the Playwright screenshot at 1280 px is compared with the board (`screen-from-canvas`).
+     Stay on **Opus**: authors of server PRs, first reviews of `sensitive` PRs, and confirmations of `sensitive`
+     PRs whose diff changes code. A `.claude/`- or AGENTS.md-only PR that touches a security rule (hard rules, review
+     procedures, approvals, secrets, sensitive paths) is reviewed by Opus, as is every other review or confirmation
+     of a PR that changes code, tools or workflows and is not listed under Sonnet;
 2. A first review goes to a fresh agent with a narrow brief. A re-review **resumes the same reviewer session**
    when only the fixes changed since its last head (the brief: the diff since that head and its previous findings);
    a **fresh reviewer** when more changed — a sync with non-mechanical changes, new scope, a rewritten history
