@@ -687,6 +687,29 @@ describe("sec646: «Можна витратити» is never a partial figure", 
 });
 
 describe("sec646: survivors of the mutation round", () => {
+  it("sec646: a dated goal whose contribution has no rate leaves no balance — rows are refused `balance_unknown`, nothing saved", async () => {
+    const { space, goalId, plan } = await surplusSpace();
+    goals.set(space.householdId, [
+      { goalId, requiredMonthly: Money.of("10", "USD"), targetDate: "2027-03-31" },
+    ]);
+    const calc = await preview(space, plan);
+    expect(calc.statusCode, calc.body).toBe(200);
+    expect(calc.json().balance).toBeNull();
+    const res = await create(space, { ...plan, allocation: [{ kind: "savings", amount: eur("2640") }] });
+    expect(res.statusCode).toBe(400);
+    expect(paths(res)).toEqual(["allocation: balance_unknown"]);
+    expect(await budgets(space.householdId)).toBe(0);
+  });
+
+  it("sec646: the regular incomes still expected count in the wizard's figure — above the plan they raise it, exactly", async () => {
+    const { space, plan } = await surplusSpace();
+    incomeExpected.set(space.householdId, m("6000"));
+    const res = await preview(space, { ...plan, firstPeriod: "2026-11" });
+    expect(res.statusCode, res.body).toBe(200);
+    // max(plan 5 600, received 0 + still expected 6 000) − the minimum 100 − the goal's 300.
+    expect(res.json().spendable).toEqual({ period: "2026-11", amount: eur("5600"), missing: [] });
+  });
+
   it("sec646: more than 100 rows are refused before any work — 101 rows that would each be valid (a goal each, 0 €) are 400, 100 are saved", async () => {
     const { space, plan } = await surplusSpace();
     const many = Array.from({ length: 101 }, () => ({

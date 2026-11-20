@@ -498,6 +498,17 @@ describe("BUD-02@PoC: «Можна витратити в <місяць> ≈ M» 
     expect(await budgets(space.householdId)).toBe(0);
   });
 
+  it("BUD-02@PoC AC6: a first period next month counts nothing contributed — this month's contributions never lower it", async () => {
+    const { space, goalId, plan } = await surplusSpace();
+    goals.set(space.householdId, [
+      { goalId, requiredMonthly: m("300"), targetDate: "2027-03-31", contributedThisMonth: m("400") },
+    ]);
+    const res = await preview(space, plan);
+    expect(res.statusCode, res.body).toBe(200);
+    // December as of its 1st: 5 600 − the minimum 100 − the goal's planned 300; November's 400 is not December's.
+    expect(res.json().spendable).toEqual({ period: "2026-12", amount: eur("5200"), missing: [] });
+  });
+
   it("BUD-02@PoC AC6: the current month with a goal — this month's contributions count as on «Можна витратити» (#641); one without a rate — no figure", async () => {
     const { space, goalId, plan } = await surplusSpace();
     const res = await preview(space, { ...plan, firstPeriod: "2026-11" });

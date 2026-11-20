@@ -310,6 +310,8 @@ describe("#567: «Розподіл» with the live port (POST /v1/budget/allocat
       recurringOutsideLimits: eur("0"),
       unallocated: eur("2740"),
       debtMinimums: eur("0"),
+      // Q5 а: the goals' planned contributions (no goal here).
+      goalContributions: eur("0"),
       difference: eur("2740"),
       kind: "surplus",
       amount: eur("2740"),
@@ -343,6 +345,7 @@ describe("#567: «Розподіл» with the live port (POST /v1/budget/allocat
       recurringOutsideLimits: eur("15.99"),
       unallocated: eur("484.01"),
       debtMinimums: eur("250"),
+      goalContributions: eur("0"),
       difference: eur("234.01"),
       kind: "surplus",
       amount: eur("234.01"),

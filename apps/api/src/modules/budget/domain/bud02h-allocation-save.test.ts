@@ -151,6 +151,27 @@ describe("BUD-02@PoC FR 15: the rows of «Розподіл» saved with the budg
     ]);
   });
 
+  it("BUD-02@PoC FR 15 (Q4 а): on a deficit a goal without a row keeps its planned contribution — only «З цілі …» lowers one", () => {
+    const goals: AllocationLines["goals"] = [
+      { goalId: "g1", required: eur("300"), lastPeriod: "2027-03" },
+      { goalId: "g4", required: eur("200"), lastPeriod: "2027-03" },
+    ];
+    // 3 500 − 3 200 − (300 + 200) = a deficit of 200.
+    const b = balance("3500", "3200", goals);
+    expect(b.kind).toBe("deficit");
+    const r = checkAllocation(
+      b,
+      "2026-12",
+      [{ kind: "from-goal", goalId: "g1", amount: money("200") }],
+      { ...lines, goals },
+      parse,
+    );
+    expect(r.kind === "ok" && r.value.cells.map((c) => [c.lineId, c.amount.toDecimalString()])).toEqual([
+      ["g1", "100"],
+    ]);
+    expect(r.kind === "ok" && r.value.choice.status).toBe("exact");
+  });
+
   it("BUD-02@PoC FR 15 (Q3 а): «Із заощаджень» and «У борг» are not saved in PoC — refused as `not_saved`", () => {
     const deficit = balance("3300", "3200");
     for (const kind of ["from-savings", "to-debt"] as const)
