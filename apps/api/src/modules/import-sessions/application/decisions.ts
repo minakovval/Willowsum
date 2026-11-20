@@ -49,6 +49,8 @@ export interface ReviewTx {
     page?: { readonly limit: number; readonly after?: string; readonly slots?: readonly string[] },
   ): Promise<Decided[]>;
   upsertDecision(batchId: string, decided: Decided): Promise<void>;
+  /** The batch files whose parse was refused: they have no checks and take no decision (the parse step). */
+  failedParses(batchId: string): Promise<readonly string[]>;
   /** The decisions of one file and the batch's own: a new parse of the file makes them stale. */
   dropDecisions(batchId: string, fileId: string): Promise<void>;
 }
@@ -89,6 +91,7 @@ export async function recordChecks(
   if (batch.state !== "processing") throw new BatchStateErrorFor(batch.state);
   const file = (await tx.files(input.batchId)).find((f) => f.id === input.batchFileId);
   if (!file?.fileId) throw new BatchNotFoundError();
+  const checks = maskedChecks(input.checks);
   const previous =
     input.account.id === null ? null : await tx.previousStatement(input.account.id, input.batchId);
   const review: FileReview = {
@@ -97,8 +100,8 @@ export async function recordChecks(
     accountId: input.account.id,
     accountCurrency: input.account.currency,
     suggestedAccountId: input.suggestedAccountId ?? null,
-    checks: input.checks,
-    history: historyOf(previous?.bounds ?? null, input.checks),
+    checks,
+    history: historyOf(previous?.bounds ?? null, checks),
     previousFileId: previous?.fileId ?? null,
     recordedAt: deps.now(),
   };
@@ -111,18 +114,41 @@ export async function recordChecks(
     action: "update",
     changes: [
       { field: "files.checked", before: null, after: String(file.position) },
-      { field: "files.flags", before: null, after: String(input.checks.flags.length) },
+      { field: "files.flags", before: null, after: String(checks.flags.length) },
       { field: "files.history", before: null, after: review.history.status },
     ],
   });
   return { result: review, handOffs: [h] };
 }
 
-/** The batch is not ready to be reviewed: a file is not checked yet. */
+/**
+ * IMP-05 FR 4 and its business rule, #637 item 3: the account evidence is kept masked whatever the parse step gave —
+ * an IBAN or a card as «…» and at most its last 4 characters, a currency only as a code. The boundary checks it again
+ * instead of trusting the parse.
+ */
+export function maskedChecks(checks: StatementChecks): StatementChecks {
+  const masked = (value: string) =>
+    /^…[^…]{0,4}$/u.test(value) ? value : `…${[...value.replace(/^…+/u, "")].slice(-4).join("")}`;
+  const code = (value: string) => (/^[A-Z0-9]{3,10}$/.test(value) ? value : masked(value));
+  return {
+    ...checks,
+    account: {
+      ...checks.account,
+      reasons: checks.account.reasons.map((r) =>
+        r.kind === "currency"
+          ? { kind: r.kind, file: code(r.file), account: code(r.account) }
+          : { kind: r.kind, file: masked(r.file), account: masked(r.account) },
+      ),
+    },
+  };
+}
+
+/** The batch is not ready to be reviewed: a file is not checked yet (a file whose parse was refused has no checks). */
 async function checkedFiles(tx: ReviewBatchesTx, batchId: string): Promise<FileReview[]> {
   const reviews = await tx.reviews(batchId);
   const checked = new Set(reviews.map((r) => r.batchFileId));
-  const accepted = (await tx.files(batchId)).filter((f) => f.fileId !== null);
+  const failed = new Set(await tx.failedParses(batchId));
+  const accepted = (await tx.files(batchId)).filter((f) => f.fileId !== null && !failed.has(f.id));
   if (accepted.some((f) => !checked.has(f.id))) throw new BatchStateErrorFor("processing");
   return reviews;
 }

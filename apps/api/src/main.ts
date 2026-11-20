@@ -32,7 +32,7 @@ import {
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/debt-payoff/index.ts";
 import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
-import { createImportRecipesServices } from "./modules/import-recipes/index.ts";
+import { createImportRecipesReader, createImportRecipesServices } from "./modules/import-recipes/index.ts";
 import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
 import { createGoalFlows, createGoalPlans, createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
@@ -194,8 +194,9 @@ const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 // configuration (required in staging and production); locally and in CI without them, the process's memory and a key
 // drawn at start (links then end with the process). Locally the bucket is made if missing (the `pnpm local:up` storage).
 const s3 = config.files.s3;
-// The scheduler too: its daily cleanup removes unapplied import batches with their originals (IMP-01 FR 20).
-const filesRole = config.role === "api" || config.role === "scheduler";
+// The scheduler too: its daily cleanup removes unapplied import batches with their originals (IMP-01 FR 20); and the
+// worker: the parse step reads each statement's original (IMP-01 FR 5).
+const filesRole = config.role === "api" || config.role === "scheduler" || config.role === "worker";
 if (s3 && !config.deployed && filesRole) await ensureBucket(s3);
 const filesConfigured = s3 !== undefined && config.files.linkKey !== undefined;
 // A deployed process never keeps a space's files in memory: without the storage it serves none (fail closed).
@@ -514,6 +515,12 @@ const server = buildServer({
                     audit,
                     clock: systemClock,
                     newId: randomUUID,
+                    // The parse step: the recipes and accounts a request may name, the key of the parsed rows.
+                    parse: {
+                      recipes: createImportRecipesReader(databases.for("import-recipes")),
+                      accounts: createAccountDirectory(databases.for("accounts")),
+                      keys: createSpaceKeys(databases.for("household"), audit, kms),
+                    },
                   }),
                 }
               : {}),
@@ -545,7 +552,13 @@ lifecycle.onStop(() => server.close());
 // It holds no state of its own: jobs and leases are in the database. On stop, interrupted jobs go back to the queue.
 if (config.role === "worker") {
   const worker = createWorker({
-    ...workerQueues(databases, flags),
+    ...workerQueues(
+      databases,
+      flags,
+      // IMP-01 FR 5: the parse of import batches' files. Locally without S3 the worker's storage is its own memory, so
+      // it finds no original the API process stored (the file is refused as FILE_MISSING); `pnpm local:up` has S3.
+      files ? { files, keys: createSpaceKeys(databases.for("household"), audit, kms) } : undefined,
+    ),
     households: () => spaces.spaceIds(),
     moduleAvailable: (module) => flags.isModuleAvailable(module),
   });

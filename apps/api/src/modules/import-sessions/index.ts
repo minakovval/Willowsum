@@ -11,7 +11,9 @@ import {
   batchesWorkerQueue,
   fileOriginals,
   importSessionsRoutes,
+  parsePorts,
   requeueDeadHandOffs,
+  type ParseModules,
   spaceTx,
 } from "./adapters/index.ts";
 import {
@@ -35,9 +37,22 @@ export const importSessionsModule = defineModule({
   routes: importSessionsRoutes,
 });
 
-export { createImportSessionsServices, HAND_OFF_JOB, type ImportSessionsServices } from "./adapters/index.ts";
+export {
+  createImportSessionsServices,
+  HAND_OFF_JOB,
+  PARSE_FILE_JOB,
+  type ImportSessionsServices,
+  type ParseModules,
+  type ParseServices,
+} from "./adapters/index.ts";
 export { BatchNotFoundError } from "./application/index.ts";
-export { BATCH_LIMITS, BATCH_STATES, canMove, UNAPPLIED_RETENTION_DAYS } from "./domain/index.ts";
+export {
+  BATCH_LIMITS,
+  BATCH_STATES,
+  canMove,
+  PARSE_FILES_PER_HOUR,
+  UNAPPLIED_RETENTION_DAYS,
+} from "./domain/index.ts";
 export type { BatchState } from "./domain/index.ts";
 export {
   APPLICATION_COUNTS_MAX,
@@ -132,12 +147,25 @@ export function createImportSessionsApplications(options: {
   };
 }
 
-/** The worker's import-sessions queue (ARC-04 FR 2, FR 3; src/wiring.ts): the audit hand-off jobs (FR 21). */
+/**
+ * The worker's import-sessions queue (ARC-04 FR 2, FR 3; src/wiring.ts): the audit hand-off jobs (FR 21) and, with
+ * `parse`, the parse of each accepted file (FR 5; a heavy job: at most the worker's heavy limit at a time).
+ */
 export function createImportSessionsWorkerQueue(
   db: ModuleDatabase,
   audit: Pick<AuditLog, "record">,
+  parse?: { readonly modules: ParseModules; readonly now: () => number; readonly newId: () => string },
 ): WorkerQueue {
-  return batchesWorkerQueue(db, batchesAudit(audit));
+  return batchesWorkerQueue(
+    db,
+    batchesAudit(audit),
+    parse
+      ? {
+          ports: parsePorts(parse.modules),
+          deps: { newId: parse.newId, now: () => new Date(parse.now()) },
+        }
+      : undefined,
+  );
 }
 
 /** The scheduler's daily recovery of the hand-off (ARC-04 FR 4, #249): dead hand-off jobs go back to the queue. */

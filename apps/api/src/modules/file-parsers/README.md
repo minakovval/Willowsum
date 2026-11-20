@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-05 FR 6: борг кредитної картки, рішення власника 2026-11-20, п. 6; крок розбору: не більше 2 воркерів розбору водночас, лінивий відкривач прив'язки, `PARSE_ENGINE_VERSION`; IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -53,6 +53,14 @@
 порядок дня й місяця. `flags` (`BatchFlag` з `severity`: `block` — лише `foreign-account`; решта `review`). Рішення й
 відмови застосування — import-sessions (IMP-05 частина 2).
 
+Борг кредитної картки (IMP-05@PoC FR 6, Рішення власника (2026-11-20), п. 6; `readCardDebt`): для рахунку виду
+`credit-card`, коли надруковані залишки (вхідний, кінцевий, залишки рядків) не від'ємні й один додатний, додатний залишок —
+борг. Залишки, вхідний і кінцевий перевертаються (суми рядків ніколи) лише тоді, коли ланцюжок залишків підтверджує
+перевернуте прочитання, а надрукований ланцюжок не сходиться (`checks.cardDebt` = `inverted`, залишки подій розбору вже
+перевернуті); прочитання «перевернуто й суми рядків» — це надрукований ланцюжок з протилежним знаком, тож він його не
+підтверджує (рішення ведучого, #643). Інакше нічого не перевертається, ланцюжок і підсумки знака не підтверджують, і партія має «знак картки»
+(`cardDebt` = `unconfirmed`).
+
 ## Вимоги
 
 Зрізи PoC, що називають модуль: FLW-10@PoC, IMP-01@PoC, IMP-02@PoC, IMP-05@PoC, IMP-06@PoC, IMP-09@PoC, IMP-19@PoC. Функції додають PR цих зрізів.
@@ -74,7 +82,10 @@
   ключ відкривача переноситься у воркер (у потоці API від'єднаний, а якщо воркер не стартував — витертий); значення, яке
   відкривач не відкриває (чужий простір чи поле, неправильний чи вже використаний ключ), — відмова `ACCOUNT_BINDING`,
   розбору без прив'язки не буває. Результат: `account` (`AccountMatch`) або null без прив'язки; `checks`
-  (`StatementChecks`, IMP-05: `figures`, `controls`, `bounds`, `account`, `signs`, `clarifications`, `flags`).
+  (`StatementChecks`, IMP-05: `figures`, `controls`, `bounds`, `account`, `signs`, `clarifications`, `flags`, `cardDebt`).
+- Не більше `PARSE_LIMITS.concurrent` (2; параметр `concurrent`) воркерів розбору одного парсера водночас, решта чекає черги
+  (#624); `binding` може бути функцією, що повертає прив'язку: відкривач поля береться лише тоді, коли настала черга воркера.
+  `PARSE_ENGINE_VERSION` — версія рушія, яку партія зберігає з кожним файлом (IMP-01 п. 9).
 - `historyGap(previous, next)` → `HistoryGap`; `readingFits(value, currency)`; `CHECK_KINDS`, `SIGN_BASES`,
   `FLAG_SEVERITY`; типи `ControlCheck`, `StatementBounds`, `BatchFlag`, `Clarification`, `SignReview` та інші з `index.ts`.
   `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`,
@@ -111,4 +122,5 @@
 `adapters/isolation/imp06-parse-worker.test.ts`, `sec607-parse-worker-only.test.ts` (читання й збіг — лише у воркері),
 `application/imp02-events.test.ts`, `adapters/isolation/imp02-parse-events.test.ts`, `domain/imp06-followups.test.ts`,
 `domain/sec619-header-bound.test.ts`, `application/imp05-checks.test.ts`,
-`adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`.
+`adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`,
+`adapters/isolation/sec624-parse-concurrency.test.ts`, `adapters/isolation/sec639-opener-wipe.test.ts`.

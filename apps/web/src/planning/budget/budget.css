@@ -356,3 +356,87 @@
   gap: var(--ws-space-3);
   justify-content: center;
 }
+
+/* BUD-02@PoC FR 3, FR 15, AC6, AC7 (row 31, UI): the strip of the limits step and «Розподіл» S-287 (PocPlanBudgetWiz3, Wiz4, Wiz4Deficit). Tokens only. */
+.bud-wiz-strip {
+  display: grid;
+  gap: var(--ws-space-1);
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-100);
+  overflow-wrap: anywhere;
+}
+
+.bud-wiz-dist {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.bud-wiz-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ws-space-3);
+  margin: 0;
+}
+
+.bud-wiz-tile {
+  display: grid;
+  gap: var(--ws-space-1);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+  overflow-wrap: anywhere;
+}
+
+.bud-wiz-tile dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.bud-wiz-tile[data-warn="true"] dd {
+  color: var(--ws-loss);
+}
+
+.bud-wiz-group {
+  display: grid;
+  gap: var(--ws-space-2);
+}
+
+.bud-wiz-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) calc(var(--ws-space-8) * 3);
+  gap: var(--ws-space-4);
+  align-items: center;
+  padding: var(--ws-space-3) 0;
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.bud-wiz-row > span {
+  display: grid;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.bud-wiz-row .bud-num {
+  text-align: end;
+  font-weight: 600;
+}
+
+.bud-wiz-covered {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+  justify-content: space-between;
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  overflow-wrap: anywhere;
+}
+
+.bud-wiz-strip[data-empty="true"] {
+  padding: 0;
+  border: 0;
+}

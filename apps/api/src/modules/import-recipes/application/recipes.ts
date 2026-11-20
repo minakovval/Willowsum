@@ -54,6 +54,8 @@ export interface RecipesTx {
   count(): Promise<number>;
   insert(recipe: StoredRecipe): Promise<void>;
   find(id: string): Promise<StoredRecipe | null>;
+  /** The space's newest recipe made for this format fingerprint (FR 7: the next file of the same format), or null. */
+  forFormat(fingerprint: string): Promise<StoredRecipe | null>;
   /** The space's recipes, newest first, after the cursor's recipe. */
   list(limit: number, after?: { readonly createdAt: Date; readonly id: string }): Promise<StoredRecipe[]>;
   /** The deleted recipe, or null when the space has none with this id. */

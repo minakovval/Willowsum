@@ -50,6 +50,8 @@ export type {
   HistoryStatus,
   StatementBounds,
 } from "./checks.ts";
+export { readCardDebt } from "./card-debt.ts";
+export type { CardDebt, CardDebtReading } from "./card-debt.ts";
 export { SIGN_BASES, SIGN_CONFIDENCE, reviewSigns } from "./signs.ts";
 export type { RowSign, SignBasis, SignReview } from "./signs.ts";
 export { clarifications, readingFits } from "./clarify.ts";

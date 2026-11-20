@@ -279,6 +279,11 @@ export const PROBLEMS = {
    * decision and the issue's code. Nothing of the request was written.
    */
   IMPORT_DECISION_INVALID: { status: 422, title: "The decision does not fit the batch" },
+  /**
+   * IMP-01@PoC FR 5: a parse request names a file that is not the batch's accepted one, or a recipe or account the
+   * space does not have (another space's is the same answer); `errors` names the field. Nothing was written.
+   */
+  IMPORT_PARSE_INVALID: { status: 422, title: "The parse request does not fit the batch" },
   /** IMP-06@PoC FR 2, FR 3, FR 14: the recipe is not valid; `recipeErrors` holds each error's code and field path. */
   RECIPE_INVALID: { status: 422, title: "The parsing recipe is not valid" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },

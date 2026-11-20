@@ -1,5 +1,6 @@
 import type { AccountBindingKind, AccountMatch } from "./account.ts";
 import type { StatementAnalysis } from "./analysis.ts";
+import type { CardDebt } from "./card-debt.ts";
 import { checkControls, type ControlCheck, type StatementBounds } from "./checks.ts";
 import { clarifications, type Clarification } from "./clarify.ts";
 import type { StatementEvents } from "./events.ts";
@@ -71,6 +72,8 @@ export interface StatementChecks {
   readonly signs: SignReview;
   readonly clarifications: readonly Clarification[];
   readonly flags: readonly BatchFlag[];
+  /** A credit card's printed debt (Рішення власника (2026-11-20), п. 6, `readCardDebt`): null — the rule did not apply. */
+  readonly cardDebt?: CardDebt | null;
 }
 
 export interface ReviewInput {
@@ -94,6 +97,8 @@ export interface ReviewInput {
   readonly hiddenSheets?: number;
   /** The sign comes from the recipe's bank profile. */
   readonly profileSign?: boolean;
+  /** `readCardDebt`'s outcome: `events` and `figures` are then its reading (inverted when the chain confirmed it). */
+  readonly cardDebt?: CardDebt | null;
 }
 
 /** A cell a spreadsheet would run: «=…», «@…», or a function after a sign («+SUM(», «-cmd|»). Never run here. */
@@ -136,6 +141,7 @@ export function reviewStatement(input: ReviewInput): StatementChecks {
     profile: input.profileSign ?? false,
     card,
     creditCard: kind === undefined ? card : kind === "credit-card",
+    debtUnconfirmed: input.cardDebt?.status === "unconfirmed",
   });
   // EC3: the file's currencies are the rows' and the one printed with the statement's own figures — rows without a
   // currency take the account's, so only the figures show that the file is another currency's.
@@ -171,5 +177,6 @@ export function reviewStatement(input: ReviewInput): StatementChecks {
     signs,
     clarifications: clarifications(rows, analysis, events, controls.chainRows),
     flags,
+    cardDebt: input.cardDebt ?? null,
   };
 }
