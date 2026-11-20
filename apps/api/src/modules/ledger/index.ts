@@ -17,6 +17,7 @@ import {
 import {
   alertIntegrityFindings,
   balanceAt,
+  balancesAt,
   correct,
   dailyIntegrityCheck,
   hasLiveEntries,
@@ -124,6 +125,11 @@ export interface Ledger {
     options?: { readonly asKnownAt?: string },
   ): Promise<Money>;
   /**
+   * The balances of one account at the end of each date (inclusive) in one database transaction, in the order given
+   * (BUD-08@PoC FR 7, module cashflow); at most 1 200 dates. Another space's account is `UNKNOWN_ACCOUNT`.
+   */
+  balancesAt(householdId: string, accountId: string, dates: readonly string[]): Promise<Money[]>;
+  /**
    * The rebuild command of the daily balance cache (ARC-11): every account of the space, or the one given, rebuilt
    * from its postings in one transaction; the numbers of accounts and of cached days.
    */
@@ -146,6 +152,7 @@ export function createLedger(db: ModuleDatabase): Ledger {
     hasLiveEntries: (householdId, accountId, except) => hasLiveEntries(deps, householdId, accountId, except),
     balanceAt: (householdId, accountId, date, options) =>
       balanceAt(deps, householdId, accountId, date, options),
+    balancesAt: (householdId, accountId, dates) => balancesAt(deps, householdId, accountId, dates),
     rebuildBalances: (householdId, accountId) => rebuildBalances(deps, householdId, accountId),
   };
 }

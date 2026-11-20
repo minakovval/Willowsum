@@ -17825,7 +17825,7 @@
     "/v1/cashflow": {
       "get": {
         "operationId": "getCashflow",
-        "summary": "Income, spending, net flow and savings rate of a month or of each month of a period (BUD-08 FR 1, FR 3, FR 11)",
+        "summary": "Income, spending, net flow, savings rate and where the net flow went, of a month or of each month of a period (BUD-08)",
         "tags": [
           "cashflow"
         ],
@@ -17985,6 +17985,144 @@
                               "amount"
                             ],
                             "additionalProperties": false
+                          },
+                          "goalContributions": {
+                            "type": "object",
+                            "properties": {
+                              "total": {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "goals": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "goalId": {
+                                      "type": "string"
+                                    },
+                                    "amount": {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "required": [
+                                    "goalId",
+                                    "amount"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "total",
+                              "goals"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "investmentContributions": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "investmentWithdrawals": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "debtRepayment": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "leftOnAccounts": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "fromGoals": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -17993,7 +18131,13 @@
                           "expenses",
                           "netFlow",
                           "savingsRate",
-                          "uncategorizedInflows"
+                          "uncategorizedInflows",
+                          "goalContributions",
+                          "investmentContributions",
+                          "investmentWithdrawals",
+                          "debtRepayment",
+                          "leftOnAccounts",
+                          "fromGoals"
                         ],
                         "additionalProperties": false
                       }
@@ -18072,6 +18216,144 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "goalContributions": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "goals": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "goalId": {
+                                    "type": "string"
+                                  },
+                                  "amount": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "goalId",
+                                  "amount"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "total",
+                            "goals"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "investmentContributions": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "investmentWithdrawals": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "debtRepayment": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "leftOnAccounts": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "fromGoals": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -18081,9 +18363,21 @@
                         "savingsRate",
                         "averageMonthlyRate",
                         "highest",
-                        "lowest"
+                        "lowest",
+                        "goalContributions",
+                        "investmentContributions",
+                        "investmentWithdrawals",
+                        "debtRepayment",
+                        "leftOnAccounts",
+                        "fromGoals"
                       ],
                       "additionalProperties": false
+                    },
+                    "loansWithoutRate": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     },
                     "unpairedTransfers": {
                       "type": "integer",
@@ -18121,6 +18415,7 @@
                     "currency",
                     "months",
                     "totals",
+                    "loansWithoutRate",
                     "unpairedTransfers",
                     "approximate",
                     "empty"

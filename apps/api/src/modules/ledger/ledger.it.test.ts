@@ -733,3 +733,86 @@ describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per peri
     expect(await asLedger(`INSERT INTO integrity_alerts VALUES (0, NULL, now())`)).toBe("23514");
   });
 });
+
+/** Security review #642 (confirmation): `Ledger.balancesAt` on a real PostgreSQL. Synthetic spaces and amounts. */
+describe("security review #642: Ledger.balancesAt", () => {
+  const codeOrName = (p: Promise<unknown>) =>
+    p.then(
+      () => "ok",
+      (e: { code?: string; name?: string }) => e.code ?? e.name ?? String(e),
+    );
+
+  async function loanSpace(debt: string, payments: [string, string][]) {
+    const householdId = randomUUID();
+    const loan = await ledger.openAccount(
+      householdId,
+      { module: "accounts", id: randomUUID() },
+      { type: "liability", currency: "EUR" },
+    );
+    await ledger.post(
+      householdId,
+      input({ type: "transaction", account: loan.id, amount: eur(`-${debt}`) }, "2026-01-01"),
+    );
+    for (const [date, amount] of payments)
+      await ledger.post(
+        householdId,
+        input({ type: "transaction", account: loan.id, amount: eur(amount) }, date),
+      );
+    return { householdId, loan };
+  }
+
+  const DATES = ["2026-11-04", "2026-09-04", "2026-10-04", "2026-01-01", "2025-12-31"];
+
+  it("each date's balance, in the order asked, equal to balanceAt — from the postings and from the cache", async () => {
+    const s = await loanSpace("120000.00", [
+      ["2026-09-05", "650.00"],
+      ["2026-10-05", "650.00"],
+    ]);
+    const one = async () =>
+      Promise.all(
+        DATES.map(async (d) => (await ledger.balanceAt(s.householdId, s.loan.id, d)).toDecimalString()),
+      );
+    const many = async () =>
+      (await ledger.balancesAt(s.householdId, s.loan.id, DATES)).map((m) => m.toDecimalString());
+    const expected = ["118700", "120000", "119350", "120000", "0"];
+    const signed = await one();
+    expect(await many()).toEqual(signed);
+    expect(signed.map((v) => v.replace("-", ""))).toEqual(expected);
+    await ledger.rebuildBalances(s.householdId, s.loan.id);
+    expect(await many()).toEqual(signed);
+  });
+
+  it("another space's account is UNKNOWN_ACCOUNT, with no numbers of it", async () => {
+    const mine = await loanSpace("1000.00", []);
+    const theirs = await loanSpace("50000.00", [["2026-11-06", "500.00"]]);
+    expect(await codeOrName(ledger.balancesAt(mine.householdId, theirs.loan.id, ["2026-11-30"]))).toBe(
+      "UNKNOWN_ACCOUNT",
+    );
+    await ledger.rebuildBalances(theirs.householdId, theirs.loan.id);
+    expect(await codeOrName(ledger.balancesAt(mine.householdId, theirs.loan.id, ["2026-11-30"]))).toBe(
+      "UNKNOWN_ACCOUNT",
+    );
+  });
+
+  it("bounded: at most 1 200 dates; a malformed date or id is refused", async () => {
+    const s = await loanSpace("10.00", []);
+    const dates = Array.from({ length: 1201 }, () => "2026-01-01");
+    expect(await codeOrName(ledger.balancesAt(s.householdId, s.loan.id, dates))).toBe("RangeError");
+    expect(await codeOrName(ledger.balancesAt(s.householdId, s.loan.id, dates.slice(1)))).toBe("ok");
+    expect(await codeOrName(ledger.balancesAt(s.householdId, s.loan.id, ["2026-13-01"]))).not.toBe("ok");
+    expect(await codeOrName(ledger.balancesAt(s.householdId, "x' OR 1=1 --", ["2026-01-01"]))).toBe(
+      "UNKNOWN_ACCOUNT",
+    );
+  });
+
+  it("the ledger tables it reads have forced row security", async () => {
+    const { rows } = await db.owner.query(
+      `SELECT c.relname, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'ledger' AND c.relname IN ('accounts','entries','postings','balance_versions','daily_balances')
+        ORDER BY 1`,
+    );
+    expect(rows).toHaveLength(5);
+    for (const r of rows) expect(r, r.relname).toMatchObject({ rls: true, forced: true });
+  });
+});

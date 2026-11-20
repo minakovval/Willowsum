@@ -1,6 +1,6 @@
 # Модуль accounts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17 (рядок 198: спільне блокування грошей рахунку `lockAccounts`, `PendingPostings.unsettled`; FIN-01 п. 20: «Обране», `PATCH …/display`, колонка `favourite`, `0007`; FIN-01 граничний випадок 4: закриття після незавершених передач транзакцій, порт `PendingPostings`; BUD-19@PoC a: `createCreditAccounts` для `debt-payoff`; BUD-05: `PostingAccount.kind` для `goals`; IMP-02@PoC a: «+ додати ще валюту» і прибрати валюту наявного рахунку; ARC-04: передача керування рахунком і аудиту «Основне»/«Реквізити», #252 п. 3; передача створення і зміни типу через задачу `accounts.hand-off`, #210; FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок»; FIN-12@PoC b: перейменування і зміна типу в межах групи — серверна частина; FIN-03@PoC a: `createAccountDirectory` для транзакцій; FIN-12@PoC b: «Реквізити» — серверна частина; FIN-01@PoC d: довідник банків НБУ, #215)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-08@PoC b: `CreditAccount.subaccounts[].id` і публічний `liveAdjustment` для «Грошового потоку»); 2026-11-17 (рядок 198: спільне блокування грошей рахунку `lockAccounts`, `PendingPostings.unsettled`; FIN-01 п. 20: «Обране», `PATCH …/display`, колонка `favourite`, `0007`; FIN-01 граничний випадок 4: закриття після незавершених передач транзакцій, порт `PendingPostings`; BUD-19@PoC a: `createCreditAccounts` для `debt-payoff`; BUD-05: `PostingAccount.kind` для `goals`; IMP-02@PoC a: «+ додати ще валюту» і прибрати валюту наявного рахунку; ARC-04: передача керування рахунком і аудиту «Основне»/«Реквізити», #252 п. 3; передача створення і зміни типу через задачу `accounts.hand-off`, #210; FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок»; FIN-12@PoC b: перейменування і зміна типу в межах групи — серверна частина; FIN-03@PoC a: `createAccountDirectory` для транзакцій; FIN-12@PoC b: «Реквізити» — серверна частина; FIN-01@PoC d: довідник банків НБУ, #215)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -195,8 +195,12 @@ FIN-01@PoC d) (хвиля 2, рядок 37a; #215): п. 4 — довідник �
   проводить гроші (модулі `transactions`, FIN-03@PoC п. 2, граничний випадок 2, і `goals` — залишок частини цілі, BUD-05@PoC п. 2, 3); лише читання; рахунок іншого простору —
   null, як неіснуючий.
 - `createCreditAccounts(db)` → `CreditAccounts.list(householdId)` → `CreditAccount[]` (`accountId`, `kind` — `credit-card`
-  або `loan`, `name`, `subaccounts`: `currency`, `ledgerAccountId`, `balanceDate`) — активні кредитні картки й кредити
-  простору в порядку додавання для «Борги» (модуль `debt-payoff`, BUD-19@PoC п. 11); лише читання.
+  або `loan`, `name`, `subaccounts`: `id`, `currency`, `ledgerAccountId`, `balanceDate`) — активні кредитні картки й
+  кредити простору в порядку додавання для «Борги» (модуль `debt-payoff`, BUD-19@PoC п. 11) і «Грошового потоку»
+  (модуль `cashflow`, BUD-08@PoC п. 7); лише читання.
+- `liveAdjustment({ ledger }, householdId, subaccount)` → чинне «Оновити залишок» частини рахунку (FIN-12@PoC п. 15;
+  дата й сума) або null, з журналу через `Ledger.liveEntries`; лише читання, прив'язане до простору: для поділу платежу
+  по кредиту в «Грошовому потоці» (BUD-08@PoC п. 7).
 - `ACCOUNT_KINDS`, `groupOf`, `maskedNumber`, `parseAccountNumber`, `depositAccrual`, типи `AccountKind`, `AccountGroup`,
   `AccountView`, `DepositAccrual`.
 

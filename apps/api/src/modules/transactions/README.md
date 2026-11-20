@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -256,6 +256,10 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
 - `createBudgetTransactions(db)` → `BudgetTransactions` для `budget` і `cashflow`, лише читання: `inPeriod` (транзакції
   рахунків за датами з частинами) і `firstDate(householdId, accountIds)` — дата першої транзакції, яку рахує бюджет
   (BUD-06@PoC п. 4, 5: початок історії), null — немає.
+- `createCashflowMovements(db)` → `CashflowMovements` для `cashflow` (BUD-08@PoC п. 5–7), лише читання: `transfers(householdId,
+  from, to)` — позначені перекази між власними рахунками, чия показана вихідна сторона датована в ці дати (обидві
+  сторони: рахунок, сума зі знаком, дата); `operations(householdId, accountIds, from, to)` — показані транзакції рахунків
+  (кредитів) за датами, сторони переказу теж, без злитих дублів, з джерелом (`manual`, `imported`), найстаріші спершу.
 - `createAccountPayments(db)` → `AccountPayments` для `budget` (#567, BUD-03 п. 5), лише читання: `paidIn(householdId,
   accountIds, from, to)` — рахунки (кредити), на які в ці дати надійшла показана транзакція з додатною сумою (сторона
   переказу теж; без злитих дублів).
