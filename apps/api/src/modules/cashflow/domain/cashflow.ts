@@ -54,6 +54,8 @@ export interface CashflowCategory {
   readonly kind: "expense" | "income" | "service";
   readonly state: "active" | "hidden" | "retired";
   readonly mergedInto: string | null;
+  /** The catalogue's key of a system category (e.g. `loan-interest`); null or absent — the space's own. */
+  readonly systemKey?: string | null;
 }
 
 /**
@@ -80,7 +82,7 @@ export interface MonthFigures {
 }
 
 /** A merged category counts in the one it went to (BUD-01 FR 8); at most a few hops. */
-function resolve(
+export function resolve(
   categories: ReadonlyMap<string, CashflowCategory>,
   id: string | null,
 ): CashflowCategory | null {
