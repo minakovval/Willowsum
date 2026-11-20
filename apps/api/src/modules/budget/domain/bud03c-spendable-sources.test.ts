@@ -81,6 +81,14 @@ describe("BUD-03@PoC FR 6: the goals' planned contributions of the month", () =>
   it("BUD-03@PoC EC4: a goal without a figure (no rate) — no sum, never one without it; its own cell still counts", () => {
     expect(goalContributions("2026-11", [goal("a", { required: null })], [], "EUR")).toBeNull();
     expect(goalContributions("2026-11", [goal("a", { contributed: null })], [], "EUR")).toBeNull();
+    // #641: a contribution without a rate leaves no sum even when nothing is planned for the goal (it lowers the sum).
+    for (const unplanned of [{ required: null, lastPeriod: null }, { lastPeriod: "2026-10" }])
+      expect(
+        goalContributions("2026-11", [goal("a", { ...unplanned, contributed: null })], [], "EUR"),
+      ).toBeNull();
+    expect(
+      goalContributions("2026-11", [goal("a", { contributed: null })], [cell("goal", "a", "0")], "EUR"),
+    ).toBeNull();
     expect(
       goalContributions("2026-11", [goal("a", { required: null })], [cell("goal", "a", "10")], "EUR")!.total,
     ).toEqual(eur("10"));

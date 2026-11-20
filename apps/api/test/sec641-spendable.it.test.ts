@@ -398,21 +398,21 @@ describe("sec641: «Можна витратити» — guards, breakdown, missi
       expect((await get(space, { role })).statusCode, role).toBe(200);
       const res = await get(space, { role, scoped: true });
       expect(res.statusCode, role).toBe(role === "owner" || role === "admin" ? 403 : 404);
-      expect(res.body, role).not.toContain("figures");
+      expect(leakText(res.body), role).not.toContain("figures");
       for (const leaked of ["1300", "6000", "2300", "1900", "68.42", goalId, rent, phone])
-        expect(res.body, role).not.toContain(leaked);
+        expect(leakText(res.body), role).not.toContain(leaked);
     }
     const stranger = await newSpace();
     await createBudget(stranger, { incomePlan: eur("10") });
     const other = await get(stranger);
     expect(other.statusCode).toBe(200);
     for (const leaked of [goalId, rent, phone, "1300", "2300", "1900"])
-      expect(other.body).not.toContain(leaked);
+      expect(leakText(other.body)).not.toContain(leaked);
     // Path tampering: the period is the only parameter.
     for (const p of [space.householdId, "2026-11%2F..", "2026-1", "999999999"]) {
       const res = await call(stranger, "GET", `/v1/budget/periods/${p}/spendable`);
       expect([400, 404]).toContain(res.statusCode);
-      for (const leaked of [goalId, rent, "1300"]) expect(res.body).not.toContain(leaked);
+      for (const leaked of [goalId, rent, "1300"]) expect(leakText(res.body)).not.toContain(leaked);
     }
   });
 
@@ -426,7 +426,7 @@ describe("sec641: «Можна витратити» — guards, breakdown, missi
       "Синтетичний продавець",
       "Синтетичний поточний",
     ])
-      expect(res.body).not.toContain(text);
+      expect(leakText(res.body)).not.toContain(text);
   });
 
   it("sec641 breakdown: a paid charge and an income are not listed; the list holds only unpaid expense charges", async () => {
