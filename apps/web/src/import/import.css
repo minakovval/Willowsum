@@ -1,0 +1,215 @@
+/*
+ * IMP-08@PoC a) (wave 2, row 136): S-170 «Імпорт · файли» — canvas PocMoneyImport1. Tokens only
+ * (DS-06, DS-09). The page never scrolls sideways: long names and one long word wrap inside their column.
+ */
+.imp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-4);
+  min-width: 0;
+}
+
+.imp-intro {
+  margin: 0;
+  max-inline-size: 760px;
+}
+
+.imp-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-5);
+  border: 2px dashed var(--ws-border-control);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-tint-info);
+  text-align: center;
+}
+
+.imp-drop[data-dragging] {
+  border-color: var(--ws-link);
+  background: var(--ws-surface-300);
+}
+
+.imp-drop p {
+  margin: 0;
+}
+
+.imp-drop-icon {
+  color: var(--ws-link);
+}
+
+.imp-drop-title {
+  font-weight: 600;
+}
+
+.imp-drop-formats {
+  font-size: var(--ws-text-label-size);
+}
+
+.imp-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-warning-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.imp-list {
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  overflow: hidden;
+}
+
+.imp-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.imp-head,
+.imp-row {
+  display: grid;
+  grid-template-columns: var(--ws-space-5) minmax(0, 250px) minmax(0, 1fr) minmax(0, 230px);
+  align-items: center;
+  gap: var(--ws-space-3);
+  padding-inline: var(--ws-space-4);
+}
+
+.imp-head {
+  min-block-size: var(--ws-space-6);
+  border-block-end: 1px solid var(--ws-line);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.imp-head .imp-c-file {
+  grid-column: 2;
+}
+
+.imp-head .imp-c-state {
+  text-align: end;
+}
+
+.imp-row {
+  min-block-size: var(--ws-space-8);
+  padding-block: var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-surface-300);
+}
+
+.imp-row:last-child {
+  border-block-end: 0;
+}
+
+.imp-file-icon {
+  color: var(--ws-ink-muted);
+}
+
+.imp-file,
+.imp-c-account,
+.imp-c-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  min-width: 0;
+}
+
+.imp-name,
+.imp-account-name,
+.imp-reason,
+.imp-note {
+  overflow-wrap: anywhere;
+}
+
+.imp-name {
+  font-weight: 600;
+}
+
+.imp-meta,
+.imp-note {
+  font-size: var(--ws-text-label-size);
+}
+
+.imp-note-warn {
+  color: var(--ws-on-warning);
+}
+
+.imp-account-line,
+.imp-reason,
+.imp-choose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  min-width: 0;
+}
+
+.imp-change {
+  align-self: flex-start;
+}
+
+.imp-state {
+  align-items: flex-end;
+}
+
+.imp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ws-space-2);
+}
+
+/* The select's label names the file for assistive technology; the column header already says «Рахунок». */
+.imp-account .ws-select-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.imp-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+  padding-block-start: var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.imp-spacer {
+  flex: 1;
+}
+
+.imp-summary {
+  font-size: var(--ws-text-label-size);
+}
+
+/* A file being uploaded or parsed: the state in words above an empty track (the API reports no progress by rows). */
+.imp-busy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  inline-size: 100%;
+  font-size: var(--ws-text-label-size);
+}
+
+.imp-busy .ws-progress-track {
+  flex: none;
+  display: block;
+  inline-size: 100%;
+  block-size: var(--ws-space-2);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-300);
+}

@@ -88,7 +88,13 @@ describe("DS-12@PoC no photos, uploads or illustrations", () => {
     const client = productFiles.filter((f) =>
       /apps\/web\/src|packages\/ui\/src|packages\/api-contract/.test(f),
     );
-    for (const f of client.filter((x) => /\.(tsx?|json)$/.test(x))) {
+    // The statement upload of the import wizard (IMP-01@PoC FR 3, IMP-08@PoC FR 2) is the one file input and the one
+    // FormData of the web app; it accepts statement formats only.
+    const statementUpload = /apps\/web\/src\/import\/(FilesStep\.tsx|api\.ts)$/;
+    expect(readFileSync(join(root, "apps/web/src/import/FilesStep.tsx"), "utf8")).toContain(
+      'const ACCEPT = ".csv,.tsv,.xlsx,.xls";',
+    );
+    for (const f of client.filter((x) => /\.(tsx?|json)$/.test(x) && !statementUpload.test(x))) {
       const text = readFileSync(f, "utf8");
       expect(text, rel(f)).not.toMatch(
         /type=["']file["']|type:\s*["']file["']|new FormData|<input[^>]*accept=/,

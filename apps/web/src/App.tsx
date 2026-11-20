@@ -150,7 +150,7 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
     case "categories":
       return <CategoriesPage />;
     case "importWizard":
-      return <ImportWizardPage />;
+      return <ImportWizardPage batchId={route.batchId} step={route.step} />;
     case "auth":
       return authPage(route.screen);
     case "noAccess":

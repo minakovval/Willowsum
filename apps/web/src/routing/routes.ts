@@ -85,6 +85,16 @@ export const CATEGORIES_SETTINGS_PATH = "/settings/categories";
 /** UX-09@PoC item 14: the statement import wizard (focus mode). */
 export const IMPORT_WIZARD_PATH = "/import";
 
+/**
+ * IMP-08@PoC FR 1: every step of the wizard has its own address, so a reload returns to the same step of the same batch:
+ * `/import` (nothing uploaded yet), `/import/<batch>` («Рахунок і файли», wave 2 row 136), `/import/<batch>/review`
+ * («Перевірка розпізнавання», row 137) and `/import/<batch>/result` («Результат», row 138).
+ */
+export type ImportStep = "files" | "review" | "result";
+const IMPORT_STEP_PATH = /^\/import\/([0-9a-fA-F-]{36})(?:\/(review|result))?$/;
+export const importPath = (batchId: string, step: ImportStep = "files"): string =>
+  step === "files" ? `${IMPORT_WIZARD_PATH}/${batchId}` : `${IMPORT_WIZARD_PATH}/${batchId}/${step}`;
+
 /** Pages below an L2 page: they open from that page or from «+ Додати», not from the menu. */
 export type ChildId =
   | "importHistory"
@@ -238,7 +248,7 @@ export type Route =
   | { kind: "profile" }
   | { kind: "spaceSettings" }
   | { kind: "categories" }
-  | { kind: "importWizard" }
+  | { kind: "importWizard"; batchId: string | null; step: ImportStep }
   | { kind: "gallery" }
   | { kind: "noAccess" }
   | { kind: "auth"; screen: AuthScreen }
@@ -282,7 +292,14 @@ export function resolveRoute(path: string): Route {
   if (path === PROFILE_PATH) return { kind: "profile" };
   if (path === SPACE_SETTINGS_PATH) return { kind: "spaceSettings" };
   if (path === CATEGORIES_SETTINGS_PATH) return { kind: "categories" };
-  if (path === IMPORT_WIZARD_PATH) return { kind: "importWizard" };
+  if (path === IMPORT_WIZARD_PATH) return { kind: "importWizard", batchId: null, step: "files" };
+  const importStep = IMPORT_STEP_PATH.exec(path);
+  if (importStep)
+    return {
+      kind: "importWizard",
+      batchId: importStep[1]!,
+      step: (importStep[2] as ImportStep | undefined) ?? "files",
+    };
   const auth = AUTH_PATHS[path];
   if (auth) return { kind: "auth", screen: auth };
   for (const section of SECTIONS) {
