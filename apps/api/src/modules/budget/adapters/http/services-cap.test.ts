@@ -21,6 +21,7 @@ function read(amounts: Money[], total: Fx["total"] = same) {
     categories: { categories: async () => [] },
     accounts: { accounts: async () => [] },
     transactions: {
+      firstDate: async () => null,
       inPeriod: async () =>
         amounts.map((amount, i) => ({
           id: `t${i}`,
