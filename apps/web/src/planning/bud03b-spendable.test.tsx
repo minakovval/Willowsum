@@ -320,6 +320,57 @@ describe("BUD-03@PoC b) the breakdown", () => {
     expect(await within(dialog).findByText("Продукти")).toBeTruthy();
   });
 
+  it("BUD-03@PoC FR 8: «Перейти: Дохід» and «Перейти: Категорії» close the breakdown and leave the focus on the heading of the card they lead to", async () => {
+    await open();
+    for (const [go, target] of [
+      ["Перейти: Дохід", "income"],
+      ["Перейти: Категорії", "categories"],
+    ] as const) {
+      fireEvent.click(card().getByRole("button", { name: "Показати розбивку суми" }));
+      const dialog = await screen.findByRole("dialog", { name: "З чого складається сума" });
+      fireEvent.click(within(dialog).getByRole("button", { name: go }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      const heading = document.querySelector<HTMLElement>(`[data-plan-region='${target}'] h2`)!;
+      await waitFor(() => expect(document.activeElement).toBe(heading));
+    }
+  });
+
+  it("BUD-03@PoC FR 10: «Переглянути категорії» of the overspend block leaves the focus on the heading of the categories", async () => {
+    await open({
+      [SPENDABLE]: {
+        status: 200,
+        body: body({
+          figures: {
+            amount: money("-200.00"),
+            daily: money("0.00"),
+            overspend: { amount: money("150.00"), base: money("1000.00") },
+          },
+        }),
+      },
+    });
+    fireEvent.click(card().getByRole("button", { name: "Переглянути категорії" }));
+    const heading = document.querySelector<HTMLElement>("[data-plan-region='categories'] h2")!;
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+  });
+
+  it("BUD-03@PoC FR 8: a net-negative «Витрачено» (refunds above spending) shows one «−» in the breakdown, never «−−»", async () => {
+    await open({
+      [SPENDABLE]: {
+        status: 200,
+        body: body({
+          figures: {
+            spent: { total: money("-50.00"), limited: money("-50.00"), outsidePlan: money("0.00") },
+          },
+        }),
+      },
+    });
+    fireEvent.click(card().getByRole("button", { name: "Показати розбивку суми" }));
+    const dialog = await screen.findByRole("dialog", { name: "З чого складається сума" });
+    expect(sourceOf(dialog, "Витрачено")).toBe("−50,00 €");
+    expect(plain(dialog.textContent)).not.toContain("−−");
+    expect(plain(region().textContent)).not.toContain("−−");
+  });
+
   it("BUD-03@PoC FR 8: Esc closes the breakdown and the focus returns to «›»", async () => {
     await open();
     const opener = card().getByRole("button", { name: "Показати розбивку суми" });
@@ -599,14 +650,22 @@ describe("BUD-03@PoC b) states", () => {
     }
   });
 
-  it("BUD-03@PoC FR 9: a new transaction is counted by the API — the card reads the sum again on every visit of the page", async () => {
-    const fake = api();
-    const first = renderAt(PAGE, fake.client);
-    await screen.findByTestId("spendable-amount");
+  it("BUD-03@PoC FR 9: a new transaction is counted by the API — the next visit of the page shows the recalculated sum and daily limit, not the old ones", async () => {
+    // The same space before and after a transaction: the API's answer changes between two visits.
+    const before = api();
+    const after = api({
+      [SPENDABLE]: {
+        status: 200,
+        body: body({ figures: { amount: money("1200.00"), daily: money("63.16") } }),
+      },
+    });
+    const first = renderAt(PAGE, before.client);
+    expect(plain((await screen.findByTestId("spendable-amount")).textContent)).toBe("1 300,00 €");
     first.unmount();
-    renderAt(PAGE, fake.client);
-    await screen.findByTestId("spendable-amount");
-    expect(fake.calls.filter((c) => c.path.endsWith("/spendable"))).toHaveLength(2);
+    renderAt(PAGE, after.client);
+    await waitFor(() => expect(plain(screen.getByTestId("spendable-amount").textContent)).toBe("1 200,00 €"));
+    expect(plain(region().textContent)).toContain("63,16 € на день");
+    expect(after.calls.filter((c) => c.path.endsWith("/spendable"))).toHaveLength(1);
   });
 
   it("BUD-03@PoC FR 11, FR 12: the card has no pace chart, no forecast and no stale-bank warning", async () => {

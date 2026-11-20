@@ -243,9 +243,13 @@ function Ready({ data, onRetry }: { data: SpendableData; onRetry: () => void }) 
   );
 }
 
-/** A figure the sum is lowered by: «−2 365,52 €»; a zero stays «0,00 €». The amount is the API's, never recomputed. */
+/**
+ * A figure the sum is lowered by: «−2 365,52 €»; a zero stays «0,00 €», and a negative one (refunds above spending)
+ * keeps its own sign — one «−», never «−−». The amount is the API's, never recomputed.
+ */
 function deducted(m: Money, money: (m: Money) => string): string {
-  return new Decimal(m.amount).isZero() ? money(m) : `−${money(m)}`;
+  const d = new Decimal(m.amount);
+  return d.isZero() || d.isNegative() ? money(m) : `−${money(m)}`;
 }
 
 /** FR 8, AC2: the breakdown — each source with its sum, the list behind it and a way to the source. */
@@ -258,6 +262,11 @@ function Breakdown({
   figures: Figures;
   onClose: () => void;
 }) {
+  /** The popover closes first (it gives the focus back to «›» when it does), then the focus goes to the card. */
+  const goAfterClose = (region: string) => {
+    onClose();
+    setTimeout(() => goTo(region), 0);
+  };
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const [names, setNames] = useState<SourceNames | null>(null);
@@ -296,7 +305,7 @@ function Breakdown({
         }
         go={{
           label: t("planning.spend.go", { source: t("planning.budget.income.title") }),
-          onClick: () => goTo("income"),
+          onClick: () => goAfterClose("income"),
         }}
       />
       <Source
@@ -349,7 +358,7 @@ function Breakdown({
         note={null}
         go={{
           label: t("planning.spend.go", { source: t("planning.budget.categories.title") }),
-          onClick: () => goTo("categories"),
+          onClick: () => goAfterClose("categories"),
         }}
         items={figures.mandatory.categories.map((c) => ({
           key: c.categoryId,
