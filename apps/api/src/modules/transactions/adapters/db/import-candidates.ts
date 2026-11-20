@@ -6,7 +6,7 @@ import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
  * one account dated in [from, to], hidden ones too (a hidden imported one is still in the balance), never a merged
  * manual duplicate (it is the same operation as the one it is merged into — a manual one merged into the bank's row on
  * apply, IMP-04 FR 5, too); a merged imported one is read (`merged`): a replaced pending one (IMP-04 FR 6) is still the
- * key match of the same row in a later statement. One page in the order of (date, id) after a cursor,
+ * key match of the same row in a later statement. A transaction rolled back with its batch (IMP-16 FR 2) is never read. One page in the order of (date, id) after a cursor,
  * on the index `transactions_by_account`. Read only; the rule of duplicate-matching decides.
  */
 export interface ImportCandidate {
@@ -67,7 +67,7 @@ export const IMPORT_CANDIDATES_SQL = `SELECT t.id, t.account_id, t.amount::text 
                    WHERE m.household_id = t.household_id AND m.merged_into = t.id) AS matched
      FROM transactions t
     WHERE t.household_id = $1 AND t.account_id = $2 AND t.occurred_on BETWEEN $3::date AND $4::date
-      AND (t.merged_into IS NULL OR t.source = 'imported')
+      AND (t.merged_into IS NULL OR t.source = 'imported') AND t.rolled_back_at IS NULL
       AND ($5::date IS NULL OR (t.occurred_on, t.id) > ($5::date, $6::uuid))
     ORDER BY t.occurred_on, t.id
     LIMIT $7`;

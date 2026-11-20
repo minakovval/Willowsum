@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-08 п. 11: `ImportBatchTransactions` для кроку «Результат», `importBatchId` сторін `TransferCandidates`; IMP-04 c, #654 п. 6, #658: `ImportedTransactions` — злиття з ручною (`mergeInto`: ручну злито в банківський рядок, подія `transactions.import-merged`, порт `merged`), заміна очікуваної (`replaces`), `ImportCandidates.merged`; BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11, частина b, #654: `ImportedTransactions.settle`, `import_voids`, місця очікування, блокування грошей лише навколо запису; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-08 п. 11: `ImportBatchTransactions` для кроку «Результат», `importBatchId` сторін `TransferCandidates`; IMP-04 FR 8, IMP-16, рядок 44: `ImportedTransactions.rollback` / `rolledBack` / `rolledBackSince`, порт `categories`, `rolled_back_at`, `listed_hidden`, `import_rollbacks`, дія передачі `rollback`; IMP-04 c, #654 п. 6, #658: `ImportedTransactions` — злиття з ручною (`mergeInto`: ручну злито в банківський рядок, подія `transactions.import-merged`, порт `merged`), заміна очікуваної (`replaces`), `ImportCandidates.merged`; BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11, частина b, #654: `ImportedTransactions.settle`, `import_voids`, місця очікування, блокування грошей лише навколо запису; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -207,7 +207,7 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   підтверджена чи ручна — «без змін»; злитий дубль — `transaction.merged`. Груповий запис аудиту; «Відмінити» повертає в
   чергу.
 - `createTransactionsErasure(db)` → `TransactionsErasure.eraseHousehold(householdId)` → `{ transactions, idempotencyKeys,
-  jobs }` (і `import_writes`, `import_voids`) — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
+  jobs }` (і `import_writes`, `import_voids`, `import_rollbacks`) — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
   `transactions.records`) перед рахунками і журналом.
 - `createTransactionsWorkerQueue(db, { accounts, ledger, audit })` → черга воркера (`src/wiring.ts`, `workerQueues`):
   задачі `transactions.hand-off` (`HAND_OFF_JOB`) зі схеми модуля, з тими самими портами, що в маршрутів.
@@ -305,6 +305,22 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   імпорту — лічильники запису партії, якщо він є, інакше спробу відкликано (`import_voids`) і `null`. `importedText`
   — текст банку так, як його зберігає рядок (для плану). Типи `ImportWriteInput`, `ImportedRowInput`, `ImportCreated`, `ImportCounts`,
   `ImportWriteResult`, `ImportPlanContext`.
+- `createImportedTransactions(db, { …, categories? })` → `ImportedTransactions.rollback(householdId, { batchId, actorId,
+  accountIds, mode })` (IMP-04@PoC п. 8, IMP-16@PoC п. 1–5, рядок 44): «Відкотити» партію в одній транзакції модуля — місце
+  очікування, блокування імпорту рахунків партії (за id), запис `import_rollbacks` (є — `first: false`, нічого не змінює),
+  рядки партії й злиті в них — одним запитом за зростанням id (`FOR UPDATE`; злитий у рядок партії тим часом —
+  `ImportRollbackBusy`), блокування грошей і стан рахунків (закритий — `ImportWriteRefused`). Кожен рядок партії: сторона
+  переказу — лишається (`transfers`; п. 6 — пізніша частина); змінений людиною після застосування (розділення, власна
+  нотатка, категорія «вручну» за портом `categories` модуля categorization; нотатка й категорія ручної, злитої при
+  застосуванні, — не зміна) з `keep-changed` — лишається (`kept`); інакше відкочено — прихований, `rolled_back_at`, передача
+  `rollback` сторнує його подію журналу (нічого не видаляється), а злиті в нього (ручна, замінена очікувана) повертаються
+  передачею `unmerge` (`restored`). Результат — `mode`, `rolledBackBy`, `rolledBackAt` (першого запиту), `counts` і
+  `kept` (до 200 id). `ImportedTransactions.rolledBack(householdId, batchId)` — збережений результат або null;
+  `rolledBackSince(householdId, since, before)` — записані відкати за проміжок (до `ROLLBACK_RECOVERY_LISTED` = 200,
+  найраніші першими) для щоденного відновлення модуля import-sessions. Без порту `categories` відкат кидає помилку. Відкочена транзакція поза
+  будь-яким читанням і зміною модуля (`find` / `lock` її не бачать, список — за `listed_hidden`, кандидати плану імпорту
+  й категоризація — теж). Типи `ImportRollbackInput`, `ImportRollbackResult`, `RollbackMode` (`ROLLBACK_MODES`),
+  `RollbackCategory`.
 - `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`, тип `DuplicateCheck`.
 
 Журнал переказу (`application/hand-off.ts`): поки позначено, власна подія зарахування сторнована, власна подія списання —
@@ -381,6 +397,7 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 | `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |
 | `import_writes` | Записана партія імпорту: лічильники, хто й коли (один рядок на партію; `0010_import_rows.sql`) |
 | `import_voids` | Відкликані спроби застосування партії: партія, спроба, коли (`0011_import_voids.sql`) |
+| `import_rollbacks` | Відкати партій (IMP-16 п. 3): партія, режим, лічильники, id залишених (до 200), хто й коли; `transactions.rolled_back_at` — транзакцію відкочено з партією, `listed_hidden` — фільтр «Приховані» без відкочених (`0012_import_rollbacks.sql`) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0003_queue.sql`, дослівно `queue-tables.sql`): задачі передачі `transactions.hand-off`; подій модуль поки не публікує |
 

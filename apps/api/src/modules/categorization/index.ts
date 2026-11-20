@@ -74,6 +74,31 @@ export function createImportCategoryCarry(
   };
 }
 
+/** At most this many transactions per read of `createTransactionCategoryRead` (the rest in the next one). */
+const CATEGORY_READ_CHUNK = 1000;
+
+/**
+ * IMP-16@PoC FR 4 (wave 2 row 44): the categories of the transactions `ids` (their category and source; absent — «Без
+ * категорії» never set) — the port `categories` of module transactions' `createImportedTransactions`: a category set
+ * «вручну» keeps a transaction of a rolled-back batch. Read only, in chunks of 1 000 on the primary key.
+ */
+export function createTransactionCategoryRead(
+  db: ModuleDatabase,
+): (
+  householdId: string,
+  ids: readonly string[],
+) => Promise<ReadonlyMap<string, { readonly categoryId: string | null; readonly source: string }>> {
+  return async (householdId, ids) => {
+    const out = new Map<string, { categoryId: string | null; source: string }>();
+    for (let i = 0; i < ids.length; i += CATEGORY_READ_CHUNK) {
+      const chunk = ids.slice(i, i + CATEGORY_READ_CHUNK);
+      const read = await db.inHousehold(householdId, (q) => categorizationTx(q).read(householdId, chunk));
+      for (const [id, c] of read) out.set(id, { categoryId: c.categoryId, source: c.source });
+    }
+    return out;
+  };
+}
+
 /** The ports of the category rules (BUD-14 b) — other modules' public interfaces, as the rules read them. */
 export type CategorizationRulePorts = Omit<RuleDeps, "categories">;
 

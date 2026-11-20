@@ -81,12 +81,21 @@ function groupsOf(tree: Tree, wizard: Wizard): WizardGroup[] {
     .filter((g) => g.categories.length > 0);
 }
 
+type Amount = { amount: string; currency: string };
+/** A row of «Розподіл» as the contract has it; «Із заощаджень» and «У борг» are not saved in PoC and not sent. */
+export type AllocationRow =
+  | { kind: "goal" | "from-goal"; goalId: string; amount: Amount }
+  | { kind: "debt"; accountId: string; amount: Amount }
+  | { kind: "savings"; amount: Amount };
+
 /** The body of `POST /v1/budget`: entered amounts as decimal strings; a category with an empty field has no limit. */
 export function createBody(args: {
   readonly start: Start;
   readonly currency: string;
   readonly income: string | null;
   readonly limits: ReadonlyMap<string, string | null>;
+  /** The typed rows of «Розподіл» (BUD-02@PoC FR 15); none — the key is left out. */
+  readonly rows?: readonly AllocationRow[];
 }) {
   const limits = [...args.limits]
     .filter((e): e is [string, string] => e[1] !== null)
@@ -98,6 +107,7 @@ export function createBody(args: {
     // An empty income plan is left out: the server's default is 0 (BUD-02 POST), not a figure of the client.
     ...(args.income !== null ? { incomePlan: { amount: args.income, currency: args.currency } } : {}),
     limits,
+    ...(args.rows && args.rows.length > 0 ? { allocation: [...args.rows] } : {}),
   };
 }
 

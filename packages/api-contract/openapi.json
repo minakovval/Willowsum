@@ -31505,6 +31505,12 @@
                           "applying": {
                             "type": "boolean"
                           },
+                          "rollbackUntil": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "files": {
                             "type": "object",
                             "properties": {
@@ -31534,6 +31540,7 @@
                           "createdAt",
                           "lastActionAt",
                           "applying",
+                          "rollbackUntil",
                           "files"
                         ],
                         "additionalProperties": false
@@ -31756,6 +31763,12 @@
                     "applying": {
                       "type": "boolean"
                     },
+                    "rollbackUntil": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -31785,6 +31798,7 @@
                     "createdAt",
                     "lastActionAt",
                     "applying",
+                    "rollbackUntil",
                     "files"
                   ],
                   "additionalProperties": false
@@ -32113,6 +32127,12 @@
                     "applying": {
                       "type": "boolean"
                     },
+                    "rollbackUntil": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -32218,6 +32238,7 @@
                     "createdAt",
                     "lastActionAt",
                     "applying",
+                    "rollbackUntil",
                     "files",
                     "fileList"
                   ],
@@ -32393,6 +32414,12 @@
                         "applying": {
                           "type": "boolean"
                         },
+                        "rollbackUntil": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "files": {
                           "type": "object",
                           "properties": {
@@ -32422,6 +32449,7 @@
                         "createdAt",
                         "lastActionAt",
                         "applying",
+                        "rollbackUntil",
                         "files"
                       ],
                       "additionalProperties": false
@@ -32648,6 +32676,12 @@
                     "applying": {
                       "type": "boolean"
                     },
+                    "rollbackUntil": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -32677,6 +32711,7 @@
                     "createdAt",
                     "lastActionAt",
                     "applying",
+                    "rollbackUntil",
                     "files"
                   ],
                   "additionalProperties": false
@@ -33960,6 +33995,12 @@
                         "applying": {
                           "type": "boolean"
                         },
+                        "rollbackUntil": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "files": {
                           "type": "object",
                           "properties": {
@@ -33989,6 +34030,7 @@
                         "createdAt",
                         "lastActionAt",
                         "applying",
+                        "rollbackUntil",
                         "files"
                       ],
                       "additionalProperties": false
@@ -36915,6 +36957,12 @@
                         "applying": {
                           "type": "boolean"
                         },
+                        "rollbackUntil": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "files": {
                           "type": "object",
                           "properties": {
@@ -36944,6 +36992,7 @@
                         "createdAt",
                         "lastActionAt",
                         "applying",
+                        "rollbackUntil",
                         "files"
                       ],
                       "additionalProperties": false
@@ -37477,6 +37526,12 @@
                     "applying": {
                       "type": "boolean"
                     },
+                    "rollbackUntil": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "files": {
                       "type": "object",
                       "properties": {
@@ -37506,6 +37561,7 @@
                     "createdAt",
                     "lastActionAt",
                     "applying",
+                    "rollbackUntil",
                     "files"
                   ],
                   "additionalProperties": false
@@ -38309,6 +38365,12 @@
                         "applying": {
                           "type": "boolean"
                         },
+                        "rollbackUntil": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "files": {
                           "type": "object",
                           "properties": {
@@ -38338,6 +38400,7 @@
                         "createdAt",
                         "lastActionAt",
                         "applying",
+                        "rollbackUntil",
                         "files"
                       ],
                       "additionalProperties": false
@@ -38478,6 +38541,297 @@
           },
           "429": {
             "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/import/batches/{batchId}/rollback": {
+      "post": {
+        "operationId": "rollbackImportBatch",
+        "summary": "«Відкотити» (IMP-04 FR 8, IMP-16): within 7 days of the apply, every transaction of the batch is rolled back by a reversal in the journal — never deleted — and what was merged into it comes back; ones the person changed are kept with «Залишити змінені» (the default); rolling back again returns the stored result",
+        "tags": [
+          "import-sessions"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "data.import",
+          "flags": [
+            "data.import"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "keep-changed",
+                      "all"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The batch, «відкочено», and the result of its rollback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batch": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "uploaded",
+                            "processing",
+                            "parsed",
+                            "needs-review",
+                            "failed",
+                            "applied",
+                            "rolled-back",
+                            "cancelled"
+                          ]
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "lastActionAt": {
+                          "type": "string"
+                        },
+                        "applying": {
+                          "type": "boolean"
+                        },
+                        "rollbackUntil": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "files": {
+                          "type": "object",
+                          "properties": {
+                            "accepted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "rejected": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "accepted",
+                            "rejected"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "state",
+                        "version",
+                        "createdAt",
+                        "lastActionAt",
+                        "applying",
+                        "rollbackUntil",
+                        "files"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rollback": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "keep-changed",
+                            "all"
+                          ]
+                        },
+                        "counts": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "kept": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "rolledBackAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "counts",
+                        "kept",
+                        "rolledBackAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "first": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "batch",
+                    "rollback",
+                    "first"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The batch's state does not allow this (BATCH_STATE_CONFLICT); The time to roll back the batch has passed (IMPORT_ROLLBACK_EXPIRED); The account is closed (ACCOUNT_CLOSED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route); Too many requests; try again shortly (RATE_LIMITED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -58747,6 +59101,7 @@
               "IMPORT_ROWS_REFUSED",
               "IMPORT_PLAN_TOO_LARGE",
               "IMPORT_APPLY_UNSUPPORTED",
+              "IMPORT_ROLLBACK_EXPIRED",
               "RECIPE_INVALID",
               "UNSUPPORTED_MEDIA_TYPE",
               "LIMIT_REACHED",

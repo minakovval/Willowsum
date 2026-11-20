@@ -308,6 +308,11 @@ export const PROBLEMS = {
    * update, another date order, a pending row replaced). Nothing was written; the batch stays as it is.
    */
   IMPORT_APPLY_UNSUPPORTED: { status: 409, title: "The batch needs a step the apply does not take yet" },
+  /**
+   * IMP-04@PoC FR 8, AC8; IMP-16@PoC FR 1: «Відкотити» more than 7 days after the batch was applied — «Строк відкату
+   * минув»; its transactions can only be hidden one by one. Nothing was changed.
+   */
+  IMPORT_ROLLBACK_EXPIRED: { status: 409, title: "The time to roll back the batch has passed" },
   /** IMP-06@PoC FR 2, FR 3, FR 14: the recipe is not valid; `recipeErrors` holds each error's code and field path. */
   RECIPE_INVALID: { status: 422, title: "The parsing recipe is not valid" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
