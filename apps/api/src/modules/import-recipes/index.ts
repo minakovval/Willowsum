@@ -79,12 +79,21 @@ export interface RecipeForParse {
   readonly recipe: Recipe;
   /** `account.value` sealed with the space's key for `ACCOUNT_VALUE_FIELD`, or null without one. */
   readonly accountValueSealed: string | null;
+  /** The format fingerprint the recipe was made for (`fp1:…`), or null (IMP-06 FR 6: «збіг» / «змінився» / «невідомо»). */
+  readonly fingerprint: string | null;
 }
 
 export interface ImportRecipesReader {
   /** The space's recipe; another space's recipe, or none, is null (read in the space's transaction and row policy). */
   forParse(householdId: string, recipeId: string): Promise<RecipeForParse | null>;
+  /**
+   * The space's newest recipe made for the format fingerprint (`fp1:` + SHA-256; IMP-06 FR 7: a matched recipe), or
+   * null; read like `forParse`.
+   */
+  forFormat(householdId: string, fingerprint: string): Promise<RecipeForParse | null>;
 }
+
+const FINGERPRINT = /^fp1:[0-9a-f]{64}$/;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -95,7 +104,23 @@ export function createImportRecipesReader(db: ModuleDatabase): ImportRecipesRead
       if (!UUID.test(recipeId) || !UUID.test(householdId)) return null;
       const found = await spaceTx(db, householdId)((tx) => tx.find(recipeId));
       if (!found || found.householdId !== householdId) return null;
-      return { id: found.id, recipe: found.recipe, accountValueSealed: found.accountValueSealed };
+      return {
+        id: found.id,
+        recipe: found.recipe,
+        accountValueSealed: found.accountValueSealed,
+        fingerprint: found.fingerprint,
+      };
+    },
+    async forFormat(householdId, fingerprint) {
+      if (!FINGERPRINT.test(fingerprint) || !UUID.test(householdId)) return null;
+      const found = await spaceTx(db, householdId)((tx) => tx.forFormat(fingerprint));
+      if (!found || found.householdId !== householdId) return null;
+      return {
+        id: found.id,
+        recipe: found.recipe,
+        accountValueSealed: found.accountValueSealed,
+        fingerprint: found.fingerprint,
+      };
     },
   };
 }

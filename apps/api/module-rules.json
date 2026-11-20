@@ -117,7 +117,7 @@
     },
     "import-sessions": {
       "layer": "subject",
-      "dependsOn": ["audit", "file-parsers", "file-storage"]
+      "dependsOn": ["accounts", "audit", "file-parsers", "file-storage", "household", "import-recipes"]
     },
     "ledger": {
       "layer": "subject",

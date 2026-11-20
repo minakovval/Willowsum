@@ -14,7 +14,13 @@ import {
  * process — the same limits and the same platform runner as file-storage's upload check (row 38). A worker that runs
  * out of memory or time, or crashes, ends alone and the parse is refused with a code.
  */
-export const PARSE_LIMITS = { memoryMb: 512, timeoutMs: 60_000 } as const;
+export const PARSE_LIMITS = { memoryMb: 512, timeoutMs: 60_000, concurrent: 2 } as const;
+
+/**
+ * The engine's version, kept with each parsed file (IMP-01@PoC FR 9: the versions applied to each file). A change of
+ * the engine's output raises it.
+ */
+export const PARSE_ENGINE_VERSION = "1";
 
 export type StatementParseRefusal =
   "FILE_TOO_LARGE" | "TABLE_LIMIT" | "PARSE_MEMORY" | "PARSE_TIMEOUT" | "CORRUPTED" | "ACCOUNT_BINDING";
@@ -53,13 +59,18 @@ export interface StatementParser {
     bytes: Uint8Array,
     options?: ReadOptions,
     statement?: StatementOptions,
-    binding?: SealedAccountBinding,
+    binding?: SealedAccountBinding | (() => Promise<SealedAccountBinding>),
   ): Promise<StatementParse>;
 }
 
 export interface StatementParserOptions {
   readonly memoryMb?: number;
   readonly timeoutMs?: number;
+  /**
+   * At most this many parse workers of this parser at a time (#624: each takes up to 512 MiB and 60 s, and a hostile
+   * file can take the 60 s on purpose); the others wait their turn, in order. Default `PARSE_LIMITS.concurrent`.
+   */
+  readonly concurrent?: number;
   /** The worker script; tests pass one that misbehaves on purpose. */
   readonly workerUrl?: URL;
 }
@@ -78,58 +89,83 @@ export function isolatedStatementParser(options: StatementParserOptions = {}): S
     timeoutMs: options.timeoutMs ?? PARSE_LIMITS.timeoutMs,
   };
   const url = options.workerUrl ?? WORKER_URL;
+  const slots = slotsOf(options.concurrent ?? PARSE_LIMITS.concurrent);
   return {
-    async parse(bytes, readOptions = {}, statement = {}, binding) {
-      let moved: ArrayBuffer[] = [];
-      let sealed: { by: AccountBindingKind; sealedValue: string; opener: FieldOpener } | undefined;
-      if (binding) {
-        const { by, sealedValue, opener } = binding;
-        // A used (detached) or foreign key, or a binding of another kind, is refused before any worker starts.
-        if (
-          !(opener?.key instanceof ArrayBuffer) ||
-          opener.key.byteLength === 0 ||
-          !(ACCOUNT_BINDINGS as readonly string[]).includes(by) ||
-          typeof sealedValue !== "string"
-        ) {
-          if (opener) wipeFieldOpener(opener);
-          throw new StatementParseError("ACCOUNT_BINDING");
+    parse: (bytes, readOptions = {}, statement = {}, given) =>
+      // The turn is taken first: a waiting parse holds no key, no copy of the file and no worker. A lazy binding
+      // (#624) takes its opener only once the turn is there, the last step before the worker.
+      slots.run(async () => {
+        const binding = typeof given === "function" ? await given() : given;
+        let moved: ArrayBuffer[] = [];
+        let sealed: { by: AccountBindingKind; sealedValue: string; opener: FieldOpener } | undefined;
+        if (binding) {
+          const { by, sealedValue, opener } = binding;
+          // A used (detached) or foreign key, or a binding of another kind, is refused before any worker starts.
+          if (
+            !(opener?.key instanceof ArrayBuffer) ||
+            opener.key.byteLength === 0 ||
+            !(ACCOUNT_BINDINGS as readonly string[]).includes(by) ||
+            typeof sealedValue !== "string"
+          ) {
+            if (opener) wipeFieldOpener(opener);
+            throw new StatementParseError("ACCOUNT_BINDING");
+          }
+          sealed = {
+            by,
+            sealedValue,
+            opener: { householdId: opener.householdId, field: opener.field, key: opener.key },
+          };
+          moved = [opener.key];
         }
-        sealed = {
-          by,
-          sealedValue,
-          opener: { householdId: opener.householdId, field: opener.field, key: opener.key },
-        };
-        moved = [opener.key];
-      }
-      let outcome;
+        let outcome;
+        try {
+          // The copy is made inside the guard: if it fails (no memory for it), the key is wiped like on any other path.
+          const copy = new Uint8Array(bytes);
+          outcome = await runIsolated<StatementParse>(
+            url,
+            { bytes: copy, options: readOptions, statement, binding: sealed },
+            [copy.buffer, ...moved],
+            limits,
+          );
+        } finally {
+          if (binding) wipeFieldOpener(binding.opener);
+        }
+        if (outcome.ok) {
+          // A parse asked with a binding never comes back without its outcome (fails closed).
+          if (binding && outcome.value?.account?.by !== binding.by)
+            throw new StatementParseError("ACCOUNT_BINDING");
+          return outcome.value;
+        }
+        if (outcome.failure === "memory") throw new StatementParseError("PARSE_MEMORY");
+        if (outcome.failure === "timeout") throw new StatementParseError("PARSE_TIMEOUT");
+        if (outcome.failure === "refused") {
+          if (outcome.code === "FILE_TOO_LARGE") throw new StatementParseError("FILE_TOO_LARGE");
+          if (outcome.code === "ACCOUNT_BINDING") throw new StatementParseError("ACCOUNT_BINDING");
+          const [code, ceiling] = outcome.code.split(":");
+          if (code === "TABLE_LIMIT" && ceiling && CEILINGS.has(ceiling))
+            throw new StatementParseError("TABLE_LIMIT", ceiling as TableCeiling);
+        }
+        throw new StatementParseError("CORRUPTED");
+      }),
+  };
+}
+
+/** A fixed number of turns; the rest wait in order (first in, first out). */
+function slotsOf(size: number): { run<T>(work: () => Promise<T>): Promise<T> } {
+  if (!Number.isInteger(size) || size < 1) throw new Error("concurrent is a positive integer");
+  let busy = 0;
+  const waiting: (() => void)[] = [];
+  return {
+    async run(work) {
+      if (busy >= size) await new Promise<void>((resolve) => waiting.push(resolve));
+      else busy += 1;
       try {
-        // The copy is made inside the guard: if it fails (no memory for it), the key is wiped like on any other path.
-        const copy = new Uint8Array(bytes);
-        outcome = await runIsolated<StatementParse>(
-          url,
-          { bytes: copy, options: readOptions, statement, binding: sealed },
-          [copy.buffer, ...moved],
-          limits,
-        );
+        return await work();
       } finally {
-        if (binding) wipeFieldOpener(binding.opener);
+        const next = waiting.shift();
+        if (next) next();
+        else busy -= 1;
       }
-      if (outcome.ok) {
-        // A parse asked with a binding never comes back without its outcome (fails closed).
-        if (binding && outcome.value?.account?.by !== binding.by)
-          throw new StatementParseError("ACCOUNT_BINDING");
-        return outcome.value;
-      }
-      if (outcome.failure === "memory") throw new StatementParseError("PARSE_MEMORY");
-      if (outcome.failure === "timeout") throw new StatementParseError("PARSE_TIMEOUT");
-      if (outcome.failure === "refused") {
-        if (outcome.code === "FILE_TOO_LARGE") throw new StatementParseError("FILE_TOO_LARGE");
-        if (outcome.code === "ACCOUNT_BINDING") throw new StatementParseError("ACCOUNT_BINDING");
-        const [code, ceiling] = outcome.code.split(":");
-        if (code === "TABLE_LIMIT" && ceiling && CEILINGS.has(ceiling))
-          throw new StatementParseError("TABLE_LIMIT", ceiling as TableCeiling);
-      }
-      throw new StatementParseError("CORRUPTED");
     },
   };
 }

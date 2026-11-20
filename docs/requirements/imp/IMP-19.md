@@ -36,7 +36,7 @@
 - [MVP] Спільні правила: П-21, NFR-04
 - [MVP] Сценарії: UC-IMP-01, UC-IMP-02, UC-IMP-18, UC-IMP-23, UC-IMP-24
 - [MVP] Модуль: import-sessions, file-parsers, ocr, notification-delivery
-- Перевіряється: apps/api/src/modules/import-sessions/domain/imp01-batch-states.test.ts, apps/api/test/imp01-import-batches.it.test.ts, apps/api/test/imp01-import-batch-lifecycle.it.test.ts
+- Перевіряється: apps/api/src/modules/import-sessions/domain/imp01-batch-states.test.ts, apps/api/test/imp01-import-batches.it.test.ts, apps/api/test/imp01-import-batch-lifecycle.it.test.ts, apps/api/src/modules/import-sessions/application/imp01-parse-step.test.ts, apps/api/test/imp01-parse-step.it.test.ts
 
 [PoC–PoC v2] **Мета.** Як користувач, я хочу швидко бачити результат імпорту і розуміти, що робити, коли файл завеликий, щоб не чекати наосліп.
 [MVP] **Мета.** Як учасник, я хочу швидко бачити результат імпорту і розуміти, що робити, коли файл завеликий, щоб не чекати наосліп.

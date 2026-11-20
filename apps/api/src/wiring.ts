@@ -52,8 +52,10 @@ import {
 } from "./modules/import-sessions/index.ts";
 import {
   createImportRecipesHandOffRecovery,
+  createImportRecipesReader,
   createImportRecipesWorkerQueue,
 } from "./modules/import-recipes/index.ts";
+import { isolatedStatementParser } from "./modules/file-parsers/index.ts";
 import {
   createMerchantDirectory,
   createMerchantsRecovery,
@@ -417,6 +419,14 @@ export function workerQueues(
   databases: Pick<ModuleDatabases, "for">,
   /** The flag runtime: the rules of a new transaction (BUD-14) are off without it. */
   flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
+  /**
+   * The parse step of import batches (IMP-01 FR 5): the originals and the space's key. Without them (a role with no
+   * file storage) no parse job is taken; they wait in the queue.
+   */
+  importParse?: {
+    readonly files: Pick<FileStorage, "read">;
+    readonly keys: Pick<SpaceKeys, "fieldOpener" | "sealBytes">;
+  },
 ): {
   readonly queues: readonly WorkerQueue[];
   readonly subscriptions: readonly EventSubscription[];
@@ -472,8 +482,25 @@ export function workerQueues(
       createBudgetWorkerQueue(databases.for("budget"), audit),
       // BUD-07 a: the audit entries of regular payments and rejected proposals (ADR-0015), and the category merges.
       createRecurringWorkerQueue(databases.for("recurring"), audit),
-      // IMP-01 b: the audit entries of import batches (ADR-0015).
-      createImportSessionsWorkerQueue(databases.for("import-sessions"), audit),
+      // IMP-01 b: the audit entries of import batches (ADR-0015); the parse of their files (heavy jobs).
+      createImportSessionsWorkerQueue(
+        databases.for("import-sessions"),
+        audit,
+        importParse
+          ? {
+              modules: {
+                files: importParse.files,
+                keys: importParse.keys,
+                recipes: createImportRecipesReader(databases.for("import-recipes")),
+                accounts: createAccountDirectory(databases.for("accounts")),
+                // One parser per worker: its own limit of parse workers at a time on top of the heavy-job limit.
+                parser: isolatedStatementParser(),
+              },
+              now: () => systemClock.now(),
+              newId: randomUUID,
+            }
+          : undefined,
+      ),
       // IMP-06 a: the audit entries of saved and deleted parsing recipes (ADR-0015).
       createImportRecipesWorkerQueue(databases.for("import-recipes"), audit),
     ],
