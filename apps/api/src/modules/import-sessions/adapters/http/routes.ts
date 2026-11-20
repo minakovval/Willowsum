@@ -230,6 +230,14 @@ function owner(ctx: ProtectedContext): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
 }
 
+/**
+ * IMP-04@PoC «Права доступу», IMP-16@PoC FR 1: «Відкочує партію лише Owner». `household.data.write` is also held by
+ * Admin and Editor, so the role is checked here, before the batch is read: one answer for any batch id, known or not.
+ */
+function ownerOnly(ctx: ProtectedContext): void {
+  if (ctx.principal.scoped || ctx.principal.role !== "owner") throw new ApiProblem("FORBIDDEN");
+}
+
 export const createImportBatchRoute = defineRoute({
   module: MODULE,
   method: "POST",
@@ -987,7 +995,7 @@ export const rollbackImportBatchRoute = defineRoute({
     }),
   },
   handler: async ({ params, body }, ctx) => {
-    owner(ctx);
+    ownerOnly(ctx);
     const { deps, audit, apply } = importSessionsServices(ctx);
     if (!apply) throw new ApiProblem("INTERNAL");
     const { householdId, userId } = ctx.principal;

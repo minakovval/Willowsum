@@ -18,9 +18,15 @@ CREATE TABLE import_rollbacks (
   household_id uuid NOT NULL,
   -- The batch of module import-sessions (no foreign key across schemas).
   import_batch_id uuid NOT NULL,
+  -- The mode of the first request: a crash before module import-sessions recorded it is finished with this one.
+  mode text NOT NULL CHECK (mode IN ('keep-changed', 'all')),
   counts jsonb NOT NULL CHECK (jsonb_typeof(counts) = 'object'),
   kept uuid[] NOT NULL CHECK (cardinality(kept) <= 200),
   rolled_back_by uuid NOT NULL,
   rolled_back_at timestamptz NOT NULL,
   PRIMARY KEY (household_id, import_batch_id)
 );
+
+-- Module import-sessions' daily recovery lists the rollbacks of the last days (a request that ended before it marked
+-- its batch «відкочено» is finished with this record).
+CREATE INDEX import_rollbacks_by_time ON import_rollbacks (household_id, rolled_back_at);

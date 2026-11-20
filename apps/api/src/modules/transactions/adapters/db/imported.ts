@@ -4,6 +4,7 @@ import {
   ROLLBACK_KEPT_LISTED,
   type ImportCounts,
   type ImportRollbackCounts,
+  type RollbackMode,
   type ImportRollbackTx,
   type ImportWriteTx,
   type RollbackRow,
@@ -125,6 +126,26 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
   };
 }
 
+interface RollbackRecordRow {
+  import_batch_id: string;
+  mode: RollbackMode;
+  rolled_back_by: string;
+  rolled_back_at: Date;
+  counts: ImportRollbackCounts;
+  kept: string[];
+}
+
+const ROLLBACK_RECORD = "import_batch_id, mode, rolled_back_by, rolled_back_at, counts, kept::text[] AS kept";
+
+const rollbackRecord = (r: RollbackRecordRow) => ({
+  batchId: r.import_batch_id,
+  mode: r.mode,
+  rolledBackBy: r.rolled_back_by,
+  rolledBackAt: r.rolled_back_at,
+  counts: r.counts,
+  kept: r.kept,
+});
+
 /**
  * «Відкотити» a batch in one transactions transaction (application/rollback.ts): the waiter's place and the locks of the
  * apply's write, the batch's rows on the unique index of (batch, file, row), the rows merged into them on
@@ -140,11 +161,20 @@ export function importRollbackTx(q: HouseholdQueryRunner): ImportRollbackTx {
     update: (householdId, row) => tx.update(householdId, row),
     enqueueHandOff: (householdId, handOff) => tx.enqueueHandOff(householdId, handOff),
     async rolledBackBatch(householdId, batchId) {
-      const { rows } = await q.query<{ counts: ImportRollbackCounts; kept: string[] }>(
-        `SELECT counts, kept::text[] AS kept FROM import_rollbacks WHERE household_id = $1 AND import_batch_id = $2`,
+      const { rows } = await q.query<RollbackRecordRow>(
+        `SELECT ${ROLLBACK_RECORD} FROM import_rollbacks WHERE household_id = $1 AND import_batch_id = $2`,
         [householdId, batchId],
       );
-      return rows[0] ? { counts: rows[0].counts, kept: rows[0].kept } : null;
+      return rows[0] ? rollbackRecord(rows[0]) : null;
+    },
+    async rolledBackSince(householdId, since, before, limit) {
+      const { rows } = await q.query<RollbackRecordRow>(
+        `SELECT ${ROLLBACK_RECORD} FROM import_rollbacks
+          WHERE household_id = $1 AND rolled_back_at >= $2 AND rolled_back_at < $3
+          ORDER BY rolled_back_at, import_batch_id LIMIT $4`,
+        [householdId, since, before, limit],
+      );
+      return rows.map(rollbackRecord);
     },
     async batchRows(householdId, batchId) {
       const { rows } = await q.query<{ id: string; account_id: string }>(
@@ -187,17 +217,18 @@ export function importRollbackTx(q: HouseholdQueryRunner): ImportRollbackTx {
         at,
       ]);
     },
-    async recordRollback(householdId, batchId, result, actorId, at) {
+    async recordRollback(householdId, batchId, result) {
       await q.query(
-        `INSERT INTO import_rollbacks (household_id, import_batch_id, counts, kept, rolled_back_by, rolled_back_at)
-         VALUES ($1, $2, $3::jsonb, $4::uuid[], $5, $6)`,
+        `INSERT INTO import_rollbacks (household_id, import_batch_id, mode, counts, kept, rolled_back_by, rolled_back_at)
+         VALUES ($1, $2, $3, $4::jsonb, $5::uuid[], $6, $7)`,
         [
           householdId,
           batchId,
+          result.mode,
           JSON.stringify(result.counts),
           result.kept.slice(0, ROLLBACK_KEPT_LISTED),
-          actorId,
-          at,
+          result.rolledBackBy,
+          result.rolledBackAt,
         ],
       );
     },

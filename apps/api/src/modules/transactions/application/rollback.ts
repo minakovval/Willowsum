@@ -29,6 +29,9 @@ export type RollbackMode = (typeof ROLLBACK_MODES)[number];
 /** At most this many kept transactions are named in the result (the count names them all). */
 export const ROLLBACK_KEPT_LISTED = 200;
 
+/** At most this many recorded rollbacks are listed for module import-sessions' recovery in one run. */
+export const ROLLBACK_RECOVERY_LISTED = 200;
+
 export interface ImportRollbackInput {
   readonly batchId: string;
   readonly actorId: string;
@@ -51,6 +54,11 @@ export interface ImportRollbackCounts {
 export interface ImportRollbackResult {
   /** False — rolled back before (by an earlier or a concurrent request): nothing changed now. */
   readonly first: boolean;
+  /** The mode the batch was rolled back with — the first request's (a later one's mode changes nothing). */
+  readonly mode: RollbackMode;
+  /** Who rolled it back and when — the first request's. */
+  readonly rolledBackBy: string;
+  readonly rolledBackAt: Date;
   readonly counts: ImportRollbackCounts;
   /** The kept transactions (changed ones, then transfers), at most `ROLLBACK_KEPT_LISTED`. */
   readonly kept: readonly string[];
@@ -82,6 +90,13 @@ export interface ImportRollbackTx extends Pick<
 > {
   /** Step 2: the batch's rollback; null — none. */
   rolledBackBatch(householdId: string, batchId: string): Promise<Omit<ImportRollbackResult, "first"> | null>;
+  /** The rollbacks recorded in `[since, before)`, earliest first, at most `limit`. */
+  rolledBackSince(
+    householdId: string,
+    since: Date,
+    before: Date,
+    limit: number,
+  ): Promise<readonly (Omit<ImportRollbackResult, "first"> & { readonly batchId: string })[]>;
   /** The ids and accounts of the batch's rows (rolled back ones too), unlocked. */
   batchRows(householdId: string, batchId: string): Promise<readonly { id: string; accountId: string }[]>;
   /** The rows merged into `ids` (their ids), unlocked. */
@@ -93,8 +108,6 @@ export interface ImportRollbackTx extends Pick<
     householdId: string,
     batchId: string,
     result: Omit<ImportRollbackResult, "first">,
-    actorId: string,
-    at: Date,
   ): Promise<void>;
 }
 
@@ -230,11 +243,14 @@ export async function rollbackImport(
       restored += 1;
     }
   }
-  const result = {
+  const result: Omit<ImportRollbackResult, "first"> = {
+    mode: input.mode,
+    rolledBackBy: input.actorId,
+    rolledBackAt: at,
     counts: { rolledBack, kept: keptChanged.length, transfers: keptTransfers.length, restored },
     kept: [...keptChanged, ...keptTransfers].slice(0, ROLLBACK_KEPT_LISTED),
   };
-  await tx.recordRollback(householdId, input.batchId, result, input.actorId, at);
+  await tx.recordRollback(householdId, input.batchId, result);
   return { first: true, ...result, handOffs };
 }
 

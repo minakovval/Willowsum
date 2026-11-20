@@ -15,6 +15,7 @@ import { createFxRates, officialDatedRates } from "../src/modules/fx-rates/index
 import { createSpaceKeys, type HouseholdSpaces, type SpaceKeys } from "../src/modules/household/index.ts";
 import { createImportRecipesReader } from "../src/modules/import-recipes/index.ts";
 import {
+  createImportSessionsApplyRecovery,
   createImportSessionsServices,
   createImportSessionsWorkerQueue,
 } from "../src/modules/import-sessions/index.ts";
@@ -26,6 +27,7 @@ import { createLedger, type Ledger } from "../src/modules/ledger/index.ts";
 import { createImportedTransactions, createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * «Відкотити» an applied import batch (IMP-04@PoC FR 8, FR 10, AC7, AC8, AC12, EC4; IMP-16@PoC FR 1–5, FR 9, AC1, AC2,
@@ -249,6 +251,37 @@ async function categorize(householdId: string, transactionId: string, categoryId
      ON CONFLICT (household_id, transaction_id) DO UPDATE SET category_id = $3, source = 'manual', version = 2`,
     [householdId, transactionId, categoryId],
   );
+}
+
+/** Module transactions as the app wires it: a crash after its step leaves module import-sessions behind. */
+const transactionsPort = () =>
+  createImportedTransactions(db.databases.for("transactions"), {
+    accounts,
+    ledger,
+    audit,
+    newId: randomUUID,
+    now: clock.now,
+    categories: createTransactionCategoryRead(db.databases.for("categorization")),
+  });
+
+/** The batch's audit entries: their changes (field and value) and their actors. */
+async function batchAudit(
+  householdId: string,
+  batchId: string,
+): Promise<{ fields: { field: string; after: string | null }[]; actors: string[] }> {
+  const { rows } = await db.owner.query<{
+    actor_id: string;
+    changes: { field: string; after: string | null }[];
+  }>(
+    `SELECT actor_id, changes FROM audit.entries
+      WHERE household_id = $1 AND entity_type = 'import-sessions.batch' AND entity_id = $2
+        AND changes::text LIKE '%rollback%' ORDER BY occurred_at`,
+    [householdId, batchId],
+  );
+  return {
+    fields: rows.flatMap((r) => r.changes.map((c) => ({ field: c.field, after: c.after }))),
+    actors: [...new Set(rows.map((r) => r.actor_id))],
+  };
 }
 
 beforeAll(async () => {
@@ -580,6 +613,84 @@ describe("IMP-16@PoC FR 1, FR 3: 7 days, once", () => {
     expect(await balance(space)).toBe("0.00");
   });
 
+  it("IMP-16@PoC FR 3, FR 9: a crash after module transactions rolled back with «Відкотити все» — a retry with «Залишити змінені» records and audits «all» and who rolled back", async () => {
+    nowMs = start;
+    const space = await newSpace();
+    const batchId = await applied(space, "kviten.csv", purchases(3));
+    const ids = (await transactions(space.householdId)).map((t) => t.id);
+    await categorize(space.householdId, ids[0]!, randomUUID());
+    // Step B alone with «all»: the changed one is rolled back too.
+    await transactionsPort().rollback(space.householdId, {
+      batchId,
+      actorId: space.accountId,
+      accountIds: [space.eur],
+      mode: "all",
+    });
+    nowMs = start + DAY;
+    const res = await rollback(space, batchId, "keep-changed");
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({
+      batch: { state: "rolled-back" },
+      rollback: { mode: "all", counts: { rolledBack: 3, kept: 0 } },
+    });
+    const changes = await batchAudit(space.householdId, batchId);
+    expect(changes.fields).toEqual(expect.arrayContaining([{ field: "rollback.mode", after: "all" }]));
+    expect(changes.actors).toEqual([space.accountId]);
+    expect(await journal(space.householdId)).toEqual({ entries: 6, reversals: 3 });
+    expect(await balance(space)).toBe("0.00");
+  });
+
+  it("IMP-16@PoC FR 3, FR 9: a crash after module transactions rolled the batch back and nobody retries — the daily recovery marks it «відкочено» with its audit entry; the money already agreed and stays", async () => {
+    nowMs = start;
+    const space = await newSpace();
+    const other = await applied(space, "berezen.csv", purchases(1, "OTHER"));
+    const batchId = await applied(space, "kviten.csv", purchases(2));
+    expect(await balance(space)).toBe("-90.00");
+    nowMs = start + DAY;
+    await transactionsPort().rollback(space.householdId, {
+      batchId,
+      actorId: space.accountId,
+      accountIds: [space.eur],
+      mode: "keep-changed",
+    });
+    expect(await balance(space)).toBe("-30.00");
+    const recover = () =>
+      createImportSessionsApplyRecovery({
+        db: db.databases.for("import-sessions"),
+        transactions: transactionsPort(),
+        audit,
+        households: async () => [space.householdId],
+        now: clock.now,
+        newId: randomUUID,
+      }).run();
+    // A request that may still be running is left alone.
+    nowMs = start + DAY + 60_000;
+    expect(await recover()).toBe(0);
+    expect((await call(space, "GET", `/v1/import/batches/${batchId}`)).json().state).toBe("applied");
+    nowMs = start + 2 * DAY;
+    expect(await recover()).toBe(1);
+    const detail = (await call(space, "GET", `/v1/import/batches/${batchId}`)).json();
+    expect(detail.state).toBe("rolled-back");
+    const changes = await batchAudit(space.householdId, batchId);
+    expect(changes.fields).toEqual(
+      expect.arrayContaining([
+        { field: "state", after: "rolled-back" },
+        { field: "rollback.mode", after: "keep-changed" },
+        { field: "rollback.rolledBack", after: "2" },
+      ]),
+    );
+    expect(changes.actors).toEqual([space.accountId]);
+    // Once: a second run and a later «Відкотити» change nothing; the other batch is untouched.
+    expect(await recover()).toBe(0);
+    const again = await rollback(space, batchId);
+    expect(again.statusCode, again.body).toBe(200);
+    expect((await batchAudit(space.householdId, batchId)).fields).toHaveLength(changes.fields.length);
+    expect((await call(space, "GET", `/v1/import/batches/${other}`)).json().state).toBe("applied");
+    expect(await journal(space.householdId)).toEqual({ entries: 5, reversals: 2 });
+    expect(await balance(space)).toBe("-30.00");
+    expect(await balance(space)).toBe(new Decimal(await expectedBalance(space.householdId)).toFixed(2));
+  });
+
   it("IMP-16@PoC FR 1: the account is closed — refused (ACCOUNT_CLOSED), nothing changed", async () => {
     nowMs = start;
     const space = await newSpace();
@@ -613,6 +724,41 @@ describe("IMP-16@PoC FR 8: what the rollback keeps", () => {
     const fileId = (detail.json().fileList as { id: string }[])[0]!.id;
     const link = await call(space, "POST", `/v1/import/batches/${batchId}/files/${fileId}/link`);
     expect(link.statusCode, link.body).toBe(200);
+  });
+});
+
+describe("IMP-01@PoC FR 8: the link «транзакція → файл → рядок» after the rollback", () => {
+  it("IMP-01@PoC FR 8: each rolled-back and each kept transaction still names the batch's file and its row there", async () => {
+    nowMs = start;
+    const space = await newSpace();
+    const batchId = await applied(space, "kviten.csv", purchases(3));
+    const fileIds = (
+      (await call(space, "GET", `/v1/import/batches/${batchId}`)).json().fileList as { id: string }[]
+    ).map((f) => f.id);
+    const link = async () =>
+      (
+        await db.owner.query<{
+          id: string;
+          import_file_id: string;
+          import_row: number;
+          rolled_back: boolean;
+        }>(
+          `SELECT id, import_file_id, import_row, rolled_back_at IS NOT NULL AS rolled_back
+             FROM transactions.transactions WHERE household_id = $1 AND import_batch_id = $2 ORDER BY import_row`,
+          [space.householdId, batchId],
+        )
+      ).rows;
+    const before = await link();
+    expect(before).toHaveLength(3);
+    await categorize(space.householdId, before[1]!.id, randomUUID());
+    expect((await rollback(space, batchId)).statusCode).toBe(200);
+    const after = await link();
+    expect(after.map((r) => r.rolled_back)).toEqual([true, false, true]);
+    expect(after.map(({ id, import_file_id, import_row }) => ({ id, import_file_id, import_row }))).toEqual(
+      before.map(({ id, import_file_id, import_row }) => ({ id, import_file_id, import_row })),
+    );
+    expect(after.every((r) => fileIds.includes(r.import_file_id))).toBe(true);
+    expect(new Set(after.map((r) => r.import_row)).size).toBe(3);
   });
 });
 
@@ -658,8 +804,8 @@ describe("IMP-04@PoC AC12, IMP-16@PoC AC5: another space", () => {
     const res = await rollback(stranger, batchId);
     expect(res.statusCode).toBe(404);
     expect(res.json().code).toBe("NOT_FOUND");
-    expect(res.body).not.toContain("rollback");
-    expect(res.body).not.toContain("-60");
+    expect(leakText(res.body)).not.toContain("rollback");
+    expect(leakText(res.body)).not.toContain("-60");
     expect(await balance(space)).toBe("-60.00");
     expect((await call(space, "GET", `/v1/import/batches/${batchId}`)).json().state).toBe("applied");
   });

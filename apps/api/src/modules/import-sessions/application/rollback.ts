@@ -20,7 +20,9 @@ import {
  * C. The batch «відкочено» with the result in this module's transaction, and the audit entry (FR 9): who (the entry's
  *    actor), when, how many rolled back, kept and restored.
  *
- * A crash after B leaves the batch «застосовано»: the next «Відкотити» finishes it (B changes nothing twice).
+ * A crash after B leaves the batch «застосовано»: the next «Відкотити» (past the 7 days too) or the daily recovery
+ * (`recoverStuckRollbacks`) finishes it with the mode, actor and time module transactions recorded (B changes nothing
+ * twice).
  */
 
 /** FR 1: a batch is rolled back within this many days after it was applied. */
@@ -60,8 +62,11 @@ export interface RollbackPorts {
   /** Module transactions' `ImportedTransactions.rollback`. */
   readonly rollback: (input: ImportRollbackInput) => Promise<ImportRollbackResult>;
   /** Module transactions' `ImportedTransactions.rolledBack`. */
-  readonly rolledBack: (batchId: string) => Promise<Omit<ImportRollbackResult, "first"> | null>;
+  readonly rolledBack: (batchId: string) => Promise<TransactionsRollback | null>;
 }
+
+/** The rollback as module transactions recorded it: its first request's mode, actor and time. */
+export type TransactionsRollback = Omit<ImportRollbackResult, "first">;
 
 export interface RolledBack {
   readonly rollback: StoredRollback;
@@ -93,7 +98,7 @@ export async function rollbackBatch(
   if ("done" in checked) return { result: { rollback: checked.done, first: false }, handOffs: [] };
 
   // B: module transactions rolls the transactions back (once per batch).
-  let result: Omit<ImportRollbackResult, "first">;
+  let result: TransactionsRollback;
   if (checked.expired) {
     // Past 7 days only a rollback module transactions has done already is finished here (a crash before C).
     const done = await ports.rolledBack(batchId);
@@ -104,26 +109,38 @@ export async function rollbackBatch(
   }
 
   // C: the batch «відкочено», the result kept with it, the audit entry (FR 9) — once.
-  return ports.run(async (tx) => {
+  return finishRollback(deps, ports.run, batchId, result);
+}
+
+/**
+ * Step C: the batch «відкочено» with the rollback module transactions recorded — its mode, actor and time, never a
+ * later request's (FR 3, FR 9) — and the audit entry, once. Also the recovery's finish of a request that ended after B.
+ */
+export async function finishRollback(
+  deps: BatchesDeps,
+  run: RollbackPorts["run"],
+  batchId: string,
+  result: TransactionsRollback,
+): Promise<Handed<RolledBack>> {
+  return run(async (tx) => {
     const batch = await tx.lockBatch(batchId);
     if (!batch) throw new BatchNotFoundError();
     const stored = await tx.rollbackOf(batchId);
     if (batch.state === "rolled-back" && stored)
       return { result: { rollback: stored, first: false }, handOffs: [] };
     if (batch.state !== "applied") throw new BatchStateErrorFor(batch.state);
-    const at = deps.now();
     const rollback: StoredRollback = {
-      rolledBackBy: actorId,
-      rolledBackAt: at,
-      mode,
+      rolledBackBy: result.rolledBackBy,
+      rolledBackAt: result.rolledBackAt,
+      mode: result.mode,
       counts: { ...result.counts },
       kept: [...result.kept],
     };
     await tx.recordRollback(batchId, rollback);
-    await tx.updateBatch(batchId, "rolled-back", at);
+    await tx.updateBatch(batchId, "rolled-back", deps.now());
     const changes = [
       { field: "state", before: "applied", after: "rolled-back" },
-      { field: "rollback.mode", before: null, after: mode },
+      { field: "rollback.mode", before: null, after: result.mode },
       ...Object.entries(result.counts).map(([name, n]) => ({
         field: `rollback.${name}`,
         before: null,
@@ -135,7 +152,7 @@ export async function rollbackBatch(
     for (let i = 0; i < changes.length; i += 4) {
       const handOff: BatchHandOff = {
         entityId: batchId,
-        actorAccountId: actorId,
+        actorAccountId: result.rolledBackBy,
         action: "update",
         changeId: deps.newId(),
         changes: changes.slice(i, i + 4),
@@ -145,4 +162,43 @@ export async function rollbackBatch(
     }
     return { result: { rollback, first: true }, handOffs };
   });
+}
+
+/** A rollback's request that ended after B this long ago is finished by the daily recovery. */
+export const ROLLBACK_STUCK_AFTER_MS = 15 * 60 * 1000;
+/** The recovery looks at the rollbacks module transactions recorded this far back (twice the 7 days). */
+export const ROLLBACK_RECOVERY_DAYS = 14;
+
+/**
+ * The daily recovery's part for the rollback: a batch module transactions rolled back (B) whose request ended before
+ * C — still «застосовано», no audit entry — is finished with the recorded result, so the batch's state and the money
+ * agree. A batch finished already changes nothing.
+ */
+export async function recoverStuckRollbacks(
+  deps: BatchesDeps,
+  run: RollbackPorts["run"],
+  rolledBackSince: (
+    since: Date,
+    before: Date,
+  ) => Promise<readonly (TransactionsRollback & { batchId: string })[]>,
+): Promise<Handed<{ readonly finished: number; readonly failed: number }>> {
+  const now = deps.now().getTime();
+  const done = await rolledBackSince(
+    new Date(now - ROLLBACK_RECOVERY_DAYS * 24 * 60 * 60 * 1000),
+    new Date(now - ROLLBACK_STUCK_AFTER_MS),
+  );
+  const handOffs: BatchHandOff[] = [];
+  let finished = 0;
+  let failed = 0;
+  for (const r of done) {
+    const out = await finishRollback(deps, run, r.batchId, r).catch((e: unknown) =>
+      e instanceof BatchNotFoundError ? null : undefined,
+    );
+    if (out === undefined) failed += 1;
+    else if (out?.result.first) {
+      finished += 1;
+      handOffs.push(...out.handOffs);
+    }
+  }
+  return { result: { finished, failed }, handOffs };
 }

@@ -59,6 +59,7 @@ import {
 import { transactionCreated, transactionImportMerged, type TransactionImportMerged } from "./events.ts";
 import {
   applyHandOff,
+  ROLLBACK_RECOVERY_LISTED,
   rollbackImport,
   rolledBackImport,
   settleImport,
@@ -215,6 +216,7 @@ export {
   ImportWriteVoided,
   ImportRollbackBusy,
   ROLLBACK_KEPT_LISTED,
+  ROLLBACK_RECOVERY_LISTED,
   ROLLBACK_MODES,
   type ImportRollbackCounts,
   type ImportRollbackInput,
@@ -264,6 +266,15 @@ export interface ImportedTransactions {
   rollback(householdId: string, input: ImportRollbackInput): Promise<ImportRollbackResult>;
   /** The batch's rollback as recorded; null — not rolled back. Read only. */
   rolledBack(householdId: string, batchId: string): Promise<Omit<ImportRollbackResult, "first"> | null>;
+  /**
+   * The rollbacks recorded in `[since, before)` (at most `ROLLBACK_RECOVERY_LISTED`, earliest first), for module
+   * import-sessions' recovery of a request that ended before it marked its batch. Read only.
+   */
+  rolledBackSince(
+    householdId: string,
+    since: Date,
+    before: Date,
+  ): Promise<readonly (Omit<ImportRollbackResult, "first"> & { readonly batchId: string })[]>;
 }
 
 /** The hand-offs run right away after the write; the worker runs the rest from the queue (ARC-04 FR 2). */
@@ -368,6 +379,10 @@ export function createImportedTransactions(
     },
     rolledBack: (householdId, batchId) =>
       db.inHousehold(householdId, (q) => rolledBackImport(importRollbackTx(q), householdId, batchId)),
+    rolledBackSince: (householdId, since, before) =>
+      db.inHousehold(householdId, (q) =>
+        importRollbackTx(q).rolledBackSince(householdId, since, before, ROLLBACK_RECOVERY_LISTED),
+      ),
   };
 }
 
