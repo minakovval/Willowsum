@@ -8,6 +8,12 @@ import type { AuditLog } from "../audit/index.ts";
 import { entryRecorded, type Ledger } from "../ledger/index.ts";
 import { viewGoals } from "./application/index.ts";
 import {
+  contributionMarks,
+  ownAccountGoals,
+  type GoalContributionMark,
+  type GoalOwnAccount,
+} from "./adapters/db/cashflow-reads.ts";
+import {
   ENTRY_RECORDED_JOB,
   eraseHouseholdGoals,
   goalsAudit,
@@ -74,6 +80,29 @@ export function createGoalSpends(db: ModuleDatabase): GoalSpends {
         const spends = await goalsTx(q).spendsOfTransactions(householdId, transactionIds);
         return new Map(spends.map((s) => [s.transactionId, { goalId: s.goalId, amount: s.amount }]));
       }),
+  };
+}
+
+/**
+ * The goals as «Грошовий потік» counts contributions to them (BUD-08@PoC FR 5): the own accounts of goals — a transfer
+ * there from a budget account is the contribution — and the «Внести» marks of envelopes and mark-only goals. Closed
+ * goals' too (their past contributions stay contributions); start amounts and spends are not contributions. Read only;
+ * every call is bound to one space.
+ */
+export interface GoalFlows {
+  ownAccounts(householdId: string): Promise<readonly GoalOwnAccount[]>;
+  /** The marks from `from` to `to` (YYYY-MM-DD, both included), oldest first. */
+  marks(householdId: string, from: string, to: string): Promise<readonly GoalContributionMark[]>;
+}
+
+export type { GoalContributionMark, GoalOwnAccount };
+
+/** `db` is the goals module's own database (`ModuleDatabases.for("goals")`). */
+export function createGoalFlows(db: ModuleDatabase): GoalFlows {
+  return {
+    ownAccounts: (householdId) => db.inHousehold(householdId, (q) => ownAccountGoals(q, householdId)),
+    marks: (householdId, from, to) =>
+      db.inHousehold(householdId, (q) => contributionMarks(q, householdId, from, to)),
   };
 }
 

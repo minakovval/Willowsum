@@ -34,7 +34,12 @@ import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/d
 import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
 import { createImportRecipesReader, createImportRecipesServices } from "./modules/import-recipes/index.ts";
 import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
-import { createGoalPlans, createGoalsServices } from "./modules/goals/index.ts";
+import {
+  createGoalFlows,
+  createGoalPlans,
+  createGoalSpends,
+  createGoalsServices,
+} from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
 import {
   createRecurringCategoryUsage,
@@ -58,6 +63,7 @@ import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
   createAccountPayments,
   createBudgetTransactions,
+  createCashflowMovements,
   createDuplicateCandidates,
   createTransactionCategoryUsage,
   createTransactionHistory,
@@ -474,6 +480,16 @@ const server = buildServer({
                   ),
               }),
               fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              // BUD-08 b: transfers and loan operations (transactions), goals' accounts, marks and spends (goals), the
+              // active loans (accounts) with their rate (liabilities) and debt (ledger).
+              movements: createCashflowMovements(databases.for("transactions")),
+              goals: {
+                ...createGoalFlows(databases.for("goals")),
+                ...createGoalSpends(databases.for("goals")),
+              },
+              credit: createCreditAccounts(databases.for("accounts")),
+              liabilities: createLiabilities(databases.for("liabilities"), audit),
+              ledger: createLedger(databases.for("ledger")),
               clock: systemClock,
             }),
             // BUD-14 a: the merchant of a transaction from its description, renamed and merged for the space.

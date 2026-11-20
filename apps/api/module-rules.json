@@ -41,7 +41,10 @@
         "categories",
         "categorization",
         "fx-rates",
+        "goals",
         "household",
+        "ledger",
+        "liabilities",
         "transactions",
         "transfer-matching"
       ]
