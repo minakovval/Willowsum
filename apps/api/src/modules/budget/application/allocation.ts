@@ -193,11 +193,11 @@ export interface WizardSpendable {
  * кілька місяців» dated into the next month. What is contributed to goals this month counts in the current month only;
  * the regular incomes still expected as `BudgetObligations` gives them. The goals' planned contributions are
  * «Розподіл»'s cells, else the required ones (BUD-03 FR 6, `goalContributions`); the planned expenses are the payoff
- * plans' extra payments, a debt's cell in its place (`plannedDebtExpenses`). Null with what is missing — never a
- * partial figure.
+ * plans' extra payments, a debt's cell in its place (`plannedDebtExpenses`). While `budget.plan` is off the cells act
+ * nowhere, as on the card (#665). Null with what is missing — never a partial figure.
  */
 export async function wizardSpendable(
-  deps: Pick<BudgetDeps, "today" | "reads" | "planSources">,
+  deps: Pick<BudgetDeps, "today" | "reads" | "planSources" | "planEnabled">,
   householdId: string,
   a: AllocationPlan,
   accountIds: readonly string[],
@@ -208,17 +208,22 @@ export async function wizardSpendable(
   const zero = Money.zero(currency);
   const current = a.period === periodOf(today);
   const sources = deps.planSources;
-  const [goals, extra, counted] = await Promise.all([
+  const [goals, extra, counted, planOn] = await Promise.all([
     a.lines?.goals ?? (sources ? sources.goals(householdId, currency) : []),
     sources ? sources.extraPayments(householdId, a.period, currency) : [],
     spendableAmounts(deps, householdId, accountIds, a.period, currency, a.from ?? undefined),
+    deps.planEnabled(householdId),
   ]);
+  // BUD-17 business rules (owner decision 2026-11-20, batch 2, item 2; #665): «Розподіл»'s rows are saved as cells of
+  // «План», and while `budget.plan` is off they act nowhere (`planCellsInEffect`) — nor in «≈ M», so it is the card's
+  // figure after saving.
+  const cells = planOn ? a.cells.map((c) => ({ ...c, period: a.period })) : [];
   // BUD-03 FR 6: less what is contributed this month (null — no rate: no figure) — nothing yet in a month to come;
   // a test's port without `contributed` — nothing.
   const contributions = goalContributions(
     a.period,
     goals.map((g) => ({ ...g, contributed: !current || g.contributed === undefined ? zero : g.contributed })),
-    a.cells.map((c) => ({ ...c, period: a.period })),
+    cells,
     currency,
   );
   const incomeExpected = a.obligations?.incomeExpected;
@@ -232,7 +237,7 @@ export async function wizardSpendable(
     a.period,
     extra,
     a.lines?.debtAccountIds ?? new Set(extra.map((e) => e.accountId)),
-    a.cells.map((c) => ({ ...c, period: a.period })),
+    cells,
     currency,
   );
   const figures = periodFigures(a.plan, categories, counted.amounts);

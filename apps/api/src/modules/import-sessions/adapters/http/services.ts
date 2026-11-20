@@ -6,7 +6,7 @@ import type { AuditLog } from "../../../audit/index.ts";
 import { PARSE_ENGINE_VERSION } from "../../../file-parsers/index.ts";
 import type { SpaceKeys } from "../../../household/index.ts";
 import type { ImportRecipesReader } from "../../../import-recipes/index.ts";
-import type { ImportedTransactions } from "../../../transactions/index.ts";
+import type { ImportCandidates, ImportedTransactions } from "../../../transactions/index.ts";
 import {
   cleanFileName,
   FILE_LIMITS,
@@ -109,6 +109,14 @@ export interface ApplyServices {
   readonly transactions: ImportedTransactions;
 }
 
+/**
+ * IMP-04 before the apply (IMP-08 FR 6): module transactions' `ImportCandidates`, read as the apply's plan reads them.
+ * Omitted: the duplicate preview answers 500.
+ */
+export interface PreviewServices {
+  readonly candidates: ImportCandidates;
+}
+
 /** What the API process wires for the import-sessions routes (src/api.ts → `ctx.services`). */
 export interface ImportSessionsServices {
   readonly [BRAND]: true;
@@ -117,6 +125,7 @@ export interface ImportSessionsServices {
   readonly audit: BatchesAudit;
   readonly parse?: ParseServices;
   readonly apply?: ApplyServices;
+  readonly preview?: PreviewServices;
 }
 
 export function createImportSessionsServices(options: {
@@ -126,6 +135,7 @@ export function createImportSessionsServices(options: {
   readonly newId: () => string;
   readonly parse?: ParseServices;
   readonly apply?: ApplyServices;
+  readonly preview?: PreviewServices;
 }): ImportSessionsServices {
   return {
     [BRAND]: true,
@@ -138,6 +148,7 @@ export function createImportSessionsServices(options: {
     audit: batchesAudit(options.audit),
     ...(options.parse ? { parse: options.parse } : {}),
     ...(options.apply ? { apply: options.apply } : {}),
+    ...(options.preview ? { preview: options.preview } : {}),
   };
 }
 

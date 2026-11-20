@@ -194,7 +194,7 @@ function refusal(error: unknown): unknown {
   return error;
 }
 
-async function guarded<T>(work: () => Promise<T>): Promise<T> {
+export async function guarded<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
@@ -208,7 +208,7 @@ const routeTx =
   (work) =>
     ctx.inHousehold((q) => work(batchesTx(q)));
 
-function owner(ctx: ProtectedContext): void {
+export function owner(ctx: ProtectedContext): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
 }
 
