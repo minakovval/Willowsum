@@ -53,21 +53,30 @@ export function useAllocation(args: PlanArgs | null, chosen: readonly string[]):
   };
 }
 
-/** AC6: the bottom strip of the limits step. Nothing while the server cannot tell (`balance: null`) or has not answered. */
+/**
+ * AC6: the bottom strip of the limits step. Nothing while the server cannot tell (`balance: null`), has not answered,
+ * has a newer calculation on its way or failed: a figure that does not match the limits on screen is never shown. The
+ * live region is always mounted and filled, so a screen reader announces the change.
+ */
 export function LimitsStrip({ state, money }: { state: AllocationState; money: (m: Money) => string }) {
   const { t } = useI18n();
-  const b = state.allocation?.balance;
-  if (!b) return null;
+  const a = state.allocation;
+  const b = a?.balance;
+  const show = a && b && !state.pending && !state.failed;
   return (
-    <div className="bud-wiz-strip" role="status">
-      <strong>{t("planning.budget.wizard.strip.unallocated", { amount: money(b.unallocated) })}</strong>
-      <span className="ws-muted">
-        {t("planning.budget.wizard.strip.formula", {
-          income: money(state.allocation!.incomePlan),
-          limits: money(state.allocation!.limits),
-          recurring: money(b.recurringOutsideLimits),
-        })}
-      </span>
+    <div className="bud-wiz-strip" role="status" data-empty={!show}>
+      {show ? (
+        <>
+          <strong>{t("planning.budget.wizard.strip.unallocated", { amount: money(b.unallocated) })}</strong>
+          <span className="ws-muted">
+            {t("planning.budget.wizard.strip.formula", {
+              income: money(a.incomePlan),
+              limits: money(a.limits),
+              recurring: money(b.recurringOutsideLimits),
+            })}
+          </span>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -151,7 +160,9 @@ export function DistributionStep({
     );
   const rate = (r: string | null) =>
     r === null ? null : t("planning.budget.wizard.dist.debt.rate", { rate: `${formatNumber(locale, r)} %` });
-  const planText = <p className="ws-muted">{t("planning.budget.wizard.dist.planOnly")}</p>;
+  const planText = (kind: "surplus" | "deficit") => (
+    <p className="ws-muted">{t(`planning.budget.wizard.dist.planOnly.${kind}`)}</p>
+  );
   const choice = a.choice;
   const over = choice?.status === "over";
   const overNote = over ? (
@@ -255,7 +266,7 @@ export function DistributionStep({
           <output className="bud-num">{choice ? money(choice.rest) : money(b.amount)}</output>
         </div>
         {overNote}
-        {planText}
+        {planText("surplus")}
         {creating ? (
           <GoalDialog
             goals={d.goals}
@@ -332,7 +343,7 @@ export function DistributionStep({
         </span>
       </div>
       {overNote}
-      {planText}
+      {planText("deficit")}
     </section>
   );
 }

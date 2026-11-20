@@ -770,8 +770,10 @@ export const en: Messages = {
   "planning.budget.wizard.dist.covered": "Covered {covered} of {total}",
   "planning.budget.wizard.dist.left": "left",
   "planning.budget.wizard.dist.over": "More than {amount} is chosen.",
-  "planning.budget.wizard.dist.planOnly":
-    "This is a plan: no money is transferred. The amounts appear in «Budget → Plan» in the sections «Goals and savings» and «Debt repayment».",
+  "planning.budget.wizard.dist.planOnly.surplus":
+    "This is a plan: no money is transferred. The chosen amounts are not saved yet — they will appear in «Budget → Plan» once saving is connected.",
+  "planning.budget.wizard.dist.planOnly.deficit":
+    "This is a plan: no money is transferred. The chosen cover is not saved yet — it will appear in «Budget → Plan» once saving is connected.",
   "planning.budget.wizard.dist.amountOf": "Amount: {name}",
   "planning.budget.wizard.dist.reason.deficit": "Cover the deficit in full",
   "planning.budget.wizard.dist.reason.over": "More is chosen than there is to allocate",

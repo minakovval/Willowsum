@@ -768,8 +768,10 @@ export const uk = {
   "planning.budget.wizard.dist.covered": "Покрито {covered} з {total}",
   "planning.budget.wizard.dist.left": "лишилось",
   "planning.budget.wizard.dist.over": "Обрано більше, ніж {amount}.",
-  "planning.budget.wizard.dist.planOnly":
-    "Це план: гроші не переказуються. Суми з’являться в «Бюджет → План» у розділах «Цілі й заощадження» і «Погашення боргів».",
+  "planning.budget.wizard.dist.planOnly.surplus":
+    "Це план: гроші не переказуються. Обрані суми поки що не зберігаються — у «Бюджет → План» вони з’являться після підключення збереження.",
+  "planning.budget.wizard.dist.planOnly.deficit":
+    "Це план: гроші не переказуються. Обране покриття поки що не зберігається — у «Бюджет → План» воно з’явиться після підключення збереження.",
   "planning.budget.wizard.dist.amountOf": "Сума: {name}",
   "planning.budget.wizard.dist.reason.deficit": "Покрийте дефіцит повністю",
   "planning.budget.wizard.dist.reason.over": "Обрано більше, ніж треба розподілити",

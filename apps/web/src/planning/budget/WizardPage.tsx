@@ -212,7 +212,11 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
       <Stepper
         steps={steps}
         label={t("planning.budget.wizard.steps")}
-        onSelect={(i) => (i < step ? setStep(i) : undefined)}
+        onSelect={(i) => {
+          if (i >= step) return;
+          dropRows(null);
+          setStep(i);
+        }}
       />
       {step === 0 ? (
         <MethodStep method={method} onChange={setMethod} data={data} months={months} money={money} />
@@ -230,7 +234,10 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
             setProblem(k, problem);
             if (!problem) setChosen((old) => new Map(old).set(k, v));
           }}
-          onCutLimits={() => setStep(2)}
+          onCutLimits={() => {
+            dropRows(null);
+            setStep(2);
+          }}
           money={money}
         />
       ) : (
@@ -261,7 +268,10 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
         {step > 0 ? (
           <Button
             variant="secondary"
-            onClick={() => setStep(step - 1)}
+            onClick={() => {
+              dropRows(null);
+              setStep(step - 1);
+            }}
             label={t("planning.budget.wizard.back")}
           />
         ) : null}

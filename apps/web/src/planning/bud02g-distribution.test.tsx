@@ -199,6 +199,33 @@ describe("BUD-02@PoC AC6 the bottom strip of the limits step", () => {
     );
   });
 
+  it("BUD-02@PoC AC6: a failed or pending calculation does not leave the last figure on the strip, and the live region stays mounted", async () => {
+    let mode: "ok" | "fail" | "hang" = "ok";
+    const api = await toLimits(
+      mount(() =>
+        mode === "fail"
+          ? problem(500, "INTERNAL")
+          : mode === "hang"
+            ? (new Promise<Reply>(() => undefined) as unknown as Reply)
+            : { status: 200, body: answer(balance("surplus", "2740.00")) },
+      ),
+    );
+    await waitFor(() => expect(plain(document.body.textContent)).toContain("Не розподілено 2 740,00 €"));
+    const region = document.querySelector(".bud-wiz-strip") as HTMLElement;
+    expect(region.getAttribute("role")).toBe("status");
+    mode = "hang";
+    typeAmount("Ліміт: Продукти", "500");
+    await waitFor(() => expect(plain(region.textContent)).toBe(""));
+    expect(document.querySelector(".bud-wiz-strip")).toBe(region);
+    mode = "fail";
+    typeAmount("Ліміт: Продукти", "600");
+    await waitFor(() =>
+      expect(api.calls.filter((c) => c.path === "/v1/budget/allocation").length).toBeGreaterThan(2),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(plain(region.textContent)).toBe("");
+  });
+
   it("BUD-02@PoC AC6: when the server cannot tell (balance null) there is no strip, never income − limits", async () => {
     const api = await toLimits(mount(() => ({ status: 200, body: answer(null) })));
     await waitFor(() => expect(api.calls.some((c) => c.path === "/v1/budget/allocation")).toBe(true));
@@ -380,6 +407,49 @@ describe("BUD-02@PoC FR 15 states", () => {
     typeAmount("Сума: Відкласти", "abc");
     await waitFor(() => expect(disabled("Створити бюджет")).toBe(true));
     expect(plain(document.body.textContent)).toContain("Щоб продовжити, виправте");
+  });
+
+  it("BUD-02@PoC FR 15: an unparsable amount left on «Розподіл» does not block «Далі» after «Назад»", async () => {
+    await toLimits();
+    await toStep("Розподіл профіциту");
+    typeAmount("Сума: Відкласти", "abc");
+    await waitFor(() => expect(disabled("Створити бюджет")).toBe(true));
+    click("Назад");
+    await screen.findByRole("heading", { name: "Ліміти категорій" });
+    expect(disabled(/Далі/)).toBe(false);
+    expect(plain(document.body.textContent)).not.toContain("Щоб продовжити, виправте");
+  });
+
+  it("BUD-02@PoC FR 15: «Створити бюджет» is inactive with «Рахуємо розподіл» while the calculation is pending", async () => {
+    let release: (r: Reply) => void = () => undefined;
+    let first = true;
+    await toLimits(
+      mount(() => {
+        if (first) {
+          first = false;
+          return { status: 200, body: answer(balance("surplus", "2710.00")) };
+        }
+        return new Promise<Reply>((resolve) => (release = resolve)) as unknown as Reply;
+      }),
+    );
+    await toStep("Розподіл профіциту");
+    typeAmount("Сума: Відкласти", "100");
+    await waitFor(() => expect(disabled("Створити бюджет")).toBe(true));
+    expect(plain(document.body.textContent)).toContain("Рахуємо розподіл");
+    release({ status: 200, body: answer(balance("surplus", "2710.00")) });
+    await waitFor(() => expect(disabled("Створити бюджет")).toBe(false));
+  });
+
+  it("BUD-02@PoC FR 15: the closing text differs for a surplus and a deficit and promises no appearance in «План» before the saving exists", async () => {
+    await toLimits();
+    await toStep("Розподіл профіциту");
+    expect(plain(document.body.textContent)).toContain("Обрані суми поки що не зберігаються");
+    expect(plain(document.body.textContent)).not.toContain("Суми з’являться");
+    cleanup();
+    resetAuthState();
+    await toLimits(mount(() => ({ status: 200, body: answer(balance("deficit", "200.00")) })));
+    await toStep(/Звідки візьмуться 200,00/);
+    expect(plain(document.body.textContent)).toContain("Обране покриття поки що не зберігається");
   });
 
   it("BUD-02@PoC FR 15: the four steps are named in the stepper, «Розподіл» last", async () => {

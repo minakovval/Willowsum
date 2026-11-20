@@ -435,3 +435,8 @@
   border-radius: var(--ws-radius-md);
   overflow-wrap: anywhere;
 }
+
+.bud-wiz-strip[data-empty="true"] {
+  padding: 0;
+  border: 0;
+}
