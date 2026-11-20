@@ -8,6 +8,7 @@ import type { AuditLog } from "../../../audit/index.ts";
 import type { TransactionCategories } from "../../../categorization/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { FxReporting } from "../../../fx-rates/index.ts";
+import type { GoalSpends } from "../../../goals/index.ts";
 import { SPACE_REPORTING_CURRENCY } from "../../../household/index.ts";
 import type { BudgetTransactions } from "../../../transactions/index.ts";
 import {
@@ -51,14 +52,16 @@ export function budgetReads(options: {
   readonly transactions: BudgetTransactions;
   readonly categorization: TransactionCategories;
   readonly fx: Pick<FxReporting, "total">;
+  /** BUD-03@PoC EC5: the transactions written off from a goal (module goals); left out (a test's server) — none. */
+  readonly goalSpends?: GoalSpends;
 }): BudgetReads {
   return {
     categories: async (householdId) => [...(await options.categories.categories(householdId))],
     accounts: async (householdId) => [...(await options.accounts.accounts(householdId))],
-    async amounts(householdId, accountIds, period, currency, since, until) {
+    async amounts(householdId, accountIds, period, currency, since, until, opts) {
       const { from, to } = periodDays(period);
       const last = until !== undefined && until < to ? until : to;
-      return counted(householdId, accountIds, from, last, currency, since);
+      return counted(householdId, accountIds, from, last, currency, since, opts?.withoutGoalSpends === true);
     },
     window: (householdId, accountIds, from, to, currency) =>
       counted(householdId, accountIds, from, to, currency),
@@ -77,10 +80,21 @@ export function budgetReads(options: {
     to: string,
     currency: string,
     since?: string,
+    withoutGoalSpends = false,
   ) {
-    const rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
+    let rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
       (r) => since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null),
     );
+    // BUD-03@PoC EC5 (BUD-05@PoC FR 8): a transaction written off from a goal no longer lowers «Можна витратити» —
+    // the whole transaction leaves the sum, so the goal's money held back by its contribution is not taken a second
+    // time, whatever month it was put aside in. Before any conversion: its rate is no matter of the sum either.
+    if (withoutGoalSpends && options.goalSpends && rows.length > 0) {
+      const spent = await options.goalSpends.spent(
+        householdId,
+        rows.map((r) => r.id),
+      );
+      if (spent.size > 0) rows = rows.filter((r) => !spent.has(r.id));
+    }
     const own = await options.categorization.categoriesOf(
       householdId,
       rows.filter((r) => r.parts === null).map((r) => r.id),
@@ -203,6 +217,8 @@ export function createBudgetServices(options: {
   readonly obligations?: BudgetObligations;
   /** BUD-17: the goals and the debts' extra payments of «План» (`createBudgetPlanSources`); left out — none. */
   readonly planSources?: BudgetPlanSources;
+  /** BUD-03@PoC EC5: «Витратити з цілі» (`createGoalSpends`); left out (a test's server) — no spends left out. */
+  readonly goalSpends?: GoalSpends;
 }): BudgetServices {
   return {
     [BRAND]: true,

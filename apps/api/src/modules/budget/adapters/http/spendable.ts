@@ -33,7 +33,7 @@ const money = (m: Money) => m.toJSON();
 const total = <T extends { amount: Money }>(items: readonly T[], zero: Money) =>
   items.reduce((t, i) => t.plus(i.amount), zero);
 
-const SOURCES = ["obligations", "incomes", "goals", "plannedExpenses"] as const;
+const SOURCES = ["obligations", "incomes", "goals", "plannedExpenses", "transactions"] as const;
 
 const figuresSchema = z.object({
   /** FR 2: to the end of the period; negative — with «−». */
@@ -115,16 +115,24 @@ const spendableSchema = z.object({
   daysLeft: z.number().int(),
   /** Null — a source has no figure (`unavailable`): «Не вдалося розрахувати суму», never a sum without it. */
   figures: figuresSchema.nullable(),
-  /** The sources without a figure (an amount without any rate, or out of range); empty with `figures`. */
+  /**
+   * The sources without a figure (an amount without any rate, or out of range); empty with `figures`. `transactions` —
+   * a transaction of the period without any rate (EC4: no partial sum shown as complete; `unavailableCount` of them).
+   */
   unavailable: z.array(z.enum(SOURCES)),
   /**
-   * «приблизно»: transactions at the nearest rate (`nearestRateCount`) or left out (`unavailableCount`), as the period's;
-   * `obligations` — a regular payment or loan at the nearest rate.
+   * «приблизно» (EC4, «Стани»): transactions at the nearest rate (`nearestRateCount`) or without any (`unavailableCount`
+   * — then `figures` is null), as the period's; `obligations` — a regular payment or loan at the nearest rate; `incomes`
+   * — a regular income still expected; `goals` — a goal's required or contributed amount; `plannedExpenses` — a debt's
+   * planned expense. The card shows «приблизно» when any is set.
    */
   approximate: z.object({
     nearestRateCount: z.number().int(),
     unavailableCount: z.number().int(),
     obligations: z.boolean(),
+    incomes: z.boolean(),
+    goals: z.boolean(),
+    plannedExpenses: z.boolean(),
   }),
 });
 
@@ -172,7 +180,10 @@ export const getSpendableRoute = defineRoute({
       .filter((a) => isIncluded(a, choices))
       .map((a) => a.accountId);
     const [counted, obligations, goals, extra] = await Promise.all([
-      deps.reads.amounts(householdId, accountIds, period, budget.currency, from),
+      // EC5: «Витратити з цілі» — those transactions no longer lower the sum (BUD-05@PoC FR 8).
+      deps.reads.amounts(householdId, accountIds, period, budget.currency, from, undefined, {
+        withoutGoalSpends: true,
+      }),
       deps.obligations ? deps.obligations.month(householdId, period, budget.currency, from) : null,
       deps.planSources ? deps.planSources.goals(householdId, budget.currency) : [],
       deps.planSources ? deps.planSources.extraPayments(householdId, period, budget.currency) : [],
@@ -189,13 +200,24 @@ export const getSpendableRoute = defineRoute({
     else if (obligations.incomeExpected === null) unavailable.push("incomes");
     if (!contributions) unavailable.push("goals");
     if (!extra) unavailable.push("plannedExpenses");
+    // EC4: a transaction without any rate (or out of range) — no sum, never a partial one shown as complete.
+    if (counted.unavailableCount > 0) unavailable.push("transactions");
     const approximate = {
       nearestRateCount: counted.nearestRateCount,
       unavailableCount: counted.unavailableCount,
       obligations: obligations?.approximate ?? false,
+      incomes: obligations?.incomeApproximate ?? false,
+      // EC4: an amount that enters the goal's row at the nearest rate — what is contributed, and the required
+      // contribution when it is the month's plan (no cell of its own).
+      goals:
+        contributions?.rows.some((r) => {
+          const g = goals.find((x) => x.goalId === r.goalId);
+          return g?.contributedApproximate === true || (r.fromRequired && g?.requiredApproximate === true);
+        }) ?? false,
+      plannedExpenses: extra?.some((e) => e.approximate === true) ?? false,
     };
     const base = { period, currency: budget.currency, daysLeft: daysLeft(today, period) };
-    if (!obligations || !contributions || !extra || obligations.incomeExpected === null)
+    if (unavailable.length > 0 || !obligations || !contributions || !extra)
       return { ...base, figures: null, unavailable, approximate };
     const zero = Money.zero(budget.currency);
     const stillExpected = obligations.incomeExpected ?? zero;

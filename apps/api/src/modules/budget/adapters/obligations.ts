@@ -34,10 +34,16 @@ export function createBudgetObligations(ports: {
   readonly payments: AccountPayments;
   readonly fx: Pick<FxReporting, "total">;
 }): BudgetObligations {
-  /** The incomes' sum in `currency` at today's rate; null — one without a rate or out of range (their own figure only). */
-  async function incomeSum(amounts: readonly Money[], currency: string): Promise<Money | null> {
+  /**
+   * The incomes' sum in `currency` at today's rate; null — one without a rate or out of range (their own figure only).
+   * `approximate` — one at the nearest rate (BUD-03@PoC EC4, «приблизно»).
+   */
+  async function incomeSum(
+    amounts: readonly Money[],
+    currency: string,
+  ): Promise<{ sum: Money; approximate: boolean } | null> {
     const zero = Money.zero(currency);
-    if (amounts.length === 0) return zero;
+    if (amounts.length === 0) return { sum: zero, approximate: false };
     if (amounts.some(tooBig)) return null;
     try {
       const reported = await ports.fx.total(
@@ -49,7 +55,7 @@ export function createBudgetObligations(ports: {
         if (item.kind === "rate-unavailable" || tooBig(item.value)) return null;
         total = total.plus(item.value);
       }
-      return tooBig(total) ? null : total;
+      return tooBig(total) ? null : { sum: total, approximate: reported.approximate };
     } catch (error) {
       if (error instanceof AmountOutOfRangeError) return null;
       throw error;
@@ -115,12 +121,16 @@ export function createBudgetObligations(ports: {
           paid: paid.has(l.accountId),
         })),
         approximate: reported.approximate,
-        incomeExpected: await incomeSum(
-          incomes.map((c) => c.expected),
-          currency,
-        ),
       };
-      return result;
+      const income = await incomeSum(
+        incomes.map((c) => c.expected),
+        currency,
+      );
+      return {
+        ...result,
+        incomeExpected: income?.sum ?? null,
+        incomeApproximate: income?.approximate ?? false,
+      };
     },
   };
 }

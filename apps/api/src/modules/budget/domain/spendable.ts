@@ -153,6 +153,8 @@ export interface GoalContributions {
     /** The month's cell of «План» (default — the required contribution; a goal without a date — 0). */
     readonly planned: Money;
     readonly contributed: Money;
+    /** `planned` is the goal's required contribution (no cell of its own) — at today's rate, maybe the nearest one. */
+    readonly fromRequired: boolean;
     /** max(0, planned − contributed): what the sum still holds back. */
     readonly amount: Money;
   }[];
@@ -190,13 +192,15 @@ export function goalContributions(
   const rows: GoalContributions["rows"][number][] = [];
   for (const g of goals) {
     const dated = g.lastPeriod !== null && period <= g.lastPeriod;
-    const planned = own("goal", g.goalId) ?? (dated ? g.required : zero);
+    const cell = own("goal", g.goalId);
+    const planned = cell ?? (dated ? g.required : zero);
     if (planned === null || g.contributed === null) return null;
     const rest = planned.minus(g.contributed);
     rows.push({
       goalId: g.goalId,
       planned,
       contributed: g.contributed,
+      fromRequired: cell === null && dated,
       amount: rest.isNegative() ? zero : rest,
     });
   }

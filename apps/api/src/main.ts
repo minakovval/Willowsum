@@ -34,7 +34,7 @@ import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/d
 import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
 import { createImportRecipesReader, createImportRecipesServices } from "./modules/import-recipes/index.ts";
 import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
-import { createGoalPlans, createGoalsServices } from "./modules/goals/index.ts";
+import { createGoalPlans, createGoalsServices, createGoalSpends } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
 import {
   createRecurringCategoryUsage,
@@ -444,6 +444,8 @@ const server = buildServer({
                 // #613: «План» off — «Бюджет» keeps the budget's own income plan.
                 planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               }),
+              // BUD-03 EC5: «Витратити з цілі» — a goal's spends leave «Можна витратити» (goals).
+              goalSpends: createGoalSpends(databases.for("goals")),
               obligations: createBudgetObligations({
                 recurring: createRecurringMonth(databases.for("recurring"), recurring),
                 credit: createCreditAccounts(databases.for("accounts")),

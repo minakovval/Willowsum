@@ -6838,8 +6838,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         approximate: {
+                            goals: boolean;
+                            incomes: boolean;
                             nearestRateCount: number;
                             obligations: boolean;
+                            plannedExpenses: boolean;
                             unavailableCount: number;
                         };
                         currency: string;
@@ -6987,7 +6990,7 @@ export interface operations {
                             };
                         } | null;
                         period: string;
-                        unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses")[];
+                        unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses" | "transactions")[];
                     };
                 };
             };

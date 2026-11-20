@@ -104,6 +104,11 @@ export interface BudgetReads {
     from?: string,
     /** BUD-06: the last day counted when a window ends inside the month (a share — still the whole month's). */
     until?: string,
+    /**
+     * BUD-03@PoC EC5, BUD-05@PoC FR 8: leave out the transactions written off from a goal («Витратити з цілі») — they no
+     * longer lower «Можна витратити». Only that sum asks it; «Бюджет», «Порівняння» and the snapshot count them.
+     */
+    options?: { readonly withoutGoalSpends?: boolean },
   ): Promise<{
     readonly amounts: readonly CountedAmount[];
     readonly nearestRateCount: number;
@@ -173,6 +178,9 @@ export interface BudgetPlanSources {
       lastPeriod: Period | null;
       /** BUD-03@PoC FR 6: contributed this calendar month; null — no rate; left out (a test's port) — nothing. */
       contributed?: Money | null;
+      /** BUD-03@PoC EC4 «приблизно»: `required` / `contributed` at the nearest rate; left out — exact. */
+      requiredApproximate?: boolean;
+      contributedApproximate?: boolean;
     }[]
   >;
   /**
@@ -185,7 +193,15 @@ export interface BudgetPlanSources {
     householdId: string,
     period: Period,
     currency: string,
-  ): Promise<readonly { accountId: string; amount: Money }[] | null>;
+  ): Promise<
+    | readonly {
+        accountId: string;
+        amount: Money;
+        /** BUD-03@PoC EC4 «приблизно»: at the nearest rate; left out — exact. */
+        approximate?: boolean;
+      }[]
+    | null
+  >;
 }
 
 export interface Caller {

@@ -14158,7 +14158,8 @@
                           "obligations",
                           "incomes",
                           "goals",
-                          "plannedExpenses"
+                          "plannedExpenses",
+                          "transactions"
                         ]
                       }
                     },
@@ -14177,12 +14178,24 @@
                         },
                         "obligations": {
                           "type": "boolean"
+                        },
+                        "incomes": {
+                          "type": "boolean"
+                        },
+                        "goals": {
+                          "type": "boolean"
+                        },
+                        "plannedExpenses": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "nearestRateCount",
                         "unavailableCount",
-                        "obligations"
+                        "obligations",
+                        "incomes",
+                        "goals",
+                        "plannedExpenses"
                       ],
                       "additionalProperties": false
                     }
