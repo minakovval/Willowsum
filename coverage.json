@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-20T18:26:28.833Z",
-  "sha": "e6f1f0a7a6d0b70138eeee5e470517d86bff68c5",
+  "generatedAt": "2026-11-20T18:53:32.297Z",
+  "sha": "4b2b7e937eec9dd47d4b5a9c4612381230e9b8db",
   "releases": [
     {
       "release": "PoC",
@@ -47,7 +47,7 @@
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 476,
+        "covered": 475,
         "total": 3390
       },
       "AC": {
@@ -59,7 +59,7 @@
         "total": 723
       },
       "items": {
-        "covered": 1005,
+        "covered": 1004,
         "total": 7093
       }
     },
