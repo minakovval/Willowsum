@@ -501,6 +501,8 @@ export interface CandidateSide {
   readonly accountId: string;
   readonly amount: Money;
   readonly date: string;
+  /** IMP-08 FR 11: the import batch that wrote it; null — entered by hand. */
+  readonly importBatchId: string | null;
 }
 
 /**
@@ -525,10 +527,13 @@ export async function transferCandidates(
     i_amount: string;
     i_currency: string;
     i_date: string;
+    o_batch: string | null;
+    i_batch: string | null;
   }>(
     `SELECT o.id AS o_id, o.account_id AS o_account, o.amount::text AS o_amount, o.currency AS o_currency,
             o.occurred_on::text AS o_date, i.id AS i_id, i.account_id AS i_account, i.amount::text AS i_amount,
-            i.currency AS i_currency, i.occurred_on::text AS i_date
+            i.currency AS i_currency, i.occurred_on::text AS i_date, o.import_batch_id AS o_batch,
+            i.import_batch_id AS i_batch
        FROM transactions o
        JOIN transactions i ON i.household_id = o.household_id
       WHERE o.household_id = $1 AND o.amount < 0 AND i.amount > 0 AND i.account_id <> o.account_id
@@ -546,12 +551,14 @@ export async function transferCandidates(
       accountId: r.o_account,
       amount: Money.of(r.o_amount, r.o_currency),
       date: r.o_date,
+      importBatchId: r.o_batch,
     },
     inflow: {
       transactionId: r.i_id,
       accountId: r.i_account,
       amount: Money.of(r.i_amount, r.i_currency),
       date: r.i_date,
+      importBatchId: r.i_batch,
     },
   }));
 }

@@ -74,6 +74,7 @@ import {
   createTransactionRuleInputs,
   createTransactionRuleTags,
   createTransactionTexts,
+  createImportBatchTransactions,
   createImportCandidates,
   createImportedTransactions,
   createTransactionPendingPostings,
@@ -82,6 +83,7 @@ import {
   createTransferCandidates,
 } from "./modules/transactions/index.ts";
 import {
+  createImportBatchProposals,
   createTransferMatchingServices,
   createTransferProposalSides,
 } from "./modules/transfer-matching/index.ts";
@@ -552,6 +554,20 @@ const server = buildServer({
                     },
                     // IMP-08 FR 6: the duplicate preview reads the accounts' transactions as the apply's plan does.
                     preview: { candidates: createImportCandidates(databases.for("transactions")) },
+                    // IMP-08 FR 11: the step «Результат» — the batch's transactions (transactions), their categories
+                    // (categorization) and the proposals of transfers with a side of the batch (transfer-matching).
+                    result: {
+                      transactions: createImportBatchTransactions(databases.for("transactions")),
+                      categories: createTransactionCategories(databases.for("categorization")),
+                      proposals: createImportBatchProposals({
+                        candidates: createTransferCandidates(databases.for("transactions")),
+                        rates: (requests) =>
+                          createFxRates({
+                            db: databases.for("fx-rates"),
+                            now: () => systemClock.now(),
+                          }).rates(requests),
+                      }),
+                    },
                   }),
                 }
               : {}),

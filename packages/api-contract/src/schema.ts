@@ -1294,6 +1294,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/import/batches/{batchId}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The wizard's step «Результат» (IMP-08 FR 11, AC7), read again at any time: the stored result of the batch's apply (created, replaced, skipped rows) and what is left after it as the space is now — card payments recorded as transfers, proposals of transfers with a side of this batch («Пари · N»), the batch's transactions without a category («До розбору») */
+        get: operations["getImportBatchResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/import/batches/{batchId}/rollback": {
         parameters: {
             query?: never;
@@ -16855,6 +16872,142 @@ export interface operations {
                                 uk: string;
                             };
                         })[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getImportBatchResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The batch, the stored result of its apply and the counts of what is left to do after it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appliedAt: string;
+                        batch: {
+                            applying: boolean;
+                            createdAt: string;
+                            files: {
+                                accepted: number;
+                                rejected: number;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            name: string | null;
+                            rollbackUntil: string | null;
+                            /** @enum {string} */
+                            state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
+                            version: number;
+                        };
+                        followUp: {
+                            cardPaymentTransfers: number;
+                            transferProposals: {
+                                count: number;
+                                more: boolean;
+                            };
+                            uncategorized: number;
+                        } | null;
+                        result: {
+                            counts: {
+                                [key: string]: number;
+                            };
+                        };
                     };
                 };
             };

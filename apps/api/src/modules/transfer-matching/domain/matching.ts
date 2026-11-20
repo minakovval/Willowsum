@@ -29,6 +29,8 @@ export interface TransferSide {
   /** Signed: the outflow negative, the inflow positive; each in its account's currency. */
   readonly amount: Money;
   readonly date: string;
+  /** IMP-08 FR 11: the import batch that wrote it; null or absent — entered by hand. */
+  readonly importBatchId?: string | null;
 }
 
 export interface PairCandidate {

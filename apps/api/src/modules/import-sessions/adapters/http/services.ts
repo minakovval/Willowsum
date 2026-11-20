@@ -6,7 +6,11 @@ import type { AuditLog } from "../../../audit/index.ts";
 import { PARSE_ENGINE_VERSION } from "../../../file-parsers/index.ts";
 import type { SpaceKeys } from "../../../household/index.ts";
 import type { ImportRecipesReader } from "../../../import-recipes/index.ts";
-import type { ImportCandidates, ImportedTransactions } from "../../../transactions/index.ts";
+import type {
+  ImportBatchTransactions,
+  ImportCandidates,
+  ImportedTransactions,
+} from "../../../transactions/index.ts";
 import {
   cleanFileName,
   FILE_LIMITS,
@@ -117,6 +121,24 @@ export interface PreviewServices {
   readonly candidates: ImportCandidates;
 }
 
+/**
+ * The step «Результат» (IMP-08 FR 11, AC7): module transactions' `ImportBatchTransactions`, module categorization's
+ * `TransactionCategories` and module transfer-matching's `ImportBatchProposals` (wired in main.ts). Omitted: the result
+ * route answers 500.
+ */
+export interface ResultServices {
+  readonly transactions: ImportBatchTransactions;
+  readonly categories: {
+    categoriesOf(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
+  };
+  readonly proposals: {
+    countFor(
+      householdId: string,
+      batchId: string,
+    ): Promise<{ readonly count: number; readonly more: boolean }>;
+  };
+}
+
 /** What the API process wires for the import-sessions routes (src/api.ts → `ctx.services`). */
 export interface ImportSessionsServices {
   readonly [BRAND]: true;
@@ -126,6 +148,7 @@ export interface ImportSessionsServices {
   readonly parse?: ParseServices;
   readonly apply?: ApplyServices;
   readonly preview?: PreviewServices;
+  readonly result?: ResultServices;
 }
 
 export function createImportSessionsServices(options: {
@@ -136,6 +159,7 @@ export function createImportSessionsServices(options: {
   readonly parse?: ParseServices;
   readonly apply?: ApplyServices;
   readonly preview?: PreviewServices;
+  readonly result?: ResultServices;
 }): ImportSessionsServices {
   return {
     [BRAND]: true,
@@ -149,6 +173,7 @@ export function createImportSessionsServices(options: {
     ...(options.parse ? { parse: options.parse } : {}),
     ...(options.apply ? { apply: options.apply } : {}),
     ...(options.preview ? { preview: options.preview } : {}),
+    ...(options.result ? { result: options.result } : {}),
   };
 }
 
