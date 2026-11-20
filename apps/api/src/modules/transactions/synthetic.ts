@@ -121,6 +121,23 @@ export const synthetic = [
         };
     },
   }),
+  // IMP-16 FR 3 (wave 2 row 44): the rollback of another synthetic batch (counts and kept ids only, never row text).
+  defineSyntheticTable({
+    table: "transactions.import_rollbacks",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          import_batch_id: key(household.id, "batch", 200 + i),
+          mode: i % 2 === 0 ? "keep-changed" : "all",
+          counts: JSON.stringify({ rolledBack: 2, kept: 1, transfers: 0, restored: 0 }),
+          kept: `{${key(household.id, "transaction", 1)}}`,
+          rolled_back_by: key(household.id, "account", 0),
+          rolled_back_at: "2026-10-16T10:00:00Z",
+        };
+    },
+  }),
   defineSyntheticTable({
     table: "transactions.duplicate_dismissals",
     perHousehold: 1,
