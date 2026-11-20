@@ -549,3 +549,39 @@ describe("BUD-08@PoC b: security review #642", () => {
     expect(v.loansWithoutRate).toEqual([]);
   });
 });
+
+describe("BUD-08@PoC b: «Оновити залишок» (security review #642, round 3)", () => {
+  it("BUD-08@PoC FR 7: after «Оновити залишок» on the loan the carried interest is not added again — December 418,39 €; another space's update is not read", async () => {
+    const space = await newSpace();
+    const other = await newSpace();
+    const current = await account(space);
+    const mortgage = await loan(space, "120000.00", "4.2", "650.00");
+    const theirs = await account(other);
+    const theirLoan = await loan(other, "120000.00", "4.2", "650.00");
+    for (const date of ["2026-09-05", "2026-10-05"]) {
+      await transfer(space, current, mortgage, "650.00", date);
+      await transfer(other, theirs, theirLoan, "650.00", date);
+    }
+    // The bank's debt: 120 000 + 420,00 + 419,20 − 1 300 = 119 539,20 (the journal had 118 700,00).
+    const up = await post(space, `/v1/accounts/${mortgage}/balance`, { balance: eur("119539.20") });
+    expect(up.statusCode, up.body).toBe(200);
+    await runWorker(space.householdId);
+    const now = clock.now;
+    clock.now = () => Date.parse("2026-12-10T10:00:00Z");
+    try {
+      await transfer(space, current, mortgage, "650.00", "2026-12-05");
+      await transfer(other, theirs, theirLoan, "650.00", "2026-12-05");
+      expect((await cashflow(space, "month", "2026-12")).months[0]).toMatchObject({
+        expenses: eur("418.39"),
+        debtRepayment: eur("231.61"),
+      });
+      // No update in the other space: its carry stays — (118 700 + 839,20) × 4,2 % ÷ 12 = 418,39 as well, on the journal.
+      expect((await cashflow(other, "month", "2026-12")).months[0]).toMatchObject({
+        expenses: eur("418.39"),
+        debtRepayment: eur("231.61"),
+      });
+    } finally {
+      clock.now = now;
+    }
+  });
+});
