@@ -30,6 +30,8 @@ export {
   planWindow,
   PLAN_WORK_MAX,
   REPLACE_TOLERANCE,
+  REPLACE_TOLERANCE_SHARE,
+  replaceTolerance,
   REPLACE_WINDOW_DAYS,
   ROW_OUTCOMES,
   type IncomingRow,

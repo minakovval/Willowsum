@@ -6,6 +6,7 @@ import {
   outcomeCounts,
   planBatch,
   planWindow,
+  PLAN_WORK_MAX,
   PlanTooLargeError,
   type IncomingRow,
   type KnownTransaction,
@@ -419,16 +420,30 @@ describe("IMP-04@PoC a): the work of one plan is bounded", () => {
   const day = (i: number) =>
     new Date(Date.UTC(2026, 0, 1) + (i % 60) * 86_400_000).toISOString().slice(0, 10);
 
-  it("IMP-04@PoC a): 20 000 posted rows against 12 500 pending ones of one amount in the window — refused within 3 s", () => {
-    const existing = Array.from({ length: 12_500 }, (_, i) =>
-      tx({ amount: EUR("-3.20"), date: day(i), status: "pending", description: `e ${i}` }),
-    );
+  it("IMP-04@PoC a): 20 000 posted rows against 12 500 pending ones of one amount in the window — refused after bounded work", () => {
+    // The work is counted, not timed (a wall-clock limit failed in full parallel runs): every look at a transaction's
+    // amount is counted. Unbounded, the plan would look at 20 000 × 12 500 pairs (≥ 250 000 000 reads).
+    let reads = 0;
+    const existing = Array.from({ length: 12_500 }, (_, i) => {
+      const t = tx({ amount: EUR("-3.20"), date: day(i), status: "pending", description: `e ${i}` });
+      const amount = t.amount;
+      return Object.defineProperty({ ...t }, "amount", {
+        enumerable: true,
+        get: () => {
+          reads++;
+          return amount;
+        },
+      }) as KnownTransaction;
+    });
     const rows = Array.from({ length: 20_000 }, (_, i) =>
       row({ amount: EUR("-3.20"), date: day(i), description: `r ${i}` }),
     );
     const started = performance.now();
     expect(() => plan(rows, existing)).toThrow(PlanTooLargeError);
-    expect(performance.now() - started).toBeLessThan(3_000);
+    expect(reads).toBeGreaterThan(0);
+    expect(reads).toBeLessThanOrEqual(5 * PLAN_WORK_MAX + 10 * existing.length);
+    // A backstop only: the bound above is what this test guards.
+    expect(performance.now() - started).toBeLessThan(30_000);
   }, 120_000);
 
   it("IMP-04@PoC a): 20 000 rows against 50 000 posted transactions of spread amounts — planned, not refused", () => {

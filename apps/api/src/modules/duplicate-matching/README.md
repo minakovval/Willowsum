@@ -1,6 +1,6 @@
 # Модуль duplicate-matching
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 FR 6: допуск min(0,25; 10 % суми), рішення власника 2026-11-20, п. 8; раніше IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -27,7 +27,7 @@ IMP-04@PoC a) (хвиля 2, рядок 43): п. 1–6 — план партії
 зріз): для кожного рядка файлу один результат — `import`, `repeat` («повтор у файлі» з номером повторення), `duplicate`
 (з якою транзакцією збіг), `already-imported` («дубль — уже імпортовано», той самий файл), `merge` (з ручною),
 `possible-duplicate` («Можливий дубль» у «До розбору»; також пара імпортованих з різних партій) і `replace` («замінено»:
-проведена замість «в обробці» попереднього імпорту того самого знаку, у день «в обробці» або до 10 днів після, допуск 0,25). Модуль і далі нічого не зберігає.
+проведена замість «в обробці» попереднього імпорту того самого знаку, у день «в обробці» або до 10 днів після, допуск min(0,25; 10 % суми проведеної) у валюті рахунку, точні десяткові). Модуль і далі нічого не зберігає.
 
 ## Публічний інтерфейс
 
@@ -47,7 +47,7 @@ IMP-04@PoC a) (хвиля 2, рядок 43): п. 1–6 — план партії
   `PlanTooLargeError`; з `sameFileAppliedIn` (import-sessions `sameFileApplied`) нічого не читає. Нічого не пише.
 - `planBatch(input)` — те саме правило, чисте (`domain/import-plan.ts`; порядок кроків — у його коментарі),
   `duplicateKey`, `normalizeDescription` (NFKC, нижній регістр, один пробіл, обрізано), `planWindow`, `outcomeCounts`,
-  `ROW_OUTCOMES`, `REPLACE_WINDOW_DAYS` (10), `REPLACE_TOLERANCE` («0.25»); типи `IncomingRow`, `KnownTransaction`,
+  `ROW_OUTCOMES`, `REPLACE_WINDOW_DAYS` (10), `REPLACE_TOLERANCE` («0.25», межа допуску), `REPLACE_TOLERANCE_SHARE` («0.1»), `replaceTolerance(posted)`; типи `IncomingRow`, `KnownTransaction`,
   `PlanInput`, `RowOutcome`, `RowOutcomeKind`.
 - `isPossibleDuplicate(a, b)`, `decideIncoming(incoming, existing)` → `merge` / `possible-duplicate` / `new`,
   `MATCH_WINDOW_DAYS` (3); типи `DuplicateSide`, `ExistingTransaction`, `IncomingDecision` (`domain/matching.ts`).

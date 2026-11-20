@@ -450,6 +450,29 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect((await call(space, "GET", "/v1/budget/periods/2026-11")).statusCode).toBe(200);
   });
 
+  it("BUD-17@PoC business rules (owner decision 2026-11-20, item 4): values typed on «План» are kept while `budget.plan` is off and are there again when it is on", async () => {
+    const space = await newSpace();
+    await budgetWith(space, "1000", { Продукти: "700.00" });
+    const groceries = await category(space, "Продукти");
+    const cell = { period: "2026-12", kind: "limit", lineId: groceries };
+    expect((await put(space, { ...cell, amount: eur("650"), version: 0 })).statusCode).toBe(200);
+    expect(
+      (await put(space, { period: "2026-12", kind: "savings", lineId: null, amount: eur("90"), version: 0 }))
+        .statusCode,
+    ).toBe(200);
+    off = ["budget.plan"];
+    expect((await call(space, "GET", "/v1/budget/plan-grid")).statusCode).toBe(404);
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).statusCode).toBe(200);
+    // Switching off resets nothing: both typed cells stay as they were, with their versions.
+    expect(await n("budget.plan_cells WHERE household_id = $1", space.householdId)).toBe(2);
+    off = [];
+    const g = await grid(space);
+    const december = g.months.findIndex((m) => m.period === "2026-12");
+    expect(row(g, groceries)!.cells[december]).toMatchObject({ amount: eur("650"), own: true, version: 1 });
+    expect(g.goals.savings[december]).toMatchObject({ amount: eur("90"), own: true, version: 1 });
+    expect(await limitOf(space, "2026-12", groceries)).toBe("650");
+  });
+
   it("sec613 bounds: a malformed or out-of-range PUT body is 400 (413 over the body limit), never 500, and writes nothing", async () => {
     const space = await newSpace();
     await budgetWith(space, "0", { Продукти: "700.00" });
