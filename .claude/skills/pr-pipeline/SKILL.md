@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-19
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-20
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»). Each rule
@@ -87,7 +87,7 @@ proposals: [lead communication](references/lead-communication.md).
    fix after «Changes requested» is confirmed only by a reviewer agent; the lead confirms only a sync with an unchanged
    diff, no exceptions ([merge checklist](references/merge-checklist.md), «The lead confirms a sync itself»;
    `sensitive` too). A confirmation (of
-   fixes or a sync) of a `sensitive` PR goes to **one** Opus agent (Fable when it adds a guard, endpoint or query: token economy, item 1 (c)) that loads `review-pr` and `security-review` and
+   fixes or a sync) of a `sensitive` PR always goes to **one** Opus agent, never Fable (token economy, item 1) that loads `review-pr` and `security-review` and
    posts both verdicts as two PR reviews with `commit_id`, in a session other than the
    author's and the fix agent's; it switches to a full security review (`security-review` §7) when the diff adds a
    guard, endpoint, query or sensitive path, or the PR gains a `sensitive:<category>`.

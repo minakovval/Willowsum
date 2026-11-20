@@ -1,6 +1,6 @@
 # Token economy (model choice and briefs)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20
 
 Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
 session starts or finishes.
@@ -20,11 +20,19 @@ session starts or finishes.
      is mandatory on any model**;
    - **Fable** only for:
      (a) the design of A1 and the amendments to ADR-0002 and ADR-0015; (b) the **first** security review of a PR
-     labelled `sensitive:money`, `permissions`, `auth` or `encryption` (crypto) (owner, 2026-11-19); a money PR that
-     only reads (like #338) goes to Opus with mutation testing, in doubt Fable; (c) a confirmation that adds a guard,
-     endpoint or query, or a PR that gains one of those four labels in a later round (full review, `security-review` §7);
-     (d) wave planning (`plan-wave`). At most **2** Fable tasks. Other confirmations and PRs with only
-     `pipeline`, `schema` or `infrastructure`: Opus, `security-review`. Near 90 % of the Fable limit, the auth, encryption and permissions reviews of (b) go to Opus; the lead tells the owner.
+     labelled `sensitive:permissions`, `auth`, `encryption` or `schema`; (d) wave planning (`plan-wave`). At most **2**
+     Fable tasks. Owner decision (2026-11-20, option а, [log](../../../../docs/decisions/log/2026-11-20-owner-fable-usage.md)),
+     which replaces the owner decision of 2026-11-19 on money PRs:
+     - A PR that is only `sensitive:money`, with none of those four labels, goes to Opus with `security-review`, and
+       **mutation testing of the money logic is mandatory**.
+     - Every confirmation goes to Opus with `review-pr` and `security-review`, including one that adds a guard,
+       endpoint or query, and including the case where a later round adds one of the four labels; that Opus
+       confirmation does a full `security-review` §7 review. PRs with only `pipeline` or `infrastructure`: Opus,
+       `security-review`.
+     - Near 90 % of the Fable limit, the first reviews of (b) go to Opus; the lead tells the owner.
+     - Mitigation for money PRs: once a day the lead starts **one** Fable agent that reads only the money PRs merged
+       since the previous run. It runs `security-review`, read-only, and posts one comment per PR only when it finds a
+       defect. The lead opens an issue for each defect.
      Everything else — flaky-test root causes, other architecture rows, implementing vault encryption, statement
      import, requirement sweeps, follow-ups, docs, sync confirmations — is on the main model; the lead stays on
      Opus. Fable draws on the Ultra subscription limit about twice as fast per token, with longer turns: short
