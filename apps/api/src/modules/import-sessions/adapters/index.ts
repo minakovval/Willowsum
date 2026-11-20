@@ -1,4 +1,5 @@
 // Adapters of import-sessions: database (ModuleDatabase, schema «import_sessions»), HTTP, external services.
+export { applicationsTx, type ApplicationsTx } from "./db/applications.ts";
 export { batchesTx, spaceTx } from "./db/store.ts";
 export { importSessionsRoutes } from "./http/routes.ts";
 export {

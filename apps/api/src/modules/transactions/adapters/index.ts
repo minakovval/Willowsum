@@ -1,6 +1,11 @@
 // Adapters of transactions: database (ModuleDatabase, schema «transactions»), HTTP, external services.
 export { eraseHouseholdTransactions } from "./db/erasure.ts";
 export { ruleCandidates, ruleInputsOf, type RuleInput } from "./db/rule-inputs.ts";
+export {
+  importCandidates,
+  type ImportCandidate,
+  type ImportCandidatesQuery,
+} from "./db/import-candidates.ts";
 export { reviewQueueMembers, reviewQueueSlices, type ReviewQueueSlice } from "./db/review-queue.ts";
 export {
   requeueDeadHandOffs,

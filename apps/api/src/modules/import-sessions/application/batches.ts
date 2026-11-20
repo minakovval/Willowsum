@@ -39,6 +39,8 @@ export interface BatchFile {
   readonly format: string | null;
   readonly sizeBytes: number | null;
   readonly rejectionCode: string | null;
+  /** IMP-04 FR 3: the SHA-256 of an accepted file's bytes, hex; null — rejected, or uploaded before it was kept. */
+  readonly contentSha256: string | null;
   readonly createdAt: Date;
 }
 
@@ -112,6 +114,8 @@ export interface Originals {
     readonly format: string;
     readonly sizeBytes: number;
     readonly fileName: string;
+    /** The SHA-256 of the bytes, hex (IMP-04 FR 3: the same file). */
+    readonly sha256: string;
   }>;
   /** A budget of one upload request: at most `bytes` of files together (the batch's room, ≤ 150 MiB). */
   budget(declaredBytes: number | undefined, bytes: number): OriginalsBudget;
@@ -289,6 +293,7 @@ export async function addFiles(
         format: accepted?.format ?? null,
         sizeBytes: accepted?.sizeBytes ?? null,
         rejectionCode: rejection?.code ?? null,
+        contentSha256: accepted?.sha256 ?? null,
         createdAt: deps.now(),
       };
       await tx.insertFile(file);

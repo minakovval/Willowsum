@@ -29,12 +29,15 @@ import {
   transactionsWorkerQueue,
   transferCandidates,
   duplicateCandidates,
+  importCandidates,
   ruleCandidates,
   ruleInputsOf,
   reviewQueueMembers,
   reviewQueueSlices,
   type CandidateSide,
   type DuplicateSide,
+  type ImportCandidate,
+  type ImportCandidatesQuery,
   type RuleInput,
 } from "./adapters/index.ts";
 import {
@@ -157,6 +160,23 @@ export function createDuplicateCandidates(db: ModuleDatabase): DuplicateCandidat
 }
 export type { DuplicateSide };
 export type { DuplicateCheck, DuplicatePairSides } from "./application/index.ts";
+
+/**
+ * IMP-04@PoC FR 1–6 (wave 2 row 43): the transactions of one account in a date window for module duplicate-matching's
+ * plan of an import batch — hidden ones too, never a merged duplicate; one page in the order of (date, id) after
+ * `after`, at most `limit`, on the index by account and date. Read only.
+ */
+export interface ImportCandidates {
+  page(householdId: string, query: ImportCandidatesQuery): Promise<readonly ImportCandidate[]>;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createImportCandidates(db: ModuleDatabase): ImportCandidates {
+  return {
+    page: (householdId, query) => db.inHousehold(householdId, (q) => importCandidates(q, householdId, query)),
+  };
+}
+export type { ImportCandidate, ImportCandidatesQuery };
 
 /**
  * BUD-01@PoC FR 12: the categories the space's split parts use, for module categories («порожня» категорія). Read

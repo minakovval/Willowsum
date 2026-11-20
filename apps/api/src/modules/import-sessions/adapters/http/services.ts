@@ -41,7 +41,13 @@ export function fileOriginals(
           kind: "statement",
           budget: request.budget as UploadBudget,
         });
-        return { id: file.id, format: file.format, sizeBytes: file.sizeBytes, fileName: file.fileName };
+        return {
+          id: file.id,
+          format: file.format,
+          sizeBytes: file.sizeBytes,
+          fileName: file.fileName,
+          sha256: file.sha256,
+        };
       } catch (error) {
         if (error instanceof FileRejectedError) throw new RejectedFile(error.rejection);
         throw error;
