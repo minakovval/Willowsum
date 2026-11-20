@@ -1,5 +1,12 @@
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
-import type { Batch, BatchesTx, BatchFile, SpaceTx } from "../../application/index.ts";
+import type {
+  Batch,
+  BatchFile,
+  Decided,
+  FileReview,
+  ReviewBatchesTx,
+  SpaceTx,
+} from "../../application/index.ts";
 import type { BatchState } from "../../domain/index.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 
@@ -52,8 +59,35 @@ const file = (r: FileRow): BatchFile => ({
   createdAt: r.created_at,
 });
 
+interface ReviewRow {
+  batch_file_id: string;
+  batch_id: string;
+  account_id: string | null;
+  account_currency: string | null;
+  suggested_account_id: string | null;
+  checks: FileReview["checks"];
+  history: FileReview["history"];
+  previous_file_id: string | null;
+  recorded_at: Date;
+}
+
+const REVIEW =
+  "batch_file_id, batch_id, account_id, account_currency, suggested_account_id, checks, history, previous_file_id, recorded_at";
+
+const review = (r: ReviewRow): FileReview => ({
+  batchFileId: r.batch_file_id,
+  batchId: r.batch_id,
+  accountId: r.account_id,
+  accountCurrency: r.account_currency,
+  suggestedAccountId: r.suggested_account_id,
+  checks: r.checks,
+  history: r.history,
+  previousFileId: r.previous_file_id,
+  recordedAt: r.recorded_at,
+});
+
 /** The batches of the transaction's space; every statement names the space too (row policies hold it anyway). */
-export function batchesTx(q: HouseholdQueryRunner): BatchesTx {
+export function batchesTx(q: HouseholdQueryRunner): ReviewBatchesTx {
   const h = q.householdId;
   const one = async (sql: string, values: unknown[]) => {
     const { rows } = await q.query<BatchRow>(sql, values);
@@ -157,6 +191,89 @@ export function batchesTx(q: HouseholdQueryRunner): BatchesTx {
       return rows.map((r) => r.id);
     },
     enqueueHandOff: (handOff) => enqueueHandOff(q, handOff),
+    async upsertReview(r) {
+      await q.query(
+        `INSERT INTO file_checks (household_id, ${REVIEW}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         ON CONFLICT (household_id, batch_file_id) DO UPDATE SET account_id = EXCLUDED.account_id,
+           account_currency = EXCLUDED.account_currency, suggested_account_id = EXCLUDED.suggested_account_id,
+           checks = EXCLUDED.checks, history = EXCLUDED.history, previous_file_id = EXCLUDED.previous_file_id,
+           recorded_at = EXCLUDED.recorded_at`,
+        [
+          h,
+          r.batchFileId,
+          r.batchId,
+          r.accountId,
+          r.accountCurrency,
+          r.suggestedAccountId,
+          JSON.stringify(r.checks),
+          JSON.stringify(r.history),
+          r.previousFileId,
+          r.recordedAt,
+        ],
+      );
+    },
+    async reviews(batchId) {
+      const { rows } = await q.query<ReviewRow>(
+        `SELECT ${REVIEW.split(", ")
+          .map((c) => `c.${c}`)
+          .join(", ")} FROM file_checks c
+           JOIN batch_files f ON f.household_id = c.household_id AND f.id = c.batch_file_id
+         WHERE c.household_id = $1 AND c.batch_id = $2 ORDER BY f.position`,
+        [h, batchId],
+      );
+      return rows.map(review);
+    },
+    async previousStatement(accountId, batchId) {
+      // FR 3: applied batches only; the latest end of period, then the batch's latest action.
+      const { rows } = await q.query<{ batch_file_id: string; bounds: FileReview["checks"]["bounds"] }>(
+        `SELECT c.batch_file_id, c.checks -> 'bounds' AS bounds FROM file_checks c
+           JOIN batches b ON b.household_id = c.household_id AND b.id = c.batch_id
+         WHERE c.household_id = $1 AND c.account_id = $2 AND c.batch_id <> $3
+           AND b.state = 'applied' AND b.deleting_at IS NULL
+         ORDER BY c.checks -> 'bounds' ->> 'end' DESC NULLS LAST, b.last_action_at DESC, c.batch_file_id
+         LIMIT 1`,
+        [h, accountId, batchId],
+      );
+      return rows[0] ? { fileId: rows[0].batch_file_id, bounds: rows[0].bounds } : null;
+    },
+    async decisions(batchId, page) {
+      const { rows } = await q.query<{
+        slot: string;
+        batch_file_id: string | null;
+        decision: Decided["decision"];
+        decided_by: string;
+        decided_at: Date;
+      }>(
+        `SELECT slot, batch_file_id, decision, decided_by, decided_at FROM decisions
+         WHERE household_id = $1 AND batch_id = $2 AND ($3::text IS NULL OR slot COLLATE "C" > $3)
+           AND ($4::text[] IS NULL OR slot = ANY($4))
+         ORDER BY slot COLLATE "C" LIMIT $5`,
+        [h, batchId, page?.after ?? null, page?.slots ?? null, page?.limit ?? null],
+      );
+      return rows.map((r) => ({
+        slot: r.slot,
+        fileId: r.batch_file_id,
+        decision: r.decision,
+        decidedBy: r.decided_by,
+        decidedAt: r.decided_at,
+      }));
+    },
+    async upsertDecision(batchId, d) {
+      await q.query(
+        `INSERT INTO decisions (household_id, batch_id, slot, batch_file_id, decision, decided_by, decided_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (household_id, batch_id, slot) DO UPDATE SET batch_file_id = EXCLUDED.batch_file_id,
+           decision = EXCLUDED.decision, decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at`,
+        [h, batchId, d.slot, d.fileId, JSON.stringify(d.decision), d.decidedBy, d.decidedAt],
+      );
+    },
+    async dropDecisions(batchId, fileId) {
+      await q.query(
+        `DELETE FROM decisions WHERE household_id = $1 AND batch_id = $2
+           AND (batch_file_id = $3 OR batch_file_id IS NULL)`,
+        [h, batchId, fileId],
+      );
+    },
   };
 }
 

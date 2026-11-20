@@ -6,13 +6,22 @@ import type { AuditLog } from "../audit/index.ts";
 import type { FileStorage } from "../file-storage/index.ts";
 import {
   batchesAudit,
+  batchesTx,
   batchesWorkerQueue,
   fileOriginals,
   importSessionsRoutes,
   requeueDeadHandOffs,
   spaceTx,
 } from "./adapters/index.ts";
-import { applyHandOff, deleteStaleBatches } from "./application/index.ts";
+import {
+  applyHandOff,
+  deleteStaleBatches,
+  readinessOf,
+  recordChecks,
+  type BatchReadiness,
+  type FileReview,
+  type RecordInput,
+} from "./application/index.ts";
 
 export const importSessionsModule = defineModule({
   name: "import-sessions",
@@ -24,6 +33,50 @@ export const importSessionsModule = defineModule({
 export { createImportSessionsServices, HAND_OFF_JOB, type ImportSessionsServices } from "./adapters/index.ts";
 export { BATCH_LIMITS, BATCH_STATES, canMove, UNAPPLIED_RETENTION_DAYS } from "./domain/index.ts";
 export type { BatchState } from "./domain/index.ts";
+export { READINESS_CODES, READINESS_MESSAGES } from "./application/index.ts";
+export type {
+  BalanceChoice,
+  BatchReadiness,
+  DecisionInput,
+  FilePlan,
+  FileReview,
+  Readiness,
+  ReadinessCode,
+  RecordInput,
+  Refusal,
+} from "./application/index.ts";
+
+/**
+ * IMP-05@PoC part 2 (wave 2 row 42): the batch's review for the steps that are not routes yet. `record` keeps one
+ * accepted file's checks from the parse (file-parsers `StatementChecks`) with the history gap against the last applied
+ * statement of the same account in the space (FR 3); the batch must be «в обробці» (the parse step calls it).
+ * `readiness` is FR 11: the refusals and each file's plan (balance choice, excluded, flipped and forced rows, readings,
+ * the date order) — the apply step refuses unless `ready`.
+ */
+export function createImportSessionsReview(options: {
+  readonly db: ModuleDatabase;
+  readonly audit: Pick<AuditLog, "record">;
+  readonly now: () => number;
+  readonly newId: () => string;
+}): {
+  record(householdId: string, input: RecordInput): Promise<FileReview>;
+  readiness(householdId: string, batchId: string): Promise<BatchReadiness>;
+} {
+  const audit = batchesAudit(options.audit);
+  const deps = { newId: options.newId, now: () => new Date(options.now()) };
+  return {
+    async record(householdId, input) {
+      const { result, handOffs } = await options.db.inHousehold(householdId, (q) =>
+        recordChecks(deps, batchesTx(q), input),
+      );
+      // The entries right away; a failure leaves them to the worker (the jobs are queued, ARC-04 FR 2).
+      for (const h of handOffs) await applyHandOff(audit, householdId, h).catch(() => undefined);
+      return result;
+    },
+    readiness: (householdId, batchId) =>
+      options.db.inHousehold(householdId, (q) => readinessOf(batchesTx(q), batchId)),
+  };
+}
 
 /** The worker's import-sessions queue (ARC-04 FR 2, FR 3; src/wiring.ts): the audit hand-off jobs (FR 21). */
 export function createImportSessionsWorkerQueue(
