@@ -86,3 +86,49 @@ describe("BUD-08@PoC b: money joins (security review #642)", () => {
     expect(report.monthFlows[0]!.goalContributions.toDecimalString()).toBe("300");
   });
 });
+
+describe("BUD-08@PoC b: loans (security review #642)", () => {
+  it("BUD-08@PoC FR 7: two loans — each payment is split on its own loan's debt", async () => {
+    const asked: string[] = [];
+    const debt: Record<string, string> = { "wallet-a": "120000.00", "wallet-b": "10000.00" };
+    const report = await cashflowReport(
+      deps({
+        categories: async () => [],
+        loans: async () =>
+          (["a", "b"] as const).map((k) => ({
+            accountId: `loan-${k}`,
+            currency: "EUR",
+            ledgerAccountId: `wallet-${k}`,
+            openedOn: "2026-01-01",
+            rates: [{ validFrom: null, annualRate: "4.2" }],
+          })),
+        loanOperations: async () => [
+          {
+            id: "pa",
+            accountId: "loan-a",
+            amount: eur("650.00"),
+            date: "2026-09-05",
+            source: "manual" as const,
+          },
+          {
+            id: "pb",
+            accountId: "loan-b",
+            amount: eur("100.00"),
+            date: "2026-09-05",
+            source: "manual" as const,
+          },
+        ],
+        debtsAt: async (_h, ledgerAccountId, dates) => {
+          asked.push(ledgerAccountId);
+          return dates.map(() => eur(debt[ledgerAccountId]!));
+        },
+      }),
+      "space-1",
+      ["2026-09"],
+    );
+    // 120 000 × 0,35 % = 420,00 and 10 000 × 0,35 % = 35,00.
+    expect(report.months[0]!.expenses.toDecimalString()).toBe("455");
+    expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("295");
+    expect([...asked].sort()).toEqual(["wallet-a", "wallet-b"]);
+  });
+});

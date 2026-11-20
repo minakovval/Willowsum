@@ -85,6 +85,8 @@ export interface CashflowLoan {
   readonly currency: string;
   readonly ledgerAccountId: string;
   readonly openedOn: string;
+  /** The date of the wallet's «Оновити залишок» adjustment in effect (FIN-12 FR 15): the journal holds the real debt. */
+  readonly adjustedOn?: string | null;
   readonly rates: readonly { readonly validFrom: string | null; readonly annualRate: string | null }[];
 }
 
@@ -220,7 +222,7 @@ async function loanAmounts(
     const dates = loanDebtDates(ops, rate);
     const debts = await reads.debtsAt(householdId, loan.ledgerAccountId, dates.map(dayBefore));
     const journal = new Map(dates.map((d, k) => [d, debts[k]!] as const));
-    for (const m of loanMonths(ops, rate, journal)) {
+    for (const m of loanMonths(ops, rate, journal, loan.adjustedOn ?? null)) {
       if (!inPeriod(`${m.month}-01`)) continue;
       for (const o of m.bankInterest)
         result.spending.push({ categoryId: own.get(o.id) ?? null, amount: o.amount, date: o.date });

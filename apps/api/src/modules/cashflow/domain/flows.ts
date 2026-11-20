@@ -140,28 +140,36 @@ function groupByMonth(operations: readonly LoanOperation[]): [Month, LoanOperati
  * FR 7, AC7: the loan's months from its opening on, oldest first. The journal lowers the debt by the whole payment and
  * never holds the calculated interest, so the debt before a month's first payment is the journal's debt then plus the
  * interest calculated for the earlier months — the unpaid interest «додано до боргу» and the paid one taken back out of
- * the payment. A month with the bank's own interest operation carries the bank's real debt: no calculation, and the
- * calculated interest of the earlier months is no longer added. `journalBefore` — the journal's debt at the end of the
- * day before each date of `loanDebtDates`.
+ * the payment. A month with the bank's own interest operation is not calculated: that operation is in the journal, and
+ * the interest calculated for the earlier months stays carried (the journal still lacks it). «Оновити залишок»
+ * (`adjustedOn`, the date of the wallet's adjustment in effect) puts the real debt in the journal: interest calculated
+ * for payments on or before that date is no longer added after it. `journalBefore` — the journal's debt at the end of
+ * the day before each date of `loanDebtDates`.
  */
 export function loanMonths(
   operations: readonly LoanOperation[],
   rateOn: (date: string) => string | null,
   journalBefore: ReadonlyMap<string, Money>,
+  adjustedOn: string | null = null,
 ): LoanMonth[] {
-  let accrued: Money | null = null;
+  const accrued: { readonly date: string; readonly interest: Money }[] = [];
   return groupByMonth(operations).map(([month, ops]) => {
     const bank = ops.filter((o) => o.bankInterest);
     const payments = ops.filter((o) => o.payment).map((o) => ({ date: o.date, amount: o.amount }));
     const first = payments[0];
     const annualRate = first && bank.length === 0 ? rateOn(first.date) : null;
     const journal = first && annualRate !== null ? (journalBefore.get(first.date) ?? null) : null;
-    const debtBefore = journal === null ? null : accrued ? journal.plus(accrued) : journal;
+    // The journal before this payment holds the adjustment when it is dated before the payment.
+    const anchor = first && adjustedOn !== null && adjustedOn < first.date ? adjustedOn : null;
+    const debtBefore =
+      journal === null
+        ? null
+        : accrued
+            .filter((a) => anchor === null || a.date > anchor)
+            .reduce((d, a) => d.plus(a.interest), journal);
     const splits = splitLoanMonth({ payments, annualRate, debtBefore, bankInterest: bank.length > 0 });
-    if (bank.length > 0) accrued = null;
-    else
-      for (const sp of splits)
-        if (!sp.interest.isZero()) accrued = accrued ? accrued.plus(sp.interest) : sp.interest;
+    for (const sp of splits)
+      if (!sp.interest.isZero()) accrued.push({ date: sp.date, interest: sp.interest });
     return {
       month,
       splits,

@@ -2,7 +2,7 @@ import { AmountOutOfRangeError, type Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { kyivToday } from "../../../../platform/lists/list-total.ts";
-import type { AccountList, CreditAccounts } from "../../../accounts/index.ts";
+import { liveAdjustment, type AccountList, type CreditAccounts } from "../../../accounts/index.ts";
 import { DEFAULT_BUDGET_KINDS } from "../../../budget/index.ts";
 import type { TransactionCategories } from "../../../categorization/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
@@ -43,7 +43,7 @@ export interface CashflowPorts {
   readonly goals: GoalFlows & GoalSpends;
   readonly credit: Pick<CreditAccounts, "list">;
   readonly liabilities: Pick<Liabilities, "termsHistory">;
-  readonly ledger: Pick<Ledger, "balancesAt">;
+  readonly ledger: Pick<Ledger, "balancesAt" | "liveEntries">;
 }
 
 /**
@@ -127,6 +127,7 @@ export function cashflowFlowReads(ports: CashflowPorts): CashflowFlowReads {
             currency: wallet.currency,
             ledgerAccountId: wallet.ledgerAccountId,
             openedOn: wallet.balanceDate,
+            adjustedOn: (await liveAdjustment({ ledger: ports.ledger }, householdId, wallet))?.date ?? null,
             rates: history.map((p) => ({ validFrom: p.validFrom, annualRate: p.terms.annualRate })),
           });
       }

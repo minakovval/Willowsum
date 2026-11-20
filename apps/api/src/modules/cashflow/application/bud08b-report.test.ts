@@ -38,6 +38,8 @@ interface World {
   rates?: CashflowLoan["rates"];
   /** A fixed journal debt; default — 120 000,00 less every operation of the loan up to the date (the journal). */
   debt?: Money;
+  /** «Оновити залишок» on the loan's wallet: the journal's debt moves by `owed` from `date` on. */
+  adjustment?: { date: string; owed: Money };
   /** A currency with no rate at all: its amounts convert to null («Курс недоступний»). */
   noRate?: string;
 }
@@ -66,6 +68,7 @@ function deps(w: World): CashflowDeps & { calls: string[] } {
         currency: "EUR",
         ledgerAccountId: "loan-wallet",
         openedOn: "2026-01-01",
+        adjustedOn: w.adjustment?.date ?? null,
         rates: w.rates ?? [{ validFrom: null, annualRate: w.rate === undefined ? "4.2" : w.rate }],
       },
     ],
@@ -78,7 +81,8 @@ function deps(w: World): CashflowDeps & { calls: string[] } {
           w.debt ??
           (w.loanOps ?? [])
             .filter((o) => o.date <= d && o.amount.currency === "EUR")
-            .reduce((t, o) => t.minus(o.amount), eur("120000.00")),
+            .reduce((t, o) => t.minus(o.amount), eur("120000.00"))
+            .plus(w.adjustment && w.adjustment.date <= d ? w.adjustment.owed : eur("0")),
       );
     },
   };
@@ -248,7 +252,7 @@ describe("BUD-08@PoC b: the report", () => {
     expect(report.monthFlows.map((f) => f.debtRepayment.toDecimalString())).toEqual(["-120", "229.58"]);
   });
 
-  it("BUD-08@PoC FR 7: a month with the bank's interest operation carries the real debt — the calculated interest before it is no longer added", async () => {
+  it("BUD-08@PoC FR 7: a month with the bank's interest operation is not calculated — the interest calculated before it stays in the debt", async () => {
     const report = await cashflowReport(
       deps({
         loanOps: [
@@ -262,9 +266,47 @@ describe("BUD-08@PoC b: the report", () => {
       H,
       ["2026-10", "2026-11"],
     );
-    // November: the journal only (120 000 − 1 300 + 419,20 = 119 119,20) × 4,2 % ÷ 12 = 416,92.
-    expect(report.months.map((m) => m.expenses.toDecimalString())).toEqual(["419.2", "416.92"]);
-    expect(report.monthFlows.map((f) => f.debtRepayment.toDecimalString())).toEqual(["650", "233.08"]);
+    // November: the journal (120 000 − 1 300 + 419,20 = 119 119,20) misses September's 420,00 paid out of a payment it
+    // took in full as principal; the bank's October operation does not put it back: 119 539,20 × 4,2 % ÷ 12 = 418,39.
+    expect(report.months.map((m) => m.expenses.toDecimalString())).toEqual(["419.2", "418.39"]);
+    expect(report.monthFlows.map((f) => f.debtRepayment.toDecimalString())).toEqual(["650", "231.61"]);
+  });
+
+  it("BUD-08@PoC FR 7: «Оновити залишок» puts the real debt in the journal — the interest calculated before it is not added again", async () => {
+    const report = await cashflowReport(
+      deps({
+        loanOps: [
+          loanOp("p9", "650.00", "2026-09-05"),
+          loanOp("p10", "650.00", "2026-10-05"),
+          loanOp("p12", "650.00", "2026-12-05"),
+        ],
+        // The bank's debt on 19 November: 120 000 + 420,00 + 419,20 − 1 300 = 119 539,20; the journal had 118 700,00.
+        adjustment: { date: "2026-11-19", owed: eur("839.20") },
+      }),
+      H,
+      ["2026-12"],
+    );
+    // December: 119 539,20 × 4,2 % ÷ 12 = 418,3872 → 418,39 (not 120 378,40 → 421,32).
+    expect(report.months[0]!.expenses.toDecimalString()).toBe("418.39");
+    expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("231.61");
+  });
+
+  it("BUD-08@PoC FR 7: interest calculated after «Оновити залишок» is still carried", async () => {
+    const report = await cashflowReport(
+      deps({
+        loanOps: [
+          loanOp("p9", "650.00", "2026-09-05"),
+          loanOp("p10", "650.00", "2026-10-05"),
+          loanOp("p12", "650.00", "2026-12-05"),
+          loanOp("p1", "650.00", "2027-01-05"),
+        ],
+        adjustment: { date: "2026-11-19", owed: eur("839.20") },
+      }),
+      H,
+      ["2027-01"],
+    );
+    // January: 119 539,20 − 650 + 418,39 = 119 307,59 × 4,2 % ÷ 12 = 417,576… → 417,58.
+    expect(report.months[0]!.expenses.toDecimalString()).toBe("417.58");
   });
 
   it("BUD-08@PoC FR 7: an interest operation entered by hand does not cancel the calculation", async () => {
