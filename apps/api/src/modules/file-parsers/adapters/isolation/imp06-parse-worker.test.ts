@@ -45,7 +45,7 @@ describe("IMP-06@PoC: the statement is read and analysed in the isolated parse w
   });
 
   it("ARC-06@PoC FR 4: the parse worker has the limits of row 38 (512 MiB, 60 s)", () => {
-    expect(PARSE_LIMITS).toEqual({ memoryMb: 512, timeoutMs: 60_000 });
+    expect(PARSE_LIMITS).toEqual({ memoryMb: 512, timeoutMs: 60_000, concurrent: 2 });
   });
 
   it("ARC-06@PoC FR 4: a parse over the memory limit ends only its worker and is refused with PARSE_MEMORY", async () => {

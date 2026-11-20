@@ -1,6 +1,6 @@
 # Модуль import-recipes
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (рецепт для розбору з запечатаним значенням прив'язки, рядок 41, частина 3; раніше: рецепти простору, рядок 40, частина 2)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (`forFormat` і `fingerprint` для кроку розбору; рецепт для розбору з запечатаним значенням прив'язки, рядок 41, частина 3; раніше: рецепти простору, рядок 40, частина 2)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -39,7 +39,9 @@
 - `createImportRecipesHandOffRecovery(db, households)` — щоденне повернення мертвих завдань (до `queue.retention-cleanup`).
 - `createImportRecipesReader(db)` → `forParse(householdId, recipeId)` → `{ id, recipe, accountValueSealed }` або null
   (рецепт чужого простору, невідомий чи не UUID): у транзакції простору під його політикою; значення прив'язки лишається
-  запечатаним — його відкриває лише воркер розбору відкривачем поля `ACCOUNT_VALUE_FIELD` (`importRecipes.accountValue`).
+  запечатаним — його відкриває лише воркер розбору відкривачем поля `ACCOUNT_VALUE_FIELD` (`importRecipes.accountValue`);
+  `fingerprint` — відбиток формату рецепта або null. `forFormat(householdId, fingerprint)` — найновіший рецепт простору для
+  цього відбитка (FR 7, крок розбору import-sessions) або null.
 - `createImportRecipesErasure(db)` → `eraseHousehold(householdId)` → `{ recipes, jobs }` — лише для `data-erasure`.
 - `RECIPES_PER_SPACE`.
 - `validateRecipe(input)` — рецепт як JSON-текст або значення → `{ ok: true, recipe }` або `{ ok: false, errors }`

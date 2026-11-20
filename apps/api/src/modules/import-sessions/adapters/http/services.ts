@@ -1,7 +1,11 @@
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
+import type { AccountDirectory } from "../../../accounts/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
+import { PARSE_ENGINE_VERSION } from "../../../file-parsers/index.ts";
+import type { SpaceKeys } from "../../../household/index.ts";
+import type { ImportRecipesReader } from "../../../import-recipes/index.ts";
 import {
   cleanFileName,
   FILE_LIMITS,
@@ -86,12 +90,23 @@ export function batchesAudit(audit: Pick<AuditLog, "record">): BatchesAudit {
   };
 }
 
+/**
+ * The parse step's routes: the space's recipes and accounts a request may name, and the space's key that opens the
+ * stored parsed rows for the read route. Omitted: those routes answer 500.
+ */
+export interface ParseServices {
+  readonly recipes: Pick<ImportRecipesReader, "forParse">;
+  readonly accounts: Pick<AccountDirectory, "postingAccount">;
+  readonly keys: Pick<SpaceKeys, "openBytes">;
+}
+
 /** What the API process wires for the import-sessions routes (src/api.ts → `ctx.services`). */
 export interface ImportSessionsServices {
   readonly [BRAND]: true;
-  readonly deps: BatchesDeps;
+  readonly deps: BatchesDeps & { readonly engineVersion: string };
   readonly originals: BatchOriginals;
   readonly audit: BatchesAudit;
+  readonly parse?: ParseServices;
 }
 
 export function createImportSessionsServices(options: {
@@ -99,12 +114,18 @@ export function createImportSessionsServices(options: {
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
+  readonly parse?: ParseServices;
 }): ImportSessionsServices {
   return {
     [BRAND]: true,
-    deps: { newId: options.newId, now: () => new Date(options.clock.now()) },
+    deps: {
+      newId: options.newId,
+      now: () => new Date(options.clock.now()),
+      engineVersion: PARSE_ENGINE_VERSION,
+    },
     originals: fileOriginals(options.files),
     audit: batchesAudit(options.audit),
+    ...(options.parse ? { parse: options.parse } : {}),
   };
 }
 

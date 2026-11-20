@@ -33,9 +33,19 @@ import {
   type FileOutcome,
   type FileRejection,
   type SpaceTx,
+  ParseRateLimited,
+  ParseRequestRefused,
+  parseRefusal,
+  parseViewOf,
+  requestParse,
+  rowsOf,
+  type FileParse,
+  type FileReview,
+  type ParseRequest,
 } from "../../application/index.ts";
 import { BATCH_LIMITS, BATCH_STATES, BatchStateError } from "../../domain/index.ts";
 import { batchesTx } from "../db/store.ts";
+import { storageRejection } from "../parse-ports.ts";
 import { handOffNow, importSessionsServices } from "./services.ts";
 
 /**
@@ -122,6 +132,12 @@ function refusal(error: unknown): unknown {
       error.issue === "READING_TOO_PRECISE" ? "READING_TOO_PRECISE" : "IMPORT_DECISION_INVALID",
       { errors: [{ in: "body", path: `decisions[${error.index}]`, issue: error.issue }] },
     );
+  if (error instanceof ParseRequestRefused)
+    return new ApiProblem("IMPORT_PARSE_INVALID", {
+      errors: [{ in: "body", path: `files[${error.index}].${error.field}`, issue: error.issue }],
+    });
+  // #624: the space's parse requests are bounded per hour (a technical ceiling, never 402).
+  if (error instanceof ParseRateLimited) return new ApiProblem("RATE_LIMITED", { retryAfterS: 3600 });
   return error;
 }
 
@@ -602,6 +618,218 @@ export const importBatchReadinessRoute = defineRoute({
   },
 });
 
+// ——— The parse step (IMP-01@PoC FR 5, FR 6, FR 10, FR 15; IMP-19@PoC FR 4, FR 5; IMP-05@PoC FR 3) ———
+
+const parseRequestSchema = z.strictObject({
+  fileId: z.uuid(),
+  /** The recipe to parse the file with; omitted — the space's recipe made for the file's format, if any (IMP-06 FR 7). */
+  recipeId: z.uuid().nullable().optional(),
+  /** The account the file is for (FR 1); omitted — chosen later («Підтвердіть рахунок»). */
+  accountId: z.uuid().nullable().optional(),
+});
+
+export const parseImportBatchRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/import/batches/{batchId}/parse",
+  operationId: "parseImportBatch",
+  summary:
+    "«Розібрати» (FR 5, FR 21): every accepted file is parsed in the background with its chosen or matched recipe and its account; the batch is «в обробці» until the last file is done",
+  access: WRITE,
+  // #624: each parse answers whether the file holds the recipe's sealed account value — bounded per space and hour
+  // (PARSE_FILES_PER_HOUR, in requestParse) on top of the per-address limit of every route.
+  bodyLimitBytes: 16 * 1024,
+  request: {
+    params: batchParams,
+    body: z.strictObject({ files: z.array(parseRequestSchema).max(BATCH_LIMITS.files).optional() }),
+  },
+  problems: ["BATCH_STATE_CONFLICT", "IMPORT_PARSE_INVALID"],
+  response: { status: 200, description: "The batch, «в обробці»", schema: batchSchema },
+  handler: async ({ params, body }, ctx) => {
+    owner(ctx);
+    const { deps, audit, parse } = importSessionsServices(ctx);
+    if (!parse) throw new ApiProblem("INTERNAL");
+    const { householdId, userId } = ctx.principal;
+    const requests = (body.files ?? []) as ParseRequest[];
+    // Another space's recipe or account is the same answer as an unknown one; a closed account is not offered (FR 2).
+    for (const [i, r] of requests.entries()) {
+      if (r.recipeId && !(await parse.recipes.forParse(householdId, r.recipeId)))
+        throw refusal(new ParseRequestRefused("UNKNOWN_RECIPE", i, "recipeId"));
+      if (r.accountId) {
+        const account = await parse.accounts.postingAccount(householdId, r.accountId);
+        if (account?.status !== "active")
+          throw refusal(new ParseRequestRefused("UNKNOWN_ACCOUNT", i, "accountId"));
+      }
+    }
+    const run = routeTx(ctx);
+    const { result, handOffs } = await guarded(() =>
+      ctx.inHousehold((q) => requestParse(deps, batchesTx(q), userId, params.batchId, requests)),
+    );
+    await handOffNow(audit, householdId, handOffs);
+    return presentBatch(result, await run((tx) => tx.files(result.id)));
+  },
+});
+
+const parseFileSchema = z.object({
+  fileId: z.uuid(),
+  position: z.number().int(),
+  state: z.enum(["pending", "parsed", "failed"]),
+  /** FR 15: why the file could not be parsed; a ceiling's text names it and advises splitting the file. */
+  refusal: rejectionSchema.nullable(),
+  /** FR 9: the recipe the file was parsed with, and whether its format matched (IMP-06 FR 6). */
+  recipe: z.object({ id: z.uuid(), format: z.enum(["match", "changed", "unknown"]) }).nullable(),
+  accountId: z.uuid().nullable(),
+  engineVersion: z.string(),
+  rowCount: z.number().int().nullable(),
+  /** IMP-05: the file's checks (masked values only) and its history gap against the previous statement (FR 3). */
+  checks: z.looseObject({ currency: z.string().nullable(), flags: z.array(flagSchema) }).nullable(),
+  history: z.looseObject({ status: z.enum(["continuous", "gap", "overlap", "unknown"]) }).nullable(),
+  previousFileId: z.uuid().nullable(),
+});
+
+function presentParse(
+  fileId: string,
+  position: number,
+  p: FileParse | null,
+  review: FileReview | null,
+): z.input<typeof parseFileSchema> {
+  const refused =
+    p?.state === "failed" && p.refusalCode ? parseRefusal(p.refusalCode, storageRejection) : null;
+  return {
+    fileId,
+    position,
+    state: p?.state ?? "pending",
+    refusal: present(refused),
+    recipe: p?.usedRecipeId && p.recipeFormat ? { id: p.usedRecipeId, format: p.recipeFormat } : null,
+    accountId: p?.accountId ?? null,
+    engineVersion: p?.engineVersion ?? "",
+    rowCount: p?.rowCount ?? null,
+    checks: review ? (review.checks as unknown as z.input<typeof parseFileSchema>["checks"]) : null,
+    history: review ? { ...review.history } : null,
+    previousFileId: review?.previousFileId ?? null,
+  };
+}
+
+export const getImportBatchParseRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/import/batches/{batchId}/parse",
+  operationId: "getImportBatchParse",
+  summary:
+    "The parse of each accepted file (FR 5, FR 9, FR 15; IMP-19 FR 4 progress): its state or refusal, recipe, account, engine version, row count, checks and history gap",
+  access: READ,
+  request: { params: batchParams },
+  response: {
+    status: 200,
+    description: "The batch and its files' parse",
+    schema: z.object({
+      batch: batchSchema,
+      progress: z.object({ pending: z.number().int(), parsed: z.number().int(), failed: z.number().int() }),
+      files: z.array(parseFileSchema),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    importSessionsServices(ctx);
+    const view = await guarded(() => ctx.inHousehold((q) => parseViewOf(batchesTx(q), params.batchId)));
+    const files = view.files.map((f) => presentParse(f.fileId, f.position, f.parse, f.review));
+    const all = await routeTx(ctx)((tx) => tx.files(view.batch.id));
+    const count = (state: string) => files.filter((f) => f.state === state).length;
+    return {
+      batch: presentBatch(view.batch, all),
+      progress: { pending: count("pending"), parsed: count("parsed"), failed: count("failed") },
+      files,
+    };
+  },
+});
+
+const legSchema = z.object({ amount: z.string(), currency: z.string().nullable() });
+const rowSchema = z.object({
+  row: z.number().int(),
+  date: z.string().nullable(),
+  valueDate: z.string().nullable(),
+  currency: z.string().nullable(),
+  /** Exact decimal text, signed (IMP-02 FR 5, FR 6). */
+  legs: z.array(legSchema),
+  fee: legSchema.nullable(),
+  balance: z.string().nullable(),
+  original: legSchema.nullable(),
+  rate: z.string().nullable(),
+  /** The bank's texts; an IBAN or a card number in them is masked to its last 4 characters. */
+  description: z.string().nullable(),
+  counterparty: z.string().nullable(),
+  reference: z.string().nullable(),
+  currencyMark: z.object({ text: z.string(), candidates: z.array(z.string()) }).nullable(),
+  flags: z.array(z.string().meta({ "x-extensible-enum": true })),
+});
+
+/** IMP-05 business rule: an IBAN or a card or account number in a bank's text shows only its last 4 characters. */
+export function maskNumbers(text: string | null): string | null {
+  if (text === null) return null;
+  const last4 = (run: string) => `…${run.replace(/[\s.-]/g, "").slice(-4)}`;
+  // Groups are printed with a space of any kind (a no-break one too), a hyphen or (an IBAN) a dot, one or two of them; a number
+  // glued to a label («IBANUA…», «N4111…», «PAY_UA…») is a number all the same; full-width forms count as their ASCII.
+  return text
+    .replace(
+      /[A-Zａ-ｚＡ-Ｚ]{2}[\d０-９]{2}(?:[\s.-]{0,2}[A-Z0-9ａ-ｚＡ-Ｚ０-９]){11,30}(?![A-Z0-9])/gi,
+      last4,
+    )
+    .replace(/(?<![\d０-９])[\d０-９](?:[\s-]{0,2}[\d０-９*Xx•]){11,22}(?![\d０-９])/g, last4);
+}
+
+export const listImportFileRowsRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/import/batches/{batchId}/files/{fileId}/rows",
+  operationId: "listImportFileRows",
+  summary:
+    "A parsed file's rows (IMP-02 FR 3–5, IMP-06): each as an event with its legs in exact decimals, a page at a time in the order of the file",
+  access: READ,
+  list: true,
+  request: { params: fileParams, query: pageQuery },
+  problems: ["BATCH_STATE_CONFLICT"],
+  response: { status: 200, description: "A page of the file's rows", schema: pageOf(rowSchema) },
+  handler: async ({ params, query }, ctx) => {
+    owner(ctx);
+    const { parse } = importSessionsServices(ctx);
+    if (!parse) throw new ApiProblem("INTERNAL");
+    const after = query.cursor ? decodeCursor(query.cursor, z.object({ r: z.number().int().min(0) })).r : 0;
+    const { householdId } = ctx.principal;
+    const page = await guarded(() =>
+      ctx.inHousehold((q) =>
+        rowsOf(
+          batchesTx(q),
+          (purpose, sealed) => parse.keys.openBytes(householdId, purpose, sealed),
+          params.batchId,
+          params.fileId,
+          { limit: query.limit, after },
+        ),
+      ),
+    );
+    return {
+      items: page.rows.map((e) => ({
+        row: e.row,
+        date: e.date,
+        valueDate: e.valueDate,
+        currency: e.currency,
+        legs: e.legs.map((l) => ({ ...l })),
+        fee: e.fee ? { ...e.fee } : null,
+        balance: e.balance,
+        original: e.original ? { ...e.original } : null,
+        rate: e.rate,
+        description: maskNumbers(e.description),
+        counterparty: maskNumbers(e.counterparty),
+        reference: maskNumbers(e.reference),
+        currencyMark: e.currencyMark
+          ? { text: e.currencyMark.text, candidates: [...e.currencyMark.candidates] }
+          : null,
+        flags: [...e.flags],
+      })),
+      nextCursor: page.more ? encodeCursor({ r: page.rows.at(-1)!.row }) : null,
+    };
+  },
+});
+
 export const importSessionsRoutes = [
   createImportBatchRoute,
   listImportBatchesRoute,
@@ -614,4 +842,7 @@ export const importSessionsRoutes = [
   decideImportBatchRoute,
   listImportDecisionsRoute,
   importBatchReadinessRoute,
+  parseImportBatchRoute,
+  getImportBatchParseRoute,
+  listImportFileRowsRoute,
 ];
