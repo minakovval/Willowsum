@@ -22,6 +22,12 @@ export interface AllocationState {
   readonly allocation: Allocation | null;
   readonly pending: boolean;
   readonly failed: boolean;
+  /**
+   * The server refused the typed rows (`400 VALIDATION_FAILED` on `allocation…`): `short` — a deficit not covered
+   * exactly, `over` — anything else (more than N, more than a goal's contribution). The step stays open; no figure of
+   * the refused rows is shown.
+   */
+  readonly refused: "short" | "over" | null;
   readonly retry: () => void;
 }
 
@@ -32,11 +38,12 @@ export interface AllocationState {
 export function useAllocation(args: PlanArgs | null, rows: AllocationRows): AllocationState {
   const api = useAuthApi();
   // The last answer and the request (its key) it answers; `pending` is derived: the key of the screen moved on.
-  const [done, setDone] = useState<{ key: string; allocation: Allocation | null; failed: boolean }>({
-    key: "",
-    allocation: null,
-    failed: false,
-  });
+  const [done, setDone] = useState<{
+    key: string;
+    allocation: Allocation | null;
+    failed: boolean;
+    refused: "short" | "over" | null;
+  }>({ key: "", allocation: null, failed: false, refused: null });
   const [attempt, setAttempt] = useState(0);
   const key = args ? `${attempt}${JSON.stringify(createBody({ ...args, rows }))}` : "";
   const latest = useRef(key);
@@ -45,7 +52,12 @@ export function useAllocation(args: PlanArgs | null, rows: AllocationRows): Allo
     if (!args) return;
     void previewAllocation(api, args, rows).then((o) => {
       if (latest.current !== key) return;
-      setDone((s) => ({ key, allocation: o.ok ? o.data : s.allocation, failed: !o.ok }));
+      const refused = o.ok ? null : refusal(o);
+      setDone((s) =>
+        refused
+          ? { key, allocation: s.allocation && { ...s.allocation, choice: null }, failed: false, refused }
+          : { key, allocation: o.ok ? o.data : s.allocation, failed: !o.ok, refused: null },
+      );
     });
     // The arguments are rebuilt on every render; the key stands for their content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,8 +66,22 @@ export function useAllocation(args: PlanArgs | null, rows: AllocationRows): Allo
     allocation: done.allocation,
     pending: args !== null && done.key !== key,
     failed: args !== null && done.key === key && done.failed,
+    refused: args !== null && done.key === key ? done.refused : null,
     retry: () => setAttempt((n) => n + 1),
   };
+}
+
+/** `400 VALIDATION_FAILED` whose every error is on `allocation…`: the rows typed on the step, not a failure. */
+function refusal(o: {
+  kind: string;
+  problem?: { code: string; errors?: readonly { path?: string; issue?: string }[] };
+}) {
+  const errors =
+    o.kind === "problem" && o.problem?.code === "VALIDATION_FAILED" ? (o.problem.errors ?? []) : [];
+  if (errors.length === 0 || !errors.every((e) => e.path?.startsWith("allocation"))) return null;
+  return errors.some((e) => e.path === "allocation" && e.issue === "short")
+    ? ("short" as const)
+    : ("over" as const);
 }
 
 /**
@@ -131,7 +157,13 @@ export function LimitsStrip({ state, money }: { state: AllocationState; money: (
   );
 }
 
-type Row = { readonly key: string; readonly title: string; readonly hint: string | null };
+type Row = {
+  readonly key: string;
+  readonly title: string;
+  readonly hint: string | null;
+  /** «Із заощаджень», «У борг»: not saved in PoC (owner Q3 а), shown with the reason, no amount can be typed. */
+  readonly notSaved?: boolean;
+};
 
 export function DistributionStep({
   currency,
@@ -182,13 +214,20 @@ export function DistributionStep({
     <div className="bud-wiz-row" key={row.key}>
       <span>
         <strong>{row.title}</strong>
-        {row.hint ? <span className="ws-muted">{row.hint}</span> : null}
+        {row.hint || row.notSaved ? (
+          <span className="ws-muted">
+            {[row.hint, row.notSaved ? t("planning.budget.wizard.dist.notSaved") : null]
+              .filter((p) => p !== null)
+              .join(" · ")}
+          </span>
+        ) : null}
       </span>
       <AmountField
         label={t("planning.budget.wizard.dist.amountOf", { name: row.title })}
         labelHidden
         currency={currency}
-        value={chosen.get(row.key) ?? null}
+        value={row.notSaved ? null : (chosen.get(row.key) ?? null)}
+        disabled={row.notSaved === true}
         onChange={(v, problem) => onChosen(row.key, v, problem !== null)}
       />
     </div>
@@ -210,7 +249,7 @@ export function DistributionStep({
     <p className="ws-muted">{t(`planning.budget.wizard.dist.planOnly.${kind}`)}</p>
   );
   const choice = a.choice;
-  const over = choice?.status === "over";
+  const over = choice?.status === "over" || alloc.refused === "over";
   const overNote = over ? (
     <p role="alert" className="bud-wiz-error">
       {t("planning.budget.wizard.dist.over", { amount: money(b?.amount ?? a.limits) })}
@@ -349,6 +388,24 @@ export function DistributionStep({
             hint: t("planning.budget.wizard.dist.fromGoal.hint"),
           }),
         ),
+        ...d.savings.map((s) =>
+          field({
+            key: `${SRC}save:${s.id}`,
+            title: t("planning.budget.wizard.dist.fromSavings", { account: accountName(s) }),
+            hint: s.amount ? money(s.amount) : null,
+            notSaved: true,
+          }),
+        ),
+        ...d.cards.map((c) =>
+          field({
+            key: `${SRC}card:${c.id}`,
+            title: t("planning.budget.wizard.dist.toDebt", { account: accountName(c) }),
+            hint: c.amount
+              ? t("planning.budget.wizard.dist.toDebt.hint", { available: money(c.amount) })
+              : null,
+            notSaved: true,
+          }),
+        ),
         <div className="bud-wiz-row" key="cut">
           <span>
             <strong>{t("planning.budget.wizard.dist.cutLimits")}</strong>
@@ -361,7 +418,8 @@ export function DistributionStep({
           />
         </div>,
       ])}
-      <div className="bud-wiz-covered" role="status">
+      {/* Refused rows (`short`): no «Покрито» figure of them; the reason is at «Створити бюджет». */}
+      <div className="bud-wiz-covered" role="status" hidden={alloc.refused !== null}>
         <strong>
           {t("planning.budget.wizard.dist.covered", {
             covered: money(choice?.chosen ?? { amount: "0", currency }),
@@ -377,6 +435,8 @@ export function DistributionStep({
     </section>
   );
 }
+
+const accountName = (s: { name: string; mask: string | null }) => (s.mask ? `${s.name} ${s.mask}` : s.name);
 
 /** The lists of the rows, read when the step opens; `reload` after a new goal. */
 export function useDistribution(currency: string, enabled: boolean) {

@@ -837,6 +837,7 @@ export const en: Messages = {
   "planning.budget.wizard.dist.cutLimits.hint": "go back to the «Limits» step",
   "planning.budget.wizard.dist.covered": "Covered {covered} of {total}",
   "planning.budget.wizard.dist.left": "left",
+  "planning.budget.wizard.dist.notSaved": "not saved yet",
   "planning.budget.wizard.dist.over": "More than {amount} is chosen.",
   "planning.budget.wizard.dist.planOnly.surplus":
     "This is a plan: no money is transferred. The amounts will appear in «Budget → Plan» in the sections «Goals and savings» and «Debt payoff».",

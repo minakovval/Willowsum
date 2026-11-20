@@ -210,7 +210,7 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
       ? fixReason
       : alloc.pending || alloc.failed || alloc.allocation === null
         ? t("planning.budget.wizard.dist.reason.wait")
-        : choiceStatus === "over"
+        : choiceStatus === "over" || alloc.refused === "over"
           ? t("planning.budget.wizard.dist.reason.over")
           : allocKind === "deficit" && choiceStatus !== "exact"
             ? t("planning.budget.wizard.dist.reason.deficit")
@@ -268,7 +268,11 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
         />
       )}
       {step === 2 ? <LimitsStrip state={alloc} money={money} /> : null}
-      {step === 3 && alloc.allocation !== null && !alloc.pending && !alloc.failed ? (
+      {step === 3 &&
+      alloc.allocation !== null &&
+      !alloc.pending &&
+      !alloc.failed &&
+      alloc.refused === null ? (
         <div className="bud-wiz-strip" role="status">
           <SpendableLine
             spendable={alloc.allocation.spendable}

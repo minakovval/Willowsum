@@ -15,6 +15,7 @@ type Json<T> = T extends { responses: { 200: { content: { "application/json": in
  */
 export type Allocation = Json<operations["previewBudgetAllocation"]>;
 type DebtItem = Json<operations["listDebts"]>["debts"][number];
+type AccountItem = Json<operations["listAccounts"]>["items"][number];
 
 export interface DebtRow {
   readonly id: string;
@@ -23,17 +24,36 @@ export interface DebtRow {
   readonly annualRate: string | null;
   readonly minimum: Money | null;
 }
+export interface SourceRow {
+  readonly id: string;
+  readonly name: string;
+  readonly mask: string | null;
+  /** Savings: the balance in the budget currency; a card: the available limit. */
+  readonly amount: Money | null;
+}
 export interface Distribution {
   readonly goals: readonly Goal[];
   readonly debts: readonly DebtRow[];
+  readonly savings: readonly SourceRow[];
+  readonly cards: readonly SourceRow[];
 }
+
+const wallet = (a: AccountItem, currency: string): Money | null => {
+  const w = a.currencies.find((c) => c.currency === currency);
+  return w ? { amount: w.amount.amount, currency } : null;
+};
 
 export async function loadDistribution(
   api: ApiClient,
   currency: string,
 ): Promise<{ ok: true; data: Distribution } | { ok: false }> {
-  const [goals, debts] = await Promise.all([outcome(api.GET("/v1/goals")), outcome(api.GET("/v1/debts"))]);
-  if (!goals.ok || !debts.ok) return { ok: false };
+  const [goals, debts, accounts] = await Promise.all([
+    outcome(api.GET("/v1/goals")),
+    outcome(api.GET("/v1/debts")),
+    outcome(api.GET("/v1/accounts", { params: { query: { limit: 100 } } })),
+  ]);
+  if (!goals.ok || !debts.ok || !accounts.ok) return { ok: false };
+  const active = accounts.data.items.filter((a) => a.status === "active");
   return {
     ok: true,
     data: {
@@ -46,6 +66,22 @@ export async function loadDistribution(
           balance: d.balance,
           annualRate: d.annualRate,
           minimum: d.monthlyPayment,
+        })),
+      savings: active
+        .filter((a) => a.kind === "savings" || a.kind === "deposit")
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          mask: a.number?.masked ?? null,
+          amount: wallet(a, currency),
+        })),
+      cards: active
+        .filter((a) => a.kind === "credit-card")
+        .map((a) => ({
+          id: a.id,
+          name: a.name,
+          mask: a.number?.masked ?? null,
+          amount: a.creditCard?.available ?? null,
         })),
     },
   };
@@ -61,7 +97,8 @@ export const SRC = "src:";
 /**
  * The typed rows (`goal`, `debt`, `savings`, `from-goal`) of the amounts typed on the step, in the order of the keys
  * (BUD-02@PoC FR 15). An empty or zero amount is no row. «Із заощаджень» and «У борг» are not saved in PoC (owner,
- * 2026-11-20, Q3 а; the server refuses both), so the step does not offer them and no key of theirs becomes a row.
+ * 2026-11-20, Q3 а: «не зберігаються, і екран про це пише»; the server refuses both), so the step shows them as not
+ * saved and no key of theirs becomes a row.
  */
 export function allocationRows(
   chosen: ReadonlyMap<string, string | null>,
