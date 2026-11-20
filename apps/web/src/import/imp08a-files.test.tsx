@@ -5,6 +5,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { createAuthClient } from "../auth/api.ts";
 import { plain, problem, renderAt, resetAuthState, SUPPORT_ID, type Reply } from "../auth/testing.tsx";
+import { importPath, resolveRoute } from "../routing/routes.ts";
 import { resetNavigationSession } from "../routing/session.ts";
 import { POLLING } from "./useImportStep.ts";
 
@@ -153,6 +154,11 @@ const csv = (name: string, size = 214) => {
   Object.defineProperty(f, "size", { value: size * 1000 });
   return f;
 };
+const sized = (name: string, bytes: number) => {
+  const f = new File(["x"], name, { type: "text/csv" });
+  Object.defineProperty(f, "size", { value: bytes });
+  return f;
+};
 
 /** Puts files into the picker the way the browser does. */
 function pick(files: File[]) {
@@ -175,6 +181,22 @@ beforeEach(() => {
 });
 
 describe("IMP-08@PoC FR 1 — the address of the step", () => {
+  it("IMP-08@PoC FR 1: every step has its own address; a path that is not a batch id stays unknown", () => {
+    expect(resolveRoute("/import")).toEqual({ kind: "importWizard", batchId: null, step: "files" });
+    expect(resolveRoute(importPath(BATCH))).toEqual({ kind: "importWizard", batchId: BATCH, step: "files" });
+    expect(resolveRoute(`/import/${BATCH}/review`)).toEqual({
+      kind: "importWizard",
+      batchId: BATCH,
+      step: "review",
+    });
+    expect(resolveRoute(`/import/${BATCH}/result`)).toEqual({
+      kind: "importWizard",
+      batchId: BATCH,
+      step: "result",
+    });
+    expect(resolveRoute("/import/x").kind).toBe("notFound");
+  });
+
   it("IMP-08@PoC FR 1: «Імпортувати виписку» opens `/import` in focus mode: no navigation, the step list names «Рахунок і файли»", async () => {
     const { client } = api();
     renderAt("#/import", client);
@@ -311,7 +333,7 @@ describe("IMP-08@PoC AC1 — uploading and the result of each file", () => {
 });
 
 describe("IMP-08@PoC FR 2 — the account of each file", () => {
-  it("IMP-08@PoC AC13: a file's account is the one the API found; there is no common account choice for the batch", async () => {
+  it("IMP-08@PoC FR 2, partly the acceptance criterion on the account basis: a file's account is the one the API found; there is no common account choice for the batch", async () => {
     const { client } = api({
       "GET /v1/import/batches/{b}": {
         status: 200,
@@ -336,7 +358,7 @@ describe("IMP-08@PoC FR 2 — the account of each file", () => {
     expect(screen.getAllByRole("button", { name: "Змінити рахунок" })).toHaveLength(2);
   });
 
-  it("IMP-08@PoC AC14: a file whose account is not found asks «Оберіть рахунок» with the best guess and the full list", async () => {
+  it("IMP-08@PoC FR 2, partly the acceptance criterion on two candidates: a file whose account is not found asks «Оберіть рахунок» with the best guess and the full list", async () => {
     let chosen = false;
     const { client, of } = api({
       "GET /v1/import/batches/{b}": {
@@ -659,6 +681,28 @@ describe("IMP-08@PoC FR 16 — refusals and retry per file", () => {
     expect(within(row).getByRole("button", { name: "Завантажте інший файл" })).toBeTruthy();
     expect(of("POST", "/v1/import/batches")).toHaveLength(0);
     expect(of("POST", "/v1/import/batches/{b}/files")).toHaveLength(0);
+  });
+
+  it("IMP-08@PoC FR 16: the 25 MiB ceiling is exact: 25 MiB goes up, 25 MiB and one byte is refused before sending", async () => {
+    const { client, of } = api({
+      "POST /v1/import/batches/{b}/files": {
+        status: 201,
+        body: { batch: batch("uploaded", 1), files: [file(F1, "exact.csv")], refused: [] },
+      },
+      "GET /v1/import/batches/{b}": {
+        status: 200,
+        body: { ...batch("uploaded", 1), fileList: [file(F1, "exact.csv")] },
+      },
+      "GET /v1/import/batches/{b}/parse": { status: 200, body: view([parsed(F1)]) },
+    });
+    renderAt("#/import", client);
+    await screen.findByText("Обрати файли");
+    pick([sized("exact.csv", 25 * 1024 * 1024), sized("over.csv", 25 * 1024 * 1024 + 1)]);
+    const over = (await screen.findByText("over.csv")).closest("li")!;
+    expect(plain(over.textContent)).toContain("Файл більший за 25 МБ");
+    await waitFor(() => expect(of("POST", "/v1/import/batches/{b}/files")).toHaveLength(1));
+    expect(of("POST", "/v1/import/batches/{b}/files")[0]!.parts).toBe(1);
+    expect(plain(screen.getByText("exact.csv").closest("li")!.textContent)).not.toContain("Файл більший");
   });
 
   it("IMP-08@PoC FR 16: a file the server refuses without a row (no place left in the batch) is named with its code", async () => {
