@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-20T14:53:28.531Z",
-  "sha": "ebb3cde84b4a46b923a6767f80b96bf7279778b8",
+  "generatedAt": "2026-11-20T15:51:49.097Z",
+  "sha": "4bb6765df994082377c20cf1f1533d81db0458fa",
   "releases": [
     {
       "release": "PoC",
       "slices": 152,
       "FR": {
-        "covered": 791,
+        "covered": 795,
         "total": 1392
       },
       "AC": {
@@ -15,11 +15,11 @@
         "total": 1075
       },
       "EC": {
-        "covered": 119,
+        "covered": 120,
         "total": 201
       },
       "items": {
-        "covered": 1532,
+        "covered": 1537,
         "total": 2668
       }
     },
@@ -35,11 +35,11 @@
         "total": 1014
       },
       "EC": {
-        "covered": 79,
+        "covered": 80,
         "total": 245
       },
       "items": {
-        "covered": 798,
+        "covered": 799,
         "total": 2456
       }
     },
