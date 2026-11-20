@@ -30,11 +30,13 @@ interface FileRow {
   format: string | null;
   size_bytes: string | null;
   rejection_code: string | null;
+  content_sha256: string | null;
   created_at: Date;
 }
 
 const BATCH = "household_id, id, name, state, created_by, version, created_at, last_action_at";
-const FILE = "id, batch_id, position, file_name, file_id, format, size_bytes, rejection_code, created_at";
+const FILE =
+  "id, batch_id, position, file_name, file_id, format, size_bytes, rejection_code, content_sha256, created_at";
 
 const batch = (r: BatchRow): Batch => ({
   householdId: r.household_id,
@@ -56,6 +58,7 @@ const file = (r: FileRow): BatchFile => ({
   format: r.format,
   sizeBytes: r.size_bytes === null ? null : Number(r.size_bytes),
   rejectionCode: r.rejection_code,
+  contentSha256: r.content_sha256,
   createdAt: r.created_at,
 });
 
@@ -130,7 +133,7 @@ export function batchesTx(q: HouseholdQueryRunner): ReviewBatchesTx {
     },
     async insertFile(f) {
       await q.query(
-        `INSERT INTO batch_files (household_id, ${FILE}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        `INSERT INTO batch_files (household_id, ${FILE}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           h,
           f.id,
@@ -141,6 +144,7 @@ export function batchesTx(q: HouseholdQueryRunner): ReviewBatchesTx {
           f.format,
           f.sizeBytes,
           f.rejectionCode,
+          f.contentSha256,
           f.createdAt,
         ],
       );

@@ -15,6 +15,27 @@ export {
   type DuplicateMatchingServices,
 } from "./adapters/index.ts";
 export {
+  planImport,
+  PLAN_EXISTING_MAX,
+  PLAN_PAGE,
+  PlanTooLargeError,
+  type PlanDeps,
+  type PlanRequest,
+} from "./application/index.ts";
+export {
+  duplicateKey,
+  normalizeDescription,
+  outcomeCounts,
+  planBatch,
+  planWindow,
+  REPLACE_TOLERANCE,
+  REPLACE_WINDOW_DAYS,
+  ROW_OUTCOMES,
+  type IncomingRow,
+  type KnownTransaction,
+  type PlanInput,
+  type RowOutcome,
+  type RowOutcomeKind,
   decideIncoming,
   isPossibleDuplicate,
   MATCH_WINDOW_DAYS,

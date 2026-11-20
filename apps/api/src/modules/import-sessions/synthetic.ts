@@ -43,6 +43,8 @@ export const synthetic = [
           format: i === 0 ? "csv" : null,
           size_bytes: i === 0 ? "48213" : null,
           rejection_code: i === 0 ? null : "UNSUPPORTED_FORMAT",
+          content_sha256:
+            i === 0 ? createHash("sha256").update(`${household.id}/original/${i}`).digest("hex") : null,
         };
     },
   }),
@@ -93,6 +95,21 @@ export const synthetic = [
           }),
           decided_by: key(household.id, "account", 0),
           decided_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
+  // IMP-04 a: the stored result of applying a batch (counts only).
+  defineSyntheticTable({
+    table: "import_sessions.batch_applications",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          batch_id: key(household.id, "batch", i),
+          result: JSON.stringify({ counts: { import: 2, duplicate: 1 } }),
+          applied_by: key(household.id, "account", 0),
+          applied_at: "2026-10-15T10:00:00Z",
         };
     },
   }),
