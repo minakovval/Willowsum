@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-12, П-24, П-25, П-26
 - Сценарії: UC-IMP-12, UC-IMP-17, UC-IMP-19, UC-IMP-20
 - Модуль: duplicate-matching, import-sessions, ledger
-- Перевіряється: `apps/api/src/modules/duplicate-matching/domain/imp04-import-plan.test.ts`, `apps/api/src/modules/duplicate-matching/domain/imp04-replace-tolerance.test.ts`, `apps/api/src/modules/duplicate-matching/domain/sec643-replace-tolerance.test.ts`, `apps/api/src/modules/duplicate-matching/application/imp04-plan-import.test.ts`, `apps/api/test/imp04-dedup-plan.it.test.ts`, `apps/api/src/modules/duplicate-matching/domain/sec638-import-plan.test.ts`, `apps/api/test/sec638-dedup-isolation.it.test.ts`, `apps/api/test/imp01-apply.it.test.ts`, `apps/api/test/imp01-apply-b.it.test.ts`, `apps/api/test/sec655-apply-b.it.test.ts`
+- Перевіряється: `apps/api/src/modules/duplicate-matching/domain/imp04-import-plan.test.ts`, `apps/api/src/modules/duplicate-matching/domain/imp04-replace-tolerance.test.ts`, `apps/api/src/modules/duplicate-matching/domain/sec643-replace-tolerance.test.ts`, `apps/api/src/modules/duplicate-matching/application/imp04-plan-import.test.ts`, `apps/api/test/imp04-dedup-plan.it.test.ts`, `apps/api/src/modules/duplicate-matching/domain/sec638-import-plan.test.ts`, `apps/api/test/sec638-dedup-isolation.it.test.ts`, `apps/api/test/imp01-apply.it.test.ts`, `apps/api/test/imp01-apply-b.it.test.ts`, `apps/api/test/sec655-apply-b.it.test.ts`, `apps/api/test/imp04-apply-c.it.test.ts`
 
 **Мета.** Як користувач, що імпортує виписки регулярно і з перекриттям періодів, я хочу, щоб повторне завантаження не створювало дублів, а помилковий імпорт можна було скасувати однією дією, щоб не псувати облік.
 

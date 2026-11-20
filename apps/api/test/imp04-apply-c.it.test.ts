@@ -25,7 +25,7 @@ import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
- * The apply of an import batch, part c (IMP-04@PoC FR 5, FR 6, FR 10, AC4, AC6; #654 item 6) on a real PostgreSQL
+ * The apply of an import batch, part c (IMP-04@PoC FR 5, FR 6, AC4, AC6, AC10; #654 item 6) on a real PostgreSQL
  * through the real API, the real parse worker and module transactions: a row merged with a single manual transaction
  * (the manual one keeps its category, note and journal event; the row is kept merged into it, «Роз'єднати» gives it
  * back), a key match with a manual one kept as its link, a posted row in place of a pending one of a previous import,
@@ -477,8 +477,8 @@ describe("IMP-04@PoC FR 6: a posted row in place of a pending one of a previous 
   });
 });
 
-describe("IMP-04@PoC FR 10: the apply's audit entry", () => {
-  it("IMP-04@PoC FR 10: the engine's version and the count of every outcome, the merge and the replacement too", async () => {
+describe("IMP-04@PoC AC10: the apply's audit entry", () => {
+  it("IMP-04@PoC AC10: the engine's version and the count of every outcome, the merge and the replacement too", async () => {
     const space = await newSpace();
     await manual(space, "-42.00", "2026-04-10", "Обід");
     const batch = await parsedBatch(space, "kviten.csv", statement("11.04.2026", "-42.00", "CAFE CENTRAL"));
