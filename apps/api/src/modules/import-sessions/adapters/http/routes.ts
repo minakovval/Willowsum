@@ -9,6 +9,8 @@ import { ImportBusy, ImportWriteRefused } from "../../../transactions/index.ts";
 import {
   addFiles,
   applyBatch,
+  batchResult,
+  followUpOf,
   ApplyNotReady,
   ApplyRowsRefused,
   ApplyTooLarge,
@@ -933,6 +935,69 @@ export const applyImportBatchRoute = defineRoute({
   },
 });
 
+// ——— Крок «Результат» (IMP-08@PoC FR 11, FR 12, AC7; plan row 138, the server part) ———
+
+const applyCountsSchema = z.object({ counts: z.record(z.string(), z.number().int()) });
+
+export const getImportBatchResultRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/import/batches/{batchId}/result",
+  operationId: "getImportBatchResult",
+  summary:
+    "The wizard's step «Результат» (IMP-08 FR 11, AC7), read again at any time: the stored result of the batch's apply (created, replaced, skipped rows) and what is left after it as the space is now — card payments recorded as transfers, proposals of transfers with a side of this batch («Пари · N»), the batch's transactions without a category («До розбору»)",
+  access: READ,
+  request: { params: batchParams },
+  problems: ["BATCH_STATE_CONFLICT"],
+  response: {
+    status: 200,
+    description: "The batch, the stored result of its apply and the counts of what is left to do after it",
+    schema: z.object({
+      batch: batchSchema,
+      /** The same counts as the apply's response (IMP-04 outcomes and excluded, zero, files). */
+      result: applyCountsSchema,
+      appliedAt: z.string(),
+      followUp: z.object({
+        /** «N платежів на картку записано як переказ» (IMP-03 FR 15): 0 until the apply records them. */
+        cardPaymentTransfers: z.number().int(),
+        /** «N пар переказів», «Пари · N»: proposals with a side of this batch; `more` — the read was capped. */
+        transferProposals: z.object({ count: z.number().int(), more: z.boolean() }),
+        /** «N без категорії» (the queue «До розбору»): shown, not split, no side of a transfer. */
+        uncategorized: z.number().int(),
+      }),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    const { result: services } = importSessionsServices(ctx);
+    if (!services) throw new ApiProblem("INTERNAL");
+    const { householdId } = ctx.principal;
+    const run = routeTx(ctx);
+    // The batch of the session's space only: another space's (or none) is «not found» before any module is asked.
+    const { batch, application } = await guarded(() =>
+      ctx.inHousehold((q) => batchResult(applyTx(q), params.batchId)),
+    );
+    const followUp = await followUpOf(
+      {
+        transactions: (query) => services.transactions.page(householdId, query),
+        categoriesOf: (ids) => services.categories.categoriesOf(householdId, ids),
+        proposals: (batchId) => services.proposals.countFor(householdId, batchId),
+      },
+      batch.id,
+    );
+    return {
+      batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
+      result: { counts: { ...application.result.counts } },
+      appliedAt: application.appliedAt.toISOString(),
+      followUp: {
+        cardPaymentTransfers: followUp.cardPaymentTransfers,
+        transferProposals: { ...followUp.transferProposals },
+        uncategorized: followUp.uncategorized,
+      },
+    };
+  },
+});
+
 export const importSessionsRoutes = [
   createImportBatchRoute,
   listImportBatchesRoute,
@@ -949,4 +1014,5 @@ export const importSessionsRoutes = [
   getImportBatchParseRoute,
   listImportFileRowsRoute,
   applyImportBatchRoute,
+  getImportBatchResultRoute,
 ];

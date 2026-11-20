@@ -29,6 +29,7 @@ import {
   transactionsWorkerQueue,
   transferCandidates,
   duplicateCandidates,
+  importBatchTransactions,
   importCandidates,
   importWriteTx,
   transactionRows,
@@ -40,6 +41,8 @@ import {
   type DuplicateSide,
   type ImportCandidate,
   type ImportCandidatesQuery,
+  type ImportBatchTransaction,
+  type ImportBatchTransactionsQuery,
   type RuleInput,
 } from "./adapters/index.ts";
 import {
@@ -200,6 +203,25 @@ export function createImportCandidates(db: ModuleDatabase): ImportCandidates {
   };
 }
 export type { ImportCandidate, ImportCandidatesQuery };
+
+/**
+ * IMP-08@PoC FR 11, AC7 (the step «Результат»): the transactions an applied import batch wrote that a category is asked
+ * of — shown, not split, no side of a transfer — for module import-sessions, which asks module categorization which of
+ * them have one. One page in the order of the batch's rows after `after`, at most `limit`, on the index by batch and
+ * row. Read only; ids only.
+ */
+export interface ImportBatchTransactions {
+  page(householdId: string, query: ImportBatchTransactionsQuery): Promise<readonly ImportBatchTransaction[]>;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createImportBatchTransactions(db: ModuleDatabase): ImportBatchTransactions {
+  return {
+    page: (householdId, query) =>
+      db.inHousehold(householdId, (q) => importBatchTransactions(q, householdId, query)),
+  };
+}
+export type { ImportBatchTransaction, ImportBatchTransactionsQuery };
 
 export {
   IMPORT_WAITERS_MAX,

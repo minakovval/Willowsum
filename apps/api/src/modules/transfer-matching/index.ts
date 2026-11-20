@@ -30,3 +30,25 @@ export function createTransferProposalSides(deps: ProposalDeps): TransferProposa
     },
   };
 }
+
+/**
+ * IMP-08@PoC FR 11, AC7 (the step «Результат»): how many of the proposals «Пари · N» (the same read as
+ * `GET /v1/transfer-proposals`, as the space's transactions are now) have a side written by one import batch, for module
+ * import-sessions; `more` — the read looked at its `CANDIDATES_MAX` pairs, so there may be more. Read only.
+ */
+export interface ImportBatchProposals {
+  countFor(householdId: string, batchId: string): Promise<{ readonly count: number; readonly more: boolean }>;
+}
+
+/** `deps` as for `createTransferMatchingServices`. */
+export function createImportBatchProposals(deps: ProposalDeps): ImportBatchProposals {
+  return {
+    async countFor(householdId, batchId) {
+      const { proposals, more } = await listProposals(deps, householdId);
+      const count = proposals.filter(
+        (p) => p.outflow.importBatchId === batchId || p.inflow.importBatchId === batchId,
+      ).length;
+      return { count, more };
+    },
+  };
+}

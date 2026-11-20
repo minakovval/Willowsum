@@ -8,3 +8,4 @@ export * from "./applications.ts";
 export * from "./parse.ts";
 export * from "./apply.ts";
 export * from "./review-rows.ts";
+export * from "./result.ts";

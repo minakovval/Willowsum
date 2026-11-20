@@ -38234,6 +38234,290 @@
         }
       }
     },
+    "/v1/import/batches/{batchId}/result": {
+      "get": {
+        "operationId": "getImportBatchResult",
+        "summary": "The wizard's step «Результат» (IMP-08 FR 11, AC7), read again at any time: the stored result of the batch's apply (created, replaced, skipped rows) and what is left after it as the space is now — card payments recorded as transfers, proposals of transfers with a side of this batch («Пари · N»), the batch's transactions without a category («До розбору»)",
+        "tags": [
+          "import-sessions"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "data.import",
+          "flags": [
+            "data.import"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The batch, the stored result of its apply and the counts of what is left to do after it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batch": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "uploaded",
+                            "processing",
+                            "parsed",
+                            "needs-review",
+                            "failed",
+                            "applied",
+                            "rolled-back",
+                            "cancelled"
+                          ]
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "lastActionAt": {
+                          "type": "string"
+                        },
+                        "applying": {
+                          "type": "boolean"
+                        },
+                        "files": {
+                          "type": "object",
+                          "properties": {
+                            "accepted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "rejected": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "accepted",
+                            "rejected"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "state",
+                        "version",
+                        "createdAt",
+                        "lastActionAt",
+                        "applying",
+                        "files"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "result": {
+                      "type": "object",
+                      "properties": {
+                        "counts": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        }
+                      },
+                      "required": [
+                        "counts"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "appliedAt": {
+                      "type": "string"
+                    },
+                    "followUp": {
+                      "type": "object",
+                      "properties": {
+                        "cardPaymentTransfers": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "transferProposals": {
+                          "type": "object",
+                          "properties": {
+                            "count": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "more": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "count",
+                            "more"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "uncategorized": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "cardPaymentTransfers",
+                        "transferProposals",
+                        "uncategorized"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "batch",
+                    "result",
+                    "appliedAt",
+                    "followUp"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The batch's state does not allow this (BATCH_STATE_CONFLICT)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/import/originals/{token}": {
       "get": {
         "operationId": "openImportOriginal",

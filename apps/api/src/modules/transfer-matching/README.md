@@ -1,6 +1,6 @@
 # Модуль transfer-matching
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-08@PoC: `createTransferProposalSides` для cashflow; раніше, 2026-11-15, FIN-03 b: пропозиції переказів, рядок 16b)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-08 п. 11: `createImportBatchProposals` для кроку «Результат»; 2026-11-19 — BUD-08@PoC: `createTransferProposalSides` для cashflow; раніше, 2026-11-15, FIN-03 b: пропозиції переказів, рядок 16b)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -34,6 +34,9 @@ transactions), AC2, AC4, граничний випадок 1 (дата рані�
   `CANDIDATES_MAX` = 500 пар).
 - `createTransferMatchingServices({ candidates, rates })` → `TransferMatchingServices` (`src/api.ts` → `ctx.services`;
   `main.ts`): `createTransferCandidates` модуля transactions і `rates` модуля fx-rates.
+- `createImportBatchProposals({ candidates, rates })` → `ImportBatchProposals.countFor(householdId, batchId)` (IMP-08@PoC
+  п. 11, AC7; для import-sessions) — скільки пропозицій «Пари · N» (те саме читання, що й маршрут) мають сторону, записану
+  цією партією імпорту (`importBatchId` сторони); `more` — як у маршруту.
 - `createTransferProposalSides({ candidates, rates })` → `TransferProposalSides.pendingSides(householdId)` — ідентифікатори
   транзакцій, що є стороною запропонованої, ще не підтвердженої пари (те саме читання, що й маршрут; до
   `CANDIDATES_MAX` пар) — для «Перекази без пари» модуля cashflow (BUD-08@PoC п. 8).
