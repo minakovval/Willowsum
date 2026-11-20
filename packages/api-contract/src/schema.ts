@@ -7000,8 +7000,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         approximate: {
+                            goals: boolean;
+                            incomes: boolean;
                             nearestRateCount: number;
                             obligations: boolean;
+                            plannedExpenses: boolean;
                             unavailableCount: number;
                         };
                         currency: string;

@@ -451,6 +451,8 @@ const server = buildServer({
                 // #613: «План» off — «Бюджет» keeps the budget's own income plan.
                 planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               }),
+              // BUD-03 EC5: «Витратити з цілі» — a goal's spends leave «Можна витратити» (goals).
+              goalSpends: createGoalSpends(databases.for("goals")),
               // BUD-17 (owner decision 2026-11-20, batch 2, item 2): «План» off — its typed values act nowhere.
               planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               obligations: createBudgetObligations({
