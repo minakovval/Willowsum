@@ -9,6 +9,7 @@ import { BUDGET } from "../../routing/routes.ts";
 import { useDocumentTitle } from "../../useDocumentTitle.ts";
 import "./budget.css";
 import { monthOf, shiftMonth } from "./model.ts";
+import { DistributionStep, LimitsStrip, PLAN, SRC, useAllocation, useDistribution } from "./Distribution.tsx";
 import { createBody, createBudget, loadWizard, newKey, type Start, type WizardData } from "./wizard.ts";
 
 type Method = "spending" | "zero";
@@ -25,8 +26,9 @@ const monthWord = (t: Translate, locale: string, period: string): string => {
  * «Період» (Wiz2) and S-124 «Ліміти» (Wiz3), in focus mode (UX-09). «Створити за моїми витратами» takes the limits and
  * the income plan the server suggests (`GET /v1/budget/wizard`: the 3-month average rounded to 10); «Почати з нуля» has
  * no amounts; in the middle of a month the user must choose one of three starts, none preselected. Every figure is the
- * API's; the entered amounts go to `POST /v1/budget` as decimal strings. «Розподіл» (S-287) and the bottom strip of the
- * limits step wait for the server part of row 31; until then the limits step ends with «Створити бюджет».
+ * API's; the entered amounts go to `POST /v1/budget` as decimal strings. S-287 «Розподіл» and the bottom strip of the
+ * limits step (AC6) show the server's calculation `POST /v1/budget/allocation` (BUD-02@PoC FR 3, FR 15, AC6, AC7; wave 2,
+ * row 31): the screen computes no difference, rest or status. «Створити бюджет» is on «Розподіл».
  */
 export function BudgetWizardPage() {
   const { t } = useI18n();
@@ -85,12 +87,37 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   const [opened, setOpened] = useState<Method | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The amounts chosen on «Розподіл», by row key (`plan:` rows of a surplus, `src:` rows of a deficit).
+  const [chosen, setChosen] = useState<ReadonlyMap<string, string | null>>(new Map());
   const key = useRef<{ body: string; key: string } | null>(null);
 
   const start = wizard.midPeriod
     ? (wizard.starts.find((s) => s.start === startId) ?? null)
     : (wizard.starts[0] ?? null);
   const money = (m: { amount: string; currency: string }) => formatMoney(locale, m.amount, m.currency);
+  const args = step >= 2 && start !== null ? { start, currency, income, limits } : null;
+  const prefix = (kind: string | undefined) => (kind === "surplus" ? PLAN : kind === "deficit" ? SRC : null);
+  const [kind, setKind] = useState<string | undefined>(undefined);
+  const chosenList = [...chosen]
+    .filter(([k, v]) => prefix(kind) !== null && k.startsWith(prefix(kind)!) && v !== null && /[1-9]/.test(v))
+    .map(([, v]) => v!);
+  const alloc = useAllocation(args, chosenList);
+  const allocKind = alloc.allocation?.balance?.kind;
+  // Rows of the other kind are gone: their amounts do not count and their unparsed texts no longer block.
+  const dropRows = (keep: string | null) =>
+    setProblems(
+      (old) =>
+        new Set(
+          [...old].filter(
+            (p) => !(p.startsWith(PLAN) || p.startsWith(SRC)) || (keep !== null && p.startsWith(keep)),
+          ),
+        ),
+    );
+  if (kind !== allocKind) {
+    setKind(allocKind);
+    dropRows(prefix(allocKind));
+  }
+  const distribution = useDistribution(currency, step === 3);
   // The months of the history come from the server's «today», not from the device's clock.
   const today = wizard.today;
   const months = [shiftMonth(monthOf(today), -3), shiftMonth(monthOf(today), -1)] as const;
@@ -129,6 +156,10 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   const next = () => {
     if (step === 0) setStep(1);
     else if (step === 1) openLimits();
+    else if (step === 2) {
+      dropRows(null);
+      setStep(3);
+    }
   };
 
   const submit = async () => {
@@ -146,23 +177,69 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   };
 
   const states = (i: number): StepState => (i === step ? "current" : i < step ? "done" : "unavailable");
-  const steps = (["method", "period", "limits"] as const).map((id, i) => ({
+  const steps = (["method", "period", "limits", "distribute"] as const).map((id, i) => ({
     label: t(`planning.budget.wizard.step.${id}` as MessageKey),
     state: states(i),
   }));
   const periodBlocked = wizard.midPeriod && start === null;
+  const fixReason = t("dialog.form.reason.fix", {
+    fields: [
+      ...(problems.has("income") ? [t("planning.budget.wizard.limits.income")] : []),
+      ...data.groups
+        .flatMap((g) => g.categories)
+        .filter((c) => problems.has(c.id))
+        .map((c) => c.name),
+      ...([...problems].some((p) => p.startsWith(PLAN) || p.startsWith(SRC))
+        ? [t("planning.budget.wizard.step.distribute")]
+        : []),
+    ].join(", "),
+  });
+  // «Створити бюджет» (AC7): a deficit must be covered in full, nothing is chosen above N; the server says which.
+  const choiceStatus = alloc.allocation?.choice?.status;
+  const createBlock: string | null =
+    problems.size > 0
+      ? fixReason
+      : alloc.pending || alloc.failed || alloc.allocation === null
+        ? t("planning.budget.wizard.dist.reason.wait")
+        : choiceStatus === "over"
+          ? t("planning.budget.wizard.dist.reason.over")
+          : allocKind === "deficit" && choiceStatus !== "exact"
+            ? t("planning.budget.wizard.dist.reason.deficit")
+            : null;
 
   return (
     <div className="bud-wiz">
       <Stepper
         steps={steps}
         label={t("planning.budget.wizard.steps")}
-        onSelect={(i) => (i < step ? setStep(i) : undefined)}
+        onSelect={(i) => {
+          if (i >= step) return;
+          dropRows(null);
+          setStep(i);
+        }}
       />
       {step === 0 ? (
         <MethodStep method={method} onChange={setMethod} data={data} months={months} money={money} />
       ) : step === 1 ? (
         <PeriodStep wizard={wizard} startId={startId} onStart={setStartId} />
+      ) : step === 3 ? (
+        <DistributionStep
+          currency={currency}
+          today={today}
+          load={distribution.load}
+          reload={distribution.reload}
+          alloc={alloc}
+          chosen={chosen}
+          onChosen={(k, v, problem) => {
+            setProblem(k, problem);
+            if (!problem) setChosen((old) => new Map(old).set(k, v));
+          }}
+          onCutLimits={() => {
+            dropRows(null);
+            setStep(2);
+          }}
+          money={money}
+        />
       ) : (
         <LimitsStep
           data={data}
@@ -181,6 +258,7 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
           money={money}
         />
       )}
+      {step === 2 ? <LimitsStrip state={alloc} money={money} /> : null}
       {failed ? (
         <p role="alert" className="bud-wiz-error">
           {t("planning.budget.wizard.error.create")}
@@ -190,19 +268,24 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
         {step > 0 ? (
           <Button
             variant="secondary"
-            onClick={() => setStep(step - 1)}
+            onClick={() => {
+              dropRows(null);
+              setStep(step - 1);
+            }}
             label={t("planning.budget.wizard.back")}
           />
         ) : null}
         <span className="bud-wiz-grow" />
         <Button variant="secondary" onClick={onClose} label={t("planning.budget.wizard.cancel")} />
-        {step < 2 ? (
+        {step < 3 ? (
           <Button
             variant="primary"
             onClick={next}
             {...(step === 1 && periodBlocked
               ? { disabled: true as const, disabledReason: t("planning.budget.wizard.period.choose") }
-              : {})}
+              : step === 2 && problems.size > 0
+                ? { disabled: true as const, disabledReason: fixReason }
+                : {})}
             label={t("planning.budget.wizard.next")}
           />
         ) : (
@@ -210,20 +293,7 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
             variant="primary"
             onClick={() => void submit()}
             loading={busy}
-            {...(problems.size > 0
-              ? {
-                  disabled: true as const,
-                  disabledReason: t("dialog.form.reason.fix", {
-                    fields: [
-                      ...(problems.has("income") ? [t("planning.budget.wizard.limits.income")] : []),
-                      ...data.groups
-                        .flatMap((g) => g.categories)
-                        .filter((c) => problems.has(c.id))
-                        .map((c) => c.name),
-                    ].join(", "),
-                  }),
-                }
-              : {})}
+            {...(createBlock !== null ? { disabled: true as const, disabledReason: createBlock } : {})}
             label={t("planning.budget.wizard.create")}
           />
         )}

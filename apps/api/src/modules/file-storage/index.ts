@@ -9,6 +9,7 @@ import { databaseFilesStore, isolatedInspector, type IsolationOptions } from "./
 import {
   linkFile,
   openLink,
+  readFile,
   removeFile,
   spaceUsage,
   storeFile,
@@ -62,6 +63,11 @@ export interface FileStorage {
   link(householdId: string, fileId: string, ttlMs?: number): Promise<{ token: string; expiresAt: Date }>;
   /** Opens a signed link for a caller of the space: the original bytes, as a download only. */
   open(householdId: string, token: string): Promise<Download>;
+  /**
+   * The original bytes of a file of the space, for a server step of the same space (the parse step, IMP-01 FR 5);
+   * never served to a client (that is `link` and `open`). `FileNotFoundError` for another space's or an unknown file.
+   */
+  read(householdId: string, fileId: string): Promise<Buffer>;
   /** Removes a file and its object; `actorId` null — a system task (the daily cleanup of import batches). */
   remove(householdId: string, fileId: string, actorId: string | null): Promise<void>;
   /** Bytes of every file of the space. */
@@ -104,6 +110,7 @@ export function createFileStorage(deps: FileStorageDeps): FileStorage {
     find: (householdId, fileId) => findFile(files, householdId, fileId),
     link: (householdId, fileId, ttlMs) => linkFile(files, householdId, fileId, ttlMs),
     open: (householdId, token) => openLink(files, householdId, token),
+    read: (householdId, fileId) => readFile(files, householdId, fileId),
     remove: (householdId, fileId, actorId) => removeFile(files, householdId, fileId, actorId),
     usage: (householdId) => spaceUsage(files, householdId),
   };

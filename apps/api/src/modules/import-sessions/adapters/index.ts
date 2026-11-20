@@ -7,6 +7,8 @@ export {
   createImportSessionsServices,
   fileOriginals,
   type ImportSessionsServices,
+  type ParseServices,
 } from "./http/services.ts";
+export { parsePorts, type ParseModules } from "./parse-ports.ts";
 export { batchesWorkerQueue, requeueDeadHandOffs } from "./queue/hand-off.ts";
-export { HAND_OFF_JOB } from "./queue/job.ts";
+export { HAND_OFF_JOB, PARSE_FILE_JOB } from "./queue/job.ts";

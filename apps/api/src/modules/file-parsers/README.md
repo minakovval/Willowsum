@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (крок розбору: не більше 2 воркерів розбору водночас, лінивий відкривач прив'язки, `PARSE_ENGINE_VERSION`; IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -75,6 +75,9 @@
   відкривач не відкриває (чужий простір чи поле, неправильний чи вже використаний ключ), — відмова `ACCOUNT_BINDING`,
   розбору без прив'язки не буває. Результат: `account` (`AccountMatch`) або null без прив'язки; `checks`
   (`StatementChecks`, IMP-05: `figures`, `controls`, `bounds`, `account`, `signs`, `clarifications`, `flags`).
+- Не більше `PARSE_LIMITS.concurrent` (2; параметр `concurrent`) воркерів розбору одного парсера водночас, решта чекає черги
+  (#624); `binding` може бути функцією, що повертає прив'язку: відкривач поля береться лише тоді, коли настала черга воркера.
+  `PARSE_ENGINE_VERSION` — версія рушія, яку партія зберігає з кожним файлом (IMP-01 п. 9).
 - `historyGap(previous, next)` → `HistoryGap`; `readingFits(value, currency)`; `CHECK_KINDS`, `SIGN_BASES`,
   `FLAG_SEVERITY`; типи `ControlCheck`, `StatementBounds`, `BatchFlag`, `Clarification`, `SignReview` та інші з `index.ts`.
   `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`,
@@ -111,4 +114,5 @@
 `adapters/isolation/imp06-parse-worker.test.ts`, `sec607-parse-worker-only.test.ts` (читання й збіг — лише у воркері),
 `application/imp02-events.test.ts`, `adapters/isolation/imp02-parse-events.test.ts`, `domain/imp06-followups.test.ts`,
 `domain/sec619-header-bound.test.ts`, `application/imp05-checks.test.ts`,
-`adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`.
+`adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`,
+`adapters/isolation/sec624-parse-concurrency.test.ts`, `adapters/isolation/sec639-opener-wipe.test.ts`.

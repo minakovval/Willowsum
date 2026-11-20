@@ -70,6 +70,14 @@ export function recipesTx(q: HouseholdQueryRunner): RecipesTx {
       );
       return rows[0] ? stored(rows[0]) : null;
     },
+    async forFormat(fingerprint) {
+      const { rows } = await q.query<RecipeRow>(
+        `SELECT ${COLUMNS} FROM recipes WHERE household_id = $1 AND fingerprint = $2
+         ORDER BY created_at DESC, id DESC LIMIT 1`,
+        [h, fingerprint],
+      );
+      return rows[0] ? stored(rows[0]) : null;
+    },
     async list(limit, after) {
       const { rows } = await q.query<RecipeRow>(
         `SELECT ${COLUMNS} FROM recipes WHERE household_id = $1

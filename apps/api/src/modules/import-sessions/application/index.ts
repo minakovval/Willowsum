@@ -5,3 +5,4 @@ export { applyHandOff, type BatchesAudit } from "./hand-off.ts";
 export * from "./decisions.ts";
 export * from "./review.ts";
 export * from "./applications.ts";
+export * from "./parse.ts";

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { defineJob, enqueueJob } from "../../../../platform/queue/index.ts";
-import { HAND_OFF_ACTIONS, handOffKey, type BatchHandOff } from "../../application/index.ts";
+import { HAND_OFF_ACTIONS, handOffKey, type BatchHandOff, type ParseJob } from "../../application/index.ts";
 
 // States, counts, formats and reason codes only: never a file's name or content (IMP-01 FR 19).
 const value = z.string().max(64).nullable();
@@ -33,4 +33,27 @@ export const HAND_OFF_JOB = defineJob({ name: "import-sessions.hand-off", schema
 /** Enqueues the hand-off in the caller's import-sessions transaction; the same change twice is one job. */
 export async function enqueueHandOff(q: HouseholdQueryRunner, handOff: BatchHandOff): Promise<void> {
   await enqueueJob(q, HAND_OFF_JOB, handOffKey(handOff), handOff as z.infer<typeof handOffSchema>);
+}
+
+/** The payload of `import-sessions.parse-file`: ids only, never a value of the file (ADR-0015). */
+const parseSchema = z.strictObject({
+  batchId: z.uuid(),
+  batchFileId: z.uuid(),
+  parseId: z.uuid(),
+}) satisfies z.ZodType<ParseJob>;
+
+/**
+ * The parse of one accepted file of a batch (IMP-01 FR 5; IMP-19 FR 4: in the background). Heavy (ARC-04 FR 5): the
+ * worker runs at most its heavy limit of them at a time across all spaces (#624: each parse worker takes up to 512 MiB
+ * and 60 s). Retried like any job; a dead one goes back daily (`import-sessions.hand-off-recovery`).
+ */
+export const PARSE_FILE_JOB = defineJob({
+  name: "import-sessions.parse-file",
+  schema: parseSchema,
+  heavy: true,
+});
+
+/** Enqueues the parse in the caller's import-sessions transaction; one job per request and file. */
+export async function enqueueParse(q: HouseholdQueryRunner, job: ParseJob): Promise<void> {
+  await enqueueJob(q, PARSE_FILE_JOB, `parse:${job.batchFileId}:${job.parseId}`, job);
 }
