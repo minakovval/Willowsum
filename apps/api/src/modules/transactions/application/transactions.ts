@@ -459,7 +459,10 @@ export async function showLonelyCopies(
   return { handOffs, rows };
 }
 
-/** «Видалити» of a transaction entered by hand (FR 16, AC10): its postings are reversed, the row goes. */
+/**
+ * «Видалити» of a transaction entered by hand (FR 16, AC10): its postings are reversed, the row goes. An imported one is
+ * hidden instead (FR 16, FR 18, AC9; IMP-04 FR 9): its journal entry stays.
+ */
 export async function deleteTransaction(
   deps: TransactionsDeps,
   tx: TransactionsTx,
@@ -468,7 +471,8 @@ export async function deleteTransaction(
 ): Promise<
   | {
       readonly kind: "ok";
-      readonly handOff: TransactionHandOff;
+      /** null: an imported transaction already hidden — nothing changed. */
+      readonly handOff: TransactionHandOff | null;
       /** FR 35: the hidden copies of the deleted transaction shown again, run after `handOff`. */
       readonly shown: readonly TransactionHandOff[];
     }
@@ -489,6 +493,13 @@ export async function deleteTransaction(
   // A duplicate merged into another, or one others were merged into: «Роз'єднати» first, so none is lost (FR 11).
   if (current.mergedInto !== null || (await tx.duplicatesOf(householdId, id)).length > 0)
     return { kind: "merged" };
+  // FIN-03 FR 16, FR 18, AC9; IMP-04 FR 9: an imported transaction (bank data) is never deleted — «Видалити» hides it,
+  // its journal event stays (hand-off), so the balance matches the bank and the next import still finds it.
+  if (current.source === "imported") {
+    if (current.hidden) return { kind: "ok", handOff: null, shown: [] };
+    const row = await tx.update(householdId, { ...current, hidden: true, version: current.version + 1 });
+    return { kind: "ok", handOff: await handOff(tx, caller, "hide", current, row), shown: [] };
+  }
   await tx.remove(householdId, id);
   const deleted = await handOff(tx, caller, "delete", current, null);
   // FR 35: the hidden copies whose pair it was, shown again if no other pair is left.

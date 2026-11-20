@@ -21,3 +21,4 @@ export {
   takesParse,
 } from "./parse.ts";
 export type { ParseRefusalCode, ParseState } from "./parse.ts";
+export { maskNumbers } from "./mask.ts";

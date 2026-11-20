@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -82,7 +82,8 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     `posted` проводить знову. Зміна суми розділеної — розділення лишається з `needsReview` (BUD-01 п. 6). Рахунок
     транзакції чи новий закритий — 409 `ACCOUNT_CLOSED`.
   - `DELETE /v1/transactions/{transactionId}` (`deleteTransaction`, `household.data.write`) — сторно запису, що діє, і
-    видалення рядка; повтор — 404.
+    видалення рядка; повтор — 404. Імпортовану (`source = imported`) не видаляють, а приховують: запис журналу лишається
+    (FIN-03 п. 16, 18, AC9; IMP-04 п. 9); приховану вдруге — без змін.
   - `GET /v1/transactions` (`listTransactions`, `household.data.read`) — рушій DAT-01 (`transactionsList`,
     `adapters/db/store.ts`): `filter` (`accountId.eq|in`, `date.gte|lte`, `type.eq:in|out`, `amount.gte|lte` — сума без
     знака, `counterparty.eq|has`, `search.has` — контрагент і опис, `status.eq|in`, `split.eq`, `hidden.eq`, `tag.eq|in` (BUD-13; масив `tag_ids`, `array` рушія); без фільтра
@@ -206,7 +207,7 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   підтверджена чи ручна — «без змін»; злитий дубль — `transaction.merged`. Груповий запис аудиту; «Відмінити» повертає в
   чергу.
 - `createTransactionsErasure(db)` → `TransactionsErasure.eraseHousehold(householdId)` → `{ transactions, idempotencyKeys,
-  jobs }` — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
+  jobs }` (і `import_writes`) — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
   `transactions.records`) перед рахунками і журналом.
 - `createTransactionsWorkerQueue(db, { accounts, ledger, audit })` → черга воркера (`src/wiring.ts`, `workerQueues`):
   задачі `transactions.hand-off` (`HAND_OFF_JOB`) зі схеми модуля, з тими самими портами, що в маршрутів.
@@ -272,6 +273,16 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   злитий дубль — ні; сума зі знаком, опис, залишок після операції, стан, джерело, партія імпорту, сторона переказу,
   `matched` (у неї вже щось злито); сторінка в порядку (дата, id) після `after` за індексом `transactions_by_account`.
   Лише читання.
+- `createImportedTransactions(db, { accounts, ledger, audit, newId, now })` → `ImportedTransactions.write(householdId,
+  input, plan)` для кроку застосування `import-sessions` (IMP-01@PoC п. 11, IMP-04@PoC п. 7): в одній транзакції —
+  блокування імпорту рахунків (`transactions.import:<простір>:<рахунок>`, чекає до 60 с), чи партію вже записано
+  (`import_writes` → `first: false`, нічого не створює), блокування грошей рахунків, перевірки рахунку (закритий —
+  `ACCOUNT_CLOSED`), план (`plan(ctx)` — `ctx.candidates` для `planImport` і `ctx.create(row)`), рядки з джерелом
+  `imported` (ключ `(партія, файл, рядок)` — унікальний, тож другий запис того самого рядка нічого не додає), «До
+  розбору», банківський опис окремо (`bank_description`), подія `transactions.created`, передачі в журнал, запис
+  `import_writes`. Після коміту виконує до 100 (`IMPORT_HAND_OFF_NOW`) передач, решту — воркер. Рядок, який рахунок не
+  приймає, — `ImportWriteRefused` (усе відкочено). Типи `ImportWriteInput`, `ImportedRowInput`, `ImportCounts`,
+  `ImportWriteResult`, `ImportPlanContext`.
 - `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`, тип `DuplicateCheck`.
 
 Журнал переказу (`application/hand-off.ts`): поки позначено, власна подія зарахування сторнована, власна подія списання —
@@ -322,6 +333,7 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 ## Залежності
 
 Шар: subject. Модулі: accounts, audit, bulk-actions (типи портів), categories, fx-rates, ledger (`apps/api/module-rules.json`).
+Викликає його import-sessions (`ImportedTransactions`, `ImportWriteRefused`).
 
 ## Події
 
@@ -339,11 +351,12 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 
 | Таблиця | Що |
 | --- | --- |
-| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual` / `imported`; імпортовану пише крок застосування імпорту), `import_batch_id` (партія import-sessions лише в імпортованої) і `balance_after` (залишок після операції з виписки) (`0009_imported.sql`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
+| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual` / `imported`; імпортовану пише крок застосування імпорту), `import_batch_id` (партія import-sessions лише в імпортованої) і `balance_after` (залишок після операції з виписки) (`0009_imported.sql`), `import_file_id`, `import_row` (унікальний ключ рядка партії) і `bank_description` (опис банку) (`0010_import_rows.sql`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
 | `tags` | Теги простору (BUD-13 п. 2): назва, ключ `name_key` (обрізана, нижній регістр; унікальний у просторі), версія; у `transactions` — `note` (до 2 000) і `tag_ids` (до 20, по порядку; GIN-індекс для фільтра) (`0007_attributes.sql`); `review` — «До розбору» (BUD-12: `queued` · `confirmed` · null), частковий індекс черги (`0008_review.sql`) |
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
 | `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
 | `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |
+| `import_writes` | Записана партія імпорту: лічильники, хто й коли (один рядок на партію; `0010_import_rows.sql`) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0003_queue.sql`, дослівно `queue-tables.sql`): задачі передачі `transactions.hand-off`; подій модуль поки не публікує |
 

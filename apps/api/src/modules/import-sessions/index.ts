@@ -17,9 +17,6 @@ import {
   spaceTx,
 } from "./adapters/index.ts";
 import {
-  BatchNotFoundError,
-  checkedResult,
-  type ApplicationResult,
   type StoredApplication,
   applyHandOff,
   deleteStaleBatches,
@@ -41,6 +38,7 @@ export {
   createImportSessionsServices,
   HAND_OFF_JOB,
   PARSE_FILE_JOB,
+  type ApplyServices,
   type ImportSessionsServices,
   type ParseModules,
   type ParseServices,
@@ -56,7 +54,9 @@ export {
 export type { BatchState } from "./domain/index.ts";
 export {
   APPLICATION_COUNTS_MAX,
+  APPLY_UNSUPPORTED,
   ApplicationResultError,
+  ROW_ISSUES,
   READINESS_CODES,
   READINESS_MESSAGES,
 } from "./application/index.ts";
@@ -107,43 +107,19 @@ export function createImportSessionsReview(options: {
 }
 
 /**
- * IMP-04@PoC a) (wave 2 row 43) for the apply step, which is not a route yet. `sameFileApplied` is FR 3: the applied
- * batch with a file of the same content (SHA-256 of the bytes) as this batch file, or null. `find` and `recordOnce` are
- * FR 7: one stored result per batch; `recordOnce` locks the batch (a batch of another space or a deleted one —
- * `BatchNotFoundError`) and stores the result unless one is stored — `first` false: the stored one, create nothing.
+ * IMP-04@PoC a) (wave 2 row 43). `sameFileApplied` is FR 3: the applied batch with a file of the same content (SHA-256
+ * of the bytes) as this batch file for the same account, or null. `find` is FR 7: the stored result of the batch's
+ * apply (`POST /v1/import/batches/{batchId}/apply`).
  */
-export function createImportSessionsApplications(options: {
-  readonly db: ModuleDatabase;
-  readonly now: () => number;
-}): {
-  sameFileApplied(householdId: string, batchFileId: string): Promise<string | null>;
+export function createImportSessionsApplications(options: { readonly db: ModuleDatabase }): {
+  sameFileApplied(householdId: string, batchFileId: string, accountId: string): Promise<string | null>;
   find(householdId: string, batchId: string): Promise<StoredApplication | null>;
-  recordOnce(
-    householdId: string,
-    input: { readonly batchId: string; readonly actorId: string; readonly result: ApplicationResult },
-  ): Promise<{ readonly application: StoredApplication; readonly first: boolean }>;
 } {
   return {
-    sameFileApplied: (householdId, batchFileId) =>
-      options.db.inHousehold(householdId, (q) => applicationsTx(q).sameFileApplied(batchFileId)),
+    sameFileApplied: (householdId, batchFileId, accountId) =>
+      options.db.inHousehold(householdId, (q) => applicationsTx(q).sameFileApplied(batchFileId, accountId)),
     find: (householdId, batchId) =>
       options.db.inHousehold(householdId, (q) => applicationsTx(q).find(batchId)),
-    recordOnce: (householdId, input) =>
-      options.db.inHousehold(householdId, async (q) => {
-        const result = checkedResult(input.result);
-        if (!(await batchesTx(q).lockBatch(input.batchId))) throw new BatchNotFoundError();
-        const tx = applicationsTx(q);
-        const earlier = await tx.find(input.batchId);
-        if (earlier) return { application: earlier, first: false };
-        const application: StoredApplication = {
-          batchId: input.batchId,
-          result,
-          appliedBy: input.actorId,
-          appliedAt: new Date(options.now()),
-        };
-        await tx.insert(application);
-        return { application, first: true };
-      }),
   };
 }
 
