@@ -4,9 +4,10 @@ import { parseStatement } from "./parse-statement.ts";
 
 /**
  * IMP-05@PoC FR 6, Рішення власника (2026-11-20), п. 6: on an account of kind «кредитна картка» a positive printed
- * balance is the debt. The sign basis of the balances, the opening and the closing (and, when the chain needs it, of
- * the rows) is inverted only when the balance chain confirms it; otherwise the batch gets «знак картки» and the
- * statement's totals and chain confirm no sign. Synthetic statements only.
+ * balance is the debt. The sign basis of the balances, the opening and the closing is inverted only when the balance
+ * chain confirms it; the rows' amounts are never inverted (a reading that inverts them is the printed chain negated and
+ * confirms nothing: Рішення ведучого (2026-11-20; власник не схвалював; #643)). Otherwise the batch gets «знак картки»
+ * and the statement's totals and chain confirm no sign. Synthetic statements only.
  */
 const enc = (s: string) => new TextEncoder().encode(s);
 const parse = (lines: readonly string[], statement: StatementOptions = {}) =>
@@ -33,12 +34,44 @@ const DEBT_POSITIVE_ROWS = [
 ];
 
 describe("IMP-05@PoC FR 6: a credit card's positive balance is debt when the balance chain confirms it", () => {
-  it("IMP-05@PoC FR 6: purchases printed positive become negative; balances, opening and closing are inverted; the chain confirms every row", () => {
+  it("IMP-05@PoC FR 6: purchases printed positive — the chain holds as printed and confirms no debt basis: nothing is inverted, «знак картки»", () => {
     const p = parse(DEBT_POSITIVE_ROWS, CREDIT);
+    expect(amounts(p)).toEqual(["50.00", "20.00", "-30.00", "0.00"]);
+    expect(balances(p)).toEqual(["150.00", "170.00", "140.00", "140.00"]);
+    expect(p.checks.figures).toMatchObject({ opening: "100.00", closing: "140.00" });
+    expect(p.checks.cardDebt).toEqual({ status: "unconfirmed" });
+    // Neither the chain nor the totals confirm a sign then; the column that prints both signs is a basis of its own.
+    expect(p.checks.signs.rows.map((r) => r.basis)).toEqual([
+      "printed-both-signs",
+      "printed-both-signs",
+      "printed-both-signs",
+      "printed-both-signs",
+    ]);
+    expect(p.checks.flags).toContainEqual({
+      code: "card-sign",
+      severity: "review",
+      positive: 2,
+      negative: 1,
+    });
+  });
+
+  it("IMP-05@PoC FR 6: a card that prints purchases negative and the debt positive keeps its amounts; the balances, opening and closing are inverted and the chain confirms every row", () => {
+    const p = parse(
+      [
+        "Вхідний залишок:;100,00",
+        "Дата;Сума;Залишок;Опис",
+        "01.03.2026;-50,00;150,00;Магазин",
+        "02.03.2026;-20,00;170,00;Кафе",
+        "03.03.2026;30,00;140,00;Погашення",
+        "04.03.2026;0,00;140,00;Перевірка картки",
+        "Кінцевий залишок:;140,00",
+      ],
+      CREDIT,
+    );
     expect(amounts(p)).toEqual(["-50.00", "-20.00", "30.00", "0.00"]);
     expect(balances(p)).toEqual(["-150.00", "-170.00", "-140.00", "-140.00"]);
     expect(p.checks.figures).toMatchObject({ opening: "-100.00", closing: "-140.00" });
-    expect(p.checks.cardDebt).toEqual({ status: "inverted", amounts: true });
+    expect(p.checks.cardDebt).toEqual({ status: "inverted" });
     for (const kind of ["opening-balance", "closing-balance", "balance-equation", "balance-chain"])
       expect(status(p, kind)).toBe("verified");
     expect(p.checks.controls.find((c) => c.kind === "balance-equation")).toMatchObject({
@@ -53,26 +86,6 @@ describe("IMP-05@PoC FR 6: a credit card's positive balance is debt when the bal
       ["balance-chain", true],
       ["balance-chain", true],
     ]);
-    expect(codes(p)).not.toContain("card-sign");
-  });
-
-  it("IMP-05@PoC FR 6: a card that prints purchases negative and the debt positive keeps its amounts; only the balances are inverted", () => {
-    const p = parse(
-      [
-        "Вхідний залишок:;100,00",
-        "Дата;Сума;Залишок;Опис",
-        "01.03.2026;-50,00;150,00;Магазин",
-        "02.03.2026;-20,00;170,00;Кафе",
-        "Кінцевий залишок:;170,00",
-      ],
-      CREDIT,
-    );
-    expect(amounts(p)).toEqual(["-50.00", "-20.00"]);
-    expect(balances(p)).toEqual(["-150.00", "-170.00"]);
-    expect(p.checks.figures).toMatchObject({ opening: "-100.00", closing: "-170.00" });
-    expect(p.checks.cardDebt).toEqual({ status: "inverted", amounts: false });
-    expect(status(p, "balance-chain")).toBe("verified");
-    expect(status(p, "balance-equation")).toBe("verified");
     expect(codes(p)).not.toContain("card-sign");
   });
 
@@ -198,7 +211,7 @@ describe("IMP-05@PoC FR 6: a credit card's positive balance is debt when the bal
     expect(zero.checks.cardDebt).toBeNull();
   });
 
-  it("IMP-05@PoC FR 6: amounts are exact decimals at their printed scale; a zero carries no sign", () => {
+  it("IMP-05@PoC FR 6: balances are inverted exactly at their printed scale; a zero carries no sign; the amounts are kept", () => {
     const events = {
       events: [
         {
@@ -206,9 +219,9 @@ describe("IMP-05@PoC FR 6: a credit card's positive balance is debt when the bal
           date: "2026-03-01",
           valueDate: null,
           currency: "KWD",
-          legs: [{ amount: "0.125", currency: "KWD" }],
+          legs: [{ amount: "-0.125", currency: "KWD" }],
           fee: null,
-          balance: "1.125",
+          balance: "0.125",
           original: null,
           rate: null,
           description: null,
@@ -222,9 +235,9 @@ describe("IMP-05@PoC FR 6: a credit card's positive balance is debt when the bal
           date: "2026-03-02",
           valueDate: null,
           currency: "KWD",
-          legs: [{ amount: "0.000", currency: "KWD" }],
+          legs: [{ amount: "0.125", currency: "KWD" }],
           fee: null,
-          balance: "1.125",
+          balance: "0.000",
           original: null,
           rate: null,
           description: null,
@@ -238,8 +251,8 @@ describe("IMP-05@PoC FR 6: a credit card's positive balance is debt when the bal
       country: null,
     } as const;
     const figures = {
-      opening: "1.000",
-      closing: "1.125",
+      opening: "0.000",
+      closing: "0.000",
       debitTotal: null,
       creditTotal: null,
       operations: null,
@@ -248,14 +261,14 @@ describe("IMP-05@PoC FR 6: a credit card's positive balance is debt when the bal
       rows: [],
     };
     const read = readCardDebt(events, figures, "credit-card");
-    expect(read.debt).toEqual({ status: "inverted", amounts: true });
+    expect(read.debt).toEqual({ status: "inverted" });
     expect(read.events.events.map((e) => [e.legs[0]!.amount, e.balance])).toEqual([
-      ["-0.125", "-1.125"],
-      ["0.000", "-1.125"],
+      ["-0.125", "-0.125"],
+      ["0.125", "0.000"],
     ]);
-    expect(read.figures).toMatchObject({ opening: "-1.000", closing: "-1.125" });
+    expect(read.figures).toMatchObject({ opening: "0.000", closing: "0.000" });
     // The input is not changed.
-    expect(events.events[0]!.legs[0]!.amount).toBe("0.125");
+    expect(events.events[0]!.balance).toBe("0.125");
     expect(readCardDebt(events, figures, undefined).debt).toBeNull();
   });
 });

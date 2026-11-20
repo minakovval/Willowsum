@@ -440,6 +440,8 @@ describe("IMP-04@PoC a): the work of one plan is bounded", () => {
     );
     const started = performance.now();
     expect(() => plan(rows, existing)).toThrow(PlanTooLargeError);
+    // The bound itself is pinned: the count below scales with it.
+    expect(PLAN_WORK_MAX).toBe(500_000);
     expect(reads).toBeGreaterThan(0);
     expect(reads).toBeLessThanOrEqual(5 * PLAN_WORK_MAX + 10 * existing.length);
     // A backstop only: the bound above is what this test guards.

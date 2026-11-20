@@ -6,17 +6,19 @@ import type { DeclaredFigures } from "./figures.ts";
 /**
  * A credit card's printed debt (IMP-05@PoC FR 6; Рішення власника (2026-11-20), п. 6): on an account of kind
  * «кредитна картка» a positive printed balance is the debt. When every printed balance (the declared opening and
- * closing balances and the rows' balances) is zero or positive and one is positive, the statement is read in the debt
- * basis: its balances, opening and closing are inverted, and — when the chain needs it — the rows' amounts too
- * (a purchase printed «50,00» that raises the debt becomes −50,00). The basis is inverted only when the balance chain
- * confirms exactly one inverted reading (its chain «перевірено», no declared balance against it); otherwise nothing is inverted and the batch gets «знак картки»: the
- * statement's totals and its chain, read in the debt basis, confirm no sign. Exact decimals at the printed scale; never
- * rounded. Pure and deterministic.
+ * closing balances and the rows' balances) is zero or positive and one is positive, the statement may be read in the
+ * debt basis: its balances, opening and closing are inverted, the rows' amounts never. That reading is taken only when
+ * the balance chain confirms it (its chain «перевірено», no declared balance against it) and the chain does not hold as
+ * printed too. A reading that would invert the rows' amounts as well is never confirmed: its chain is the printed chain
+ * negated, so it holds whenever the printed one does and tells a debt printed positive from the ordinary basis no
+ * better (Рішення ведучого (2026-11-20; власник не схвалював; #643), рецензія безпеки 5988616888). Otherwise nothing is
+ * inverted and the batch gets «знак картки»: the statement's totals and its chain confirm no sign. Exact decimals at
+ * the printed scale; never rounded. Pure and deterministic.
  */
 export type CardDebt =
-  /** The chain confirmed the debt basis; `amounts` — the rows' amounts were inverted too (not only the balances). */
-  | { readonly status: "inverted"; readonly amounts: boolean }
-  /** A positive printed balance on a credit card the chain does not confirm: «знак картки». */
+  /** The chain confirmed the debt basis: the balances, the opening and the closing were inverted; the amounts kept. */
+  | { readonly status: "inverted" }
+  /** A positive printed balance on a credit card the chain does not confirm as debt: «знак картки». */
   | { readonly status: "unconfirmed" };
 
 export interface CardDebtReading {
@@ -34,14 +36,14 @@ const scaleOf = (text: string): number => (text.includes(".") ? text.length - te
 /** The printed decimal negated at its printed scale; a zero carries no sign (`toFixed` drops it). */
 const negate = (text: string): string => new Decimal(text).neg().toFixed(scaleOf(text));
 
-function inverted(events: StatementEvents, figures: DeclaredFigures, amounts: boolean) {
+/** The debt basis: the balances, the opening and the closing negated; the rows' amounts as printed. */
+function inverted(events: StatementEvents, figures: DeclaredFigures) {
   return {
     events: {
       ...events,
       events: events.events.map((e) => ({
         ...e,
         balance: e.balance === null ? null : negate(e.balance),
-        legs: amounts ? e.legs.map((l) => ({ ...l, amount: negate(l.amount) })) : e.legs,
       })),
     },
     figures: {
@@ -50,6 +52,17 @@ function inverted(events: StatementEvents, figures: DeclaredFigures, amounts: bo
       closing: figures.closing === null ? null : negate(figures.closing),
     },
   };
+}
+
+/** The chain of a reading is «перевірено» and neither end is against a declared balance. */
+function fits(reading: { events: StatementEvents; figures: DeclaredFigures }): boolean {
+  const checks = checkControls(reading.figures, reading.events).checks;
+  const of = (kind: string) => checks.find((c) => c.kind === kind)!.status;
+  return (
+    of("balance-chain") === "verified" &&
+    of("opening-balance") !== "mismatch" &&
+    of("closing-balance") !== "mismatch"
+  );
 }
 
 export function readCardDebt(
@@ -67,19 +80,11 @@ export function readCardDebt(
     balances.some((b) => b.isNegative() && !b.isZero())
   )
     return none;
-  // Both readings are tried: a card that prints a purchase negative and the debt positive keeps its amounts, one
-  // that prints it positive has them inverted too. Exactly one must hold — the chain «перевірено» and neither end
-  // against a declared balance — or the chain confirms nothing (rows of zero, a chain the two readings both satisfy).
-  const confirmed = [false, true].flatMap((amounts) => {
-    const candidate = inverted(events, figures, amounts);
-    const checks = checkControls(candidate.figures, candidate.events).checks;
-    const of = (kind: string) => checks.find((c) => c.kind === kind)!.status;
-    return of("balance-chain") === "verified" &&
-      of("opening-balance") !== "mismatch" &&
-      of("closing-balance") !== "mismatch"
-      ? [{ ...candidate, debt: { status: "inverted", amounts } as const }]
-      : [];
-  });
-  if (confirmed.length === 1) return confirmed[0]!;
+  // A card that prints a purchase negative and the debt positive: only its balances are inverted. A reading with the
+  // amounts inverted too is the printed chain negated, so it fits exactly when the printed reading does: then (rows of
+  // zero, a purchase printed positive, or the ordinary basis with a positive balance) the chain does not tell the debt
+  // basis, and nothing is inverted.
+  const debt = inverted(events, figures);
+  if (fits(debt) && !fits({ events, figures })) return { ...debt, debt: { status: "inverted" } };
   return { events, figures, debt: { status: "unconfirmed" } };
 }
