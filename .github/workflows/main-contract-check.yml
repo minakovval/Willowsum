@@ -1,0 +1,47 @@
+name: Contract check on main
+
+# ARC-07, PRC-02 (owner, 2026-11-20): `pnpm contract:check` (the API contract matches the routes; the typed client
+# matches the contract) runs after every push to main, because a PR is merged without a sync when only
+# packages/api-contract/openapi.json or src/schema.ts changed on main (merge checklist, «Sync only when needed»).
+# A red run is a red main: `investigate-ci-failure`. Same command as the job `api` of pr-checks.yml.
+# Read-only: no write permission, no secrets, no external services. About a minute per merge (CI minutes).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: main-contract-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    # A manual run from another branch would not check main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Enable pnpm (version from package.json via corepack)
+        run: corepack enable
+      - name: pnpm store path
+        id: pnpm-store
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache the pnpm store (keyed by the lockfile)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-node22-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-node22-
+      - run: pnpm install --frozen-lockfile
+      - name: API contract matches the routes; the typed client matches the contract (ARC-07)
+        run: pnpm contract:check

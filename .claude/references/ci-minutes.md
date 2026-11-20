@@ -11,7 +11,7 @@ when the PR's paths do not need them (docs-only PRs skip all five; `e2e`, NFR-07
 except `infra/`, `tools/` and the root lint, format and ignore files, with only Chromium installed and cached (WebKit dropped from CI, owner 2026-11-20); a skipped job concludes `skipped` and
 counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not need it). Do not add
 scheduled or frequent workflows without counting their minutes. «Requirements traceability» runs once per push to
-`main` (about a minute) to publish the generated traceability files.
+`main` (about a minute) to publish the generated traceability files; «Contract check on main» runs `pnpm contract:check` once per push to `main` (about a minute, owner 2026-11-20).
 
 **The job `api` in parts** (integration tests in 2 shards): the matrix job `api-parts` runs three parallel parts, each with its own
 PostgreSQL 17 service — `api checks` (module boundaries, contract, flags, schema, migrations, old code + new
