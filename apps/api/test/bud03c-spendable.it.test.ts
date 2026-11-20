@@ -1122,3 +1122,124 @@ describe("BUD-02@PoC FR 3 (#661): the wizard's «≈ M» and «Можна вит
     expect((await spendable(space)).figures!.amount).toEqual(eur("1000"));
   });
 });
+
+const loan = (space: Space, payment: { amount: string; currency: string }) =>
+  account(space, {
+    kind: "loan",
+    name: "Синтетичний кредит",
+    balance: { amount: "9000.00", currency: payment.currency },
+    balanceDate: "2026-01-01",
+    annualRate: "12",
+    monthlyPayment: payment.amount,
+  });
+
+async function gridExtra(space: Space, debt: string): Promise<unknown> {
+  const grid = await call(space, "GET", "/v1/budget/plan-grid");
+  expect(grid.statusCode, grid.body).toBe(200);
+  const row = (grid.json().debts.rows as { accountId: string; cells: { extra: unknown }[] }[]).find(
+    (r) => r.accountId === debt,
+  );
+  return row?.cells[0]?.extra;
+}
+
+describe("sec664: a debt's cell of «Розподіл» in place of its payoff extra — card = wizard = «План»", () => {
+  it("BUD-03@PoC FR 6: a loan the month owes only a minimum payment (250 €, no payoff plan) — its cell 80,40 € is the month's planned expense on the card and in the wizard: 6 000 − 250 − 80,40", async () => {
+    const space = await newSpace();
+    await current(space);
+    const debt = await loan(space, eur("250"));
+    const plan = {
+      firstPeriod: "2026-11",
+      incomePlan: eur("6000"),
+      allocation: [{ kind: "debt", accountId: debt, amount: eur("80.40") }],
+    };
+    expect((await wizard(space, plan)).amount).toEqual(eur("5669.6"));
+    await createBudget(space, plan);
+    const f = (await spendable(space)).figures!;
+    expect(f.plannedExpenses).toEqual({
+      items: [{ accountId: debt, amount: eur("80.4") }],
+      total: eur("80.4"),
+    });
+    expect(f.amount).toEqual(eur("5669.6"));
+    expect(await gridExtra(space, debt)).toEqual(eur("80.4"));
+  });
+
+  it("BUD-03@PoC EC4: a loan in USD (minimum 100 $ ≈ 80 €) and a payoff extra of 50 $ — the euro cell 70,07 € replaces the extra, never adds to it; card = wizard", async () => {
+    const space = await newSpace();
+    await current(space);
+    await rate("2026-11-05", "USD", "41.6");
+    await rate("2026-11-05", "EUR", "52");
+    const debt = await loan(space, { amount: "100", currency: "USD" });
+    extras.set(space.householdId, [{ accountId: debt, amount: Money.of("50", "USD") }]);
+    try {
+      const plan = {
+        firstPeriod: "2026-11",
+        incomePlan: eur("6000"),
+        allocation: [{ kind: "debt", accountId: debt, amount: eur("70.07") }],
+      };
+      const w = (await wizard(space, plan)).amount;
+      await createBudget(space, plan);
+      const s = await spendable(space);
+      expect(s.figures!.plannedExpenses).toEqual({
+        items: [{ accountId: debt, amount: eur("70.07") }],
+        total: eur("70.07"),
+      });
+      // 6 000 − the minimum 80 − the cell 70,07; never − 40 (the extra) as well.
+      expect(s.figures!.amount).toEqual(eur("5849.93"));
+      expect(w).toEqual(s.figures!.amount);
+      expect(s.approximate).toMatchObject({ plannedExpenses: false });
+      expect(await gridExtra(space, debt)).toEqual(eur("70.07"));
+    } finally {
+      extras.delete(space.householdId);
+    }
+  });
+
+  it("Data access: another space's loan in «Розподіл» is refused exactly as an unknown id — the debt's existence does not show, and it never reaches «Заплановані витрати»", async () => {
+    const other = await newSpace();
+    const foreign = await loan(other, eur("250"));
+    const space = await newSpace();
+    await current(space);
+    const plan = (accountId: string) => ({
+      firstPeriod: "2026-11",
+      incomePlan: eur("6000"),
+      allocation: [{ kind: "debt", accountId, amount: eur("80.40") }],
+    });
+    const unknown = randomUUID();
+    const a = await call(space, "POST", "/v1/budget/allocation", plan(foreign));
+    const b = await call(space, "POST", "/v1/budget/allocation", plan(unknown));
+    expect(a.statusCode).toBe(b.statusCode);
+    expect(a.statusCode).toBeGreaterThanOrEqual(400);
+    expect(a.body.replaceAll(foreign, "ID")).toBe(b.body.replaceAll(unknown, "ID"));
+    const saved = await call(space, "POST", "/v1/budget", plan(foreign));
+    expect(saved.statusCode).toBeGreaterThanOrEqual(400);
+    await createBudget(space, { incomePlan: eur("6000") });
+    const f = (await spendable(space)).figures!;
+    expect(f.plannedExpenses).toEqual({ items: [], total: eur("0") });
+    expect(f.amount).toEqual(eur("6000"));
+  });
+
+  it("BUD-03@PoC FR 6: a loan whose monthly payment is already made this month — the card counts its cell exactly as «План» shows it (no double count, nothing lost)", async () => {
+    const space = await newSpace();
+    await current(space);
+    const debt = await loan(space, eur("250"));
+    await createBudget(space, {
+      incomePlan: eur("6000"),
+      allocation: [{ kind: "debt", accountId: debt, amount: eur("80.40") }],
+    });
+    // The month's payment to the loan, from the current account (a transfer out of the budget's accounts).
+    await transaction(space, debt, "250.00", "2026-11-10");
+    const f = (await spendable(space)).figures!;
+    const extra = await gridExtra(space, debt);
+    expect(f.plannedExpenses.total).toEqual(extra ?? eur("0"));
+  });
+
+  it("BUD-02@PoC FR 3: a proportional first period from today (12 November) — the wizard's «≈ M» leaves out a spend before its start, as the card does: 3 000 × 19/30 − 100", async () => {
+    const space = await newSpace();
+    const acc = await current(space);
+    await transaction(space, acc, "-300.00", "2026-11-05");
+    await transaction(space, acc, "-100.00", "2026-11-12");
+    const plan = { firstPeriod: "2026-11", proportional: true, incomePlan: eur("3000") };
+    expect((await wizard(space, plan)).amount).toEqual(eur("1800"));
+    await createBudget(space, plan);
+    expect((await spendable(space)).figures!.amount).toEqual(eur("1800"));
+  });
+});

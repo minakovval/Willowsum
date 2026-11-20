@@ -201,6 +201,14 @@ describe("BUD-03@PoC FR 6: «Заплановані витрати» — a month
     }
   });
 
+  it("BUD-03@PoC FR 6: only a `debt` cell replaces a debt's extra payment — a goal's or another kind's cell with the same line id does not", () => {
+    for (const kind of ["goal", "savings"]) {
+      const r = plannedDebtExpenses("2026-11", plan, owed, [{ ...cell("a", "999"), kind }], "EUR");
+      expect(r.total).toEqual(eur("175.50"));
+      expect(r.approximate).toBe(true);
+    }
+  });
+
   it("BUD-03@PoC FR 6: a debt the month owes without a plan's extra payment gets its cell; a debt it no longer owes does not come back", () => {
     const r = plannedDebtExpenses("2026-11", [], owed, [cell("c", "30.01"), cell("gone", "500")], "EUR");
     expect(r.items).toEqual([{ accountId: "c", amount: eur("30.01"), approximate: false }]);

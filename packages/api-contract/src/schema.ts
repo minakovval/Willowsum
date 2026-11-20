@@ -1174,6 +1174,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/import/batches/{batchId}/files/{fileId}/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Before «Застосувати» (IMP-04 FR 1–6, IMP-08 FR 6): the rows of a parsed file the apply would not write as new ones — «дубль», «уже імпортовано», «повтор у файлі», «Можливий дубль», «замінено», злиття — with what each matches, by the apply's own plan against the account's transactions as they are now; read only, a page at a time by row */
+        get: operations["listImportDuplicatePreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/import/batches/{batchId}/files/{fileId}/link": {
         parameters: {
             query?: never;
@@ -1185,6 +1202,40 @@ export type paths = {
         put?: never;
         /** A short signed link to an accepted file's original (FR 7): valid for at most 15 minutes, this space only */
         post: operations["linkImportOriginal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/batches/{batchId}/files/{fileId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The review of a parsed file (IMP-08 FR 5–7, AC3, AC5; IMP-06 FR 8, AC8): the counts of its rows by state, its group «знак не підтверджено» with the group's decision, and the engine's decisions (table, columns, dates, numbers, sign, currency, encoding, delimiter) with their alternatives, scores, examples and «чому так» */
+        get: operations["getImportFileReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/batches/{batchId}/files/{fileId}/review/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The review of a parsed file's rows (IMP-08 FR 6, FR 7, FR 10): each row's state, the person's decision, whether its value was changed, its sign's basis and group, and the readings of an ambiguous amount with «чому так»; a page at a time in the order of the file */
+        get: operations["listImportReviewRows"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -15519,6 +15570,140 @@ export interface operations {
             };
         };
     };
+    listImportDuplicatePreview: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: string;
+                /** @description Items per page, 1–100. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                batchId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the file's duplicate preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        afterEarlierFile: boolean;
+                        items: {
+                            batchId: string | null;
+                            /** @enum {string} */
+                            kind: "repeat" | "duplicate" | "already-imported" | "merge" | "possible-duplicate" | "replace";
+                            merge: boolean;
+                            occurrence: number;
+                            row: number;
+                            transactionIds: string[];
+                        }[];
+                        /** @description Cursor of the next page; null on the last page. */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch covers too many transactions of the account at once (IMPORT_PLAN_TOO_LARGE) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     linkImportOriginal: {
         parameters: {
             query?: never;
@@ -15581,6 +15766,476 @@ export interface operations {
             };
             /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getImportFileReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file's review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        analysis: {
+                            columns: {
+                                column: number;
+                                header: string | null;
+                                role: {
+                                    alternatives: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    }[];
+                                    chosen: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    };
+                                    evidence: {
+                                        code: string;
+                                        column?: number;
+                                        count?: number;
+                                        example?: string;
+                                        of?: number;
+                                        row?: number;
+                                        word?: string;
+                                    }[];
+                                    flags: string[];
+                                };
+                            }[];
+                            currency: {
+                                code: string | null;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                /** @enum {string} */
+                                mode: "column" | "file" | "unknown";
+                            };
+                            dates: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            numbers: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            sign: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            table: {
+                                dataRows: number;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                headerRow: number | null;
+                            };
+                        };
+                        counts: {
+                            changed: number;
+                            rows: number;
+                            signUnconfirmed: number;
+                            states: {
+                                error: number;
+                                excluded: number;
+                                "needs-clarification": number;
+                                "needs-review": number;
+                                ok: number;
+                            };
+                        };
+                        delimiter: {
+                            alternatives: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            }[];
+                            chosen: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            };
+                        } | null;
+                        encoding: {
+                            alternatives: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            }[];
+                            chosen: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            };
+                        } | null;
+                        signGroup: {
+                            action: ("accept" | "exclude" | "flip-sign") | null;
+                            rows: number;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listImportReviewRows: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: string;
+                filter?: "ok" | "needs-review" | "needs-clarification" | "error" | "excluded" | "sign-unconfirmed" | "changed";
+                /** @description Items per page, 1–100. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                batchId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the file's review rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            bankStatus: ("processing" | "failed") | null;
+                            changed: boolean;
+                            decision: {
+                                /** @enum {string} */
+                                action: "accept" | "flip-sign" | "exclude" | "include" | "import-anyway";
+                                /** @enum {string} */
+                                from: "row" | "group";
+                            } | null;
+                            issue: ("unreadable" | "currency" | "too-precise" | "fee" | "account" | "text") | null;
+                            reading: {
+                                cell: string;
+                                chosen: string | null;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                readings: {
+                                    /** @enum {string} */
+                                    decimal: "," | ".";
+                                    value: string;
+                                }[];
+                            } | null;
+                            row: number;
+                            sign: {
+                                /** @enum {string} */
+                                basis: "balance-chain" | "totals" | "direction-word" | "debit-credit" | "printed-both-signs" | "profile" | "card" | "majority";
+                                confidence: number;
+                                confirmed: boolean;
+                            } | null;
+                            signUnconfirmed: boolean;
+                            /** @enum {string} */
+                            state: "ok" | "needs-review" | "needs-clarification" | "error" | "excluded";
+                        }[];
+                        /** @description Cursor of the next page; null on the last page. */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
