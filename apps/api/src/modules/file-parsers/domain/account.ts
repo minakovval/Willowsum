@@ -25,7 +25,8 @@ export interface AccountMatch {
 const IBAN = /(?<![A-Z0-9])[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30}(?![A-Z0-9])/g;
 const ibans = (cell: string): string[] =>
   (cell.normalize("NFKC").toUpperCase().match(IBAN) ?? [])
-    .map((m) => m.replace(/[ -]/g, ""))
+    // A word printed after the IBAN («UA… 4821 EUR») is not part of it: a final group of letters only is dropped.
+    .map((m) => m.replace(/[ -][A-Z]+$/, "").replace(/[ -]/g, ""))
     .filter((m) => m.length >= 15 && m.length <= 34);
 /** Digits grouped by spaces or hyphens, as account numbers are printed. */
 const NUMBER = /\d[\d -]*\d/g;
@@ -127,3 +128,31 @@ export function matchAccount(
     ),
   };
 }
+
+/** The last 4 characters behind an ellipsis: the only form of an IBAN or a card number that leaves the worker. */
+export const maskLast4 = (value: string): string => `…${value.slice(-4)}`;
+
+/**
+ * The masked reason of a `mismatch` (IMP-05@PoC FR 4: «IBAN …4821 у файлі, …1190 у рахунку»): the last 4 characters
+ * of the file's value and of the account's, never more (the business rule of IMP-05: masked, the last 4). Null when
+ * the outcome is not a mismatch. `matchAccount` itself still holds the outcome only.
+ */
+export function maskedMismatch(
+  preamble: readonly (readonly string[])[],
+  by: AccountBindingKind,
+  value: string,
+): { readonly file: string; readonly account: string } | null {
+  if (matchAccount(preamble, by, value).status !== "mismatch") return null;
+  const want = compact(value);
+  const found =
+    by === "iban" ? preamble.flat().flatMap(ibans) : preamble.flat().map(compact).flatMap(maskedIn);
+  const other = found.find((f) => (by === "iban" ? f !== want : !sameMask(f, want)));
+  return other === undefined ? null : { file: maskLast4(other), account: maskLast4(want) };
+}
+
+/** Whether the rows before the table show a masked card (a card feature of IMP-05@PoC FR 5, FR 6). */
+export const hasCardMask = (preamble: readonly (readonly string[])[]): boolean =>
+  preamble
+    .flat()
+    .map(compact)
+    .some((cell) => maskedIn(cell).length > 0);

@@ -1,4 +1,4 @@
-import { currencyInfo, Decimal, isCurrencyCode } from "@willowsum/domain-kernel";
+import { currencyInfo, Decimal as KernelDecimal, isCurrencyCode } from "@willowsum/domain-kernel";
 import { IN_VALUES, OUT_VALUES, type Role, type StatementAnalysis } from "./analysis.ts";
 import {
   amountMark,
@@ -8,6 +8,14 @@ import {
   type CurrencyHints,
 } from "./currency.ts";
 import { dateCell, numberCell, readDate, readNumber, type DecimalSeparator } from "./values.ts";
+
+/**
+ * A cell of up to 64 characters (`VALUE_CELL_CHARS`) is below 1e64 with at most 18 decimals: the kernel's precision
+ * (60 significant digits) would round «credit − debit» of such cells. The rows are read exactly (security review of
+ * #632).
+ */
+const Decimal = KernelDecimal.clone({ precision: 120 });
+type Decimal = InstanceType<typeof Decimal>;
 
 /**
  * A statement's rows read into events with legs (IMP-02@PoC FR 3–5, FR 8–12; wave 2 row 41 part 2), under the
@@ -64,6 +72,8 @@ export interface StatementEvent {
   /** The main legs: one per row in a statement (FR 5). */
   readonly legs: readonly EventLeg[];
   readonly fee: EventLeg | null;
+  /** The balance after the row as printed (IMP-05@PoC FR 1 «ланцюжок залишків»), decimal text; null — no balance. */
+  readonly balance: string | null;
   /** The original amount and currency (FR 4), before the bank's rate; null — the row has none. */
   readonly original: EventLeg | null;
   /** The bank's rate (FR 4, FR 12). */
@@ -79,7 +89,12 @@ export interface StatementEvent {
 
 export interface StatementOptions {
   /** The account the statement is for (FR 2, FR 3): its currencies; a single-currency account takes only its own. */
-  readonly account?: { readonly currencies: readonly string[]; readonly multiCurrency: boolean };
+  readonly account?: {
+    readonly currencies: readonly string[];
+    readonly multiCurrency: boolean;
+    /** The account's kind (accounts' `ACCOUNT_KINDS`): a «credit-card» is a card feature of IMP-05@PoC FR 5, FR 6. */
+    readonly kind?: string;
+  };
   /** The recipe's symbol dictionary (IMP-06 FR 1 `numbers.currencySymbols`). */
   readonly currencySymbols?: Readonly<Record<string, string>>;
   /** The country of the account's IBAN, when the caller knows it; else the IBAN in the file's preamble. */
@@ -113,6 +128,8 @@ export function readEvents(
   firstRow: number,
   analysis: StatementAnalysis,
   options: StatementOptions = {},
+  /** 0-based rows that are not operations: the statement's own figures («Разом», «Кінцевий залишок»; IMP-05 FR 1). */
+  exclude: ReadonlySet<number> = new Set(),
 ): StatementEvents {
   const column = (role: Role): number =>
     analysis.columns.find((c) => c.role.chosen.value === role)?.column ?? 0;
@@ -136,7 +153,9 @@ export function readEvents(
     ...(options.currencySymbols ? { symbols: options.currencySymbols } : {}),
     country: country?.code ?? null,
   };
-  const data = rows.map((r, i) => ({ r, i })).filter(({ r, i }) => i >= from && filled(r) >= 2);
+  const data = rows
+    .map((r, i) => ({ r, i }))
+    .filter(({ r, i }) => i >= from && filled(r) >= 2 && !exclude.has(i));
 
   const amountOf = (cell: string): Amount | null => {
     if (cell.trim() === "") return null;
@@ -309,6 +328,7 @@ export function readEvents(
 
     const date = dateOf(at(r, "date"));
     if (date === null) flags.add("date-unreadable");
+    const balance = amountOf(at(r, "balance"));
     return {
       row: i + 1,
       date,
@@ -316,6 +336,7 @@ export function readEvents(
       currency,
       legs: main ? [{ amount: text(main), currency }] : [],
       fee,
+      balance: balance ? text(balance) : null,
       original: originalAmount ? { amount: text(originalAmount), currency: originalCode } : null,
       rate: rate ? text({ value: rate.value.abs(), scale: rate.scale }) : null,
       // As printed (FR 4): the cell untouched, cut only past the bound.

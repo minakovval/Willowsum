@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (прив'язка виписки до рахунку рецепта у воркері розбору, хвиля 2, рядок 41, частина 3; раніше: IMP-02 b, події з ногами, частина 2)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -38,6 +38,21 @@
 в потоці API немає. Прив'язки шаблоном у шапці й колонкою — із застосуванням рецепта (п. 4). Маршрут розбору з лімітом
 одночасних воркерів — наступна частина.
 
+Частина 5 (IMP-05@PoC частина 1, рядок 42): перевірка виписки її власними підсумками — чистий домен, результат у
+`StatementParse.checks` (`StatementChecks`). Контрольні числа з підписаних рядків до, всередині й після таблиці
+(«Вхідний залишок:», «Кінцевий залишок:», «Разом» у колонках дебету й кредиту, «Сума списань», «Кількість операцій»,
+«Період»; `readFigures`) — такі рядки не є операціями й не входять в аналіз таблиці. Перевірки `controls` (`CHECK_KINDS`:
+початковий і кінцевий залишок, «початковий + рядки = кінцевий», суми списань і надходжень, кількість, період, ланцюжок
+залишків у будь-якому порядку рядків) зі станом `verified` / `mismatch` / `not-checked`, оголошеним і обчисленим значенням і
+різницею — точні десяткові у масштабі валюти без округлення. `bounds` — дати й залишки на кінцях для розриву історії;
+`historyGap(previous, next)` → `continuous` / `gap` / `overlap` / `unknown` з діапазоном і різницею (попередню виписку
+шукає import-sessions). `account` — докази чужого рахунку: IBAN або маска картки з прив'язки (`maskedMismatch`, лише
+останні 4 символи) і валюта, якої рахунок не тримає. `signs` — підстава знака кожного рядка (`SIGN_BASES`, від сильнішої)
+з упевненістю; слабкі (профіль, картка, більшість, ≤ 0,6) — група `unconfirmed`; `card` — «знак картки». `clarifications`
+— неоднозначні суми з обома прочитаннями (`readingFits` відхиляє прочитання з більшою кількістю знаків, ніж у валюті) і
+порядок дня й місяця. `flags` (`BatchFlag` з `severity`: `block` — лише `foreign-account`; решта `review`). Рішення й
+відмови застосування — import-sessions (IMP-05 частина 2).
+
 ## Вимоги
 
 Зрізи PoC, що називають модуль: FLW-10@PoC, IMP-01@PoC, IMP-02@PoC, IMP-05@PoC, IMP-06@PoC, IMP-09@PoC, IMP-19@PoC. Функції додають PR цих зрізів.
@@ -58,9 +73,12 @@
   `account-number`, `mask`; `opener` — household `SpaceKeys.fieldOpener` простору рецепта для `ACCOUNT_VALUE_FIELD`):
   ключ відкривача переноситься у воркер (у потоці API від'єднаний, а якщо воркер не стартував — витертий); значення, яке
   відкривач не відкриває (чужий простір чи поле, неправильний чи вже використаний ключ), — відмова `ACCOUNT_BINDING`,
-  розбору без прив'язки не буває. Результат: `account` (`AccountMatch`) або null без прив'язки.
-  `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`),
-  символи валют рецепта, країна IBAN; `EVENT_LIMITS`. Результат містить клітинки файлу: не логувати й не аудитувати; `READ_LIMITS`, `TABLE_LIMITS`, `ANALYSIS_LIMITS`, `ROLES`,
+  розбору без прив'язки не буває. Результат: `account` (`AccountMatch`) або null без прив'язки; `checks`
+  (`StatementChecks`, IMP-05: `figures`, `controls`, `bounds`, `account`, `signs`, `clarifications`, `flags`).
+- `historyGap(previous, next)` → `HistoryGap`; `readingFits(value, currency)`; `CHECK_KINDS`, `SIGN_BASES`,
+  `FLAG_SEVERITY`; типи `ControlCheck`, `StatementBounds`, `BatchFlag`, `Clarification`, `SignReview` та інші з `index.ts`.
+  `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`,
+  `kind` з `ACCOUNT_KINDS` для ознак картки), символи валют рецепта, країна IBAN; `EVENT_LIMITS`. Результат містить клітинки файлу: не логувати й не аудитувати; `READ_LIMITS`, `TABLE_LIMITS`, `ANALYSIS_LIMITS`, `ROLES`,
   `DATE_ORDERS`.
 - `fingerprintOf(signature)`, `compareSignatures(expected, actual)` → `match` / `changed` (зі схожістю) / `unknown`,
   `signatureSimilarity`; тип `FormatSignature`.
@@ -92,4 +110,5 @@
 `domain/imp06-format.test.ts`, `application/imp06-read-file.test.ts`, `domain/imp06-alternatives.test.ts`,
 `adapters/isolation/imp06-parse-worker.test.ts`, `sec607-parse-worker-only.test.ts` (читання й збіг — лише у воркері),
 `application/imp02-events.test.ts`, `adapters/isolation/imp02-parse-events.test.ts`, `domain/imp06-followups.test.ts`,
-`domain/sec619-header-bound.test.ts`.
+`domain/sec619-header-bound.test.ts`, `application/imp05-checks.test.ts`,
+`adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`.
