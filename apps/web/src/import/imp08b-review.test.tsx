@@ -17,6 +17,7 @@ import {
 } from "../auth/testing.tsx";
 import { importPath, resolveRoute } from "../routing/routes.ts";
 import { resetNavigationSession } from "../routing/session.ts";
+import { takeApplyIntent } from "./applyIntent.ts";
 import { ReviewStep } from "./ReviewStep.tsx";
 import { POLLING } from "./useImportStep.ts";
 
@@ -758,6 +759,11 @@ describe("IMP-08@PoC FR 16 — states of the step", () => {
     expect(screen.getByText("Усі рядки розпізнано. Можна застосовувати.")).toBeTruthy();
     await waitFor(() => expect(isDisabled(applyButton())).toBe(false));
     expect(applyButton().getAttribute("href")).toBe(`#${importPath(BATCH, "result")}`);
+    // IMP-08@PoC c): the click is the one-shot intent the result step reads; nothing arms it before the click.
+    expect(takeApplyIntent(BATCH)).toBe(false);
+    fireEvent.click(applyButton());
+    expect(takeApplyIntent(BATCH)).toBe(true);
+    expect(takeApplyIntent(BATCH)).toBe(false);
   });
 
   it("IMP-08@PoC FR 16: an unknown or foreign batch is «Імпорт не знайдено» with a way to start again", async () => {

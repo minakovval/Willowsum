@@ -37,6 +37,7 @@ import {
 } from "./reviewModel.ts";
 import { rowsText } from "./model.ts";
 import { useReviewStep, type Failure } from "./useReviewStep.ts";
+import { armApply } from "./applyIntent.ts";
 import "./import.css";
 
 type StateKey = "ok" | "needs-review" | "needs-clarification" | "error" | "excluded";
@@ -268,6 +269,7 @@ export function ReviewStep({ batchId }: { batchId: string }) {
             label={t("importReview.apply")}
             variant="primary"
             href={hrefFor(importPath(batchId, "result"))}
+            onClick={() => armApply(batchId)}
           />
         ) : (
           <Button label={t("importReview.apply")} variant="primary" disabled disabledReason={blocked} />

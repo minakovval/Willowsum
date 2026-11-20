@@ -18,6 +18,7 @@ import {
 import { importPath } from "../routing/routes.ts";
 import { resetNavigationSession } from "../routing/session.ts";
 import { ResultStep } from "./ResultStep.tsx";
+import { armApply } from "./applyIntent.ts";
 
 /**
  * IMP-08@PoC c) (wave 2, row 138) — the step «Результат» of the import wizard, S-174 (canvas PocMoneyImport3 and the «Тексти»
@@ -118,6 +119,7 @@ const refused = (rows: { path: string; issue: string }[]): Reply => ({
 });
 
 beforeEach(() => {
+  armApply(BATCH);
   installMatchMedia({ width: 1280 });
   resetAuthState();
   resetNavigationSession();
@@ -204,6 +206,7 @@ describe("IMP-08@PoC FR 11, AC7 — the outcome of the apply", () => {
     expect(screen.queryByRole("link", { name: "До розбору" })).toBeNull();
     unmount();
 
+    armApply(BATCH);
     const capped = api({
       [`GET /v1/import/batches/${BATCH}/result`]: () => ({
         status: 200,
@@ -383,6 +386,7 @@ describe("IMP-08@PoC FR 16 — loading, applying, errors", () => {
       ["BATCH_STATE_CONFLICT", 409, /Стан партії змінився/],
     ];
     for (const [code, status, text] of cases) {
+      armApply(BATCH);
       const { client } = api({ [`POST /v1/import/batches/${BATCH}/apply`]: () => problem(status, code) });
       const view = renderAt(at, client);
       expect((await screen.findByRole("alert")).textContent).toMatch(text);
@@ -551,6 +555,7 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     expect(screen.queryByRole("button", { name: "Відкотити партію" })).toBeNull();
     a.unmount();
 
+    armApply(BATCH);
     const { client } = api({
       [`POST /v1/import/batches/${BATCH}/rollback`]: () => problem(409, "IMPORT_ROLLBACK_EXPIRED"),
     });
