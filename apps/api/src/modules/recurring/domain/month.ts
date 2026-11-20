@@ -1,7 +1,7 @@
 import type { Money } from "@willowsum/domain-kernel";
 import type { PaymentFields } from "./payments.ts";
 import { daysBetween, FREQUENCY_RULES, scheduleDate } from "./schedule.ts";
-import type { ChargeStatus, Tracking } from "./tracking.ts";
+import { heldOn, type ChargeStatus, type Tracking } from "./tracking.ts";
 
 /**
  * The charges of a payment expected in one calendar month (BUD-03@PoC FR 5, BUD-02@PoC FR 16; BUD-07@PoC FR 17: a
@@ -42,7 +42,8 @@ const lastDay = (month: string) =>
 
 /**
  * BUD-03@PoC FR 5: the month's charges of one payment. A payment «Можливо, скасований» has none (FR 5 counts only an
- * active one), nor one after its end date. A date the tracking covers takes its status (a charge before the day the
+ * active one), nor one after its end date; BUD-07 FR 13: nor a date it holds — paused, or from the month it was marked
+ * cancelled (a paid charge stays: the tracking shows it). A date the tracking covers takes its status (a charge before the day the
  * payment was added, without a payment, is not shown — BUD-07 EC4); a later date (after today) is «Очікується» at the expected amount.
  */
 export function chargesInMonth(
@@ -53,14 +54,14 @@ export function chargesInMonth(
   month: string,
   today: string,
 ): MonthCharge[] {
-  if (tracking.state !== "active") return [];
+  if (tracking.state === "possibly-cancelled") return [];
   const tracked = new Map(tracking.charges.map((c) => [c.dueOn, c]));
   const covered = tracking.charges.reduce((last, c) => (c.dueOn > last ? c.dueOn : last), "");
   const end = payment.endDate !== null && payment.endDate < lastDay(month) ? payment.endDate : lastDay(month);
   const out: MonthCharge[] = [];
   for (const dueOn of scheduleBetween(payment.anchorDate, payment.frequency, `${month}-01`, end)) {
     const c = tracked.get(dueOn);
-    if (!c && (dueOn <= covered || dueOn <= today)) continue;
+    if (!c && (dueOn <= covered || dueOn <= today || heldOn(tracking.holds, dueOn))) continue;
     out.push({
       paymentId: payment.id,
       type: payment.type,

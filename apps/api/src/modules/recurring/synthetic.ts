@@ -3,7 +3,7 @@
 // audit entry, ARC-04) is done; the module publishes no events: outbox_events gets one dispatched row for the isolation
 // check. Tables load in name order (charge_marks before payments) in one transaction; the key of a mark to its payment
 // is checked at commit. Payment n has the id `key(household, "payment", n)`; the first one has its October charge
-// marked «Пропущено» (BUD-07 FR 21).
+// marked «Пропущено» (BUD-07 FR 21); the second is paused (FR 13).
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -28,6 +28,22 @@ export const synthetic = [
           kind: "skipped",
           transaction_id: null,
           marked_on: "2026-11-01",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    // BUD-07 FR 13: the second payment (the streaming one) is paused until the end of January.
+    table: "recurring.payment_holds",
+    perHousehold: 1,
+    *rows({ household, rng, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: rng.uuid(),
+          payment_id: key(household.id, "payment", 1),
+          kind: "pause",
+          starts_on: "2026-11-10",
+          ends_on: "2027-01-31",
         };
     },
   }),

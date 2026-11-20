@@ -27,12 +27,33 @@ export const UPDATE_THRESHOLD = new Decimal("0.05");
 export const CHARGE_STATUSES = ["paid", "paid-late", "expected", "overdue", "skipped"] as const;
 export type ChargeStatus = (typeof CHARGE_STATUSES)[number];
 
-/** FR 9, FR 10: the payment's own state — «Можливо, скасований» after misses in a row. */
-export const PAYMENT_STATES = ["active", "possibly-cancelled"] as const;
+/**
+ * FR 9, FR 10, FR 13: the payment's own state — «Можливо, скасований» after misses in a row; `paused` — «Призупинено»
+ * (today within a pause); `cancelled` — «Позначено скасованим» (a mark in the app only, until restored).
+ */
+export const PAYMENT_STATES = ["active", "possibly-cancelled", "paused", "cancelled"] as const;
 export type PaymentState = (typeof PAYMENT_STATES)[number];
 
 /** FR 10: misses in a row that make a payment «Можливо, скасований» (a weekly one — three). */
 export const missesToFlag = (frequency: Frequency): number => (frequency === "week" ? 3 : 2);
+
+/**
+ * FR 13: a span of the payment's schedule the user held — «Призупинити» (`pause`, to a date or, without `until`, until
+ * «Відновити») or «Позначити скасованим» (`cancel`, from the first day of that month, until «Відновити»). A charge of a
+ * held span without a payment is not shown, is no miss and is not in «Можна витратити»; a paid one stays (the history).
+ */
+export interface Hold {
+  readonly kind: "pause" | "cancel";
+  readonly from: string;
+  /** The last day held, included; null — open (until «Відновити»). */
+  readonly until: string | null;
+}
+
+export const HOLD_KINDS = ["pause", "cancel"] as const;
+
+/** FR 13: whether a date is within a hold. */
+export const heldOn = (holds: readonly Hold[], date: string): boolean =>
+  holds.some((h) => date >= h.from && (h.until === null || date <= h.until));
 
 /** A user's mark on one charge of the payment, by the charge's date. */
 export type ChargeMark =
@@ -65,6 +86,8 @@ export interface TrackInput {
   readonly createdOn: string;
   /** FR 10 «Залишити»: misses are counted anew from this day. */
   readonly keptOn: string | null;
+  /** FR 13: the pauses and the «скасовано» marks, any order; omitted — none. */
+  readonly holds?: readonly Hold[];
   readonly type: PaymentType;
   /** The expected amount as the user set it (or the proposal gave it). */
   readonly base: Money;
@@ -123,6 +146,8 @@ export interface Tracking {
   readonly approximate: boolean;
   /** The transactions this payment took (no other payment's charge may take them). */
   readonly used: readonly string[];
+  /** FR 13: the payment's holds, as given. */
+  readonly holds: readonly Hold[];
 }
 
 interface Slot {
@@ -323,18 +348,23 @@ export function trackPayment(input: TrackInput): Tracking {
   }
   const { expected, changes } = walk;
 
-  // FR 9, EC4: the statuses of the charges without a payment.
+  // FR 9, EC4: the statuses of the charges without a payment. FR 13: a held charge without one is not shown.
+  const holds = input.holds ?? [];
   const shown: Slot[] = [];
   for (const slot of all) {
     if (!slot.paid && slot.status !== "skipped") {
-      if (slot.dueOn < input.createdOn) continue;
+      if (slot.dueOn < input.createdOn || heldOn(holds, slot.dueOn)) continue;
       slot.status = input.today >= addDays(slot.dueOn, WINDOW_DAYS) ? "overdue" : "expected";
     }
     shown.push(slot);
   }
 
-  // FR 10: misses in a row, the latest first, since the day added or «Залишити».
-  const countFrom = input.keptOn !== null && input.keptOn > input.createdOn ? input.keptOn : input.createdOn;
+  // FR 10: misses in a row, the latest first, since the day added, «Залишити» or (FR 13) the end of a hold — «відновлення
+  // перезапускає лічильник пропусків».
+  let countFrom = input.keptOn !== null && input.keptOn > input.createdOn ? input.keptOn : input.createdOn;
+  for (const h of holds)
+    if (h.until !== null && h.until < input.today && addDays(h.until, 1) > countFrom)
+      countFrom = addDays(h.until, 1);
   let missesInRow = 0;
   for (let i = shown.length - 1; i >= 0; i -= 1) {
     const s = shown[i]!;
@@ -362,10 +392,58 @@ export function trackPayment(input: TrackInput): Tracking {
     amountChange: latestPaid?.amountChange ?? null,
     changes,
     missesInRow,
-    state: missesInRow >= missesToFlag(input.frequency) ? "possibly-cancelled" : "active",
+    state: holds.some((h) => h.kind === "cancel" && h.until === null)
+      ? "cancelled"
+      : heldOn(
+            holds.filter((h) => h.kind === "pause"),
+            input.today,
+          )
+        ? "paused"
+        : missesInRow >= missesToFlag(input.frequency)
+          ? "possibly-cancelled"
+          : "active",
     approximate: charges.some((c) => c.approximate),
     used: shown.flatMap((s) => (s.paid ? [s.paid.id] : [])),
+    holds,
   };
+}
+
+/**
+ * FR 13: the holds a payment gets by «Призупинити» (`until` — the last day paused, after today; null — until
+ * «Відновити»), «Позначити скасованим» (from the first day of this month) and «Відновити» (the open or current hold ends
+ * yesterday; one that starts today or later is dropped). A hold kept keeps its other fields (its id). Null — the action
+ * does not fit the payment's state. Pure.
+ */
+export function holdAction<H extends Hold>(
+  holds: readonly H[],
+  state: PaymentState,
+  action:
+    | { readonly kind: "pause"; readonly until: string | null }
+    | { readonly kind: "cancel" }
+    | { readonly kind: "resume" },
+  today: string,
+): (H | Hold)[] | null {
+  if (action.kind === "pause") {
+    if (state === "paused" || state === "cancelled") return null;
+    return [...holds, { kind: "pause", from: today, until: action.until }];
+  }
+  if (action.kind === "cancel") {
+    if (state === "cancelled") return null;
+    // A pause still ahead ends with the mark: «Відновити» then restores the payment, not a pause.
+    const ended = endHolds(holds, today, (h) => h.kind === "pause");
+    return [...ended, { kind: "cancel", from: `${today.slice(0, 7)}-01`, until: null }];
+  }
+  if (state !== "paused" && state !== "cancelled") return null;
+  return endHolds(holds, today, () => true);
+}
+
+/** The holds that reach today or later end yesterday; one that starts today or later is dropped. */
+function endHolds<H extends Hold>(holds: readonly H[], today: string, which: (h: H) => boolean): H[] {
+  const yesterday = addDays(today, -1);
+  return holds.flatMap((h) => {
+    if (!which(h) || (h.until !== null && h.until < today)) return [h];
+    return h.from > yesterday ? [] : [{ ...h, until: yesterday }];
+  });
 }
 
 /** FR 20, FR 21: what the user may do with a charge — mark an overdue one skipped, pay an overdue or skipped one. */

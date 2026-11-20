@@ -62,10 +62,9 @@ export function createBudgetObligations(ports: {
         (c) => from === undefined || c.dueOn >= from,
       );
       const charges = month.filter((c) => c.type === "expense");
-      // BUD-03@PoC FR 3: the regular incomes not come yet — only «Очікується» and «Прострочено» are still to come.
-      const incomes = month.filter(
-        (c) => c.type === "income" && (c.status === "expected" || c.status === "overdue"),
-      );
+      // BUD-03@PoC FR 3, BUD-07@PoC FR 15: the regular incomes still expected in the period — «Очікується» only; one
+      // «Дохід не надійшов» (an overdue income) or «Пропущено» is not counted (BUD-07 AC12).
+      const incomes = month.filter((c) => c.type === "income" && c.status === "expected");
       const loans: { accountId: string; amount: Money }[] = [];
       for (const a of await ports.credit.list(householdId)) {
         if (a.kind !== "loan") continue;

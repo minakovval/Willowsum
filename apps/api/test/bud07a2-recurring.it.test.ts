@@ -280,6 +280,7 @@ describe("BUD-07@PoC FR 4, AC1: the user confirms a proposal (fields may be edit
       source: "proposal",
       createdOn: "2026-11-16",
       version: 1,
+      holds: [],
     });
     // FR 4, FR 5: the analysis runs again — the merchant is a regular payment, so nothing is proposed for it.
     expect(await proposals(space)).toEqual([]);

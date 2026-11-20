@@ -35,7 +35,7 @@ export interface PeriodObligations {
   }[];
   readonly approximate?: boolean;
   /**
-   * BUD-03@PoC FR 3: the regular incomes still expected in the month («Очікується», «Прострочено»), summed — added to the
+   * BUD-03@PoC FR 3, BUD-07@PoC FR 15: the regular incomes still expected in the month («Очікується»), summed — added to the
    * actual income against the plan. Null — one has no rate (no figure of «Можна витратити»); left out (a test's port) —
    * none.
    */

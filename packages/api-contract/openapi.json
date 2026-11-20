@@ -38382,6 +38382,36 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
+                          },
+                          "holds": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "pause",
+                                    "cancel"
+                                  ]
+                                },
+                                "from": {
+                                  "type": "string"
+                                },
+                                "until": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "from",
+                                "until"
+                              ],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [
@@ -38400,7 +38430,8 @@
                           "merchantId",
                           "source",
                           "createdOn",
-                          "version"
+                          "version",
+                          "holds"
                         ],
                         "additionalProperties": false
                       }
@@ -38771,6 +38802,36 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "pause",
+                              "cancel"
+                            ]
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "until"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -38789,7 +38850,8 @@
                     "merchantId",
                     "source",
                     "createdOn",
-                    "version"
+                    "version",
+                    "holds"
                   ],
                   "additionalProperties": false
                 }
@@ -39044,6 +39106,36 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "pause",
+                              "cancel"
+                            ]
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "until"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -39062,7 +39154,8 @@
                     "merchantId",
                     "source",
                     "createdOn",
-                    "version"
+                    "version",
+                    "holds"
                   ],
                   "additionalProperties": false
                 }
@@ -39161,6 +39254,310 @@
         }
       }
     },
+    "/v1/recurring/payments/{paymentId}/cancel": {
+      "post": {
+        "operationId": "cancelRecurringPayment",
+        "summary": "«Позначити скасованим»: a mark in the app only (nothing is cancelled at the provider) — the payment leaves the plan from this month, its history stays (BUD-07 FR 13)",
+        "tags": [
+          "recurring"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "recurring.payments",
+          "flags": [
+            "recurring.payments"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The payment, marked cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "expense",
+                        "income"
+                      ]
+                    },
+                    "frequency": {
+                      "type": "string",
+                      "enum": [
+                        "week",
+                        "two-weeks",
+                        "month",
+                        "quarter",
+                        "year"
+                      ]
+                    },
+                    "expectedAmount": {
+                      "type": "object",
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "amount",
+                        "currency"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "anchorDate": {
+                      "type": "string"
+                    },
+                    "nextDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "endDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "categoryId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "accountId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subscription": {
+                      "type": "boolean"
+                    },
+                    "variable": {
+                      "type": "boolean"
+                    },
+                    "merchantId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "proposal",
+                        "manual"
+                      ]
+                    },
+                    "createdOn": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "pause",
+                              "cancel"
+                            ]
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "until"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "frequency",
+                    "expectedAmount",
+                    "anchorDate",
+                    "nextDate",
+                    "endDate",
+                    "categoryId",
+                    "accountId",
+                    "subscription",
+                    "variable",
+                    "merchantId",
+                    "source",
+                    "createdOn",
+                    "version",
+                    "holds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/recurring/payments/{paymentId}/charges": {
       "get": {
         "operationId": "listRecurringCharges",
@@ -39204,7 +39601,9 @@
                       "type": "string",
                       "enum": [
                         "active",
-                        "possibly-cancelled"
+                        "possibly-cancelled",
+                        "paused",
+                        "cancelled"
                       ]
                     },
                     "expectedAmount": {
@@ -40715,6 +41114,36 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "pause",
+                              "cancel"
+                            ]
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "until"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -40733,7 +41162,641 @@
                     "merchantId",
                     "source",
                     "createdOn",
-                    "version"
+                    "version",
+                    "holds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recurring/payments/{paymentId}/pause": {
+      "post": {
+        "operationId": "pauseRecurringPayment",
+        "summary": "«Призупинити»: to a date or until «Відновити» — the payment's charges and its share of «Можна витратити» are gone meanwhile (BUD-07 FR 13)",
+        "tags": [
+          "recurring"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "recurring.payments",
+          "flags": [
+            "recurring.payments"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "until": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 10,
+                        "description": "YYYY-MM-DD"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The payment, paused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "expense",
+                        "income"
+                      ]
+                    },
+                    "frequency": {
+                      "type": "string",
+                      "enum": [
+                        "week",
+                        "two-weeks",
+                        "month",
+                        "quarter",
+                        "year"
+                      ]
+                    },
+                    "expectedAmount": {
+                      "type": "object",
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "amount",
+                        "currency"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "anchorDate": {
+                      "type": "string"
+                    },
+                    "nextDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "endDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "categoryId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "accountId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subscription": {
+                      "type": "boolean"
+                    },
+                    "variable": {
+                      "type": "boolean"
+                    },
+                    "merchantId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "proposal",
+                        "manual"
+                      ]
+                    },
+                    "createdOn": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "pause",
+                              "cancel"
+                            ]
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "until"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "frequency",
+                    "expectedAmount",
+                    "anchorDate",
+                    "nextDate",
+                    "endDate",
+                    "categoryId",
+                    "accountId",
+                    "subscription",
+                    "variable",
+                    "merchantId",
+                    "source",
+                    "createdOn",
+                    "version",
+                    "holds"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recurring/payments/{paymentId}/resume": {
+      "post": {
+        "operationId": "resumeRecurringPayment",
+        "summary": "«Відновити»: a paused or cancelled payment is active again from today; its misses are counted anew (BUD-07 FR 13)",
+        "tags": [
+          "recurring"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "recurring.payments",
+          "flags": [
+            "recurring.payments"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The payment, active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "expense",
+                        "income"
+                      ]
+                    },
+                    "frequency": {
+                      "type": "string",
+                      "enum": [
+                        "week",
+                        "two-weeks",
+                        "month",
+                        "quarter",
+                        "year"
+                      ]
+                    },
+                    "expectedAmount": {
+                      "type": "object",
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "amount",
+                        "currency"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "anchorDate": {
+                      "type": "string"
+                    },
+                    "nextDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "endDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "categoryId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "accountId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "subscription": {
+                      "type": "boolean"
+                    },
+                    "variable": {
+                      "type": "boolean"
+                    },
+                    "merchantId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "proposal",
+                        "manual"
+                      ]
+                    },
+                    "createdOn": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "pause",
+                              "cancel"
+                            ]
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "until"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "frequency",
+                    "expectedAmount",
+                    "anchorDate",
+                    "nextDate",
+                    "endDate",
+                    "categoryId",
+                    "accountId",
+                    "subscription",
+                    "variable",
+                    "merchantId",
+                    "source",
+                    "createdOn",
+                    "version",
+                    "holds"
                   ],
                   "additionalProperties": false
                 }
@@ -41337,6 +42400,36 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "holds": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "pause",
+                              "cancel"
+                            ]
+                          },
+                          "from": {
+                            "type": "string"
+                          },
+                          "until": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "from",
+                          "until"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
@@ -41355,7 +42448,8 @@
                     "merchantId",
                     "source",
                     "createdOn",
-                    "version"
+                    "version",
+                    "holds"
                   ],
                   "additionalProperties": false
                 }
@@ -41742,7 +42836,9 @@
                             "type": "string",
                             "enum": [
                               "active",
-                              "possibly-cancelled"
+                              "possibly-cancelled",
+                              "paused",
+                              "cancelled"
                             ]
                           },
                           "expectedAmount": {

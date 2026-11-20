@@ -1,3 +1,4 @@
+import { isCalendarDate } from "@willowsum/domain-kernel";
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
@@ -8,6 +9,7 @@ import {
   currentAmount,
   type Decisions,
   GONE,
+  holdPayment,
   keepPayment,
   listProposals,
   nextPaymentDate,
@@ -19,12 +21,15 @@ import {
   type ChargeOutcome,
   type Proposal,
   type RecurringHandOff,
+  type HoldRequest,
   type SpaceTracking,
+  type StoredHold,
   type StoredPayment,
 } from "../../application/index.ts";
 import {
   CHARGE_STATUSES,
   checkPayment,
+  HOLD_KINDS,
   FREQUENCIES,
   PAYMENT_STATES,
   type AmountChange,
@@ -144,16 +149,26 @@ const paymentSchema = z.object({
   source: z.enum(["proposal", "manual"]),
   createdOn: z.string(),
   version: z.number().int(),
+  /**
+   * FR 13: «Призупинити» (`pause`) and «Позначити скасованим» (`cancel`, from the first day of its month) — spans of the
+   * schedule whose charges without a payment are not shown nor in «Можна витратити»; `until` null — until «Відновити».
+   * Oldest first.
+   */
+  holds: z.array(z.object({ kind: z.enum(HOLD_KINDS), from: z.string(), until: z.string().nullable() })),
 });
 
-const presentPayment = (p: StoredPayment, today: string): z.input<typeof paymentSchema> => ({
+const presentPayment = (
+  p: StoredPayment,
+  today: string,
+  holds: readonly StoredHold[] = [],
+): z.input<typeof paymentSchema> => ({
   id: p.id,
   name: p.name,
   type: p.type,
   frequency: p.frequency,
   expectedAmount: currentAmount(p).toJSON(),
   anchorDate: p.anchorDate,
-  nextDate: nextPaymentDate(p, today),
+  nextDate: nextPaymentDate(p, today, holds),
   endDate: p.endDate,
   categoryId: p.categoryId,
   accountId: p.accountId,
@@ -163,7 +178,12 @@ const presentPayment = (p: StoredPayment, today: string): z.input<typeof payment
   source: p.source,
   createdOn: p.createdOn,
   version: p.version,
+  holds: holds.map((h) => ({ kind: h.kind, from: h.from, until: h.until })),
 });
+
+/** FR 13: the payment's own holds, oldest first. */
+const holdsOf = (all: readonly StoredHold[], paymentId: string) =>
+  all.filter((h) => h.paymentId === paymentId);
 
 const rejectionSchema = z.object({
   id: z.uuid(),
@@ -390,9 +410,13 @@ export const listRecurringPaymentsRoute = defineRoute({
   handler: async (_input, ctx) => {
     refuseScoped(ctx);
     const { payments } = recurringServices(ctx);
-    const found = await ctx.inHousehold((q) => recurringTx(q).payments(ctx.principal.householdId));
+    const householdId = ctx.principal.householdId;
+    const { found, holds } = await ctx.inHousehold(async (q) => ({
+      found: await recurringTx(q).payments(householdId),
+      holds: await recurringTx(q).holds(householdId),
+    }));
     const today = payments.today();
-    return { items: found.map((p) => presentPayment(p, today)) };
+    return { items: found.map((p) => presentPayment(p, today, holdsOf(holds, p.id))) };
   },
 });
 
@@ -408,11 +432,13 @@ export const getRecurringPaymentRoute = defineRoute({
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
     const { payments } = recurringServices(ctx);
-    const found = await ctx.inHousehold((q) =>
-      recurringTx(q).payment(ctx.principal.householdId, params.paymentId),
-    );
+    const householdId = ctx.principal.householdId;
+    const { found, holds } = await ctx.inHousehold(async (q) => ({
+      found: await recurringTx(q).payment(householdId, params.paymentId),
+      holds: await recurringTx(q).holds(householdId),
+    }));
     if (!found) throw new ApiProblem("NOT_FOUND");
-    return presentPayment(found, payments.today());
+    return presentPayment(found, payments.today(), holdsOf(holds, found.id));
   },
 });
 
@@ -470,7 +496,10 @@ const presentCharge = (c: TrackedCharge): z.input<typeof chargeSchema> => ({
 /** FR 9, FR 10: a payment's status — its state, the expected amount now, the latest and the next charge. */
 const statusSchema = z.object({
   paymentId: z.uuid(),
-  /** `possibly-cancelled` — «Можливо, скасований» (FR 10): no more in «Можна витратити» until «Залишити». */
+  /**
+   * `possibly-cancelled` — «Можливо, скасований» (FR 10): no more in «Можна витратити» until «Залишити»; `paused` —
+   * today is within a pause, `cancelled` — «Позначено скасованим» (FR 13), both until «Відновити».
+   */
   state: z.enum(PAYMENT_STATES),
   /** FR 11: the expected amount now. */
   expectedAmount: moneySchema,
@@ -510,11 +539,12 @@ async function tracked(
 ): Promise<{ payments: StoredPayment[]; tracking: SpaceTracking }> {
   const { tracking: deps, audit } = recurringServices(ctx);
   const householdId = ctx.principal.householdId;
-  const { payments, marks } = await ctx.inHousehold(async (q) => ({
+  const { payments, marks, holds } = await ctx.inHousehold(async (q) => ({
     payments: await recurringTx(q).payments(householdId),
     marks: await recurringTx(q).marks(householdId),
+    holds: await recurringTx(q).holds(householdId),
   }));
-  const tracking = await trackSpace(deps, householdId, payments, marks);
+  const tracking = await trackSpace(deps, householdId, payments, marks, holds);
   const handOffs = await ctx.inHousehold((q) =>
     recordAmounts(deps, recurringTx(q), householdId, payments, tracking),
   );
@@ -663,6 +693,76 @@ export const keepRecurringPaymentRoute = defineRoute({
   },
 });
 
+/** FR 13: one hold action on a payment, under its lock; the payment with its holds. */
+async function holdRoute(ctx: ProtectedContext, paymentId: string, request: HoldRequest) {
+  refuseScoped(ctx);
+  const { tracking: deps, payments, audit } = recurringServices(ctx);
+  const today = payments.today();
+  if (request.kind === "pause" && request.until !== null && request.until <= today)
+    invalid([{ field: "until", issue: "not_after_today" }]);
+  const householdId = ctx.principal.householdId;
+  const { result, handOffs, holds } = await ctx.inHousehold(async (q) => {
+    const done = outcome(await holdPayment(deps, recurringTx(q), caller(ctx), paymentId, request));
+    return { ...done, holds: await recurringTx(q).holds(householdId) };
+  });
+  await handOffNow(audit, householdId, handOffs);
+  return presentPayment(result, today, holdsOf(holds, paymentId));
+}
+
+export const pauseRecurringPaymentRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/recurring/payments/{paymentId}/pause",
+  operationId: "pauseRecurringPayment",
+  summary:
+    "«Призупинити»: to a date or until «Відновити» — the payment's charges and its share of «Можна витратити» are gone meanwhile (BUD-07 FR 13)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 1024,
+  problems: ["RECURRING_CHARGE_STATE"],
+  request: {
+    params: paymentParams,
+    body: z
+      .object({
+        /** The last day paused, after today; null or left out — until «Відновити». */
+        until: isoDate.nullable().optional(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The payment, paused", schema: paymentSchema },
+  handler: async ({ params, body }, ctx) => {
+    if (body.until != null && !isCalendarDate(body.until)) invalid([{ field: "until", issue: "invalid" }]);
+    return holdRoute(ctx, params.paymentId, { kind: "pause", until: body.until ?? null });
+  },
+});
+
+export const cancelRecurringPaymentRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/recurring/payments/{paymentId}/cancel",
+  operationId: "cancelRecurringPayment",
+  summary:
+    "«Позначити скасованим»: a mark in the app only (nothing is cancelled at the provider) — the payment leaves the plan from this month, its history stays (BUD-07 FR 13)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["RECURRING_CHARGE_STATE"],
+  request: { params: paymentParams },
+  response: { status: 200, description: "The payment, marked cancelled", schema: paymentSchema },
+  handler: async ({ params }, ctx) => holdRoute(ctx, params.paymentId, { kind: "cancel" }),
+});
+
+export const resumeRecurringPaymentRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/recurring/payments/{paymentId}/resume",
+  operationId: "resumeRecurringPayment",
+  summary:
+    "«Відновити»: a paused or cancelled payment is active again from today; its misses are counted anew (BUD-07 FR 13)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["RECURRING_CHARGE_STATE"],
+  request: { params: paymentParams },
+  response: { status: 200, description: "The payment, active", schema: paymentSchema },
+  handler: async ({ params }, ctx) => holdRoute(ctx, params.paymentId, { kind: "resume" }),
+});
+
 export const recurringRoutes = [
   listRecurringProposalsRoute,
   confirmRecurringProposalRoute,
@@ -675,4 +775,7 @@ export const recurringRoutes = [
   skipRecurringChargeRoute,
   settleRecurringChargeRoute,
   keepRecurringPaymentRoute,
+  pauseRecurringPaymentRoute,
+  cancelRecurringPaymentRoute,
+  resumeRecurringPaymentRoute,
 ];

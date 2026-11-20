@@ -158,7 +158,7 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   `BudgetTransactions.firstDate` (transactions) — початок історії для середніх і бази минулого року (BUD-06);
   `obligations` — `BudgetObligations.month(householdId, period, currency, from?)` → `PeriodObligations` або null
   (`recurring`: `categoryId`, `amount`, `paid`, `paymentId`, `dueOn`, `overdueDays`; `incomeExpected` — регулярні доходи
-  місяця, що ще очікуються, null — без курсу; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
+  місяця, що ще очікуються (лише «Очікується»: «Дохід не надійшов» і «Пропущено» — ні, BUD-07 п. 15), null — без курсу; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
   кредиту, лише тут, не в `recurring`; `approximate`; суми у валюті бюджету за сьогоднішнім курсом).
 - `createBudgetPlanSources({ goals, debts, fx, recurring?, planEnabled? })` → `BudgetPlanSources` (`src/main.ts`): `GoalPlans` (goals:
   активні цілі з потрібним внеском, датою і внесеним цього місяця — `contributed`), `DebtPlannedExpenses` (debt-payoff: додаткові платежі місяця),
