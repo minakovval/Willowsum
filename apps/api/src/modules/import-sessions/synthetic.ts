@@ -46,6 +46,56 @@ export const synthetic = [
         };
     },
   }),
+  // IMP-05 part 2: the checks of the batch's files (masked values only) and a decision per row.
+  defineSyntheticTable({
+    table: "import_sessions.file_checks",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          batch_file_id: key(household.id, "file", i),
+          batch_id: key(household.id, "batch", 0),
+          account_id: key(household.id, "account-ref", 0),
+          account_currency: "UAH",
+          checks: JSON.stringify({
+            currency: "UAH",
+            bounds: {
+              start: "2026-10-01",
+              end: "2026-10-31",
+              opening: "1000.00",
+              closing: "1450.00",
+              currency: "UAH",
+            },
+            account: { status: "mismatch", reasons: [{ kind: "iban", file: "…4821", account: "…1190" }] },
+            flags: [{ code: "foreign-account", severity: "block" }],
+          }),
+          history: JSON.stringify({ status: "unknown", range: null }),
+          recorded_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "import_sessions.decisions",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          batch_id: key(household.id, "batch", 0),
+          slot: `row:${key(household.id, "file", 0)}:${i + 1}`,
+          batch_file_id: key(household.id, "file", 0),
+          decision: JSON.stringify({
+            kind: "row",
+            fileId: key(household.id, "file", 0),
+            row: i + 1,
+            action: "accept",
+          }),
+          decided_by: key(household.id, "account", 0),
+          decided_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
   defineSyntheticTable({
     table: "import_sessions.idempotency_keys",
     perHousehold: 1,

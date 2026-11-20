@@ -2,9 +2,25 @@ import { z } from "zod";
 import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platform/http/pagination.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, DOWNLOAD_RESPONSE, type ProtectedContext } from "../../../../platform/http/route.ts";
+import { FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
 import { FileNotFoundError } from "../../../file-storage/index.ts";
 import {
   addFiles,
+  BALANCE_CHOICES,
+  decide,
+  DecisionRefused,
+  DECISIONS_PER_REQUEST,
+  decisionsOf,
+  DATE_ORDER_CHOICES,
+  GROUP_ACTIONS,
+  GROUPS,
+  READINESS_CODES,
+  READINESS_MESSAGES,
+  readinessOf,
+  ROW_ACTIONS,
+  type Decided,
+  type DecisionInput,
+  type Refusal,
   BatchNotFoundError,
   BatchStateErrorFor,
   cancelBatch,
@@ -100,6 +116,12 @@ function refusal(error: unknown): unknown {
     return new ApiProblem("NOT_FOUND");
   if (error instanceof BatchStateError || error instanceof BatchStateErrorFor)
     return new ApiProblem("BATCH_STATE_CONFLICT");
+  // IMP-05 FR 7, AC7; the index and the issue's code only, never the value sent.
+  if (error instanceof DecisionRefused)
+    return new ApiProblem(
+      error.issue === "READING_TOO_PRECISE" ? "READING_TOO_PRECISE" : "IMPORT_DECISION_INVALID",
+      { errors: [{ in: "body", path: `decisions[${error.index}]`, issue: error.issue }] },
+    );
   return error;
 }
 
@@ -361,6 +383,206 @@ export const openImportOriginalRoute = defineRoute({
   },
 });
 
+// ——— IMP-05@PoC part 2: decisions and the readiness to apply (FR 2, FR 4, FR 7, FR 10, FR 11) ———
+
+const FLAG_CODES = Object.keys(FLAG_SEVERITY) as [BatchFlagCode, ...BatchFlagCode[]];
+const row = z.number().int().min(1).max(1_000_000);
+const fileId = z.uuid();
+const decisionSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("row"), fileId, row, action: z.enum(ROW_ACTIONS) }),
+  z.strictObject({
+    kind: z.literal("reading"),
+    fileId,
+    row,
+    value: z.string().regex(/^-?\d{1,80}(\.\d{1,30})?$/),
+    applyToFile: z.boolean(),
+  }),
+  z.strictObject({ kind: z.literal("date-order"), fileId, order: z.enum(DATE_ORDER_CHOICES) }),
+  z.strictObject({
+    kind: z.literal("group"),
+    fileId: fileId.nullable(),
+    group: z.enum(GROUPS),
+    action: z.enum(GROUP_ACTIONS),
+  }),
+  z.strictObject({ kind: z.literal("flag"), fileId: fileId.nullable(), code: z.enum(FLAG_CODES) }),
+  z.strictObject({ kind: z.literal("account"), fileId }),
+  z.strictObject({ kind: z.literal("balance"), fileId, choice: z.enum(BALANCE_CHOICES) }),
+]);
+const decidedSchema = z.object({
+  decision: decisionSchema,
+  decidedAt: z.string(),
+});
+
+/** A stored decision as sent (the reading's separator is the server's own). */
+function presentDecided(d: Decided): z.input<typeof decidedSchema> {
+  const { decision } = d;
+  const sent =
+    decision.kind === "reading"
+      ? {
+          kind: decision.kind,
+          fileId: decision.fileId,
+          row: decision.row,
+          value: decision.value,
+          applyToFile: decision.applyToFile,
+        }
+      : decision;
+  return { decision: sent, decidedAt: d.decidedAt.toISOString() };
+}
+
+const decisionsResponse = z.object({ version: z.number().int(), decisions: z.array(decidedSchema) });
+
+export const decideImportBatchRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/import/batches/{batchId}/decisions",
+  operationId: "decideImportBatch",
+  summary:
+    "Decisions on a parsed batch (IMP-05 FR 10): rows, groups, readings, flags, the account and the balance choice; all or none; each replaces the one before until the batch is applied",
+  access: WRITE,
+  bodyLimitBytes: 64 * 1024,
+  request: {
+    params: batchParams,
+    body: z.strictObject({ decisions: z.array(decisionSchema).min(1).max(DECISIONS_PER_REQUEST) }),
+  },
+  problems: ["BATCH_STATE_CONFLICT", "READING_TOO_PRECISE", "IMPORT_DECISION_INVALID"],
+  response: { status: 200, description: "The batch's decisions now", schema: decisionsResponse },
+  handler: async ({ params, body }, ctx) => {
+    owner(ctx);
+    const { deps, audit } = importSessionsServices(ctx);
+    const { householdId, userId } = ctx.principal;
+    const { result, handOffs, version } = await guarded(() =>
+      ctx.inHousehold(async (q) => {
+        const tx = batchesTx(q);
+        const handed = await decide(deps, tx, userId, params.batchId, body.decisions as DecisionInput[]);
+        return { ...handed, version: (await tx.findBatch(params.batchId))!.version };
+      }),
+    );
+    await handOffNow(audit, householdId, handOffs);
+    return { version, decisions: result.map(presentDecided) };
+  },
+});
+
+export const listImportDecisionsRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/import/batches/{batchId}/decisions",
+  operationId: "listImportDecisions",
+  summary: "The batch's decisions (IMP-05 FR 10)",
+  access: READ,
+  request: { params: batchParams },
+  response: { status: 200, description: "The batch's decisions", schema: decisionsResponse },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    importSessionsServices(ctx);
+    return guarded(() =>
+      ctx.inHousehold(async (q) => {
+        const tx = batchesTx(q);
+        const decisions = await decisionsOf(tx, params.batchId);
+        return {
+          version: (await tx.findBatch(params.batchId))!.version,
+          decisions: decisions.map(presentDecided),
+        };
+      }),
+    );
+  },
+});
+
+const rowsLeft = { fileId: z.uuid(), rows: z.array(z.number().int()), count: z.number().int() };
+const message = z.object({ uk: z.string(), en: z.string() });
+const flagSchema = z.object({
+  code: z.enum(FLAG_CODES),
+  severity: z.enum(["block", "review"]),
+  difference: z.string().optional(),
+  check: z.string().optional(),
+  count: z.number().int().optional(),
+  positive: z.number().int().optional(),
+  negative: z.number().int().optional(),
+  /** `checksum-mismatch` (FR 2, AC1): «Застосувати й оновити залишок до виписки» or «… без оновлення залишку». */
+  choices: z.array(z.enum(BALANCE_CHOICES)).optional(),
+});
+const refusalSchema = z.discriminatedUnion("code", [
+  z.object({
+    code: z.literal("confirm-account"),
+    message,
+    files: z.array(
+      z.object({
+        fileId: z.uuid(),
+        /** Masked to the last 4 characters. */
+        reasons: z.array(
+          z.object({ kind: z.enum(["iban", "card", "currency"]), file: z.string(), account: z.string() }),
+        ),
+        suggestedAccountId: z.uuid().nullable(),
+      }),
+    ),
+  }),
+  z.object({
+    code: z.literal("clarifications"),
+    message,
+    files: z.array(z.object({ ...rowsLeft, dateOrder: z.boolean() })),
+  }),
+  z.object({ code: z.literal("review-rows"), message, files: z.array(z.object(rowsLeft)) }),
+  z.object({
+    code: z.literal("flags"),
+    message,
+    files: z.array(z.object({ fileId: z.uuid(), flags: z.array(flagSchema) })),
+  }),
+]);
+
+const presentRefusal = (r: Refusal) =>
+  ({ ...r, message: { ...READINESS_MESSAGES[r.code] } }) as z.input<typeof refusalSchema>;
+
+export const importBatchReadinessRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/import/batches/{batchId}/readiness",
+  operationId: "getImportBatchReadiness",
+  summary:
+    "Whether the batch may be applied (IMP-05 FR 11): each refusal with its explanation — «Підтвердіть рахунок», «Потрібні уточнення», «Потрібен перегляд рядків», «Не підтверджені позначки»; ready with no decision when everything agrees",
+  access: READ,
+  request: { params: batchParams },
+  problems: ["BATCH_STATE_CONFLICT"],
+  response: {
+    status: 200,
+    description: "The readiness and the balance choice of each file",
+    schema: z.object({
+      ready: z.boolean(),
+      refusals: z.array(refusalSchema),
+      codes: z.array(z.enum(READINESS_CODES)),
+      files: z.array(
+        z.object({
+          fileId: z.uuid(),
+          /** FR 2: null — the figures agree, no choice was needed. */
+          balance: z.enum(BALANCE_CHOICES).nullable(),
+          history: z.object({
+            status: z.enum(["continuous", "gap", "overlap", "unknown"]),
+            range: z.object({ from: z.string(), to: z.string() }).nullable(),
+            previousClosing: z.string().nullable(),
+            newOpening: z.string().nullable(),
+            difference: z.string().nullable(),
+            currency: z.string().nullable(),
+          }),
+        }),
+      ),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    importSessionsServices(ctx);
+    const r = await guarded(() => ctx.inHousehold((q) => readinessOf(batchesTx(q), params.batchId)));
+    const history = new Map(r.reviews.map((v) => [v.batchFileId, v.history]));
+    return {
+      ready: r.ready,
+      refusals: r.refusals.map(presentRefusal),
+      codes: r.refusals.map((x) => x.code),
+      files: r.files.map((f) => ({
+        fileId: f.fileId,
+        balance: f.balance,
+        history: { ...history.get(f.fileId)! },
+      })),
+    };
+  },
+});
+
 export const importSessionsRoutes = [
   createImportBatchRoute,
   listImportBatchesRoute,
@@ -370,4 +592,7 @@ export const importSessionsRoutes = [
   deleteImportBatchRoute,
   linkImportOriginalRoute,
   openImportOriginalRoute,
+  decideImportBatchRoute,
+  listImportDecisionsRoute,
+  importBatchReadinessRoute,
 ];

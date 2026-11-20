@@ -272,6 +272,13 @@ export const PROBLEMS = {
   FILE_TOO_LARGE: { status: 413, title: "The file is over a technical ceiling" },
   /** IMP-01@PoC FR 10: the batch's state does not allow this step; nothing was written. */
   BATCH_STATE_CONFLICT: { status: 409, title: "The batch's state does not allow this" },
+  /** IMP-05@PoC FR 7, AC7: the chosen reading has more decimals than the currency allows; nothing was written. */
+  READING_TOO_PRECISE: { status: 422, title: "The reading has more decimals than the currency allows" },
+  /**
+   * IMP-05@PoC FR 10: a decision names a file, row, question or flag the batch's checks do not have; `errors` names the
+   * decision and the issue's code. Nothing of the request was written.
+   */
+  IMPORT_DECISION_INVALID: { status: 422, title: "The decision does not fit the batch" },
   /** IMP-06@PoC FR 2, FR 3, FR 14: the recipe is not valid; `recipeErrors` holds each error's code and field path. */
   RECIPE_INVALID: { status: 422, title: "The parsing recipe is not valid" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
