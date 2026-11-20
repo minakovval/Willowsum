@@ -243,7 +243,13 @@ beforeAll(async () => {
           newId: randomUUID,
           obligations,
           planSources: createBudgetPlanSources({
-            goals: { active: async (householdId) => goals.get(householdId) ?? [] },
+            goals: {
+              active: async (householdId) =>
+                (goals.get(householdId) ?? []).map((g) => ({
+                  ...g,
+                  contributedThisMonth: Money.of("0", g.requiredMonthly?.currency ?? "EUR"),
+                })),
+            },
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
             recurring: {
@@ -750,7 +756,12 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     const card = created.json() as { id: string; requiredMonthly: unknown };
     const plans = await createGoalPlans(db.databases.for("goals"), goalsServices).active(space.householdId);
     expect(plans).toEqual([
-      { goalId: card.id, requiredMonthly: expect.any(Money), targetDate: "2027-08-18" },
+      {
+        goalId: card.id,
+        requiredMonthly: expect.any(Money),
+        targetDate: "2027-08-18",
+        contributedThisMonth: expect.any(Money),
+      },
     ]);
     expect(plans[0]!.requiredMonthly!.toJSON()).toEqual(card.requiredMonthly);
     expect(await createGoalPlans(db.databases.for("goals"), goalsServices).active(randomUUID())).toEqual([]);

@@ -135,3 +135,103 @@ export function spendable(input: SpendableInput): Spendable {
     ],
   };
 }
+
+/** FR 6: an active goal as «План» plans it (module goals, in the budget's currency; `PlanGoal` and what is contributed). */
+export interface SpendableGoal {
+  readonly goalId: string;
+  /** The required monthly contribution; null — no figure (no rate) while the goal has a date ahead. */
+  readonly required: Money | null;
+  /** The month of the goal's date: nothing planned after it; null — nothing planned (no date or past it). */
+  readonly lastPeriod: Period | null;
+  /** Contributed this calendar month; null — no rate. */
+  readonly contributed: Money | null;
+}
+
+export interface GoalContributions {
+  readonly rows: readonly {
+    readonly goalId: string;
+    /** The month's cell of «План» (default — the required contribution; a goal without a date — 0). */
+    readonly planned: Money;
+    readonly contributed: Money;
+    /** max(0, planned − contributed): what the sum still holds back. */
+    readonly amount: Money;
+  }[];
+  /** Σ amount — «Цілі» of the sum (FR 2). */
+  readonly total: Money;
+  /** FR 10: the month's planned savings — Σ planned and «Заощадження без цілі». */
+  readonly plannedSavings: Money;
+}
+
+/**
+ * FR 6, FR 10 (BUD-05 FR 5, BUD-17 FR 1–2): each active goal's planned contribution of `period` from the grid «План» —
+ * its own cell, else the required contribution up to the month of its date, else 0 — less what is contributed this
+ * month, never below 0. Null — a figure is missing (no rate): no sum beats a wrong one.
+ */
+export function goalContributions(
+  period: Period,
+  goals: readonly SpendableGoal[],
+  /** The month's own cells of «План» (`kind` goal and savings count). */
+  cells: readonly {
+    readonly period: Period;
+    readonly kind: string;
+    readonly lineId: string | null;
+    readonly amount: Money | null;
+  }[],
+  currency: string,
+): GoalContributions | null {
+  const zero = Money.zero(currency);
+  const own = (kind: string, lineId: string | null) =>
+    cells.find((c) => c.period === period && c.kind === kind && c.lineId === lineId && c.amount !== null)
+      ?.amount ?? null;
+  const rows: GoalContributions["rows"][number][] = [];
+  for (const g of goals) {
+    const dated = g.lastPeriod !== null && period <= g.lastPeriod;
+    const planned = own("goal", g.goalId) ?? (dated ? g.required : zero);
+    if (planned === null) return null;
+    if (planned.isZero()) {
+      rows.push({ goalId: g.goalId, planned, contributed: g.contributed ?? zero, amount: zero });
+      continue;
+    }
+    if (g.contributed === null) return null;
+    const rest = planned.minus(g.contributed);
+    rows.push({
+      goalId: g.goalId,
+      planned,
+      contributed: g.contributed,
+      amount: rest.isNegative() ? zero : rest,
+    });
+  }
+  assertCurrency(
+    currency,
+    rows.flatMap((r) => [r.planned, r.contributed]),
+  );
+  const sum = (xs: readonly Money[]) => xs.reduce((t, x) => t.plus(x), zero);
+  return {
+    rows,
+    total: sum(rows.map((r) => r.amount)),
+    plannedSavings: sum([...rows.map((r) => r.planned), own("savings", null) ?? zero]),
+  };
+}
+
+/**
+ * FR 8, AC9: «Обов'язкові категорії: ще потрібно N €» by category — as FR 14 counts it: max(0, limit − spent − the
+ * category's own unpaid payments). Only the categories that still need something.
+ */
+export function mandatoryNeeds(
+  lines: readonly LimitLine[],
+  obligations: PeriodObligations,
+  currency: string,
+): { readonly categoryId: string; readonly amount: Money }[] {
+  const zero = Money.zero(currency);
+  const unpaid = new Map<string, Money>();
+  for (const r of obligations.recurring)
+    if (!r.paid && r.categoryId !== null)
+      unpaid.set(r.categoryId, (unpaid.get(r.categoryId) ?? zero).plus(r.amount));
+  return lines
+    .filter((l) => l.mandatory)
+    .map((l) => ({
+      categoryId: l.categoryId,
+      amount: (l.remaining ?? l.limit).minus(unpaid.get(l.categoryId) ?? zero),
+    }))
+    .filter((n) => !n.amount.isNegative() && !n.amount.isZero());
+}

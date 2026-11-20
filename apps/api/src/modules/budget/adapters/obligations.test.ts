@@ -118,6 +118,45 @@ describe("#567: the adapter of BudgetObligations", () => {
     expect(from!.recurring.map((r) => r.amount.toDecimalString())).toEqual(["5"]);
   });
 
+  it("BUD-03@PoC FR 8: each charge of the list carries its payment, date and «Прострочено на N дн.»", async () => {
+    const { port } = adapter({
+      charges: [
+        charge("2026-11-05", eur("4"), { paymentId: "late", status: "overdue", overdueDays: 13 }),
+        charge("2026-11-20", eur("5"), { paymentId: "rent" }),
+      ],
+    });
+    const o = await port.month("h", "2026-11", "EUR");
+    expect(o!.recurring.map((r) => [r.paymentId, r.dueOn, r.overdueDays])).toEqual([
+      ["late", "2026-11-05", 13],
+      ["rent", "2026-11-20", null],
+    ]);
+  });
+
+  it("BUD-03@PoC FR 3: the regular incomes still expected in the month are summed — not the ones received — and one without a rate leaves only that figure out", async () => {
+    const income = (dueOn: string, amount: Money, more: Partial<Charge> = {}) =>
+      charge(dueOn, amount, { type: "income", ...more });
+    const { port } = adapter({
+      charges: [
+        income("2026-11-03", eur("900"), { status: "paid" }),
+        income("2026-11-10", eur("100"), { status: "overdue", overdueDays: 8 }),
+        income("2026-11-25", eur("1000")),
+        charge("2026-11-20", eur("5")),
+      ],
+    });
+    const o = await port.month("h", "2026-11", "EUR");
+    expect(o!.incomeExpected!.toDecimalString()).toBe("1100");
+    expect((await port.month("h", "2026-11", "EUR", "2026-11-18"))!.incomeExpected!.toDecimalString()).toBe(
+      "1000",
+    );
+    const usd = adapter({
+      charges: [income("2026-11-25", Money.of("10", "USD")), charge("2026-11-20", eur("5"))],
+      noRate: true,
+    });
+    const without = await usd.port.month("h", "2026-11", "EUR");
+    expect(without!.incomeExpected).toBeNull();
+    expect(without!.recurring.map((r) => r.amount.toDecimalString())).toEqual(["5"]);
+  });
+
   it("BUD-03@PoC FR 5: each loan with a monthly payment once, paid when the month has a payment to it; a credit card and a loan without the payment add nothing", async () => {
     const { port, asked } = adapter({
       loans: [
