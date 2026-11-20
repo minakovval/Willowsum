@@ -40,6 +40,8 @@ const TREE = {
     },
   ],
 };
+const FEATURES_ON = { status: 200, body: { features: ["budget.period", "budget.plan"] } } as const;
+const FEATURES_OFF = { status: 200, body: { features: ["budget.period"] } } as const;
 const WIZARD = {
   today: "2026-11-01",
   midPeriod: false,
@@ -140,6 +142,7 @@ function mount(allocation: (body: Body) => Reply, over: Record<string, Reply> = 
   const api = fakeApi({
     "GET /v1/budget": { status: 200, body: { budget: null } },
     "GET /v1/budget/wizard": { status: 200, body: WIZARD },
+    "GET /v1/me/features": FEATURES_ON,
     "GET /v1/categories": { status: 200, body: TREE },
     "GET /v1/space": { status: 200, body: { name: "Дім", dataRegion: "eu", reportingCurrency: "EUR" } },
     "POST /v1/budget": { status: 201, body: { id: "b1" } },
@@ -488,6 +491,35 @@ describe("BUD-02@PoC FR 15 states", () => {
     expect(plain(document.body.textContent)).toContain(
       "Це план: гроші не переказуються. Покриття з’явиться в «Бюджет → План» у рядку «Не розподілено / Дефіцит».",
     );
+  });
+
+  it("BUD-02@PoC FR 15: with `budget.plan` off the closing text does not send to «Бюджет → План» (surplus and deficit)", async () => {
+    const off = { "GET /v1/me/features": FEATURES_OFF };
+    await toLimits(mount(() => ({ status: 200, body: answer(balance("surplus", "2710.00")) }), off));
+    await toStep("Розподіл профіциту");
+    expect(plain(document.body.textContent)).toContain(
+      "Це план: гроші не переказуються. Обрані суми буде збережено разом із бюджетом.",
+    );
+    expect(plain(document.body.textContent)).not.toContain("«Бюджет → План»");
+    cleanup();
+    resetAuthState();
+    await toLimits(mount(() => ({ status: 200, body: answer(balance("deficit", "200.00")) }), off));
+    await toStep(/Звідки візьмуться 200,00/);
+    expect(plain(document.body.textContent)).toContain(
+      "Це план: гроші не переказуються. Покриття буде збережено разом із бюджетом.",
+    );
+    expect(plain(document.body.textContent)).not.toContain("«Бюджет → План»");
+  });
+
+  it("BUD-02@PoC FR 15: a failed features read counts as `budget.plan` off — the text never promises the grid", async () => {
+    await toLimits(
+      mount(() => ({ status: 200, body: answer(balance("surplus", "2710.00")) }), {
+        "GET /v1/me/features": { status: 500, body: undefined },
+      }),
+    );
+    await toStep("Розподіл профіциту");
+    expect(plain(document.body.textContent)).not.toContain("«Бюджет → План»");
+    expect(plain(document.body.textContent)).toContain("буде збережено разом із бюджетом");
   });
 
   it("BUD-02@PoC FR 15: the four steps are named in the stepper, «Розподіл» last", async () => {

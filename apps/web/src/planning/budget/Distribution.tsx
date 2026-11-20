@@ -246,7 +246,9 @@ export function DistributionStep({
   const rate = (r: string | null) =>
     r === null ? null : t("planning.budget.wizard.dist.debt.rate", { rate: `${formatNumber(locale, r)} %` });
   const planText = (kind: "surplus" | "deficit") => (
-    <p className="ws-muted">{t(`planning.budget.wizard.dist.planOnly.${kind}`)}</p>
+    <p className="ws-muted">
+      {t(`planning.budget.wizard.dist.${d.planOn ? "planOnly" : "planOff"}.${kind}` as MessageKey)}
+    </p>
   );
   const choice = a.choice;
   const over = choice?.status === "over" || alloc.refused === "over";
