@@ -30,6 +30,8 @@ import {
   transferCandidates,
   duplicateCandidates,
   importCandidates,
+  importWriteTx,
+  transactionRows,
   ruleCandidates,
   ruleInputsOf,
   reviewQueueMembers,
@@ -48,7 +50,16 @@ import {
   type SpendCandidatesAfter,
 } from "./adapters/db/goal-reads.ts";
 import { transactionCreated } from "./events.ts";
-import type { HandOffDeps } from "./application/index.ts";
+import {
+  applyHandOff,
+  writeImport,
+  type HandOffDeps,
+  type ImportCounts,
+  type ImportPlanContext,
+  type ImportWriteInput,
+  type ImportWriteResult,
+} from "./application/index.ts";
+import { logEvent } from "../../platform/telemetry/signals.ts";
 
 export const transactionsModule = defineModule({
   name: "transactions",
@@ -177,6 +188,82 @@ export function createImportCandidates(db: ModuleDatabase): ImportCandidates {
   };
 }
 export type { ImportCandidate, ImportCandidatesQuery };
+
+export {
+  ImportWriteRefused,
+  type ImportCounts,
+  type ImportedRowInput,
+  type ImportPlanContext,
+  type ImportWriteInput,
+  type ImportWriteIssue,
+  type ImportWriteResult,
+} from "./application/index.ts";
+
+/**
+ * IMP-01@PoC FR 11, IMP-04@PoC FR 7, AC9 (#637): the write of an import batch's rows for module import-sessions' apply
+ * step — one transaction of this module for the whole batch under the import lock and the money lock of its accounts;
+ * `plan` runs inside it (module duplicate-matching's `planImport` on `context.candidates`) and writes each file's rows
+ * with `context.create` before the next file is planned. Each row is written once by its key (batch, file, row) and the
+ * batch once (`first` false: written before, nothing now, its counts back). An unknown or closed account or a row the
+ * account cannot take — `ImportWriteRefused`, nothing written; any error of `plan` rolls everything back too.
+ */
+export interface ImportedTransactions {
+  write(
+    householdId: string,
+    input: ImportWriteInput,
+    plan: (context: ImportPlanContext) => Promise<ImportCounts>,
+  ): Promise<ImportWriteResult>;
+}
+
+/** The hand-offs run right away after the write; the worker runs the rest from the queue (ARC-04 FR 2). */
+export const IMPORT_HAND_OFF_NOW = 100;
+
+/** `db` is the transactions module's own database; the ports are the worker's (journal, accounts, audit). */
+export function createImportedTransactions(
+  db: ModuleDatabase,
+  ports: {
+    readonly accounts: HandOffDeps["accounts"];
+    readonly ledger: HandOffDeps["ledger"];
+    readonly audit: Pick<AuditLog, "record">;
+    readonly newId: () => string;
+    readonly now: () => number;
+  },
+): ImportedTransactions {
+  const deps: HandOffDeps = {
+    accounts: ports.accounts,
+    ledger: ports.ledger,
+    audit: transactionAudit(ports.audit),
+  };
+  return {
+    async write(householdId, input, plan) {
+      const { handOffs, ...result } = await db.inHousehold(householdId, (q) =>
+        writeImport(
+          { accounts: ports.accounts, newId: ports.newId, now: () => new Date(ports.now()) },
+          importWriteTx(q),
+          householdId,
+          input,
+          plan,
+        ),
+      );
+      try {
+        for (const h of handOffs.slice(0, IMPORT_HAND_OFF_NOW))
+          await applyHandOff(
+            deps,
+            transactionRows((work) => db.inHousehold(householdId, work)),
+            householdId,
+            h,
+          );
+      } catch (error) {
+        // The jobs are queued: the worker finishes them (class only, never a value).
+        logEvent("transactions.hand_off_deferred", "warn", {
+          "ws.module": "transactions",
+          "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+        });
+      }
+      return result;
+    },
+  };
+}
 
 /**
  * BUD-01@PoC FR 12: the categories the space's split parts use, for module categories («порожня» категорія). Read
