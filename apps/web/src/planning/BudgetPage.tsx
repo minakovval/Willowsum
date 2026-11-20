@@ -11,6 +11,7 @@ import { failureOf } from "../auth/failure.ts";
 import { kyivToday, useLoad } from "../recurring/data.ts";
 import "./budget/budget.css";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
+import { SpendableCard } from "./spendable/SpendableCard.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
   loadBudget,
@@ -38,8 +39,8 @@ const monthYear = (t: Translate, period: string): string => `${monthName(t, peri
  * budget period «‹ Листопад 2026 ›», then «Можна витратити», «Дохід» and «Регулярні платежі» — three blocks of 4
  * columns and one height — and the categories on 12. The current month shows the fact, a past one the plan against
  * the fact, a future one only the plan under the banner «Це план на <місяць> — витрат ще немає». Without a budget the
- * page shows its own empty state (#541, GRID-04 EC1). «Можна витратити» and «Регулярні платежі» are the slots of
- * BUD-03 (row 126) and BUD-07 (row 130); the tabs are the next rows.
+ * page shows its own empty state (#541, GRID-04 EC1). «Можна витратити» is the card of BUD-03 (row 126, only in the current month) and «Регулярні платежі» the slot of
+ * BUD-07 (row 130); the tabs are the next rows.
  */
 export function BudgetPage({ today = kyivToday() }: { today?: string }) {
   const { t } = useI18n();
@@ -96,7 +97,11 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
       </div>
       <PageTabs label={tabs.label} panelId="budget-panel" selected="budget" tabs={tabs.tabs}>
         <PlanGrid page="budget">
-          <PlanRegion name="spendable" span={4} />
+          {data?.kind === "ready" && settled && data.period.mode === "current" ? (
+            <SpendableCard period={data.period.period} />
+          ) : (
+            <PlanRegion name="spendable" span={4} />
+          )}
           {data?.kind === "ready" && settled ? (
             <PlanRegion name="income" span={4} card>
               <IncomeCard view={data} />
