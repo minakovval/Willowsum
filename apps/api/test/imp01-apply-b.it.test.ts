@@ -435,8 +435,8 @@ describe("IMP-04@PoC FR 7: an apply stuck «in progress» after a crash (#654)",
     );
     const countEntries = async () =>
       (
-        await db.owner.query<{ actor_account_id: string; changes: { field: string; after: string }[] }>(
-          `SELECT actor_account_id, changes FROM audit.entries
+        await db.owner.query<{ actor_id: string; changes: { field: string; after: string }[] }>(
+          `SELECT actor_id, changes FROM audit.entries
             WHERE household_id = $1 AND entity_type = 'import-sessions.batch' AND entity_id = $2`,
           [space.householdId, batch.batchId],
         )
@@ -458,7 +458,7 @@ describe("IMP-04@PoC FR 7: an apply stuck «in progress» after a crash (#654)",
       r.changes.some((c) => c.field === "rows.import" && c.after === "2"),
     );
     expect(counted).toHaveLength(before + 1);
-    expect(counted.map((r) => r.actor_account_id)).toEqual(counted.map(() => space.accountId));
+    expect(counted.map((r) => r.actor_id)).toEqual(counted.map(() => space.accountId));
     // Settled: the next run has nothing to do.
     expect(await recover(space, now + 2 * STUCK_AFTER_MS)).toBe(0);
   });
