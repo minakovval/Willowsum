@@ -439,10 +439,18 @@ describe("DAT-05 FR 7: an unknown path answers 404 before its body is read (the 
   );
 
   it("without a session: a route of a switched-off module → 503 (with a body: see «before the body is read»)", async () => {
-    for (const route of protectedRoutes) {
-      const app = await server(fakeFlags({ killed: [route.module as string] }));
-      const res = await app.inject({ method: route.method, url: concreteUrl(route) });
-      expect(res.statusCode, route.operationId).toBe(503);
+    // The kill switch is per module: one server per module (not per route: 136 real servers took ~1.7 s idle and
+    // over 5 s on a loaded CI runner) answers every route of that module; each route is still checked.
+    for (const module of modulesWithRoutes) {
+      const app = await server(fakeFlags({ killed: [module] }));
+      try {
+        for (const route of protectedRoutes.filter((r) => r.module === module)) {
+          const res = await app.inject({ method: route.method, url: concreteUrl(route) });
+          expect(res.statusCode, route.operationId).toBe(503);
+        }
+      } finally {
+        await app.close();
+      }
     }
   });
 
