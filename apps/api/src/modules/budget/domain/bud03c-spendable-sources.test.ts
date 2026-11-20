@@ -46,6 +46,25 @@ describe("BUD-03@PoC FR 6: the goals' planned contributions of the month", () =>
       ["over", "300", "0"],
     ]);
     expect(g.total).toEqual(eur("634"));
+    // Business rules: what is contributed lowers the sum too — 200 + 0 + 0 + 0 + 400.
+    expect(g.contributed).toEqual(eur("600"));
+  });
+
+  it("BUD-03@PoC FR 6: a contribution never raises the sum — «Цілі» = Σ max(planned, contributed)", () => {
+    const of = (contributed: string) =>
+      goalContributions(
+        "2026-11",
+        [goal("a", { contributed: eur(contributed) })],
+        [cell("goal", "a", "500")],
+        "EUR",
+      )!;
+    for (const [paid, holds] of [
+      ["0", "500"],
+      ["200", "500"],
+      ["500", "500"],
+      ["600", "600"],
+    ] as const)
+      expect(of(paid).total.plus(of(paid).contributed), paid).toEqual(eur(holds));
   });
 
   it("BUD-03@PoC FR 10: the planned savings — the goals' planned contributions and «Заощадження без цілі»", () => {

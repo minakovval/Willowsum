@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-17, П-18, П-24, П-25, П-26, DS-23
 - Сценарії: UC-BUD-15, UC-BUD-16, UC-BUD-17
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud03a-spendable.test.ts`, `apps/api/src/modules/recurring/domain/bud03a-month.test.ts`, `apps/api/src/modules/budget/adapters/obligations.test.ts`, `apps/api/test/bud03a-obligations.it.test.ts`, `apps/api/src/modules/budget/domain/bud03c-spendable-sources.test.ts`, `apps/api/test/bud03c-spendable.it.test.ts`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud03a-spendable.test.ts`, `apps/api/src/modules/recurring/domain/bud03a-month.test.ts`, `apps/api/src/modules/budget/adapters/obligations.test.ts`, `apps/api/test/bud03a-obligations.it.test.ts`, `apps/api/src/modules/budget/domain/bud03c-spendable-sources.test.ts`, `apps/api/test/bud03c-spendable.it.test.ts`, `apps/api/test/sec641-spendable.it.test.ts`, `apps/api/src/modules/feature-flags/domain/sec641-spendable-flag.test.ts`
 
 **Мета.** Як власник бюджету, я хочу одним числом бачити, скільки ще можу витратити до кінця періоду і сьогодні, щоб не перевищити бюджет і не зачепити заощадження.
 

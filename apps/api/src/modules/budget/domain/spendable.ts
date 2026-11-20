@@ -156,8 +156,10 @@ export interface GoalContributions {
     /** max(0, planned − contributed): what the sum still holds back. */
     readonly amount: Money;
   }[];
-  /** Σ amount — «Цілі» of the sum (FR 2). */
+  /** Σ amount — what the plan still holds back this month. */
   readonly total: Money;
+  /** Σ contributed this month: contributions are no spending but lower the sum (business rules). */
+  readonly contributed: Money;
   /** FR 10: the month's planned savings — Σ planned and «Заощадження без цілі». */
   readonly plannedSavings: Money;
 }
@@ -165,7 +167,9 @@ export interface GoalContributions {
 /**
  * FR 6, FR 10 (BUD-05 FR 5, BUD-17 FR 1–2): each active goal's planned contribution of `period` from the grid «План» —
  * its own cell, else the required contribution up to the month of its date, else 0 — less what is contributed this
- * month, never below 0. Null — a figure is missing (no rate): no sum beats a wrong one.
+ * month, never below 0; what is contributed lowers the sum too (business rules: «внески в цілі … зменшують суму»), so
+ * «Цілі» of the sum = total + contributed = Σ max(planned, contributed). Null — a figure is missing (no rate): no sum
+ * beats a wrong one.
  */
 export function goalContributions(
   period: Period,
@@ -187,12 +191,7 @@ export function goalContributions(
   for (const g of goals) {
     const dated = g.lastPeriod !== null && period <= g.lastPeriod;
     const planned = own("goal", g.goalId) ?? (dated ? g.required : zero);
-    if (planned === null) return null;
-    if (planned.isZero()) {
-      rows.push({ goalId: g.goalId, planned, contributed: g.contributed ?? zero, amount: zero });
-      continue;
-    }
-    if (g.contributed === null) return null;
+    if (planned === null || g.contributed === null) return null;
     const rest = planned.minus(g.contributed);
     rows.push({
       goalId: g.goalId,
@@ -209,6 +208,7 @@ export function goalContributions(
   return {
     rows,
     total: sum(rows.map((r) => r.amount)),
+    contributed: sum(rows.map((r) => r.contributed)),
     plannedSavings: sum([...rows.map((r) => r.planned), own("savings", null) ?? zero]),
   };
 }

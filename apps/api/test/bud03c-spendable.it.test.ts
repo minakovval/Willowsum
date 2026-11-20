@@ -454,7 +454,7 @@ describe("BUD-03@PoC: GET /v1/budget/periods/{period}/spendable", () => {
     expect(f.mandatory).toEqual({ categories: [], total: eur("0") });
   });
 
-  it("BUD-03@PoC FR 6: the goal's planned contribution of «План» less what is already contributed this month, never below 0", async () => {
+  it("BUD-03@PoC FR 6: the goal's planned contribution of «План» less what is already contributed this month, never below 0 — a contribution never raises the sum", async () => {
     const { space, goalId } = await ac1();
     const paid = await call(space, "POST", `/v1/goals/${goalId}/contributions`, { amount: eur("200.00") });
     expect(paid.statusCode, paid.body).toBe(201);
@@ -462,12 +462,15 @@ describe("BUD-03@PoC: GET /v1/budget/periods/{period}/spendable", () => {
     expect(f.goals.items).toEqual([
       { goalId, planned: eur("500"), contributed: eur("200"), amount: eur("300") },
     ]);
-    expect(f.amount).toEqual(eur("1500"));
+    // Business rules: what came in this month lowers the sum too — «Цілі» holds max(planned, contributed).
+    expect(f.goals.total).toEqual(eur("500"));
+    expect(f.amount).toEqual(eur("1300"));
     const more = await call(space, "POST", `/v1/goals/${goalId}/contributions`, { amount: eur("400.00") });
     expect(more.statusCode, more.body).toBe(201);
     f = (await spendable(space)).figures!;
     expect(f.goals.items[0]).toMatchObject({ contributed: eur("600"), amount: eur("0") });
-    expect(f.amount).toEqual(eur("1800"));
+    expect(f.goals.total).toEqual(eur("600"));
+    expect(f.amount).toEqual(eur("1200"));
   });
 
   it("BUD-03@PoC FR 6: without a cell of «План» the month plans the goal's required contribution", async () => {

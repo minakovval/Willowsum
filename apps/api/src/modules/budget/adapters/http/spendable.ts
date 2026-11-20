@@ -79,7 +79,10 @@ const figuresSchema = z.object({
     ),
     total: moneySchema,
   }),
-  /** FR 6: each active goal — the month's planned contribution of «План», contributed this month, what is still held. */
+  /**
+   * FR 6: each active goal — the month's planned contribution of «План», contributed this month, and `amount` — what the
+   * plan still holds back; `total` — «Цілі» of the sum: Σ max(planned, contributed) (a contribution lowers the sum too).
+   */
   goals: z.object({
     items: z.array(
       z.object({ goalId: z.uuid(), planned: moneySchema, contributed: moneySchema, amount: moneySchema }),
@@ -205,7 +208,9 @@ export const getSpendableRoute = defineRoute({
       lines: figures.lines,
       outsidePlan: figures.totals.outsidePlan!,
       obligations,
-      goalContributions: contributions.total,
+      // Business rules (#641): a contribution is no spending but lowers the sum — what came in this month and what
+      // is still planned (Σ max(planned, contributed)).
+      goalContributions: contributions.total.plus(contributions.contributed),
       plannedExpenses: total(extra, zero),
       // FR 10: «заплановані заощадження» — the goals' planned contributions and «Заощадження без цілі» of «План».
       plannedSavings: contributions.plannedSavings,
