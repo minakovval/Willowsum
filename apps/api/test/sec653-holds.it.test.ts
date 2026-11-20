@@ -436,6 +436,7 @@ describe("sec653: payment_holds isolation and the hold routes", () => {
       expect(resumes.map((r) => r.statusCode).sort()).toEqual([200, 409]);
       expect(await userUpdates(space.householdId)).toBe(ok + 1);
       expect((await statusOf(space, id)).state).toBe("active");
+      expect((await statusOf(space, id)).hold).toBeNull();
     }
   });
 });
