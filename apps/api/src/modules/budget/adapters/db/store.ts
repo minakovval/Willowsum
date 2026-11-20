@@ -1,7 +1,7 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { BudgetTx, StoredBudget } from "../../application/index.ts";
-import type { PeriodPlan, PlanCell, PlanLineKind } from "../../domain/index.ts";
+import type { PeriodPlan, PlanCell, PlanCellKind } from "../../domain/index.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 
 /** The budget schema through the module's own role (migrations/0001_budget.sql). The row policy binds the space; SQL filters it too. */
@@ -160,7 +160,7 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
     async planCells(householdId, budgetId, from) {
       const { rows } = await q.query<{
         period: string;
-        kind: PlanLineKind;
+        kind: PlanCellKind;
         line_id: string;
         amount: string | null;
         currency: string;

@@ -8999,6 +8999,169 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "allocation": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "goal"
+                            },
+                            "goalId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "goalId",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "from-goal"
+                            },
+                            "goalId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "goalId",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "debt"
+                            },
+                            "accountId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "accountId",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "savings"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "description": "The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. Saved as the first period's cells of «План»; nothing is moved"
                   }
                 },
                 "required": [
@@ -9670,7 +9833,7 @@
                     }
                   },
                   "chosen": {
-                    "description": "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here",
+                    "description": "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here. Not with `allocation`",
                     "maxItems": 100,
                     "type": "array",
                     "items": {
@@ -9693,6 +9856,169 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "allocation": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "goal"
+                            },
+                            "goalId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "goalId",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "from-goal"
+                            },
+                            "goalId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "goalId",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "debt"
+                            },
+                            "accountId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "accountId",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "const": "savings"
+                            },
+                            "amount": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string",
+                                  "maxLength": 48,
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
+                                },
+                                "currency": {
+                                  "type": "string",
+                                  "maxLength": 10,
+                                  "description": "The budget's currency (the space's reporting currency)"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "amount"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    },
+                    "description": "The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. Saved as the first period's cells of «План»; nothing is moved"
                   }
                 },
                 "required": [
@@ -9913,7 +10239,57 @@
                           "type": "null"
                         }
                       ],
-                      "description": "Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`"
+                      "description": "Null — no `chosen` or `allocation` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`"
+                    },
+                    "spendable": {
+                      "type": "object",
+                      "properties": {
+                        "period": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "missing": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "obligations",
+                              "rates",
+                              "goal-contributions",
+                              "regular-incomes"
+                            ]
+                          },
+                          "description": "Why `amount` is null: `obligations` (the month's payments unknown), `rates` (an amount without a rate), `goal-contributions` (this month's contributions made, current month), `regular-incomes` (the regular incomes received, current month). Never show a figure without them"
+                        }
+                      },
+                      "required": [
+                        "period",
+                        "amount",
+                        "missing"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -9921,7 +10297,8 @@
                     "incomePlan",
                     "limits",
                     "balance",
-                    "choice"
+                    "choice",
+                    "spendable"
                   ],
                   "additionalProperties": false
                 }

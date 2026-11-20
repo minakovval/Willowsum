@@ -12,7 +12,9 @@ import {
   LIMITS_MAX,
   periodPlan,
   periodPlans,
-  previewAllocation,
+  planAllocation,
+  wizardSpendable,
+  SPENDABLE_MISSING,
   setBudgetAccount,
   updatePlan,
   wizard,
@@ -31,6 +33,7 @@ import {
   trendLine,
   trendPeriods,
   TREND_MONTHS_MAX,
+  ALLOCATION_ROWS_MAX,
   type StartChoice,
 } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
@@ -157,6 +160,23 @@ async function stored(ctx: ProtectedContext): Promise<StoredBudget> {
 
 const limitInput = z.object({ categoryId: z.uuid(), amount: moneyInput }).strict();
 
+/**
+ * FR 15: a typed row of «Розподіл». A surplus: `goal` (the goal's contribution of the first period), `debt` (the extra
+ * payment above the minimum for one debt), `savings` («Заощадження без цілі»); the rest stays «Не розподілено»
+ * («Лишити нерозподіленим» — no row). A deficit: `from-goal` («З цілі …»: the month's contribution lowered by the
+ * amount). «Зменшити ліміти» is lower `limits`; «Із заощаджень» and «У борг» are not rows yet.
+ */
+const allocationRow = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("goal"), goalId: z.uuid(), amount: moneyInput }).strict(),
+  z.object({ kind: z.literal("from-goal"), goalId: z.uuid(), amount: moneyInput }).strict(),
+  z.object({ kind: z.literal("debt"), accountId: z.uuid(), amount: moneyInput }).strict(),
+  z.object({ kind: z.literal("savings"), amount: moneyInput }).strict(),
+]);
+const allocationInput = z.array(allocationRow).max(ALLOCATION_ROWS_MAX).meta({
+  description:
+    "The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. Saved as the first period's cells of «План»; nothing is moved",
+});
+
 export const getBudgetRoute = defineRoute({
   module: MODULE,
   method: "GET",
@@ -201,13 +221,29 @@ export const createBudgetRoute = defineRoute({
         incomePlan: moneyInput.optional(),
         /** Expense categories of the space, each once; none — «Почати з нуля». */
         limits: z.array(limitInput).max(LIMITS_MAX).optional(),
+        /** FR 15: «Розподіл», saved with the budget in one transaction; none — nothing allocated. */
+        allocation: allocationInput.optional(),
       })
       .strict(),
   },
   response: { status: 201, description: "The new budget", schema: budgetSchema },
   handler: async ({ body }, ctx) => {
     const { deps } = budgetServices(ctx);
-    const b = await handed(ctx, (tx, categories) => createBudget(deps, tx, caller(ctx), body, categories));
+    // FR 15: the rows are checked against the balance read from the other modules before the budget transaction.
+    const cells =
+      body.allocation === undefined
+        ? []
+        : value(
+            await planAllocation(
+              deps,
+              ctx.principal.householdId,
+              body,
+              byId(await deps.reads.categories(ctx.principal.householdId)),
+            ),
+          ).cells;
+    const b = await handed(ctx, (tx, categories) =>
+      createBudget(deps, tx, caller(ctx), body, categories, cells),
+    );
     return present(ctx, b);
   },
 });
@@ -628,8 +664,20 @@ const allocationSchema = z.object({
     .nullable()
     .meta({
       description:
-        "Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`",
+        "Null — no `chosen` or `allocation` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`",
     }),
+  /**
+   * FR 3, AC6: «Можна витратити в <місяць> ≈ M» — BUD-03 FR 2 for the first period as the plan would start it (with
+   * `allocation`, its goal contributions and extra debt payments). `amount` null — `missing` names what is not known.
+   */
+  spendable: z.object({
+    period: z.string(),
+    amount: moneySchema.nullable(),
+    missing: z.array(z.enum(SPENDABLE_MISSING)).meta({
+      description:
+        "Why `amount` is null: `obligations` (the month's payments unknown), `rates` (an amount without a rate), `goal-contributions` (this month's contributions made, current month), `regular-incomes` (the regular incomes received, current month). Never show a figure without them",
+    }),
+  }),
 });
 
 export const previewAllocationRoute = defineRoute({
@@ -652,8 +700,10 @@ export const previewAllocationRoute = defineRoute({
         limits: z.array(limitInput).max(LIMITS_MAX).optional(),
         chosen: z.array(moneyInput).max(CHOSEN_MAX).optional().meta({
           description:
-            "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here",
+            "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here. Not with `allocation`",
         }),
+        /** FR 15: the typed rows, as POST /v1/budget saves them (400 on what it would refuse). */
+        allocation: allocationInput.optional(),
       })
       .strict(),
   },
@@ -667,11 +717,17 @@ export const previewAllocationRoute = defineRoute({
     const { deps } = budgetServices(ctx);
     const householdId = ctx.principal.householdId;
     const categories = byId(await deps.reads.categories(householdId));
-    const p = value(await previewAllocation(deps, householdId, body, categories));
+    const p = value(await planAllocation(deps, householdId, body, categories));
     const b = p.balance;
+    // The accounts the budget would take (FR 10 defaults; as the wizard reads them).
+    const choices = await ctx.inHousehold((q) => budgetTx(q).accountChoices(householdId));
+    const accountIds = (await deps.reads.accounts(householdId))
+      .filter((a) => isIncluded(a, choices))
+      .map((a) => a.accountId);
+    const s = await wizardSpendable(deps, householdId, p, accountIds, categories);
     return {
       period: p.period,
-      incomePlan: money(p.incomePlan),
+      incomePlan: money(p.plan.incomePlan),
       limits: money(p.limits),
       balance: b && {
         recurringOutsideLimits: money(b.recurringOutsideLimits),
@@ -686,6 +742,7 @@ export const previewAllocationRoute = defineRoute({
         rest: money(p.choice.rest),
         status: p.choice.status,
       },
+      spendable: { period: s.period, amount: orNull(s.amount), missing: [...s.missing] },
     };
   },
 });

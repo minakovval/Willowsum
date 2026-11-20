@@ -298,6 +298,8 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
         amount: eur("2740"),
       },
       choice: null,
+      // AC6: «Можна витратити в листопаді ≈ 3 600 €» — 5 600 − nothing spent yet − «Продукти» (mandatory) 2 000 still needed.
+      spendable: { period: "2026-11", amount: eur("3600"), missing: [] },
     });
     expect(seen).toEqual([{ householdId: space.householdId, period: "2026-11", currency: "EUR" }]);
     // Read only: nothing is saved.
@@ -407,6 +409,8 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
       limits: eur("0"),
       balance: null,
       choice: null,
+      // AC6: no «Можна витратити в листопаді ≈ …» without the month's payments either.
+      spendable: { period: "2026-11", amount: null, missing: ["obligations"] },
     });
   });
 });

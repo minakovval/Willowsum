@@ -1,5 +1,5 @@
 import { CurrencyMismatchError, Money } from "@willowsum/domain-kernel";
-import type { LimitLine } from "./budget.ts";
+import type { BudgetIssue, LimitLine } from "./budget.ts";
 
 /**
  * Pure rules of «Розподіл» and the totals row of «Категорії» (BUD-02@PoC c; wave 2 row 31): the bar of the limits step
@@ -268,4 +268,122 @@ export function expectedPayments(
       currency,
     ),
   };
+}
+
+/**
+ * FR 15 (saved with the budget): the typed rows of «Розподіл». A surplus — `goal` (the goal's planned contribution of
+ * the first period), `debt` (the extra payment above the minimum for one debt, a planned expense), `savings`
+ * («Заощадження без цілі»); what is not chosen stays «Не розподілено» («Лишити нерозподіленим» — no row). A deficit —
+ * `from-goal` («З цілі …»: the goal's contribution of the month is lowered by the amount). «Зменшити ліміти» is lower
+ * `limits`, never a row. «Із заощаджень» and «У борг» have no line of «План» to be written to (owner question) and are
+ * not rows yet.
+ */
+export const ALLOCATION_ROW_KINDS = ["goal", "debt", "savings", "from-goal"] as const;
+export type AllocationRowKind = (typeof ALLOCATION_ROW_KINDS)[number];
+
+/** The most rows one «Розподіл» saves. */
+export const ALLOCATION_ROWS_MAX = 100;
+
+export interface AllocationRowInput {
+  readonly kind: AllocationRowKind;
+  /** `goal`, `from-goal`: the goal (module goals). */
+  readonly goalId?: string | undefined;
+  /** `debt`: the debt's account (module accounts). */
+  readonly accountId?: string | undefined;
+  readonly amount: { readonly amount: string; readonly currency: string };
+}
+
+/** The lines a row may name: the space's active goals and the debts the first period owes (as «План» reads them). */
+export interface AllocationLines {
+  readonly goals: readonly {
+    readonly goalId: string;
+    /** Null — no required contribution (no date, past it) or no rate. */
+    readonly required: Money | null;
+    readonly lastPeriod: string | null;
+  }[];
+  readonly debtAccountIds: ReadonlySet<string>;
+}
+
+/** A cell of the first period «Розподіл» writes into «План» (BUD-17): the month's own value of its line. */
+export interface AllocationCell {
+  readonly kind: "goal" | "savings" | "debt";
+  readonly lineId: string | null;
+  readonly amount: Money;
+}
+
+export interface CheckedAllocation {
+  readonly cells: readonly AllocationCell[];
+  readonly choice: AllocationChoice;
+}
+
+/** FR 15: a goal's planned contribution of `period` by default — the required one up to the month of its date. */
+export function defaultContribution(goal: AllocationLines["goals"][number], period: string): Money | null {
+  return goal.required !== null && goal.lastPeriod !== null && goal.lastPeriod >= period
+    ? goal.required
+    : null;
+}
+
+const SURPLUS_KINDS: ReadonlySet<AllocationRowKind> = new Set(["goal", "debt", "savings"]);
+
+/**
+ * FR 15, AC6, AC7: the rows of «Розподіл» checked against the balance with the rules of the calculation
+ * (`allocationChoice`): each row of the balance's kind, on a goal or debt of the space, once, ≥ 0 exactly in the
+ * budget's currency; the sum never over N (`over`); a deficit covered exactly (`short` refused). Returns the cells the
+ * first period stores, or the issues (`allocation.<i>.…`, `allocation`).
+ */
+export function checkAllocation(
+  balance: AllocationBalance,
+  period: string,
+  rows: readonly AllocationRowInput[],
+  lines: AllocationLines,
+  parse: (
+    field: string,
+    input: { readonly amount: string; readonly currency: string },
+  ) => Money | BudgetIssue,
+):
+  | { readonly kind: "ok"; readonly value: CheckedAllocation }
+  | { readonly kind: "invalid"; readonly issues: readonly BudgetIssue[] } {
+  const issues: BudgetIssue[] = [];
+  const cells: AllocationCell[] = [];
+  const amounts: Money[] = [];
+  const seen = new Set<string>();
+  const goals = new Map(lines.goals.map((g) => [g.goalId, g]));
+  rows.forEach((row, i) => {
+    const field = `allocation.${i}`;
+    const fits =
+      balance.kind === "surplus"
+        ? SURPLUS_KINDS.has(row.kind)
+        : balance.kind === "deficit" && row.kind === "from-goal";
+    if (!fits) return issues.push({ field: `${field}.kind`, issue: "invalid" });
+    const idField = row.kind === "debt" ? "accountId" : row.kind === "savings" ? "kind" : "goalId";
+    const lineId =
+      row.kind === "debt" ? (row.accountId ?? null) : row.kind === "savings" ? null : (row.goalId ?? null);
+    if (row.kind !== "savings" && lineId === null)
+      return issues.push({ field: `${field}.${idField}`, issue: "required" });
+    const key = `${row.kind === "from-goal" ? "goal" : row.kind}:${lineId ?? ""}`;
+    if (seen.has(key)) return issues.push({ field: `${field}.${idField}`, issue: "duplicate" });
+    seen.add(key);
+    const goal = lineId === null ? undefined : goals.get(lineId);
+    if ((row.kind === "goal" || row.kind === "from-goal") && !goal)
+      return issues.push({ field: `${field}.goalId`, issue: "not_found" });
+    if (row.kind === "debt" && !lines.debtAccountIds.has(lineId!))
+      return issues.push({ field: `${field}.accountId`, issue: "not_found" });
+    const amount = parse(`${field}.amount`, row.amount);
+    if (!(amount instanceof Money)) return issues.push(amount);
+    if (row.kind === "from-goal") {
+      // «З цілі …» — the month's contribution lowered: never below 0, and only a goal with one planned.
+      const planned = defaultContribution(goal!, period);
+      if (planned === null) return issues.push({ field: `${field}.goalId`, issue: "no_contribution" });
+      if (amount.compare(planned) > 0)
+        return issues.push({ field: `${field}.amount`, issue: "over_contribution" });
+      cells.push({ kind: "goal", lineId, amount: planned.minus(amount) });
+    } else cells.push({ kind: row.kind, lineId, amount });
+    amounts.push(amount);
+  });
+  if (issues.length > 0) return { kind: "invalid", issues };
+  const choice = allocationChoice(balance, amounts);
+  if (choice.status === "over") return { kind: "invalid", issues: [{ field: "allocation", issue: "over" }] };
+  if (balance.kind === "deficit" && choice.status !== "exact")
+    return { kind: "invalid", issues: [{ field: "allocation", issue: "short" }] };
+  return { kind: "ok", value: { cells, choice } };
 }
