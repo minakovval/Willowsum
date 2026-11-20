@@ -249,7 +249,10 @@ beforeAll(async () => {
               inMonth: async (householdId) => (debtCalls.push(householdId), extras.get(householdId) ?? []),
             },
             fx,
+            planEnabled: (householdId) => FLAGS_UNDER_TEST.isEnabled(householdId, "budget.plan"),
           }),
+          // As main.ts: «План» off — the months' typed values act nowhere (owner decision 2026-11-20, batch 2, item 2).
+          planEnabled: (householdId) => FLAGS_UNDER_TEST.isEnabled(householdId, "budget.plan"),
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -462,7 +465,9 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     ).toBe(200);
     off = ["budget.plan"];
     expect((await call(space, "GET", "/v1/budget/plan-grid")).statusCode).toBe(404);
-    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).statusCode).toBe(200);
+    // Batch 2, item 2: while it is off the typed values act nowhere — «Бюджет» shows the budget's own limit.
+    expect(await limitOf(space, "2026-12", groceries)).toBe("700");
+    expect((await period(space, "2026-12")).plannedSavings.amount).toBe("0");
     // Switching off resets nothing: both typed cells stay as they were, with their versions.
     expect(await n("budget.plan_cells WHERE household_id = $1", space.householdId)).toBe(2);
     off = [];
@@ -471,6 +476,93 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect(row(g, groceries)!.cells[december]).toMatchObject({ amount: eur("650"), own: true, version: 1 });
     expect(g.goals.savings[december]).toMatchObject({ amount: eur("90"), own: true, version: 1 });
     expect(await limitOf(space, "2026-12", groceries)).toBe("650");
+    expect((await period(space, "2026-12")).plannedSavings.amount).toBe("90");
+  });
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-20, batch 2, item 2): with `budget.plan` off the typed values change nothing on «Бюджет», «Можна витратити», «Тренд» or «Порівняння»; on — the same values act again, exact", async () => {
+    const space = await newSpace();
+    await budgetWith(space, "1000.00", { Продукти: "700.00" });
+    const groceries = await category(space, "Продукти");
+    const trip = await goal(space, "Відпустка", "3000.00");
+    const reads = {
+      period: "/v1/budget/periods/2026-11",
+      december: "/v1/budget/periods/2026-12",
+      spendable: "/v1/budget/periods/2026-11/spendable",
+      trend: "/v1/budget/trend?from=2026-11&to=2027-01",
+      compare: "/v1/budget/compare?type=month&period=2026-11",
+    };
+    const snapshot = async () => {
+      const out: Record<string, unknown> = {};
+      for (const [name, url] of Object.entries(reads)) {
+        const res = await call(space, "GET", url);
+        expect(res.statusCode, `${name}: ${res.body}`).toBe(200);
+        out[name] = res.json();
+      }
+      return out;
+    };
+    const before = await snapshot();
+    expect((before.spendable as { figures: unknown }).figures).not.toBeNull();
+    for (const [cell, amount] of [
+      [{ kind: "limit", lineId: groceries }, "650.37"],
+      [{ kind: "income", lineId: null }, "1234.56"],
+      [{ kind: "savings", lineId: null }, "90.05"],
+      [{ kind: "goal", lineId: trip }, "200.10"],
+    ] as const)
+      for (const p of ["2026-11", "2026-12"]) {
+        const res = await put(space, { period: p, ...cell, amount: eur(amount), version: 0 });
+        expect(res.statusCode, res.body).toBe(200);
+      }
+    const typed = await snapshot();
+    off = ["budget.plan"];
+    // Off: every read is as it was before anything was typed.
+    expect(await snapshot()).toEqual(before);
+    expect(await limitOf(space, "2026-12", groceries)).toBe("700");
+    const december = await period(space, "2026-12");
+    expect(december.incomePlan.amount).toBe("1000");
+    // Kept: the eight cells with their amounts and versions.
+    const kept = await db.owner.query<{ amount: string; version: number }>(
+      `SELECT amount::text AS amount, version FROM budget.plan_cells WHERE household_id = $1 ORDER BY period, kind, amount`,
+      [space.householdId],
+    );
+    expect(kept.rows.map((r) => r.version)).toEqual(Array(8).fill(1));
+    expect(kept.rows.map((r) => Money.of(r.amount, "EUR").toDecimalString()).sort()).toEqual(
+      ["1234.56", "1234.56", "200.1", "200.1", "650.37", "650.37", "90.05", "90.05"].sort(),
+    );
+    off = [];
+    // On: the same values act again, as before switching off.
+    expect(await snapshot()).toEqual(typed);
+    expect(typed).not.toEqual(before);
+    expect(await limitOf(space, "2026-11", groceries)).toBe("650.37");
+    expect(await limitOf(space, "2026-12", groceries)).toBe("650.37");
+    const on = await period(space, "2026-12");
+    expect(on.incomePlan.amount).toBe("1234.56");
+    expect(on.plannedSavings.amount).toBe("290.15");
+  });
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-20, batch 2, item 2): a finished month's snapshot written while `budget.plan` is off keeps the plan then in effect — without the typed values", async () => {
+    const space = await newSpace();
+    await budgetWith(space, "1000.00", { Продукти: "700.00" });
+    const groceries = await category(space, "Продукти");
+    expect(
+      (
+        await put(space, {
+          period: "2026-11",
+          kind: "limit",
+          lineId: groceries,
+          amount: eur("650.37"),
+          version: 0,
+        })
+      ).statusCode,
+    ).toBe(200);
+    now = at("2026-12-03");
+    off = ["budget.plan"];
+    expect(await limitOf(space, "2026-11", groceries)).toBe("700");
+    off = [];
+    // The snapshot is the plan in effect when it was written (as #613 for the incomes); the cell stays stored.
+    expect(await limitOf(space, "2026-11", groceries)).toBe("700");
+    expect(await n("budget.plan_cells WHERE household_id = $1 AND amount = 650.37", space.householdId)).toBe(
+      1,
+    );
   });
 
   it("sec613 bounds: a malformed or out-of-range PUT body is 400 (413 over the body limit), never 500, and writes nothing", async () => {
