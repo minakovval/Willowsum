@@ -18507,6 +18507,7 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        hold: ("paused" | "cancelled") | null;
                         items: {
                             amount: {
                                 amount: string;
@@ -18604,7 +18605,7 @@ export interface operations {
                         /** Format: uuid */
                         paymentId: string;
                         /** @enum {string} */
-                        state: "active" | "possibly-cancelled" | "paused" | "cancelled";
+                        state: "active" | "possibly-cancelled";
                     };
                 };
             };
@@ -19822,6 +19823,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            hold: ("paused" | "cancelled") | null;
                             lastCharge: {
                                 amount: {
                                     amount: string;
@@ -19888,7 +19890,7 @@ export interface operations {
                             /** Format: uuid */
                             paymentId: string;
                             /** @enum {string} */
-                            state: "active" | "possibly-cancelled" | "paused" | "cancelled";
+                            state: "active" | "possibly-cancelled";
                         }[];
                     };
                 };

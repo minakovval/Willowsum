@@ -4,6 +4,7 @@ import {
   canSettle,
   canSkip,
   holdAction,
+  MAX_PAUSE_DAYS,
   trackPayment,
   type Candidate,
   type ChargeMark,
@@ -430,7 +431,7 @@ export type HoldRequest =
   | { readonly kind: "cancel" }
   | { readonly kind: "resume" };
 
-const HOLD_STATE = { pause: "paused", cancel: "cancelled", resume: "active" } as const;
+const HOLD_STATE = { pause: "paused", cancel: "cancelled", resume: null } as const;
 
 /**
  * FR 13: a pause, a «скасовано» mark (only in the app: nothing is cancelled at the provider) or «Відновити» of a payment
@@ -449,11 +450,16 @@ export async function holdPayment(
   const payment = await tx.lockPayment(caller.householdId, paymentId);
   if (!payment) return { kind: "not-found" };
   const today = deps.today();
-  if (request.kind === "pause" && request.until !== null && request.until <= today) return { kind: "state" };
+  if (
+    request.kind === "pause" &&
+    request.until !== null &&
+    (request.until <= today || request.until > addDays(today, MAX_PAUSE_DAYS))
+  )
+    return { kind: "state" };
   const tracked = await trackLocked(deps, tx, caller.householdId);
-  const state = tracked.byPayment.get(paymentId)?.state ?? "active";
+  const hold = tracked.byPayment.get(paymentId)?.hold ?? null;
   const own = (await tx.holds(caller.householdId)).filter((h) => h.paymentId === paymentId);
-  const next = holdAction(own, state, request, today);
+  const next = holdAction(own, hold, request, today);
   if (next === null) return { kind: "state" };
   const from = addDays(today, -(HISTORY_DAYS - 1));
   const kept: StoredHold[] = next
@@ -463,7 +469,7 @@ export async function holdPayment(
   const keptOn = request.kind === "resume" ? today : null;
   const saved = await tx.replaceHolds(caller.householdId, paymentId, kept, keptOn);
   const changes: RecurringHandOff["changes"][number][] = [
-    { field: "state", before: state, after: HOLD_STATE[request.kind] },
+    { field: "hold", before: hold, after: HOLD_STATE[request.kind] },
   ];
   if (keptOn !== null) changes.push({ field: "keptOn", before: payment.keptOn, after: keptOn });
   if (request.kind === "pause" && request.until !== null)

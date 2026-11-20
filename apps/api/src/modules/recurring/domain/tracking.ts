@@ -27,11 +27,8 @@ export const UPDATE_THRESHOLD = new Decimal("0.05");
 export const CHARGE_STATUSES = ["paid", "paid-late", "expected", "overdue", "skipped"] as const;
 export type ChargeStatus = (typeof CHARGE_STATUSES)[number];
 
-/**
- * FR 9, FR 10, FR 13: the payment's own state — «Можливо, скасований» after misses in a row; `paused` — «Призупинено»
- * (today within a pause); `cancelled` — «Позначено скасованим» (a mark in the app only, until restored).
- */
-export const PAYMENT_STATES = ["active", "possibly-cancelled", "paused", "cancelled"] as const;
+/** FR 9, FR 10: the payment's own state — «Можливо, скасований» after misses in a row. */
+export const PAYMENT_STATES = ["active", "possibly-cancelled"] as const;
 export type PaymentState = (typeof PAYMENT_STATES)[number];
 
 /** FR 10: misses in a row that make a payment «Можливо, скасований» (a weekly one — three). */
@@ -50,6 +47,31 @@ export interface Hold {
 }
 
 export const HOLD_KINDS = ["pause", "cancel"] as const;
+
+/**
+ * FR 13: what holds the payment now — `paused` (today within a pause), `cancelled` («Позначено скасованим», until
+ * «Відновити»), or null. Apart from `PaymentState`, which counts the misses (FR 10).
+ */
+export const HOLD_STATES = ["paused", "cancelled"] as const;
+export type HoldState = (typeof HOLD_STATES)[number] | null;
+
+/** FR 13: the hold of the payment on `today`. */
+export function holdStateOf(holds: readonly Hold[], today: string): HoldState {
+  if (holds.some((h) => h.kind === "cancel" && h.until === null)) return "cancelled";
+  return heldOn(
+    holds.filter((h) => h.kind === "pause"),
+    today,
+  )
+    ? "paused"
+    : null;
+}
+
+/**
+ * FR 13: the furthest day a pause may be set to, in days after today (about ten years). A later date is refused: the
+ * next date after a pause is found by walking the schedule, and a date near the end of the calendar («9999-12-28»)
+ * walks it past the last date JavaScript can write — seconds of work on every read of the space's payments.
+ */
+export const MAX_PAUSE_DAYS = 3660;
 
 /** FR 13: whether a date is within a hold. */
 export const heldOn = (holds: readonly Hold[], date: string): boolean =>
@@ -148,6 +170,8 @@ export interface Tracking {
   readonly used: readonly string[];
   /** FR 13: the payment's holds, as given. */
   readonly holds: readonly Hold[];
+  /** FR 13: paused or marked cancelled today; null — neither. */
+  readonly hold: HoldState;
 }
 
 interface Slot {
@@ -392,19 +416,11 @@ export function trackPayment(input: TrackInput): Tracking {
     amountChange: latestPaid?.amountChange ?? null,
     changes,
     missesInRow,
-    state: holds.some((h) => h.kind === "cancel" && h.until === null)
-      ? "cancelled"
-      : heldOn(
-            holds.filter((h) => h.kind === "pause"),
-            input.today,
-          )
-        ? "paused"
-        : missesInRow >= missesToFlag(input.frequency)
-          ? "possibly-cancelled"
-          : "active",
+    state: missesInRow >= missesToFlag(input.frequency) ? "possibly-cancelled" : "active",
     approximate: charges.some((c) => c.approximate),
     used: shown.flatMap((s) => (s.paid ? [s.paid.id] : [])),
     holds,
+    hold: holdStateOf(holds, input.today),
   };
 }
 
@@ -416,7 +432,7 @@ export function trackPayment(input: TrackInput): Tracking {
  */
 export function holdAction<H extends Hold>(
   holds: readonly H[],
-  state: PaymentState,
+  hold: HoldState,
   action:
     | { readonly kind: "pause"; readonly until: string | null }
     | { readonly kind: "cancel" }
@@ -424,16 +440,16 @@ export function holdAction<H extends Hold>(
   today: string,
 ): (H | Hold)[] | null {
   if (action.kind === "pause") {
-    if (state === "paused" || state === "cancelled") return null;
+    if (hold !== null) return null;
     return [...holds, { kind: "pause", from: today, until: action.until }];
   }
   if (action.kind === "cancel") {
-    if (state === "cancelled") return null;
+    if (hold === "cancelled") return null;
     // A pause still ahead ends with the mark: «Відновити» then restores the payment, not a pause.
     const ended = endHolds(holds, today, (h) => h.kind === "pause");
     return [...ended, { kind: "cancel", from: `${today.slice(0, 7)}-01`, until: null }];
   }
-  if (state !== "paused" && state !== "cancelled") return null;
+  if (hold === null) return null;
   return endHolds(holds, today, () => true);
 }
 

@@ -38393,7 +38393,8 @@
                                   "enum": [
                                     "pause",
                                     "cancel"
-                                  ]
+                                  ],
+                                  "x-extensible-enum": true
                                 },
                                 "from": {
                                   "type": "string"
@@ -38813,7 +38814,8 @@
                             "enum": [
                               "pause",
                               "cancel"
-                            ]
+                            ],
+                            "x-extensible-enum": true
                           },
                           "from": {
                             "type": "string"
@@ -39117,7 +39119,8 @@
                             "enum": [
                               "pause",
                               "cancel"
-                            ]
+                            ],
+                            "x-extensible-enum": true
                           },
                           "from": {
                             "type": "string"
@@ -39411,7 +39414,8 @@
                             "enum": [
                               "pause",
                               "cancel"
-                            ]
+                            ],
+                            "x-extensible-enum": true
                           },
                           "from": {
                             "type": "string"
@@ -39601,9 +39605,22 @@
                       "type": "string",
                       "enum": [
                         "active",
-                        "possibly-cancelled",
-                        "paused",
-                        "cancelled"
+                        "possibly-cancelled"
+                      ]
+                    },
+                    "hold": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "paused",
+                            "cancelled"
+                          ],
+                          "x-extensible-enum": true
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "expectedAmount": {
@@ -40214,6 +40231,7 @@
                   "required": [
                     "paymentId",
                     "state",
+                    "hold",
                     "expectedAmount",
                     "amountChange",
                     "missesInRow",
@@ -41125,7 +41143,8 @@
                             "enum": [
                               "pause",
                               "cancel"
-                            ]
+                            ],
+                            "x-extensible-enum": true
                           },
                           "from": {
                             "type": "string"
@@ -41454,7 +41473,8 @@
                             "enum": [
                               "pause",
                               "cancel"
-                            ]
+                            ],
+                            "x-extensible-enum": true
                           },
                           "from": {
                             "type": "string"
@@ -41758,7 +41778,8 @@
                             "enum": [
                               "pause",
                               "cancel"
-                            ]
+                            ],
+                            "x-extensible-enum": true
                           },
                           "from": {
                             "type": "string"
@@ -42411,7 +42432,8 @@
                             "enum": [
                               "pause",
                               "cancel"
-                            ]
+                            ],
+                            "x-extensible-enum": true
                           },
                           "from": {
                             "type": "string"
@@ -42836,9 +42858,22 @@
                             "type": "string",
                             "enum": [
                               "active",
-                              "possibly-cancelled",
-                              "paused",
-                              "cancelled"
+                              "possibly-cancelled"
+                            ]
+                          },
+                          "hold": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "paused",
+                                  "cancelled"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              {
+                                "type": "null"
+                              }
                             ]
                           },
                           "expectedAmount": {
@@ -43278,6 +43313,7 @@
                         "required": [
                           "paymentId",
                           "state",
+                          "hold",
                           "expectedAmount",
                           "amountChange",
                           "missesInRow",

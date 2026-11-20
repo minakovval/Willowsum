@@ -30,6 +30,9 @@ import {
   CHARGE_STATUSES,
   checkPayment,
   HOLD_KINDS,
+  HOLD_STATES,
+  MAX_PAUSE_DAYS,
+  addDays,
   FREQUENCIES,
   PAYMENT_STATES,
   type AmountChange,
@@ -154,7 +157,13 @@ const paymentSchema = z.object({
    * schedule whose charges without a payment are not shown nor in «Можна витратити»; `until` null — until «Відновити».
    * Oldest first.
    */
-  holds: z.array(z.object({ kind: z.enum(HOLD_KINDS), from: z.string(), until: z.string().nullable() })),
+  holds: z.array(
+    z.object({
+      kind: z.enum(HOLD_KINDS).meta({ "x-extensible-enum": true }),
+      from: z.string(),
+      until: z.string().nullable(),
+    }),
+  ),
 });
 
 const presentPayment = (
@@ -496,11 +505,13 @@ const presentCharge = (c: TrackedCharge): z.input<typeof chargeSchema> => ({
 /** FR 9, FR 10: a payment's status — its state, the expected amount now, the latest and the next charge. */
 const statusSchema = z.object({
   paymentId: z.uuid(),
-  /**
-   * `possibly-cancelled` — «Можливо, скасований» (FR 10): no more in «Можна витратити» until «Залишити»; `paused` —
-   * today is within a pause, `cancelled` — «Позначено скасованим» (FR 13), both until «Відновити».
-   */
+  /** `possibly-cancelled` — «Можливо, скасований» (FR 10): no more in «Можна витратити» until «Залишити». */
   state: z.enum(PAYMENT_STATES),
+  /**
+   * FR 13: `paused` — today is within a pause; `cancelled` — «Позначено скасованим»; both until «Відновити», and
+   * meanwhile not in «Можна витратити». Null — neither. More values may come.
+   */
+  hold: z.enum(HOLD_STATES).meta({ "x-extensible-enum": true }).nullable(),
   /** FR 11: the expected amount now. */
   expectedAmount: moneySchema,
   /** FR 9: the change the latest paid charge made to the expected amount («▲» / «▼»); null — none. */
@@ -521,6 +532,7 @@ function presentStatus(paymentId: string, t: Tracking, today: string): z.input<t
   return {
     paymentId,
     state: t.state,
+    hold: t.hold,
     expectedAmount: t.expected.toJSON(),
     amountChange: presentChange(t.amountChange),
     missesInRow: t.missesInRow,
@@ -700,6 +712,8 @@ async function holdRoute(ctx: ProtectedContext, paymentId: string, request: Hold
   const today = payments.today();
   if (request.kind === "pause" && request.until !== null && request.until <= today)
     invalid([{ field: "until", issue: "not_after_today" }]);
+  if (request.kind === "pause" && request.until !== null && request.until > addDays(today, MAX_PAUSE_DAYS))
+    invalid([{ field: "until", issue: "too_far" }]);
   const householdId = ctx.principal.householdId;
   const { result, handOffs, holds } = await ctx.inHousehold(async (q) => {
     const done = outcome(await holdPayment(deps, recurringTx(q), caller(ctx), paymentId, request));
@@ -723,7 +737,10 @@ export const pauseRecurringPaymentRoute = defineRoute({
     params: paymentParams,
     body: z
       .object({
-        /** The last day paused, after today; null or left out — until «Відновити». */
+        /**
+         * The last day paused: after today (else 400 `not_after_today`) and at most 3660 days after it (else 400
+         * `too_far`); null or left out — until «Відновити».
+         */
         until: isoDate.nullable().optional(),
       })
       .strict(),

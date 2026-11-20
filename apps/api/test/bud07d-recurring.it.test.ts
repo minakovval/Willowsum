@@ -213,6 +213,7 @@ interface ChargeBody {
 interface StatusBody {
   paymentId: string;
   state: string;
+  hold: string | null;
   expectedAmount: { amount: string; currency: string };
   amountChange: { from: unknown; to: unknown; on: string } | null;
   missesInRow: number;
@@ -304,8 +305,8 @@ describe("BUD-07@PoC FR 13: «Призупинити» and «Відновити�
     });
     // November's miss stays counted while paused; «Відновити» counts anew.
     expect(await statusOf(space, id)).toMatchObject({ state: "paused", missesInRow: 1 });
-    // November's charge was overdue before the pause began: it stays; December's is held.
-    expect(await monthOf(space, "2026-11", id)).toEqual([["2026-11-05", "overdue"]]);
+    // November's charge was overdue before the pause began: it stays in the history, not in «Можна витратити».
+    expect(await monthOf(space, "2026-11", id)).toEqual([]);
     expect(await monthOf(space, "2026-12", id)).toEqual([]);
     expect(await monthOf(space, "2027-01", id)).toEqual([["2027-01-05", "expected"]]);
     expect((await chargesOf(space, id)).map((c) => c.status)).toEqual(["overdue", "paid-late", "paid-late"]);
@@ -325,12 +326,16 @@ describe("BUD-07@PoC FR 13: «Призупинити» and «Відновити�
     const paused = await call(space, "POST", `/v1/recurring/payments/${id}/pause`, { until: null });
     expect(paused.statusCode, paused.body).toBe(200);
     expect((paused.json() as PaymentBody).nextDate).toBeNull();
-    expect(await statusOf(space, id)).toMatchObject({ state: "paused", lastCharge: { dueOn: "2026-11-12" } });
+    expect(await statusOf(space, id)).toMatchObject({
+      state: "possibly-cancelled",
+      hold: "paused",
+      lastCharge: { dueOn: "2026-11-12" },
+    });
     const resumed = await call(space, "POST", `/v1/recurring/payments/${id}/resume`);
     expect(resumed.statusCode, resumed.body).toBe(200);
     // Paused and resumed the same day: nothing was held, and the misses are counted from today.
     expect(resumed.json() as PaymentBody).toMatchObject({ nextDate: "2026-12-12", holds: [] });
-    expect(await statusOf(space, id)).toMatchObject({ state: "active", missesInRow: 0 });
+    expect(await statusOf(space, id)).toMatchObject({ state: "active", hold: null, missesInRow: 0 });
     expect(await monthOf(space, "2026-12", id)).toEqual([["2026-12-12", "expected"]]);
     expect(await userUpdates(space.householdId)).toBe(2);
     const twice = await call(space, "POST", `/v1/recurring/payments/${id}/resume`);
@@ -369,7 +374,7 @@ describe("BUD-07@PoC FR 13: «Позначити скасованим» and its 
       nextDate: null,
       holds: [{ kind: "cancel", from: "2026-11-01", until: null }],
     });
-    expect(await statusOf(space, id)).toMatchObject({ state: "cancelled", missesInRow: 0 });
+    expect(await statusOf(space, id)).toMatchObject({ hold: "cancelled", missesInRow: 0 });
     expect(await monthOf(space, "2026-11", id)).toEqual([]);
     expect(await monthOf(space, "2026-10", id)).toEqual([["2026-10-05", "paid-late"]]);
     expect((await chargesOf(space, id)).map((c) => [c.dueOn, c.status])).toEqual([
@@ -386,7 +391,7 @@ describe("BUD-07@PoC FR 13: «Позначити скасованим» and its 
       nextDate: "2026-12-05",
       holds: [{ kind: "cancel", from: "2026-11-01", until: "2026-11-15" }],
     });
-    expect(await statusOf(space, id)).toMatchObject({ state: "active" });
+    expect(await statusOf(space, id)).toMatchObject({ state: "active", hold: null });
     expect(await monthOf(space, "2026-12", id)).toEqual([["2026-12-05", "expected"]]);
     expect(await userUpdates(space.householdId)).toBe(2);
   });
