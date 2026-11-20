@@ -7,6 +7,7 @@ import type {
   FileReview,
   ApplyBatchesTx,
   ParseBatchesTx,
+  RollbackTx,
   SpaceTx,
 } from "../../application/index.ts";
 import type { BatchState } from "../../domain/index.ts";
@@ -23,6 +24,7 @@ interface BatchRow {
   created_at: Date;
   last_action_at: Date;
   applying: boolean;
+  applied_at: Date | null;
 }
 
 interface FileRow {
@@ -40,7 +42,9 @@ interface FileRow {
 
 const BATCH = `household_id, id, name, state, created_by, version, created_at, last_action_at,
   EXISTS (SELECT 1 FROM batch_applications a
-           WHERE a.household_id = batches.household_id AND a.batch_id = batches.id AND a.in_progress) AS applying`;
+           WHERE a.household_id = batches.household_id AND a.batch_id = batches.id AND a.in_progress) AS applying,
+  (SELECT a.applied_at FROM batch_applications a
+    WHERE a.household_id = batches.household_id AND a.batch_id = batches.id AND NOT a.in_progress) AS applied_at`;
 const FILE =
   "id, batch_id, position, file_name, file_id, format, size_bytes, rejection_code, content_sha256, created_at";
 
@@ -54,6 +58,7 @@ const batch = (r: BatchRow): Batch => ({
   createdAt: r.created_at,
   lastActionAt: r.last_action_at,
   applying: r.applying,
+  appliedAt: r.applied_at,
 });
 
 const file = (r: FileRow): BatchFile => ({
@@ -401,7 +406,7 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
 }
 
 /** The batch's transaction with the stored result of its apply (application/apply.ts). */
-export function applyTx(q: HouseholdQueryRunner): ApplyBatchesTx {
+export function applyTx(q: HouseholdQueryRunner): ApplyBatchesTx & RollbackTx {
   return { ...batchesTx(q), ...applicationsTx(q) };
 }
 

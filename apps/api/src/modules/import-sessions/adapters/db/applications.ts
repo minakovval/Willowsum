@@ -1,5 +1,11 @@
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
-import type { ApplicationResult, ApplicationTx, StoredApplication } from "../../application/index.ts";
+import type {
+  ApplicationResult,
+  ApplicationTx,
+  RollbackTx,
+  StoredApplication,
+  StoredRollback,
+} from "../../application/index.ts";
 
 interface Row {
   batch_id: string;
@@ -27,9 +33,10 @@ const COLUMNS = "batch_id, result, applied_by, applied_at, in_progress, from_sta
 const OF_ATTEMPT = "coalesce(attempt_id, batch_id) = $3";
 
 /** The stored results of applied batches and the same file of an applied batch (IMP-04@PoC FR 3, FR 7). */
-export function applicationsTx(q: HouseholdQueryRunner): ApplicationTx & {
-  find(batchId: string): Promise<StoredApplication | null>;
-} {
+export function applicationsTx(q: HouseholdQueryRunner): ApplicationTx &
+  RollbackTx & {
+    find(batchId: string): Promise<StoredApplication | null>;
+  } {
   const h = q.householdId;
   const find = async (batchId: string): Promise<StoredApplication | null> => {
     const { rows } = await q.query<Row>(
@@ -81,6 +88,41 @@ export function applicationsTx(q: HouseholdQueryRunner): ApplicationTx & {
       await q.query(
         `DELETE FROM batch_applications WHERE household_id = $1 AND batch_id = $2 AND in_progress AND ${OF_ATTEMPT}`,
         [h, batchId, attemptId],
+      );
+    },
+    /** IMP-16 FR 3, FR 9: the batch's rollback kept with its applied result; null — not rolled back. */
+    async rollbackOf(batchId) {
+      const { rows } = await q.query<{
+        rolled_back_by: string;
+        rolled_back_at: Date;
+        rollback: Pick<StoredRollback, "mode" | "counts" | "kept">;
+      }>(
+        `SELECT rolled_back_by, rolled_back_at, rollback FROM batch_applications
+          WHERE household_id = $1 AND batch_id = $2 AND rolled_back_at IS NOT NULL`,
+        [h, batchId],
+      );
+      const r = rows[0];
+      return r
+        ? {
+            rolledBackBy: r.rolled_back_by,
+            rolledBackAt: r.rolled_back_at,
+            mode: r.rollback.mode,
+            counts: r.rollback.counts,
+            kept: r.rollback.kept,
+          }
+        : null;
+    },
+    async recordRollback(batchId, rollback) {
+      await q.query(
+        `UPDATE batch_applications SET rolled_back_by = $3, rolled_back_at = $4, rollback = $5::jsonb
+          WHERE household_id = $1 AND batch_id = $2 AND NOT in_progress AND rolled_back_at IS NULL`,
+        [
+          h,
+          batchId,
+          rollback.rolledBackBy,
+          rollback.rolledBackAt,
+          JSON.stringify({ mode: rollback.mode, counts: rollback.counts, kept: rollback.kept }),
+        ],
       );
     },
     async stuckApplications(before, limit) {
