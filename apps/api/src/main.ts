@@ -29,6 +29,7 @@ import {
   createCategorizationServices,
   createImportCategoryCarry,
   createTransactionCategories,
+  createTransactionCategoryRead,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/debt-payoff/index.ts";
@@ -544,6 +545,8 @@ const server = buildServer({
                         newId: randomUUID,
                         now: () => systemClock.now(),
                         merged: createImportCategoryCarry(databases.for("categorization")),
+                        // IMP-16 FR 4: a category set by hand keeps a transaction of a rolled-back batch.
+                        categories: createTransactionCategoryRead(databases.for("categorization")),
                       }),
                     },
                   }),

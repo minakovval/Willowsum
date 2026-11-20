@@ -5,7 +5,12 @@ import { defineRoute, DOWNLOAD_RESPONSE, type ProtectedContext } from "../../../
 import { FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
 import { PlanTooLargeError, planImport } from "../../../duplicate-matching/index.ts";
 import { FileNotFoundError } from "../../../file-storage/index.ts";
-import { ImportBusy, ImportWriteRefused } from "../../../transactions/index.ts";
+import {
+  ImportBusy,
+  ImportRollbackBusy,
+  ImportWriteRefused,
+  ROLLBACK_MODES,
+} from "../../../transactions/index.ts";
 import {
   addFiles,
   applyBatch,
@@ -46,6 +51,9 @@ import {
   parseViewOf,
   requestParse,
   rowsOf,
+  RollbackExpired,
+  rollbackBatch,
+  rollbackUntil,
   type FileParse,
   type FileReview,
   type ParseRequest,
@@ -100,6 +108,11 @@ const batchSchema = z.object({
   lastActionAt: z.string(),
   /** #654: «застосовано» with its apply still in progress (the rows being written; settled by a retry or the daily recovery). */
   applying: z.boolean(),
+  /**
+   * IMP-16 FR 1, AC4: «застосовано» — the last moment «Відкотити» is offered (7 days after the apply finished); null —
+   * not applied, still applying, or rolled back. Past it the client shows no «Відкотити».
+   */
+  rollbackUntil: z.string().nullable(),
   /** Accepted and rejected files of the batch. */
   files: z.object({ accepted: z.number().int(), rejected: z.number().int() }),
 });
@@ -129,6 +142,8 @@ function presentBatch(b: Batch, files: readonly BatchFile[]): z.input<typeof bat
     createdAt: b.createdAt.toISOString(),
     lastActionAt: b.lastActionAt.toISOString(),
     applying: b.applying ?? false,
+    rollbackUntil:
+      b.state === "applied" && !b.applying && b.appliedAt ? rollbackUntil(b.appliedAt).toISOString() : null,
     files: { accepted, rejected: files.length - accepted },
   };
 }
@@ -179,6 +194,9 @@ function refusal(error: unknown): unknown {
     });
   }
   if (error instanceof PlanTooLargeError) return new ApiProblem("IMPORT_PLAN_TOO_LARGE");
+  // IMP-04 AC8: «Строк відкату минув»; a row of the batch held by another change — try again.
+  if (error instanceof RollbackExpired) return new ApiProblem("IMPORT_ROLLBACK_EXPIRED");
+  if (error instanceof ImportRollbackBusy) return new ApiProblem("BATCH_STATE_CONFLICT");
   // #654: the ceiling of rows per apply (split the batch), and of applies of the space at once (try again).
   if (error instanceof ApplyTooLarge)
     return new ApiProblem("IMPORT_PLAN_TOO_LARGE", {
@@ -933,6 +951,76 @@ export const applyImportBatchRoute = defineRoute({
   },
 });
 
+// ——— «Відкотити» (IMP-04@PoC FR 8, AC7, AC8, AC12; IMP-16@PoC FR 1–5, FR 9; wave 2 row 44) ———
+
+export const rollbackImportBatchRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/import/batches/{batchId}/rollback",
+  operationId: "rollbackImportBatch",
+  summary:
+    "«Відкотити» (IMP-04 FR 8, IMP-16): within 7 days of the apply, every transaction of the batch is rolled back by a reversal in the journal — never deleted — and what was merged into it comes back; ones the person changed are kept with «Залишити змінені» (the default); rolling back again returns the stored result",
+  access: WRITE,
+  request: {
+    params: batchParams,
+    body: z.object({
+      /** «Залишити змінені» (`keep-changed`, the default) or «Відкотити все» (`all`; IMP-16 FR 4). */
+      mode: z.enum(ROLLBACK_MODES).optional(),
+    }),
+  },
+  problems: ["BATCH_STATE_CONFLICT", "IMPORT_ROLLBACK_EXPIRED", "ACCOUNT_CLOSED", "RATE_LIMITED"],
+  response: {
+    status: 200,
+    description: "The batch, «відкочено», and the result of its rollback",
+    schema: z.object({
+      batch: batchSchema,
+      rollback: z.object({
+        mode: z.enum(ROLLBACK_MODES),
+        /** rolledBack, kept (changed by the person), transfers (sides of a transfer, kept), restored (merged into a rolled-back one, back). */
+        counts: z.record(z.string(), z.number().int()),
+        /** The transactions kept, at most 200 (the counts name them all). */
+        kept: z.array(z.uuid()),
+        rolledBackAt: z.string(),
+      }),
+      /** False — the batch was rolled back before: nothing changed now (IMP-16 FR 3). */
+      first: z.boolean(),
+    }),
+  },
+  handler: async ({ params, body }, ctx) => {
+    owner(ctx);
+    const { deps, audit, apply } = importSessionsServices(ctx);
+    if (!apply) throw new ApiProblem("INTERNAL");
+    const { householdId, userId } = ctx.principal;
+    const { result, handOffs } = await guarded(() =>
+      rollbackBatch(
+        deps,
+        {
+          run: (work) => ctx.inHousehold((q) => work(applyTx(q))),
+          rollback: (input) => apply.transactions.rollback(householdId, input),
+          rolledBack: (batchId) => apply.transactions.rolledBack(householdId, batchId),
+        },
+        userId,
+        params.batchId,
+        body.mode ?? "keep-changed",
+      ),
+    );
+    await handOffNow(audit, householdId, handOffs);
+    const run = routeTx(ctx);
+    const batch = await run((tx) => tx.findBatch(params.batchId));
+    if (!batch) throw new ApiProblem("NOT_FOUND");
+    return {
+      batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
+      rollback: {
+        mode: result.rollback.mode,
+        counts: { ...result.rollback.counts },
+        kept: [...result.rollback.kept],
+        rolledBackAt: result.rollback.rolledBackAt.toISOString(),
+      },
+      first: result.first,
+    };
+  },
+});
+
 export const importSessionsRoutes = [
   createImportBatchRoute,
   listImportBatchesRoute,
@@ -949,4 +1037,5 @@ export const importSessionsRoutes = [
   getImportBatchParseRoute,
   listImportFileRowsRoute,
   applyImportBatchRoute,
+  rollbackImportBatchRoute,
 ];

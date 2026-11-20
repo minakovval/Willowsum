@@ -192,19 +192,36 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
   };
 }
 
+/** The columns of a stored transaction and its row as read (for the rollback's own reads, adapters/db/imported.ts). */
+export const STORED_COLUMNS = COLUMNS;
+export type StoredRowShape = Row;
+
+/** A read row with its split's parts and its transfer. */
+export async function storedRow(
+  q: ModuleQueryRunner,
+  householdId: string,
+  row: Row,
+): Promise<StoredTransaction> {
+  const parts = row.split_mode === null ? [] : ((await partsOf(q, householdId, [row.id])).get(row.id) ?? []);
+  const transfer =
+    row.transfer_id === null
+      ? null
+      : ((await transfersOf(q, householdId, [row.transfer_id])).get(row.transfer_id)?.link ?? null);
+  return stored(row, parts, transfer);
+}
+
+/**
+ * IMP-04 FR 8, IMP-16 FR 2: a transaction rolled back with its import batch is out of every read and change of the
+ * module — found by none (`find`, `lock`), so a hand-off of it reverses its journal event; only the rollback reads it.
+ */
+const LIVE = "rolled_back_at IS NULL";
+
 export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
   const one = async (text: string, values: unknown[]) => {
     const { rows } = await q.query<Row>(text, values);
     const row = rows[0];
     if (!row) return null;
-    const householdId = String(values[0]);
-    const parts =
-      row.split_mode === null ? [] : ((await partsOf(q, householdId, [row.id])).get(row.id) ?? []);
-    const transfer =
-      row.transfer_id === null
-        ? null
-        : ((await transfersOf(q, householdId, [row.transfer_id])).get(row.transfer_id)?.link ?? null);
-    return stored(row, parts, transfer);
+    return storedRow(q, String(values[0]), row);
   };
   /** The parts of `t` replace the stored ones (none when it is not split). */
   const writeParts = async (householdId: string, t: { id: string; split: Split | null }) => {
@@ -260,9 +277,12 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       return row!;
     },
     find: (householdId, id) =>
-      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2`, [householdId, id]),
+      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2 AND ${LIVE}`, [
+        householdId,
+        id,
+      ]),
     lock: (householdId, id) =>
-      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2 FOR UPDATE`, [
+      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2 AND ${LIVE} FOR UPDATE`, [
         householdId,
         id,
       ]),
@@ -455,8 +475,8 @@ export const transactionsList = defineList({
     status: { column: "status", cast: "text", value: z.enum(TRANSACTION_STATUSES), operators: ["eq", "in"] },
     /** «Стан: розділені». */
     split: { column: "is_split", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
-    /** «Стан: приховані» — `hidden.eq:true`. */
-    hidden: { column: "hidden", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
+    /** «Стан: приховані» — `hidden.eq:true`; a rolled-back transaction (IMP-16 FR 2) is in neither. */
+    hidden: { column: "listed_hidden", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
     /** «Стан: переказ» (FR 22) — `transfer.eq:true`; budgets and reports leave transfers out with `false` (FR 7). */
     transfer: { column: "is_transfer", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
     /** «Теги» (BUD-13 FR 2, FR 5): `tag.eq:<id>` — has the tag, `tag.in:<id>,<id>` — any of them. */
@@ -759,7 +779,7 @@ export async function categorizableFacts(
   if (ids.length === 0) return new Map();
   const { rows } = await q.query<{ id: string; transfer: boolean; split: boolean; merged: boolean }>(
     `SELECT id, is_transfer AS transfer, is_split AS split, merged_into IS NOT NULL AS merged
-       FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[])`,
+       FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[]) AND rolled_back_at IS NULL`,
     [householdId, ids],
   );
   return new Map(rows.map((r) => [r.id, { transfer: r.transfer, split: r.split, merged: r.merged }]));
