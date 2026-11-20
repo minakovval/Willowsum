@@ -41,8 +41,8 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    files, `packages/api-contract/**` other than `openapi.json` and `src/schema.ts`, `apps/api/module-rules.json`, or
    migrations of a module the PR touches. `packages/api-contract/openapi.json` and `packages/api-contract/src/schema.ts`
    no longer require a sync by themselves: the workflow «Contract check on main»
-   (`.github/workflows/main-contract-check.yml`) runs `pnpm contract:check` after every push to `main`, so a broken
-   contract shows up at once as a red `main` (owner, 2026-11-20). Otherwise merge with `behind_by` > 0, no sync and no confirmation (CI green and the verdicts on the PR's own head
+   (`.github/workflows/main-contract-check.yml`) runs `pnpm contract:check` and `pnpm typecheck` after every push to `main`, so a broken
+   contract or a client that no longer compiles shows up at once as a red `main` (owner, 2026-11-20). Otherwise merge with `behind_by` > 0, no sync and no confirmation (CI green and the verdicts on the PR's own head
    as above). CI on `main` after every merge catches the rest: **a red `main` is the top priority** — stop merging,
    start `investigate-ci-failure` on `main`, merge again only when `main` is green. The daily check of `main`
    (ADR-0008) stays. Check (from the repository root):

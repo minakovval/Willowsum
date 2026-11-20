@@ -4,7 +4,9 @@ name: Contract check on main
 # matches the contract) runs after every push to main, because a PR is merged without a sync when only
 # packages/api-contract/openapi.json or src/schema.ts changed on main (merge checklist, «Sync only when needed»).
 # A red run is a red main: `investigate-ci-failure`. Same command as the job `api` of pr-checks.yml.
-# Read-only: no write permission, no secrets, no external services. About a minute per merge (CI minutes).
+# `pnpm typecheck` after it (review 5995480792 on PR #662): a PR that does not touch the contract but uses the typed
+# client can be merged without a sync after another PR changed `schema.ts`; only the type check sees that break.
+# Read-only: no write permission, no secrets, no external services. About 1.5 minutes per merge (CI minutes).
 
 on:
   push:
@@ -45,3 +47,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: API contract matches the routes; the typed client matches the contract (ARC-07)
         run: pnpm contract:check
+      - name: Consumers of the typed client still compile against main's contract
+        run: pnpm typecheck
