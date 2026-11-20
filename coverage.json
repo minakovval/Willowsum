@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-20T14:05:33.340Z",
-  "sha": "6fb1b576b2767acfdc278942d4ba04efa2e16e9a",
+  "generatedAt": "2026-11-20T14:53:28.531Z",
+  "sha": "ebb3cde84b4a46b923a6767f80b96bf7279778b8",
   "releases": [
     {
       "release": "PoC",
@@ -15,11 +15,11 @@
         "total": 1075
       },
       "EC": {
-        "covered": 118,
+        "covered": 119,
         "total": 201
       },
       "items": {
-        "covered": 1531,
+        "covered": 1532,
         "total": 2668
       }
     },
@@ -35,11 +35,11 @@
         "total": 1014
       },
       "EC": {
-        "covered": 78,
+        "covered": 79,
         "total": 245
       },
       "items": {
-        "covered": 797,
+        "covered": 798,
         "total": 2456
       }
     },
@@ -55,11 +55,11 @@
         "total": 2980
       },
       "EC": {
-        "covered": 90,
+        "covered": 91,
         "total": 723
       },
       "items": {
-        "covered": 993,
+        "covered": 994,
         "total": 7093
       }
     },
@@ -75,11 +75,11 @@
         "total": 663
       },
       "EC": {
-        "covered": 11,
+        "covered": 12,
         "total": 207
       },
       "items": {
-        "covered": 53,
+        "covered": 54,
         "total": 1562
       }
     },
