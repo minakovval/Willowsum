@@ -982,3 +982,24 @@ describe("sec651: «Витратити з цілі» in «Можна витра�
     expect(f.amount).toEqual(eur("-12344678.92"));
   });
 });
+describe("BUD-03@PoC EC4: the income plan alone at the nearest rate (#651 confirmation)", () => {
+  it("BUD-03@PoC EC4: a regular income in USD no longer expected (skipped) still makes the month's income plan — «приблизно» from the plan alone", async () => {
+    const space = await newSpace();
+    await current(space);
+    await createBudget(space, { incomePlan: eur("100") });
+    await rate("2026-11-05", "USD", "41.6");
+    await rate("2026-11-05", "EUR", "52");
+    const paymentId = await payment(space, {
+      type: "income",
+      amount: { amount: "1000", currency: "USD" },
+      anchorDate: "2026-11-01",
+      name: "Синтетичний дохід",
+    });
+    const skipped = await call(space, "POST", `/v1/recurring/payments/${paymentId}/charges/2026-11-01/skip`);
+    expect(skipped.statusCode, skipped.body).toBe(200);
+    const s = await spendable(space);
+    // Nothing still expected — only the plan (800 € at the 5 November rate) carries the nearest rate.
+    expect(s.figures!.income).toMatchObject({ plan: eur("800"), stillExpected: eur("0") });
+    expect(s.approximate).toMatchObject({ incomes: true });
+  });
+});

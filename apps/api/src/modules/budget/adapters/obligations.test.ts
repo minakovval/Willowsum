@@ -227,3 +227,46 @@ describe("#567: the adapter of BudgetObligations", () => {
     ).rejects.toThrow("rates are down");
   });
 });
+describe("#651: a regular income still expected at the nearest rate", () => {
+  const nearestFx = {
+    total: async (amounts: readonly { amount: Money }[], currency?: string) => ({
+      currency: currency ?? "EUR",
+      total: null,
+      approximate: true,
+      nearestRateCount: amounts.length,
+      staleRateCount: 0,
+      unavailableCount: 0,
+      restricted: false,
+      items: amounts.map((a) => ({
+        kind: "converted" as const,
+        original: a.amount,
+        value: Money.of(a.amount.toDecimalString(), currency ?? "EUR"),
+        conversion: { approximate: true },
+      })),
+    }),
+  };
+  const port = (charges: Charge[]) =>
+    createBudgetObligations({
+      recurring: { chargesIn: async () => charges },
+      credit: { list: async () => [] },
+      liabilities: { forAccount: async () => null },
+      payments: { paidIn: async () => new Set<string>() },
+      fx: nearestFx as never,
+    });
+  const usd = (a: string) => Money.of(a, "USD");
+
+  it("BUD-03@PoC EC4: an income of 0 USD at the nearest rate is exact; 100 USD is «приблизно»", async () => {
+    const zero = await port([charge("2026-11-21", usd("0"), { type: "income" })]).month(
+      "h",
+      "2026-11",
+      "EUR",
+    );
+    expect(zero).toMatchObject({ incomeApproximate: false });
+    const some = await port([charge("2026-11-21", usd("100"), { type: "income" })]).month(
+      "h",
+      "2026-11",
+      "EUR",
+    );
+    expect(some).toMatchObject({ incomeApproximate: true });
+  });
+});
