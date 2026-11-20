@@ -1,17 +1,25 @@
 import type { Money } from "@willowsum/domain-kernel";
 import {
   monthFigures,
+  monthFlows,
+  periodFlows,
   periodTotals,
+  resolve,
+  splitLoanMonth,
+  transferFlow,
   type CashflowCategory,
   type CountedLine,
+  type FlowLine,
+  type Flows,
+  type GoalAccountSpan,
   type Month,
   type MonthFigures,
   type PeriodTotals,
 } from "../domain/index.ts";
 
 /**
- * «Грошовий потік» of a period (BUD-08@PoC; wave 2 row 37, server part a): read only, nothing stored or changed. The
- * ports are other modules' public interfaces, wired in adapters/http/services.ts.
+ * «Грошовий потік» of a period (BUD-08@PoC; wave 2 row 37, server parts a and b): read only, nothing stored or changed.
+ * The ports are other modules' public interfaces, wired in adapters/http/services.ts.
  */
 
 /** A transaction of a budget account as module transactions gives it (`BudgetTransactions.inPeriod`). */
@@ -53,8 +61,63 @@ export interface CashflowReads {
   ): Promise<CashflowConverted>;
 }
 
+/** A side of a marked transfer between own accounts (transactions). */
+export interface CashflowTransferSide {
+  readonly id: string;
+  readonly accountId: string;
+  readonly amount: Money;
+  readonly date: string;
+}
+
+/** A transaction of a loan's account (transactions): sides of a transfer too. */
+export interface CashflowLoanOperation extends CashflowTransferSide {
+  readonly source: "manual" | "imported";
+}
+
+/** An active loan of the space (accounts) with the journal account of its wallet in its currency. */
+export interface CashflowLoan {
+  readonly accountId: string;
+  readonly currency: string;
+  readonly ledgerAccountId: string;
+}
+
+/** Part b's reads (FR 5–7, FR 10). */
+export interface CashflowFlowReads {
+  /** FR 6: the space's brokerage (and pension) accounts. */
+  investmentAccountIds(householdId: string): Promise<ReadonlySet<string>>;
+  /** FR 5, FR 6: the marked transfers whose outflow is dated in the dates (transactions). */
+  transfers(
+    householdId: string,
+    from: string,
+    to: string,
+  ): Promise<readonly { readonly outflow: CashflowTransferSide; readonly inflow: CashflowTransferSide }[]>;
+  /** FR 5: the own accounts of goals, closed goals' too (goals). */
+  goalAccounts(householdId: string): Promise<readonly GoalAccountSpan[]>;
+  /** FR 5: the «Внести» marks in the dates, in each goal's currency (goals). */
+  goalMarks(
+    householdId: string,
+    from: string,
+    to: string,
+  ): Promise<readonly { readonly goalId: string; readonly amount: Money; readonly date: string }[]>;
+  /** FR 10: what of these transactions is spent from a goal, in the goal's currency (goals). */
+  goalSpends(householdId: string, transactionIds: readonly string[]): Promise<ReadonlyMap<string, Money>>;
+  /** FR 7: the space's active loans (accounts). */
+  loans(householdId: string): Promise<readonly CashflowLoan[]>;
+  /** FR 7: the operations of the loans' accounts in the dates, oldest first (transactions). */
+  loanOperations(
+    householdId: string,
+    accountIds: readonly string[],
+    from: string,
+    to: string,
+  ): Promise<readonly CashflowLoanOperation[]>;
+  /** FR 7: the loan's annual rate in effect on the date, per cent; null — none (liabilities). */
+  annualRate(householdId: string, accountId: string, date: string): Promise<string | null>;
+  /** FR 7: what the loan's wallet owes at the end of the date (ledger). */
+  debtAt(householdId: string, ledgerAccountId: string, date: string): Promise<Money>;
+}
+
 export interface CashflowDeps {
-  readonly reads: CashflowReads;
+  readonly reads: CashflowReads & CashflowFlowReads;
   /** The space's reporting currency (FR 12: the report's currency). */
   readonly currency: string;
   /** «Сьогодні», YYYY-MM-DD. */
@@ -65,6 +128,11 @@ export interface CashflowReport {
   readonly currency: string;
   readonly months: readonly MonthFigures[];
   readonly totals: PeriodTotals;
+  /** FR 2, FR 4–7, FR 10: where each month's net flow went, and the period's. */
+  readonly monthFlows: readonly Flows[];
+  readonly periodFlows: Flows;
+  /** Edge case 2: the loans whose payments in the period were not split for want of a rate («внести ставку»). */
+  readonly loansWithoutRate: readonly string[];
   /** FR 8, edge case 3: the one-sided operations awaiting their pair, left out of income and spending. */
   readonly unpairedTransfers: number;
   /** FR 12, edge case 4. */
@@ -72,6 +140,90 @@ export interface CashflowReport {
   readonly unavailableCount: number;
   /** «Немає транзакцій рахунків бюджету за цей період». */
   readonly empty: boolean;
+}
+
+const dayBefore = (date: string): string =>
+  new Date(Date.parse(`${date}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+
+/** The amounts of one loan month (FR 7): the interest as spending, the principal as «Погашення боргу». */
+interface LoanAmounts {
+  readonly spending: { categoryId: string | null; amount: Money; date: string }[];
+  readonly principal: { amount: Money; date: string }[];
+  readonly withoutRate: Set<string>;
+}
+
+/**
+ * FR 7, AC7, edge case 2: each active loan's payments of each month — inflows on its account in its currency, a
+ * confirmed transfer or an operation entered or imported, not a side of a proposed pair still awaiting confirmation —
+ * split into the interest (spending in «Відсотки за кредитами») and the principal. A month with the bank's own interest
+ * operation (imported in «Відсотки за кредитами») is not calculated: that operation is the month's interest spending
+ * and every payment lowers the debt.
+ */
+async function loanAmounts(
+  reads: CashflowFlowReads & Pick<CashflowReads, "categoriesOf">,
+  householdId: string,
+  from: string,
+  to: string,
+  pending: () => Promise<ReadonlySet<string>>,
+  categories: ReadonlyMap<string, CashflowCategory>,
+): Promise<LoanAmounts> {
+  const result: LoanAmounts = { spending: [], principal: [], withoutRate: new Set() };
+  const loans = await reads.loans(householdId);
+  if (loans.length === 0) return result;
+  const operations = await reads.loanOperations(
+    householdId,
+    loans.map((l) => l.accountId),
+    from,
+    to,
+  );
+  if (operations.length === 0) return result;
+  const awaiting = await pending();
+  const own = await reads.categoriesOf(
+    householdId,
+    operations.map((o) => o.id),
+  );
+  const interestCategory =
+    [...categories.values()].find((c) => c.systemKey === "loan-interest" && c.state !== "retired") ?? null;
+  const isInterest = (id: string | undefined) =>
+    resolve(categories, id ?? null)?.systemKey === "loan-interest";
+  for (const loan of loans) {
+    const byMonth = new Map<Month, CashflowLoanOperation[]>();
+    for (const o of operations)
+      if (o.accountId === loan.accountId && o.amount.currency === loan.currency)
+        byMonth.set(o.date.slice(0, 7), [...(byMonth.get(o.date.slice(0, 7)) ?? []), o]);
+    for (const ops of byMonth.values()) {
+      const bank = ops.filter((o) => o.source === "imported" && isInterest(own.get(o.id)));
+      for (const o of bank)
+        result.spending.push({ categoryId: own.get(o.id) ?? null, amount: o.amount, date: o.date });
+      const payments = ops.filter(
+        (o) => !o.amount.isNegative() && !o.amount.isZero() && !awaiting.has(o.id) && !bank.includes(o),
+      );
+      if (payments.length === 0) continue;
+      const first = payments[0]!;
+      const annualRate =
+        bank.length > 0 ? null : await reads.annualRate(householdId, loan.accountId, first.date);
+      if (bank.length === 0 && annualRate === null) result.withoutRate.add(loan.accountId);
+      const debtBefore =
+        annualRate === null
+          ? null
+          : await reads.debtAt(householdId, loan.ledgerAccountId, dayBefore(first.date));
+      for (const split of splitLoanMonth({
+        payments,
+        annualRate,
+        debtBefore,
+        bankInterest: bank.length > 0,
+      })) {
+        if (!split.interest.isZero())
+          result.spending.push({
+            categoryId: interestCategory?.id ?? null,
+            amount: split.interest.negated(),
+            date: split.date,
+          });
+        result.principal.push({ amount: split.principal, date: split.date });
+      }
+    }
+  }
+  return result;
 }
 
 const lastDay = (m: Month): string => {
@@ -92,8 +244,10 @@ export async function cashflowReport(
   const rows = (await reads.transactions(householdId, accountIds, from, to)).filter(
     (r) => r.date >= from && r.date <= to,
   );
-  const pending = rows.length === 0 ? new Set<string>() : await reads.pendingTransferSides(householdId);
-  const counted = rows.filter((r) => !pending.has(r.id));
+  let pendingSides: Promise<ReadonlySet<string>> | null = null;
+  const pending = () => (pendingSides ??= reads.pendingTransferSides(householdId));
+  const awaiting = rows.length === 0 ? new Set<string>() : await pending();
+  const counted = rows.filter((r) => !awaiting.has(r.id));
   const own = await reads.categoriesOf(
     householdId,
     counted.filter((r) => r.parts === null).map((r) => r.id),
@@ -107,8 +261,53 @@ export async function cashflowReport(
     // FR 13: split by categories — counted by its parts.
     else for (const p of r.parts) lines.push({ categoryId: p.categoryId, amount: p.amount, date: r.date });
   }
+  const categories = new Map((await reads.categories(householdId)).map((c) => [c.id, c]));
+
+  // FR 7: the interest of loan payments is spending; their principal is «Погашення боргу».
+  const loans = await loanAmounts(reads, householdId, from, to, pending, categories);
+  lines.push(...loans.spending);
+  const flows: { kind: FlowLine["kind"]; goalId: string | null; amount: Money; date: string }[] =
+    loans.principal.map((p) => ({ kind: "debt", goalId: null, amount: p.amount, date: p.date }));
+  // FR 5, FR 6: transfers out of a budget account into a goal's own account or a brokerage one, and back.
+  const transfers = await reads.transfers(householdId, from, to);
+  if (transfers.length > 0) {
+    const budget = new Set(accountIds);
+    const investment = await reads.investmentAccountIds(householdId);
+    const goalAccounts = await reads.goalAccounts(householdId);
+    for (const t of transfers) {
+      const flow = transferFlow(
+        { fromAccountId: t.outflow.accountId, toAccountId: t.inflow.accountId, date: t.outflow.date },
+        budget,
+        investment,
+        goalAccounts,
+      );
+      if (flow)
+        flows.push({
+          kind: flow.kind,
+          goalId: flow.kind === "goal" ? flow.goalId : null,
+          // A contribution is what left the budget account; a withdrawal what came back to it.
+          amount: flow.kind === "withdrawal" ? t.inflow.amount : t.outflow.amount.negated(),
+          date: flow.kind === "withdrawal" ? t.inflow.date : t.outflow.date,
+        });
+    }
+  }
+  // FR 5: the «Внести» marks of envelopes and mark-only goals.
+  for (const m of await reads.goalMarks(householdId, from, to))
+    flows.push({ kind: "goal", goalId: m.goalId, amount: m.amount, date: m.date });
+  // FR 10, AC2: the counted spending paid from goals — the layer «з цілей».
+  if (counted.length > 0) {
+    const spent = await reads.goalSpends(
+      householdId,
+      counted.map((r) => r.id),
+    );
+    for (const r of counted) {
+      const amount = spent.get(r.id);
+      if (amount) flows.push({ kind: "from-goals", goalId: null, amount, date: r.date });
+    }
+  }
+
   const converted = await reads.convert(
-    lines.map((l) => ({ amount: l.amount, date: l.date })),
+    [...lines, ...flows].map((l) => ({ amount: l.amount, date: l.date })),
     currency,
   );
   const inCurrency: CountedLine[] = [];
@@ -116,12 +315,20 @@ export async function cashflowReport(
     const value = converted.values[i];
     if (value) inCurrency.push({ month: l.date.slice(0, 7), categoryId: l.categoryId, amount: value });
   });
-  const categories = new Map((await reads.categories(householdId)).map((c) => [c.id, c]));
+  const flowLines: FlowLine[] = [];
+  flows.forEach((f, i) => {
+    const value = converted.values[lines.length + i];
+    if (value) flowLines.push({ month: f.date.slice(0, 7), kind: f.kind, goalId: f.goalId, amount: value });
+  });
   const figures = monthFigures(months, inCurrency, categories, currency);
+  const totals = periodTotals(figures, currency);
   return {
     currency,
     months: figures,
-    totals: periodTotals(figures, currency),
+    totals,
+    monthFlows: monthFlows(figures, flowLines, currency),
+    periodFlows: periodFlows(totals, months, flowLines, currency),
+    loansWithoutRate: [...loans.withoutRate],
     unpairedTransfers: rows.length - counted.length,
     nearestRateCount: converted.nearestRateCount,
     unavailableCount: converted.unavailableCount,

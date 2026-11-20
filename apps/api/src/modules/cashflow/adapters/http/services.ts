@@ -2,15 +2,18 @@ import { AmountOutOfRangeError, type Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { kyivToday } from "../../../../platform/lists/list-total.ts";
-import type { AccountList } from "../../../accounts/index.ts";
+import type { AccountList, CreditAccounts } from "../../../accounts/index.ts";
 import { DEFAULT_BUDGET_KINDS } from "../../../budget/index.ts";
 import type { TransactionCategories } from "../../../categorization/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { FxReporting } from "../../../fx-rates/index.ts";
+import type { GoalFlows, GoalSpends } from "../../../goals/index.ts";
+import type { Ledger } from "../../../ledger/index.ts";
+import type { Liabilities } from "../../../liabilities/index.ts";
 import { SPACE_REPORTING_CURRENCY } from "../../../household/index.ts";
-import type { BudgetTransactions } from "../../../transactions/index.ts";
+import type { BudgetTransactions, CashflowMovements } from "../../../transactions/index.ts";
 import type { TransferProposalSides } from "../../../transfer-matching/index.ts";
-import type { CashflowDeps, CashflowReads } from "../../application/index.ts";
+import type { CashflowDeps, CashflowFlowReads, CashflowReads } from "../../application/index.ts";
 
 /** Amounts over 15 integer digits are not counted (the budget's rule, #565, #573). */
 const tooBig = (m: Money) => m.amount.abs().truncated().toFixed().length > 15;
@@ -30,6 +33,12 @@ export interface CashflowPorts {
   readonly categorization: TransactionCategories;
   readonly transfers: TransferProposalSides;
   readonly fx: Pick<FxReporting, "total">;
+  /** Part b (FR 5–7, FR 10). */
+  readonly movements: CashflowMovements;
+  readonly goals: GoalFlows & GoalSpends;
+  readonly credit: Pick<CreditAccounts, "list">;
+  readonly liabilities: Pick<Liabilities, "forAccount" | "termsOn">;
+  readonly ledger: Pick<Ledger, "balanceAt">;
 }
 
 /**
@@ -82,13 +91,55 @@ export function cashflowReads(ports: CashflowPorts): CashflowReads {
   };
 }
 
+/**
+ * FR 5–7, FR 10 over the public interfaces of `transactions` (marked transfers, a loan account's operations), `goals`
+ * (own accounts, «Внести» marks, spends), `accounts` (active loans and their wallets), `liabilities` (the rate in effect
+ * on a date) and `ledger` (what a loan's wallet owes).
+ *
+ * FR 6: FIN-01@PoC FR 2 has no brokerage accounts, so the space has none and investments are zero in this release; the
+ * rule is in place for the release that adds them (lead decision 2026-11-20).
+ */
+export function cashflowFlowReads(ports: CashflowPorts): CashflowFlowReads {
+  return {
+    investmentAccountIds: async () => new Set<string>(),
+    transfers: (householdId, from, to) => ports.movements.transfers(householdId, from, to),
+    goalAccounts: (householdId) => ports.goals.ownAccounts(householdId),
+    goalMarks: (householdId, from, to) => ports.goals.marks(householdId, from, to),
+    async goalSpends(householdId, transactionIds) {
+      const spent = await ports.goals.spent(householdId, transactionIds);
+      return new Map([...spent].map(([id, s]) => [id, s.amount]));
+    },
+    async loans(householdId) {
+      const loans: { accountId: string; currency: string; ledgerAccountId: string }[] = [];
+      for (const a of await ports.credit.list(householdId)) {
+        if (a.kind !== "loan") continue;
+        const terms = await ports.liabilities.forAccount(householdId, a.accountId);
+        const wallet = a.subaccounts.find((s) => s.currency === terms?.currency) ?? a.subaccounts[0];
+        if (wallet)
+          loans.push({
+            accountId: a.accountId,
+            currency: wallet.currency,
+            ledgerAccountId: wallet.ledgerAccountId,
+          });
+      }
+      return loans;
+    },
+    loanOperations: (householdId, accountIds, from, to) =>
+      ports.movements.operations(householdId, accountIds, from, to),
+    annualRate: async (householdId, accountId, date) =>
+      (await ports.liabilities.termsOn(householdId, accountId, date))?.annualRate ?? null,
+    debtAt: (householdId, ledgerAccountId, date) =>
+      ports.ledger.balanceAt(householdId, ledgerAccountId, date),
+  };
+}
+
 export function createCashflowServices(
   options: CashflowPorts & { readonly clock: { now(): number } },
 ): CashflowServices {
   return {
     [BRAND]: true,
     deps: {
-      reads: cashflowReads(options),
+      reads: { ...cashflowReads(options), ...cashflowFlowReads(options) },
       currency: SPACE_REPORTING_CURRENCY,
       // «Сьогодні» — the Kyiv date, as the budget's (the space's time zone is not known to the modules yet).
       today: () => kyivToday(options.clock.now()),

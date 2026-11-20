@@ -1,6 +1,6 @@
 # Модуль cashflow
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-08@PoC a: дохід, витрати, чистий потік і норма заощаджень місяця і періоду)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-08@PoC b: внески в цілі, інвестиції, поділ платежу по кредиту, «Залишилось на рахунках», шар «з цілей»); 2026-11-19 (BUD-08@PoC a: дохід, витрати, чистий потік і норма заощаджень місяця і періоду)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -18,8 +18,10 @@ BUD-08@PoC a) (хвиля 2, рядок 37 — серверна частина):
 (надходження без категорії зменшує витрати), 10 (серверна частина: найвищий і найнижчий місяць), 11 (норма періоду і
 середнє місячних норм), 12 (календарні місяці, рахунки бюджету, валюта простору, курс дати, «приблизно»), 13 (розділені
 транзакції); AC3, AC4, AC6, AC5 (серверна частина); граничні випадки 1, 3 (лише «Перекази без пари»), 4.
-Далі: внески в цілі (п. 5), внески в інвестиції і виведення (п. 6), поділ платежу по кредиту і «Погашення боргу» (п. 7),
-«Залишилось на рахунках» (п. 4), шар «з цілей» (п. 10) — AC1, AC2, AC7, граничний випадок 2; UI — рядок 134.
+BUD-08@PoC b) (серверна частина, перед рядком 134): п. 2 (серверна частина: показники вигляду «Місяць»), 4
+(«Залишилось на рахунках»), 5 (внески в цілі), 6 (інвестиції й виведення; у PoC брокерських рахунків немає — нуль), 7
+(поділ платежу по кредиту, «Погашення боргу»), 10 (шар «з цілей»); AC1, AC2, AC7; граничні випадки 2, 3. Далі: UI —
+рядок 134; рахунки, перемкнені в «Рахунках бюджету» (follow-up частини a).
 
 ## Публічний інтерфейс
 
@@ -31,13 +33,19 @@ BUD-08@PoC a) (хвиля 2, рядок 37 — серверна частина):
   `year`) і `period` (`YYYY-MM`; `YYYY-Qn`; `YYYY`); інший формат, рік до 1900 чи період, що починається після поточного
   місяця, — 400 `period: invalid`. → `type`, `period`, `view` (`month` / `monthly`), `currency` (валюта простору),
   `months` (`month`, `income`, `expenses`, `netFlow`, `savingsRate` — відсоток з одним знаком, до парного, null — «–»;
-  `uncategorizedInflows` — `count`, `amount`), `totals` (`income`, `expenses`, `netFlow`, `savingsRate` — за сумами
+  `uncategorizedInflows` — `count`, `amount`; куди пішов потік — `goalContributions` (`total`, `goals` — `goalId`,
+  `amount`), `investmentContributions`, `investmentWithdrawals`, `debtRepayment`, `leftOnAccounts`, `fromGoals`), `totals` (`income`, `expenses`, `netFlow`, `savingsRate` — за сумами
   періоду, `averageMonthlyRate` — середнє місячних норм за місяцями з доходом, `highest`, `lowest` — місяці з найбільшим і
-  найменшим чистим потоком), `unpairedTransfers`, `approximate` (`nearestRateCount`, `unavailableCount`), `empty`.
-- `createCashflowServices({ categories, accounts, transactions, categorization, transfers, fx, clock })` →
+  найменшим чистим потоком; ті самі поля «куди пішов потік» за період), `loansWithoutRate` (кредити, платежі яких не
+  поділено без ставки — підказка «внести ставку»), `unpairedTransfers`, `approximate` (`nearestRateCount`, `unavailableCount`), `empty`.
+- `createCashflowServices({ categories, accounts, transactions, categorization, transfers, fx, movements, goals, credit,
+  liabilities, ledger, clock })` →
   `CashflowServices` (`src/api.ts` → `ctx.services`; `main.ts`): `CategoryDirectory.categories` (categories),
   `AccountList` (accounts), `BudgetTransactions.inPeriod` (transactions), `TransactionCategories` (categorization),
-  `TransferProposalSides` (transfer-matching), `FxReporting.total` (fx-rates); «сьогодні» — дата за Києвом, як у бюджету;
+  `TransferProposalSides` (transfer-matching), `FxReporting.total` (fx-rates); частина b — `CashflowMovements`
+  (transactions: перекази, операції рахунку кредиту), `GoalFlows` і `GoalSpends` (goals), `CreditAccounts.list`
+  (accounts: активні кредити), `Liabilities.forAccount`, `termsOn` (liabilities: валюта, ставка дати), `Ledger.balanceAt`
+  (ledger: борг гаманця); «сьогодні» — дата за Києвом, як у бюджету;
   валюта — `SPACE_REPORTING_CURRENCY`.
 
 Що враховує місяць: показані транзакції рахунків бюджету з датою оплати в місяці (і «Очікує»), без злитих дублів і
@@ -49,10 +57,21 @@ BUD-08@PoC a) (хвиля 2, рядок 37 — серверна частина):
 категоріями — частинами; на кілька місяців — повністю в місяці оплати. Суми — за курсом дати (найближчий — «приблизно»;
 без курсу — поза сумою).
 
+Куди пішов потік (частина b). Внесок у ціль — позначений переказ з рахунку бюджету на окремий рахунок цілі в дні, коли
+рахунок був її (від створення до закриття), за сумою списання, і позначки «Внести»; стартові суми й списання — ні.
+Інвестиції — переказ з рахунку бюджету на брокерський, виведення — назад, окремо; у PoC брокерських рахунків немає
+(FIN-01@PoC п. 2), тож нуль. Платіж по кредиту — показане надходження на рахунок активного кредиту в його валюті
+(підтверджений переказ або введена чи імпортована операція), не сторона пари, що очікує підтвердження; перший платіж
+місяця: відсотки = борг на кінець попереднього дня × ставка дати ÷ 12, до цента до парного — витрата в «Відсотки за
+кредитами», решта — «Погашення боргу» (менший за відсотки — від'ємна, борг росте); інші платежі — повністю погашення.
+Місяць з імпортованою операцією рахунку кредиту в «Відсотки за кредитами» не рахується: вона — витрата відсотків, платежі
+— погашення. Без ставки — усе погашення. «Залишилось на рахунках» = чистий потік − цілі − інвестиції − погашення. Шар
+«з цілей» — сума списань з цілей серед врахованих транзакцій місяця (уже у витратах).
+
 ## Залежності
 
-Шар: process. Модулі: accounts, budget (лише `DEFAULT_BUDGET_KINDS`), categories, categorization, fx-rates, household,
-transactions, transfer-matching (`apps/api/module-rules.json`).
+Шар: process. Модулі: accounts, budget (лише `DEFAULT_BUDGET_KINDS`), categories, categorization, fx-rates, goals,
+household, ledger, liabilities, transactions, transfer-matching (`apps/api/module-rules.json`).
 
 ## Події
 
