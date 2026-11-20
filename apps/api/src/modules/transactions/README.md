@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -267,6 +267,11 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   можливих дублів для `duplicate-matching`: показані,
   на одному рахунку, та сама сума й валюта, у межах `windowDays`, не сторони переказу, не «Не дубль»; `first` — раніша
   (лише читання; правило вирішує той модуль).
+- `createImportCandidates(db)` → `ImportCandidates.page(householdId, { accountId, from, to, limit, after })` — транзакції
+  одного рахунку з датою в [from, to] для плану імпорту модуля `duplicate-matching` (IMP-04@PoC п. 1–6): приховані теж,
+  злитий дубль — ні; сума зі знаком, опис, залишок після операції, стан, джерело, партія імпорту, сторона переказу,
+  `matched` (у неї вже щось злито); сторінка в порядку (дата, id) після `after` за індексом `transactions_by_account`.
+  Лише читання.
 - `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`, тип `DuplicateCheck`.
 
 Журнал переказу (`application/hand-off.ts`): поки позначено, власна подія зарахування сторнована, власна подія списання —
@@ -334,7 +339,7 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 
 | Таблиця | Що |
 | --- | --- |
-| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
+| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual` / `imported`; імпортовану пише крок застосування імпорту), `import_batch_id` (партія import-sessions лише в імпортованої) і `balance_after` (залишок після операції з виписки) (`0009_imported.sql`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
 | `tags` | Теги простору (BUD-13 п. 2): назва, ключ `name_key` (обрізана, нижній регістр; унікальний у просторі), версія; у `transactions` — `note` (до 2 000) і `tag_ids` (до 20, по порядку; GIN-індекс для фільтра) (`0007_attributes.sql`); `review` — «До розбору» (BUD-12: `queued` · `confirmed` · null), частковий індекс черги (`0008_review.sql`) |
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
 | `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |

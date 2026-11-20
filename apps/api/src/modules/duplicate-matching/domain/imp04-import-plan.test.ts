@@ -143,7 +143,7 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
     );
   });
 
-  it("IMP-04@PoC FR 1: a merged duplicate is not given to the plan, a hidden imported one counts (it stays in the balance)", () => {
+  it("IMP-04@PoC FR 1: a hidden imported transaction counts (it stays in the balance)", () => {
     const hidden = tx({ amount: EUR("-9.00"), date: "2026-05-04", description: "Таксі", hidden: true });
     expect(
       plan([row({ amount: EUR("-9.00"), date: "2026-05-04", description: "Таксі" })], [hidden])[0],
@@ -239,7 +239,7 @@ describe("IMP-04@PoC FR 4: overlapping periods and another format", () => {
 });
 
 describe("IMP-04@PoC FR 5: a manual transaction and «Можливий дубль»", () => {
-  it("IMP-04@PoC AC4: a single manual −42,00 EUR of 2026-04-10 and a row of 2026-04-11 — merged with it", () => {
+  it("IMP-04@PoC FR 5: a single manual −42,00 EUR of 2026-04-10 and a row of 2026-04-11 — merged with it (the audit entry and «Роз'єднати» come with the apply step)", () => {
     const manual = tx({ amount: EUR("-42.00"), date: "2026-04-10", source: "manual", importBatchId: null });
     const out = plan(
       [row({ amount: EUR("-42.00"), date: "2026-04-11", description: "RESTAURANT" })],

@@ -1,6 +1,6 @@
 # Модуль import-sessions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-05 частина 2: перевірки файлів, рішення й готовність до застосування, хвиля 2, рядок 42; раніше: IMP-01 b, скасування, видалення і щоденне прибирання партій, рядок 39, частина 2)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (IMP-04 a: той самий файл і збережений результат застосування, рядок 43; IMP-05 частина 2: перевірки файлів, рішення й готовність до застосування, хвиля 2, рядок 42; раніше: IMP-01 b, скасування, видалення і щоденне прибирання партій, рядок 39, частина 2)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -57,6 +57,14 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
   файлу скидає рішення цього файлу й партії) і `readiness(householdId, batchId)` → `BatchReadiness` (відмови і `FilePlan`:
   залишок, виключені, перевернуті й «імпортувати все одно» рядки, прочитання, порядок дат). `READINESS_CODES`,
   `READINESS_MESSAGES`; типи `DecisionInput`, `Refusal`, `FilePlan`, `Readiness`, `FileReview`.
+- `createImportSessionsApplications({ db, now })` (IMP-04@PoC a, рядок 43; для кроку застосування, якого ще немає):
+  `sameFileApplied(householdId, batchFileId)` — п. 3: застосована партія (не ця, не на видаленні) з файлом того самого
+  вмісту (SHA-256 байтів), найраніша; відкочена — ні; файл без відбитка (завантажений раніше) — null.
+  `find(householdId, batchId)` і `recordOnce(householdId, { batchId, actorId, result })` — п. 7: один збережений
+  результат на партію (`result.counts` — лише лічильники з іменами `[a-z-]`, ≤ 32, цілі ≥ 0, інакше
+  `ApplicationResultError`); партія під блокуванням; повторний і одночасний виклик повертає збережений (`first: false`) —
+  крок застосування тоді нічого не створює. Партія іншого простору — `BatchNotFoundError`. Типи `ApplicationResult`,
+  `StoredApplication`.
 - `BATCH_LIMITS` (50 файлів — рядків партії, прийнятих і відхилених; 150 МіБ), `BATCH_STATES`, `canMove`,
   `UNAPPLIED_RETENTION_DAYS`; тип `BatchState`.
 
@@ -88,6 +96,9 @@ file-storage (збереження, видалення, посилання й в
   запропонований рахунок, розрив історії й попередня виписка; ключ `(household_id, batch_id, batch_file_id)` → `batch_files`
   тримає рядок при файлі своєї партії (так само `decisions` з файлом); `decisions` — рішення за слотами (`row:…`, `reading:…`,
   `date-order:…`, `group:…`, `flag:…`, `account:…`, `balance:…`; `batch` — уся партія). Обидві йдуть разом з партією.
+- `batch_files.content_sha256` — SHA-256 байтів прийнятого файлу (від file-storage; IMP-04 п. 3), частковий індекс за
+  простором і відбитком; `batch_applications` — збережений результат застосування партії (п. 7; лічильники, без тексту
+  рядків), один на партію, іде разом з партією (`0006_applications.sql`).
 - `jobs`, `outbox_events` — черга модуля (ARC-04, міграція платформи дослівно); `idempotency_keys` — ключі ідемпотентності
   маршруту створення (ARC-07).
 
@@ -97,4 +108,5 @@ file-storage (збереження, видалення, посилання й в
 (маршрути на PostgreSQL), `test/imp01-import-batch-lifecycle.it.test.ts` (скасування, видалення, щоденне прибирання),
 `src/platform/http/upload.test.ts` (читання multipart), `application/imp05-readiness.test.ts` (рішення й готовність), `application/sec636-readiness.test.ts`,
 `test/sec636-decisions.it.test.ts` (рецензія безпеки #636),
-`test/imp05-batch-decisions.it.test.ts` (перевірки, розрив історії, рішення й готовність на PostgreSQL).
+`test/imp05-batch-decisions.it.test.ts` (перевірки, розрив історії, рішення й готовність на PostgreSQL),
+`test/imp04-dedup-plan.it.test.ts` (той самий файл, збережений результат застосування, два запити одночасно).
