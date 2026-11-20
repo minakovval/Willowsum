@@ -82,7 +82,8 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     `posted` проводить знову. Зміна суми розділеної — розділення лишається з `needsReview` (BUD-01 п. 6). Рахунок
     транзакції чи новий закритий — 409 `ACCOUNT_CLOSED`.
   - `DELETE /v1/transactions/{transactionId}` (`deleteTransaction`, `household.data.write`) — сторно запису, що діє, і
-    видалення рядка; повтор — 404.
+    видалення рядка; повтор — 404. Імпортовану (`source = imported`) не видаляють, а приховують: запис журналу лишається
+    (FIN-03 п. 16, 18, AC9; IMP-04 п. 9); приховану вдруге — без змін.
   - `GET /v1/transactions` (`listTransactions`, `household.data.read`) — рушій DAT-01 (`transactionsList`,
     `adapters/db/store.ts`): `filter` (`accountId.eq|in`, `date.gte|lte`, `type.eq:in|out`, `amount.gte|lte` — сума без
     знака, `counterparty.eq|has`, `search.has` — контрагент і опис, `status.eq|in`, `split.eq`, `hidden.eq`, `tag.eq|in` (BUD-13; масив `tag_ids`, `array` рушія); без фільтра

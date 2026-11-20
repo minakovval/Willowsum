@@ -203,10 +203,18 @@ export function fileRows(
       // A printed balance that does not read is not kept (it is no part of the money written).
       balance = null;
     }
+    // An amount past what the books hold (20 integer digits) is the row's refusal, never a server error.
+    let money: Money;
+    try {
+      money = Money.of(amount, currency);
+    } catch {
+      issues.push({ row: e.row, issue: "unreadable" });
+      continue;
+    }
     rows.push({
       row: e.row,
       date: e.date,
-      amount: Money.of(amount, currency),
+      amount: money,
       // IMP-05 business rule: an IBAN or a card number in the bank's text keeps its last 4 characters, in the books too.
       description: maskNumbers(e.description),
       counterparty: maskNumbers(e.counterparty),
@@ -312,7 +320,12 @@ export async function applyBatch(
       if (!batch) throw new BatchNotFoundError();
       // Another apply of the batch started meanwhile: this one goes on with it (step B writes nothing twice).
       const other = await tx.application(batchId);
-      if (other?.inProgress) return;
+      if (other?.inProgress) {
+        // Only an apply of the same checks is joined: the one that started it moved the version by one from what it
+        // checked. A decision in between (this request's checks are older) — try again, nothing written by it.
+        if (batch.version !== checked.batch.version + 1) throw new BatchStateErrorFor(batch.state);
+        return;
+      }
       // A decision or a parse since the checks (the version moved), or a finished apply: try again.
       if (other || batch.version !== checked.batch.version) throw new BatchStateErrorFor(batch.state);
       await tx.startApplication({

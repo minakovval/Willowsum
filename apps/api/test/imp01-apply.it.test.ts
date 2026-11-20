@@ -19,6 +19,11 @@ import {
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createImportedTransactions } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
+import { deleteTransaction, applyHandOff } from "../src/modules/transactions/application/index.ts";
+import { transactionsTx } from "../src/modules/transactions/adapters/index.ts";
+import { transactionRows } from "../src/modules/transactions/adapters/queue/hand-off.ts";
+import { transactionAudit } from "../src/modules/transactions/adapters/http/services.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -248,7 +253,7 @@ afterAll(async () => {
 });
 
 describe("IMP-01@PoC FR 11: «Застосувати» writes the batch's rows once", () => {
-  it("IMP-01@PoC FR 11: nothing is written before the apply; then each row is one imported transaction in «До розбору» with the bank's text kept apart and masked", async () => {
+  it("IMP-01@PoC FR 11, AC4: nothing is written before the apply; then each row is one imported transaction in «До розбору» with the bank's text kept apart and masked", async () => {
     const space = await newSpace();
     const batch = await parsedBatch(space);
     expect(await stateOf(batch.batchId)).toBe("parsed");
@@ -288,7 +293,7 @@ describe("IMP-01@PoC FR 11: «Застосувати» writes the batch's rows o
     expect(jobs[0]!.n).toBe(2);
   });
 
-  it("IMP-04@PoC AC9: a second apply of an applied batch returns the stored result and writes nothing", async () => {
+  it("IMP-04@PoC AC9, IMP-01@PoC AC5: a second apply of an applied batch returns the stored result and writes nothing", async () => {
     const space = await newSpace();
     const batch = await parsedBatch(space);
     const first = await apply(space, batch.batchId);
@@ -317,6 +322,150 @@ describe("IMP-01@PoC FR 11: «Застосувати» writes the batch's rows o
         expect.objectContaining({ field: "rows.duplicate", after: "0" }),
       ]),
     );
+  });
+});
+
+describe("IMP-05@PoC FR 6: «знак картки» of a credit card (owner decision 2026-11-20 item 6)", () => {
+  /** The space with an EUR credit card as the account its files are parsed for. */
+  async function cardSpace(): Promise<Space> {
+    const space = await newSpace();
+    const card = randomUUID();
+    accountsOf.set(`${space.householdId}/${card}`, {
+      accountId: card,
+      kind: "credit-card",
+      status: "active",
+      subaccounts: [{ subaccountId: randomUUID(), currency: "EUR", ledgerAccountId: randomUUID() }],
+    });
+    return { ...space, eur: card };
+  }
+
+  it("IMP-05@PoC FR 6, IMP-01@PoC FR 11: an open «знак картки» refuses the apply through readiness — 409 IMPORT_NOT_READY «flags», nothing written", async () => {
+    const space = await cardSpace();
+    // Purchases printed positive: the printed chain holds, so it confirms no debt basis.
+    const batch = await parsedBatch(space, [
+      {
+        name: "kartka.csv",
+        bytes: text([
+          "Вхідний залишок:;100,00",
+          "Дата;Сума;Залишок;Опис",
+          "15.03.2026;50,00;150,00;Магазин",
+          "20.03.2026;20,00;170,00;Кафе",
+          "25.03.2026;-30,00;140,00;Погашення",
+          "Кінцевий залишок:;140,00",
+        ]),
+      },
+    ]);
+    const res = await apply(space, batch.batchId);
+    expect(res.statusCode, res.body).toBe(409);
+    expect(res.json()).toMatchObject({ code: "IMPORT_NOT_READY", errors: [{ issue: "flags" }] });
+    expect(await imported(space.householdId)).toEqual([]);
+  });
+
+  it("IMP-05@PoC FR 6, IMP-01@PoC FR 11: a debt basis the chain confirms is applied — amounts as printed, the balance after each row in the inverted (debt) basis readiness showed", async () => {
+    const space = await cardSpace();
+    const batch = await parsedBatch(space, [
+      {
+        name: "kartka.csv",
+        bytes: text([
+          "Вхідний залишок:;100,00",
+          "Дата;Сума;Залишок;Опис",
+          "15.03.2026;-50,00;150,00;Магазин",
+          "20.03.2026;-20,00;170,00;Кафе",
+          "25.03.2026;30,00;140,00;Погашення",
+          "Кінцевий залишок:;140,00",
+        ]),
+      },
+    ]);
+    const res = await apply(space, batch.batchId);
+    expect(res.statusCode, res.body).toBe(200);
+    const { rows } = await db.owner.query<{ amount: string; balance_after: string }>(
+      `SELECT trim_scale(amount)::text AS amount, trim_scale(balance_after)::text AS balance_after
+         FROM transactions.transactions WHERE household_id = $1 ORDER BY import_row`,
+      [space.householdId],
+    );
+    expect(rows).toEqual([
+      { amount: "-50", balance_after: "-150" },
+      { amount: "-20", balance_after: "-170" },
+      { amount: "30", balance_after: "-140" },
+    ]);
+  });
+});
+
+describe("IMP-04@PoC FR 9: an imported transaction is hidden, never deleted (review #647 B1)", () => {
+  /** The live journal entries of the space from module transactions (not reversed). */
+  async function liveEntries(householdId: string): Promise<number> {
+    const { rows } = await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM ledger.entries e
+        WHERE e.household_id = $1 AND e.source_module = 'transactions' AND e.reverses_entry_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM ledger.entries r WHERE r.household_id = e.household_id
+                            AND r.reverses_entry_id = e.id)`,
+      [householdId],
+    );
+    return rows[0]!.n;
+  }
+
+  it("FIN-03@PoC AC9, IMP-04@PoC FR 9: «Видалити» of an imported row hides it — the row and its journal entry stay, and the same statement applied again adds nothing", async () => {
+    const space = await newSpace();
+    // The account's journal account exists (as module accounts opens it), so the rows' entries are posted.
+    const sub = accountsOf.get(`${space.householdId}/${space.eur}`)!.subaccounts[0]!;
+    await createLedger(db.databases.for("ledger")).openAccount(
+      space.householdId,
+      { module: "accounts", id: sub.subaccountId },
+      { type: "asset", currency: "EUR", id: sub.ledgerAccountId },
+    );
+    const batch = await parsedBatch(space);
+    expect((await apply(space, batch.batchId)).statusCode).toBe(200);
+    const before = await liveEntries(space.householdId);
+    expect(before).toBe(2);
+    const { rows: ids } = await db.owner.query<{ id: string }>(
+      `SELECT id FROM transactions.transactions WHERE household_id = $1 AND import_row = 3`,
+      [space.householdId],
+    );
+    const ledger = createLedger(db.databases.for("ledger"));
+    const deps = {
+      accounts,
+      ledger,
+      audit: transactionAudit(audit),
+      newId: randomUUID,
+      today: () => "2026-11-20",
+      statesEnabled: async () => true,
+      duplicates: null,
+    };
+    const caller = { householdId: space.householdId, accountId: space.accountId };
+    const result = await db.databases
+      .for("transactions")
+      .inHousehold(space.householdId, (q) => deleteTransaction(deps, transactionsTx(q), caller, ids[0]!.id));
+    expect(result).toMatchObject({ kind: "ok", shown: [] });
+    if (result.kind !== "ok" || result.handOff === null) throw new Error("expected a hide hand-off");
+    expect(result.handOff.action).toBe("hide");
+    await applyHandOff(
+      deps,
+      transactionRows((work) => db.databases.for("transactions").inHousehold(space.householdId, work)),
+      space.householdId,
+      result.handOff,
+    );
+    const { rows } = await db.owner.query<{ hidden: boolean }>(
+      `SELECT hidden FROM transactions.transactions WHERE household_id = $1 ORDER BY import_row`,
+      [space.householdId],
+    );
+    expect(rows).toEqual([{ hidden: true }, { hidden: false }]);
+    expect(await liveEntries(space.householdId)).toBe(before);
+    // «Видалити» again: already hidden — nothing changes.
+    const again = await db.databases
+      .for("transactions")
+      .inHousehold(space.householdId, (q) => deleteTransaction(deps, transactionsTx(q), caller, ids[0]!.id));
+    expect(again).toEqual({ kind: "ok", handOff: null, shown: [] });
+    // The same statement in a new batch finds the hidden row: nothing new is written.
+    const next = await parsedBatch(space);
+    const res = await apply(space, next.batchId);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().result.counts).toMatchObject({ import: 0 });
+    expect(await imported(space.householdId)).toHaveLength(2);
+    const { rows: after } = await db.owner.query<{ hidden: boolean }>(
+      `SELECT hidden FROM transactions.transactions WHERE household_id = $1 ORDER BY import_batch_id = $2, import_row`,
+      [space.householdId, batch.batchId],
+    );
+    expect(after.filter((r) => r.hidden)).toHaveLength(1);
   });
 });
 
@@ -420,7 +569,7 @@ describe("IMP-01@PoC FR 11: refusals — nothing written, the batch as it was", 
     const batch = await parsedBatch(other);
     const res = await apply(space, batch.batchId);
     expect(res.statusCode, res.body).toBe(404);
-    expect(res.body).not.toContain("500.00");
+    expect(leakText(res.body)).not.toContain("500.00");
     expect(await stateOf(batch.batchId)).toBe("parsed");
     expect(await imported(other.householdId)).toEqual([]);
     expect(await imported(space.householdId)).toEqual([]);

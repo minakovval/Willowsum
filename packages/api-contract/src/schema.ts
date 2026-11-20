@@ -1959,7 +1959,7 @@ export type paths = {
         get: operations["getTransaction"];
         put?: never;
         post?: never;
-        /** «Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35) */
+        /** «Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35). An imported one is hidden instead, its journal entry kept (FR 16, AC9; IMP-04 FR 9) */
         delete: operations["deleteTransaction"];
         options?: never;
         head?: never;
