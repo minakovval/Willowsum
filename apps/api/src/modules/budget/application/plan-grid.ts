@@ -173,6 +173,7 @@ export async function setPlanCell(
   if (before === null ? after === null : after !== null && before.equals(after))
     return none({ kind: "ok", value: { amount: before, version } });
   await ensureSnapshots(
+    deps,
     tx,
     caller.householdId,
     budget,
