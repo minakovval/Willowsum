@@ -45,6 +45,7 @@ import {
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
 import {
   createRecurringCategoryUsage,
+  createRecurringHistory,
   createRecurringMonth,
   createRecurringServices,
 } from "./modules/recurring/index.ts";
@@ -458,6 +459,8 @@ const server = buildServer({
               }),
               // BUD-03 EC5: «Витратити з цілі» — a goal's spends leave «Можна витратити» (goals).
               goalSpends: createGoalSpends(databases.for("goals")),
+              // FLW-38 (S-135): «Підсумок періоду» — a finished month's regular charges (recurring).
+              chargeHistory: createRecurringHistory(databases.for("recurring"), recurring),
               // BUD-17 (owner decision 2026-11-20, batch 2, item 2): «План» off — its typed values act nowhere.
               planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               obligations: createBudgetObligations({

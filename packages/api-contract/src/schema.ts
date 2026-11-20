@@ -380,6 +380,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/budget/periods/{period}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Підсумок періоду» of a finished month: income and expenses against the plan, net flow, savings rate, regular payments (FLW-38 FR 1, AC5, EC1) */
+        get: operations["getBudgetPeriodSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/budget/plan": {
         parameters: {
             query?: never;
@@ -7238,6 +7255,169 @@ export interface operations {
                         } | null;
                         period: string;
                         unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses")[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space; The budget did not exist yet in this period (BUDGET_PERIOD_BEFORE_START) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getBudgetPeriodSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A finished calendar month, YYYY-MM (the current or a later one — 400 `period: not_finished`) */
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description «Підсумок періоду» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approximate: {
+                            nearestRateCount: number;
+                            unavailableCount: number;
+                        };
+                        currency: string;
+                        expenses: {
+                            actual: {
+                                amount: string;
+                                currency: string;
+                            };
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            };
+                        };
+                        income: {
+                            actual: {
+                                amount: string;
+                                currency: string;
+                            };
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            };
+                        };
+                        netFlow: {
+                            amount: string;
+                            currency: string;
+                        };
+                        period: string;
+                        /** @description The card «Регулярні платежі» of the finished month: every charge of the expense payments, whatever the payment's state now, by date. Null — the regular payments are not known (never an empty card) */
+                        regularPayments: {
+                            count: number;
+                            items: {
+                                categoryId: string | null;
+                                dueOn: string;
+                                expected: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                overdueDays: number | null;
+                                paidOn: string | null;
+                                /** Format: uuid */
+                                paymentId: string;
+                                /** @enum {string} */
+                                status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            }[];
+                            late: number;
+                            missed: number;
+                            paid: number;
+                        } | null;
+                        /** @description «Норма заощаджень» = (income − expenses) ÷ income × 100, one digit after the point, half to even («22.5»; negative — more spent than earned). Null — no income: show «–» (FLW-38 EC1) */
+                        savingsRate: string | null;
+                        window: {
+                            from: string;
+                            to: string;
+                        };
                     };
                 };
             };
@@ -17799,7 +17979,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.cashflow" | "data.import" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.summary" | "budget.cashflow" | "data.import" | "debts.payoff")[];
                     };
                 };
             };
