@@ -29,6 +29,7 @@ import { BudgetPage } from "./planning/BudgetPage.tsx";
 import { ComparePage } from "./planning/compare/ComparePage.tsx";
 import { BudgetPlanPage } from "./planning/plan/BudgetPlanPage.tsx";
 import { BudgetWizardPage } from "./planning/budget/WizardPage.tsx";
+import { FlowPage } from "./planning/flow/FlowPage.tsx";
 import { TrendPage } from "./planning/trend/TrendPage.tsx";
 import { BudgetSettingsPage } from "./planning/budget/SettingsPage.tsx";
 import { GoalsPage } from "./planning/GoalsPage.tsx";
@@ -124,6 +125,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (route.child.id === "budgetNew") return <BudgetWizardPage />;
       // BUD-16@PoC b): S-133 «Тренд».
       if (route.child.id === "budgetTrend") return <TrendPage />;
+      // BUD-08@PoC b): S-134 «Грошовий потік».
+      if (route.child.id === "budgetFlow") return <FlowPage />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       // FIN-03@PoC d): S-047 «Деталь транзакції».
       if (route.child.id === "transaction") return <TransactionDetailPage />;

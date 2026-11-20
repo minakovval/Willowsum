@@ -3739,7 +3739,14 @@ button.ws-stepper-step[aria-disabled="true"] {
 .ws-chart-legend-item > .ws-chart-swatch-line,
 .ws-chart-legend-item > b,
 .ws-chart-legend-button > b,
-.ws-chart-legend-button > .ws-chart-swatch-line {
+.ws-chart-legend-button > .ws-chart-swatch--dotted {
+  border: 1px solid var(--ws-chart-tone);
+  background:
+    radial-gradient(circle at 50% 50%, var(--ws-chart-tone) 0 1px, transparent 1.5px) 0 0 / 4px 4px,
+    var(--ws-surface-200);
+}
+
+.ws-chart-swatch-line {
   flex: none;
 }
 

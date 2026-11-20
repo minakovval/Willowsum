@@ -254,3 +254,31 @@ describe("CHT-00@PoC legend and invalid input", () => {
     expect(screen.getByRole("alert").textContent).toContain("Не вдалося побудувати графік");
   });
 });
+
+describe("BUD-08@PoC FR 10: the chart parts the savings screen needs", () => {
+  it("BUD-08@PoC FR 10: a dotted series (spending paid from goals) has a dot pattern and a dotted swatch, not stripes", () => {
+    const { container } = chart({
+      series: [
+        { id: "net", name: "Чистий потік", values: ["1624.23", "1", "1", "1", "1", "1"] },
+        { id: "goals", name: "з цілей", values: ["1450.00", null, null, null, null, null], dotted: true },
+      ],
+    });
+    expect(container.querySelectorAll(".ws-chart-swatch--dotted")).toHaveLength(1);
+    expect(container.querySelectorAll(".ws-chart-swatch--hatched")).toHaveLength(0);
+    expect(container.querySelector("pattern circle")).toBeTruthy();
+    expect(container.querySelector("pattern[patternTransform]")).toBeNull();
+  });
+
+  it("BUD-08@PoC FR 3: a line-only chart in `%` shows the legend value, the axis and the column name as per cent with one digit", () => {
+    chart({
+      series: [],
+      lines: [
+        { id: "rate", name: "Норма заощаджень", values: ["51.1", "53.6", null, "39.7", "55.7", "43.3"] },
+      ],
+      currency: "%",
+    });
+    expect(norm(document.body.textContent)).toContain("43,3 %");
+    expect(screen.getAllByText(/^\d+ %$/).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Ще немає історії")).toBeNull();
+  });
+});
