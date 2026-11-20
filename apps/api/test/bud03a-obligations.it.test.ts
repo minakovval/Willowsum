@@ -577,6 +577,7 @@ describe("#567: the port in another currency and another space", () => {
       debtMinimums: [{ accountId: myLoan, amount: expect.anything(), paid: false }],
       approximate: false,
       incomeExpected: Money.zero("EUR"),
+      incomeApproximate: false,
     });
     expect(o!.debtMinimums[0]!.amount.toDecimalString()).toBe("100");
     // A space's id that is not the caller's: the period read through the API is the caller's own.
@@ -590,6 +591,7 @@ describe("#567: the port in another currency and another space", () => {
       debtMinimums: [],
       approximate: false,
       incomeExpected: Money.zero("EUR"),
+      incomeApproximate: false,
     });
   });
 });

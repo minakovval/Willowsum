@@ -25,17 +25,30 @@ export function createBudgetPlanSources(ports: {
    */
   readonly planEnabled?: (householdId: string) => Promise<boolean>;
 }): BudgetPlanSources {
-  /** Each amount in `currency`; null in its place — no rate, or out of range. */
-  async function convert(amounts: readonly Money[], currency: string): Promise<(Money | null)[]> {
+  /**
+   * Each amount in `currency`; null in its place — no rate, or out of range. `approximate` — converted at the nearest
+   * rate (BUD-03@PoC EC4, «приблизно»: the latest rate is older than 3 days).
+   */
+  async function convert(
+    amounts: readonly Money[],
+    currency: string,
+  ): Promise<({ value: Money; approximate: boolean } | null)[]> {
     if (amounts.length === 0) return [];
-    if (amounts.every((a) => a.currency === currency)) return amounts.map((a) => (tooBig(a) ? null : a));
+    if (amounts.every((a) => a.currency === currency))
+      return amounts.map((a) => (tooBig(a) ? null : { value: a, approximate: false }));
     try {
       const reported = await ports.fx.total(
         amounts.map((amount) => ({ amount, date: null })),
         currency,
       );
       return reported.items.map((item) =>
-        item.kind === "rate-unavailable" || tooBig(item.value) ? null : item.value,
+        item.kind === "rate-unavailable" || tooBig(item.value)
+          ? null
+          : {
+              value: item.value,
+              // Nothing at any rate is still nothing: a zero amount is exact.
+              approximate: item.kind === "converted" && item.conversion.approximate && !item.value.isZero(),
+            },
       );
     } catch (error) {
       if (error instanceof AmountOutOfRangeError) return amounts.map(() => null);
@@ -58,8 +71,11 @@ export function createBudgetPlanSources(ports: {
       );
       return goals.map((g, i) => ({
         goalId: g.goalId,
-        required: byGoal.get(g.goalId) ?? null,
-        contributed: contributed[i] ?? null,
+        required: byGoal.get(g.goalId)?.value ?? null,
+        contributed: contributed[i]?.value ?? null,
+        // BUD-03@PoC EC4: «приблизно» — an amount of the goal at the nearest rate.
+        requiredApproximate: byGoal.get(g.goalId)?.approximate ?? false,
+        contributedApproximate: contributed[i]?.approximate ?? false,
         currency: g.contributedThisMonth.currency,
         // No date or past it (BUD-05 FR 5: no required contribution) — nothing is planned for the goal.
         lastPeriod: g.requiredMonthly === null || g.targetDate === null ? null : periodOf(g.targetDate),
@@ -78,15 +94,22 @@ export function createBudgetPlanSources(ports: {
         currency,
       );
       const byPayment = new Map<string, Money | null>();
+      // BUD-03@PoC EC4 «приблизно» (#651): a charge of the payment at the nearest rate.
+      const nearest = new Set<string>();
       charges.forEach((c, i) => {
         const prev = byPayment.get(c.paymentId);
-        const value = converted[i] ?? null;
+        const value = converted[i]?.value ?? null;
+        if (converted[i]?.approximate === true) nearest.add(c.paymentId);
         byPayment.set(
           c.paymentId,
           prev === undefined ? value : prev === null || value === null ? null : prev.plus(value),
         );
       });
-      return [...byPayment].map(([paymentId, amount]) => ({ paymentId, amount }));
+      return [...byPayment].map(([paymentId, amount]) => ({
+        paymentId,
+        amount,
+        approximate: amount !== null && nearest.has(paymentId),
+      }));
     },
     async extraPayments(householdId, period, currency) {
       const planned = await ports.debts.inMonth(householdId, period);
@@ -95,7 +118,11 @@ export function createBudgetPlanSources(ports: {
         currency,
       );
       if (converted.some((c) => c === null)) return null;
-      return planned.map((p, i) => ({ accountId: p.accountId, amount: converted[i]! }));
+      return planned.map((p, i) => ({
+        accountId: p.accountId,
+        amount: converted[i]!.value,
+        approximate: converted[i]!.approximate,
+      }));
     },
   };
 }

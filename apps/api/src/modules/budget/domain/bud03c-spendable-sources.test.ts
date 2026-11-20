@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { Money } from "@willowsum/domain-kernel";
-import { goalContributions, mandatoryNeeds, type LimitLine, type SpendableGoal } from "./index.ts";
+import {
+  goalContributions,
+  incomeOf,
+  incomePlanApproximate,
+  mandatoryNeeds,
+  type LimitLine,
+  type SpendableGoal,
+} from "./index.ts";
 
 /** BUD-03@PoC c): what the read of «Можна витратити» takes from «План» (the goals) and the mandatory categories. */
 const eur = (amount: string) => Money.of(amount, "EUR");
@@ -121,5 +128,36 @@ describe("BUD-03@PoC FR 8: «Обов'язкові категорії: ще по
       { categoryId: "groceries", amount: eur("30") },
       { categoryId: "rent", amount: eur("100") },
     ]);
+  });
+});
+
+describe("BUD-03@PoC EC4: the month's income plan at the nearest rate (#651)", () => {
+  const income = (paymentId: string, amount: string | null, approximate = false) => ({
+    paymentId,
+    amount: amount === null ? null : eur(amount),
+    approximate,
+  });
+  const incomeCell = (lineId: string | null, amount: string) => ({
+    period: "2026-11",
+    kind: "income" as const,
+    lineId,
+    amount: eur(amount),
+    version: 1,
+  });
+
+  it("BUD-03@PoC EC4: the regular incomes are the plan and one is at the nearest rate — «приблизно»", () => {
+    const incomes = [income("a", "500.10", true), income("b", "299.90")];
+    expect(incomePlanApproximate(incomeOf(eur("100"), [], incomes), [], incomes)).toBe(true);
+  });
+
+  it("BUD-03@PoC EC4: «План доходу» above the regular incomes, an income's own cell, or nothing at the nearest rate — exact", () => {
+    const incomes = [income("a", "500.10", true)];
+    expect(incomePlanApproximate(incomeOf(eur("900"), [], incomes), [], incomes)).toBe(false);
+    const own = [incomeCell("a", "600")];
+    expect(incomePlanApproximate(incomeOf(eur("100"), own, incomes), own, incomes)).toBe(false);
+    const exact = [income("a", "500.10")];
+    expect(incomePlanApproximate(incomeOf(eur("100"), [], exact), [], exact)).toBe(false);
+    const none = [income("a", null, true)];
+    expect(incomePlanApproximate(incomeOf(eur("0"), [], none), [], none)).toBe(false);
   });
 });

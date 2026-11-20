@@ -40,6 +40,8 @@ export interface PeriodObligations {
    * none.
    */
   readonly incomeExpected?: Money | null;
+  /** BUD-03@PoC EC4 «приблизно»: an income of `incomeExpected` at the nearest rate; left out — exact. */
+  readonly incomeApproximate?: boolean;
 }
 
 /** FR 1: one budget — one currency; an amount of another currency is never added (no figure beats a wrong one). */
