@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { Decimal, Money } from "@willowsum/domain-kernel";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { memoryObjectStorage } from "../src/platform/adapters/object-storage/index.ts";
@@ -24,7 +24,12 @@ import {
   createTransactionCategoryRead,
 } from "../src/modules/categorization/index.ts";
 import { createLedger, type Ledger } from "../src/modules/ledger/index.ts";
-import { createImportedTransactions, createTransactionsServices } from "../src/modules/transactions/index.ts";
+import {
+  createImportedTransactions,
+  createTransactionsHandOffRecovery,
+  createTransactionsServices,
+  createTransactionsWorkerQueue,
+} from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 import { leakText } from "./leak-text.ts";
@@ -688,6 +693,50 @@ describe("IMP-16@PoC FR 1, FR 3: 7 days, once", () => {
     expect((await call(space, "GET", `/v1/import/batches/${other}`)).json().state).toBe("applied");
     expect(await journal(space.householdId)).toEqual({ entries: 5, reversals: 2 });
     expect(await balance(space)).toBe("-30.00");
+    expect(await balance(space)).toBe(new Decimal(await expectedBalance(space.householdId)).toFixed(2));
+  });
+
+  it("IMP-16@PoC FR 3: reversals of the rollback whose hand-offs failed and went dead are posted once by the daily recovery; the balance then agrees with the rows", async () => {
+    nowMs = start;
+    const space = await newSpace();
+    const batchId = await applied(space, "kviten.csv", purchases(3));
+    expect(await balance(space)).toBe("-90.00");
+    nowMs = start + DAY;
+    const spy = vi.spyOn(ledger, "reverse").mockRejectedValue(new Error("injected"));
+    const res = await rollback(space, batchId, "all");
+    spy.mockRestore();
+    expect(res.statusCode, res.body).toBe(200);
+    expect(await balance(space)).toBe("-90.00");
+    const { rows } = await db.owner.query<{ n: number }>(
+      `UPDATE transactions.jobs SET state = 'dead', attempts = 8 WHERE household_id = $1 AND state <> 'done' RETURNING 1 AS n`,
+      [space.householdId],
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(3);
+    const requeued = await createTransactionsHandOffRecovery(db.databases.for("transactions"), async () => [
+      space.householdId,
+    ]).run();
+    expect(requeued).toBe(rows.length);
+    const worker = createWorker({
+      queues: [createTransactionsWorkerQueue(db.databases.for("transactions"), { accounts, ledger, audit })],
+      households: async () => [space.householdId],
+      retryDelayMs: () => 0,
+    });
+    try {
+      for (let i = 0; i < 5; i++) {
+        if ((await worker.tick()) === 0) break;
+        await worker.idle();
+      }
+    } finally {
+      await worker.stop();
+    }
+    expect(await journal(space.householdId)).toEqual({ entries: 6, reversals: 3 });
+    expect(await balance(space)).toBe("0.00");
+    // Again: nothing more.
+    expect(
+      await createTransactionsHandOffRecovery(db.databases.for("transactions"), async () => [
+        space.householdId,
+      ]).run(),
+    ).toBe(0);
     expect(await balance(space)).toBe(new Decimal(await expectedBalance(space.householdId)).toFixed(2));
   });
 
