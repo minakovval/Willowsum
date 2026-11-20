@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Money } from "@willowsum/domain-kernel";
+import { AmountOutOfRangeError, Money } from "@willowsum/domain-kernel";
 import { createBudgetObligations } from "./obligations.ts";
 
 /**
@@ -27,6 +27,7 @@ function adapter(o: {
   loans?: { accountId: string; kind?: "loan" | "credit-card"; payment: Money | null }[];
   paid?: string[];
   noRate?: boolean;
+  fxError?: Error;
 }) {
   const asked: unknown[] = [];
   const port = createBudgetObligations({
@@ -71,20 +72,23 @@ function adapter(o: {
       },
     },
     fx: {
-      total: async (amounts, currency) => ({
-        currency: currency ?? "EUR",
-        total: null,
-        approximate: false,
-        nearestRateCount: 0,
-        staleRateCount: 0,
-        unavailableCount: 0,
-        restricted: false,
-        items: amounts.map((a) =>
-          o.noRate && a.amount.currency !== "EUR"
-            ? { kind: "rate-unavailable" as const, original: a.amount }
-            : { kind: "reporting-currency" as const, original: a.amount, value: a.amount },
-        ),
-      }),
+      total: async (amounts, currency) => {
+        if (o.fxError) throw o.fxError;
+        return {
+          currency: currency ?? "EUR",
+          total: null,
+          approximate: false,
+          nearestRateCount: 0,
+          staleRateCount: 0,
+          unavailableCount: 0,
+          restricted: false,
+          items: amounts.map((a) =>
+            o.noRate && a.amount.currency !== "EUR"
+              ? { kind: "rate-unavailable" as const, original: a.amount }
+              : { kind: "reporting-currency" as const, original: a.amount, value: a.amount },
+          ),
+        };
+      },
     },
   });
   return { port, asked };
@@ -169,5 +173,18 @@ describe("#567: the adapter of BudgetObligations", () => {
   it("BUD-03@PoC EC4: an amount with no rate at all gives no answer — no figure beats a wrong one", async () => {
     const { port } = adapter({ charges: [charge("2026-11-20", Money.of("10", "USD"))], noRate: true });
     expect(await port.month("h", "2026-11", "EUR")).toBeNull();
+  });
+
+  it("BUD-03@PoC EC4: the rates' reader leaving the money type in its own sum gives no answer (null), any other failure is thrown (#588)", async () => {
+    const charges = [
+      charge("2026-11-20", eur("999999999999999.99")),
+      charge("2026-11-21", eur("999999999999999.99")),
+    ];
+    expect(
+      await adapter({ charges, fxError: new AmountOutOfRangeError() }).port.month("h", "2026-11", "EUR"),
+    ).toBeNull();
+    await expect(
+      adapter({ charges, fxError: new Error("rates are down") }).port.month("h", "2026-11", "EUR"),
+    ).rejects.toThrow("rates are down");
   });
 });
