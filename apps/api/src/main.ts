@@ -34,12 +34,7 @@ import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/d
 import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
 import { createImportRecipesServices } from "./modules/import-recipes/index.ts";
 import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
-import {
-  createGoalFlows,
-  createGoalPlans,
-  createGoalSpends,
-  createGoalsServices,
-} from "./modules/goals/index.ts";
+import { createGoalFlows, createGoalPlans, createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
 import {
   createRecurringCategoryUsage,
@@ -476,13 +471,10 @@ const server = buildServer({
                   ),
               }),
               fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
-              // BUD-08 b: transfers and loan operations (transactions), goals' accounts, marks and spends (goals), the
+              // BUD-08 b: transfers and loan operations (transactions), goals' accounts and marks (goals), the
               // active loans (accounts) with their rate (liabilities) and debt (ledger).
               movements: createCashflowMovements(databases.for("transactions")),
-              goals: {
-                ...createGoalFlows(databases.for("goals")),
-                ...createGoalSpends(databases.for("goals")),
-              },
+              goals: createGoalFlows(databases.for("goals")),
               credit: createCreditAccounts(databases.for("accounts")),
               liabilities: createLiabilities(databases.for("liabilities"), audit),
               ledger: createLedger(databases.for("ledger")),

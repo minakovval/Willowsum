@@ -21,7 +21,7 @@ import {
   createTransactionCategories,
 } from "../src/modules/categorization/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
-import { createGoalFlows, createGoalSpends } from "../src/modules/goals/index.ts";
+import { createGoalFlows } from "../src/modules/goals/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
@@ -99,7 +99,6 @@ const noFlows = (netFlow: string) => ({
   investmentWithdrawals: eur("0"),
   debtRepayment: eur("0"),
   leftOnAccounts: eur(netFlow),
-  fromGoals: eur("0"),
 });
 
 async function runWorker(householdId: string): Promise<void> {
@@ -238,10 +237,7 @@ beforeAll(async () => {
           }),
           fx,
           movements: createCashflowMovements(db.databases.for("transactions")),
-          goals: {
-            ...createGoalFlows(db.databases.for("goals")),
-            ...createGoalSpends(db.databases.for("goals")),
-          },
+          goals: createGoalFlows(db.databases.for("goals")),
           credit: createCreditAccounts(db.databases.for("accounts")),
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           ledger,

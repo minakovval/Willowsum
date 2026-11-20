@@ -21,7 +21,7 @@ import {
   createTransactionCategories,
 } from "../src/modules/categorization/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
-import { createGoalFlows, createGoalSpends, createGoalsServices } from "../src/modules/goals/index.ts";
+import { createGoalFlows, createGoalsServices } from "../src/modules/goals/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
@@ -37,6 +37,7 @@ import {
   createTransferProposalSides,
 } from "../src/modules/transfer-matching/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -223,10 +224,7 @@ beforeAll(async () => {
           }),
           fx,
           movements: createCashflowMovements(db.databases.for("transactions")),
-          goals: {
-            ...createGoalFlows(db.databases.for("goals")),
-            ...createGoalSpends(db.databases.for("goals")),
-          },
+          goals: createGoalFlows(db.databases.for("goals")),
           credit: createCreditAccounts(db.databases.for("accounts")),
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           ledger,
@@ -333,7 +331,6 @@ describe("BUD-08@PoC b: where the net flow went", () => {
       investmentWithdrawals: eur("0"),
       debtRepayment: eur("0"),
       leftOnAccounts: eur("1000"),
-      fromGoals: eur("0"),
     });
     expect(view.totals).toMatchObject({
       goalContributions: { total: eur("500") },
@@ -342,7 +339,7 @@ describe("BUD-08@PoC b: where the net flow went", () => {
     expect(view.loansWithoutRate).toEqual([]);
   });
 
-  it("BUD-08@PoC AC2, FR 10: 2 900 € spent from the goal «Відпустка» in July is in July's spending and its layer «з цілей»; the year's rate counts all 12 months", async () => {
+  it("BUD-08@PoC AC2: 2 900 € spent from the goal «Відпустка» in July is in July's spending; the year's rate counts all 12 months (the layer «з цілей» is not in PoC: owner decision 2026-11-20, item 2)", async () => {
     const space = await newSpace();
     const current = await account(space);
     const vacation = await goal(space, "Відпустка", { kind: "marks", startAmount: "3000.00" });
@@ -359,17 +356,12 @@ describe("BUD-08@PoC b: where the net flow went", () => {
     expect(view.view).toBe("monthly");
     expect(view.months).toHaveLength(12);
     const july = view.months[6];
-    expect(july).toMatchObject({ month: "2026-07", expenses: eur("3000"), fromGoals: eur("2900") });
-    expect(
-      view.months.filter(
-        (m: { fromGoals: unknown }) => JSON.stringify(m.fromGoals) !== JSON.stringify(eur("0")),
-      ),
-    ).toHaveLength(1);
+    expect(july).toMatchObject({ month: "2026-07", expenses: eur("3000") });
+    expect(july).not.toHaveProperty("fromGoals");
     // (6 000 − 3 500) ÷ 6 000 over the 12 months; spending from goals is no contribution.
     expect(view.totals).toMatchObject({
       expenses: eur("3500"),
       savingsRate: "41.7",
-      fromGoals: eur("2900"),
       goalContributions: { total: eur("0"), goals: [] },
     });
   });
@@ -394,6 +386,24 @@ describe("BUD-08@PoC b: where the net flow went", () => {
     expect(view.loansWithoutRate).toEqual([]);
   });
 
+  it("BUD-08@PoC FR 7: month by month on the real journal — 650,00 € a month on 120 000,00 € at 4,2 %: interest 420,00, 419,20, 418,39 €", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    const mortgage = await loan(space, "120000.00", "4.2", "650.00");
+    for (const date of ["2026-09-05", "2026-10-05", "2026-11-05"])
+      await transfer(space, current, mortgage, "650.00", date);
+    const months = (await cashflow(space, "ytd", "2026")).months.slice(8);
+    expect(
+      months.map((m: { expenses: unknown; debtRepayment: unknown }) => [m.expenses, m.debtRepayment]),
+    ).toEqual([
+      [eur("420"), eur("230")],
+      [eur("419.2"), eur("230.8")],
+      [eur("418.39"), eur("231.61")],
+    ]);
+    // A month alone gives the same: the earlier months' interest is read from the loan's opening.
+    expect((await cashflow(space, "month", "2026-11")).months[0]).toMatchObject({ expenses: eur("418.39") });
+  });
+
   it("BUD-08@PoC FR 5: another space's goals, contributions and loans are not counted", async () => {
     const mine = await newSpace();
     const other = await newSpace();
@@ -416,5 +426,117 @@ describe("BUD-08@PoC b: where the net flow went", () => {
       debtRepayment: eur("250"),
       expenses: eur("250"),
     });
+  });
+});
+
+describe("BUD-08@PoC b: security review #642", () => {
+  it("BUD-08@PoC «Права доступу»: a scoped member — not found, with no goal, loan or sum of part b in the answer", async () => {
+    const s = await newSpace();
+    const current = await account(s);
+    const g = await goal(s, "Таємна ціль");
+    await contribute(s, g, "777.00", "2026-11-19");
+    const l = await loan(s, "50000.00", "6", "500.00");
+    await transfer(s, current, l, "500.00", "2026-11-06");
+    for (const role of ["viewer", "editor"]) {
+      const r = await call(s, "GET", "/v1/cashflow?type=month&period=2026-11", undefined, {
+        role,
+        scoped: true,
+      });
+      expect(r.statusCode).toBe(404);
+      expect(leakText(r.body)).not.toContain(g);
+      expect(leakText(r.body)).not.toContain(l);
+      expect(leakText(r.body)).not.toContain("777");
+      expect(leakText(r.body)).not.toContain("250");
+    }
+  });
+
+  it("BUD-08@PoC FR 5: a hidden or merged transfer to a goal's own account is not a contribution", async () => {
+    const s = await newSpace();
+    const current = await account(s);
+    const own = await account(s, "savings");
+    const g = await goal(s, "Власний рахунок", { kind: "account", accountId: own });
+    await tx(s, current, "1000.00", "2026-11-02", "Зарплата");
+    await transfer(s, current, own, "300.00", "2026-11-19");
+    await transfer(s, current, own, "200.00", "2026-11-19");
+    expect((await cashflow(s, "month", "2026-11")).months[0].goalContributions).toEqual({
+      total: eur("500"),
+      goals: [{ goalId: g, amount: eur("500") }],
+    });
+    const hide = await db.owner.query(
+      `UPDATE transactions.transactions SET hidden = true
+        WHERE household_id = $1 AND account_id = $2 AND transfer_id IS NOT NULL AND amount = -300`,
+      [s.householdId, current],
+    );
+    expect(hide.rowCount).toBe(1);
+    const merge = await db.owner.query(
+      `UPDATE transactions.transactions SET merged_into = id
+        WHERE household_id = $1 AND account_id = $2 AND transfer_id IS NOT NULL AND amount = -200`,
+      [s.householdId, current],
+    );
+    expect(merge.rowCount).toBe(1);
+    expect((await cashflow(s, "month", "2026-11")).months[0].goalContributions).toEqual({
+      total: eur("0"),
+      goals: [],
+    });
+  });
+
+  it("BUD-08@PoC FR 7: a hidden or merged operation of a loan's account is not a payment", async () => {
+    const s = await newSpace();
+    const current = await account(s);
+    await tx(s, current, "1000.00", "2026-10-02", "Зарплата");
+    const l = await loan(s, "50000.00", "6", "500.00");
+    const pay = async (date: string) => {
+      const r = await call(s, "POST", "/v1/transactions", {
+        accountId: l,
+        amount: eur("500.00"),
+        date,
+        counterparty: "x",
+      });
+      expect(r.statusCode, r.body).toBe(201);
+      return r.json().id as string;
+    };
+    const a = await pay("2026-10-05");
+    const b = await pay("2026-11-05");
+    await runWorker(s.householdId);
+    expect((await cashflow(s, "month", "2026-10")).months[0]).toMatchObject({
+      expenses: eur("250"),
+      debtRepayment: eur("250"),
+    });
+    await db.owner.query(
+      `UPDATE transactions.transactions SET hidden = true WHERE household_id = $1 AND id = $2`,
+      [s.householdId, a],
+    );
+    await db.owner.query(
+      `UPDATE transactions.transactions SET merged_into = id WHERE household_id = $1 AND id = $2`,
+      [s.householdId, b],
+    );
+    for (const m of ["2026-10", "2026-11"])
+      expect((await cashflow(s, "month", m)).months[0]).toMatchObject({
+        expenses: eur("0"),
+        debtRepayment: eur("0"),
+      });
+  });
+
+  it("BUD-08@PoC FR 7: a payment to a credit card is not «Погашення боргу» and adds no interest spending", async () => {
+    const s = await newSpace();
+    const current = await account(s);
+    await tx(s, current, "1000.00", "2026-11-02", "Зарплата");
+    const res = await call(s, "POST", "/v1/accounts", {
+      kind: "credit-card",
+      name: "Картка",
+      balance: eur("3000.00"),
+      balanceDate: "2026-01-01",
+      annualRate: "24",
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    await runWorker(s.householdId);
+    await transfer(s, current, res.json().id as string, "200.00", "2026-11-06");
+    const v = await cashflow(s, "month", "2026-11");
+    expect(v.months[0]).toMatchObject({
+      expenses: eur("0"),
+      debtRepayment: eur("0"),
+      leftOnAccounts: eur("1000"),
+    });
+    expect(v.loansWithoutRate).toEqual([]);
   });
 });

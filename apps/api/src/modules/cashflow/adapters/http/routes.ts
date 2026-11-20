@@ -9,7 +9,7 @@ import { cashflowServices } from "./services.ts";
 /**
  * «Грошовий потік» (BUD-08@PoC; wave 2 row 37, server parts a and b): income, spending, net flow and the savings rate
  * of a month, or of each month of a quarter, the year to date or a year, with the period's rate; where the net flow
- * went — goals, investments, debt repayment, what is left on the accounts — and the spending paid from goals. Read only. The space is the
+ * went — goals, investments, debt repayment, what is left on the accounts. Read only. The space is the
  * session's (П-5); a scoped member: «бюджет і цілі» are closed by the visibility policy's default — not found. Behind
  * the release flag `budget.cashflow` (ships off) under the feature key of the same name; no plan limit in this release.
  */
@@ -21,7 +21,7 @@ const money = (m: Money) => m.toJSON();
 /** FR 3: per cent with one digit after the point (half to even), e.g. "25.0"; null — «–» (no income). */
 const rateSchema = z.string().nullable();
 
-/** FR 2, FR 4–7, FR 10: where the net flow went. */
+/** FR 2, FR 4–7: where the net flow went. «з цілей» (FR 10) is not in PoC (owner decision 2026-11-20, item 2). */
 const flowsSchema = {
   /** FR 5: transfers to goals' own accounts and «Внести» marks, in all and by goal (first contributed first). */
   goalContributions: z.object({
@@ -35,8 +35,6 @@ const flowsSchema = {
   debtRepayment: moneySchema,
   /** FR 4: net flow − goals − investments − debt repayment; may be negative. */
   leftOnAccounts: moneySchema,
-  /** FR 10, AC2: the spending paid from goals — part of `expenses`, the layer «з цілей». */
-  fromGoals: moneySchema,
 };
 const flows = (f: Flows) => ({
   goalContributions: {
@@ -47,7 +45,6 @@ const flows = (f: Flows) => ({
   investmentWithdrawals: money(f.investmentWithdrawals),
   debtRepayment: money(f.debtRepayment),
   leftOnAccounts: money(f.leftOnAccounts),
-  fromGoals: money(f.fromGoals),
 });
 
 const monthSchema = z.object({

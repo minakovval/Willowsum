@@ -5,6 +5,7 @@ import {
   monthFlows,
   periodFlows,
   periodTotals,
+  loanMonths,
   splitLoanMonth,
   transferFlow,
   type CashflowCategory,
@@ -13,7 +14,7 @@ import {
 } from "./index.ts";
 
 const eur = (a: string) => Money.of(a, "EUR");
-const amounts = (splits: ReturnType<typeof splitLoanMonth>) =>
+const amounts = (splits: readonly ReturnType<typeof splitLoanMonth>[number][]) =>
   splits.map((s) => [s.interest.toDecimalString(), s.principal.toDecimalString()]);
 
 describe("BUD-08@PoC: a loan payment's interest and «Погашення боргу»", () => {
@@ -101,6 +102,8 @@ describe("BUD-08@PoC: contributions to goals and investments", () => {
     expect(flow("current", "trip-account")).toEqual({ kind: "goal", goalId: "trip" });
     // Before the goal existed, or after it was closed, the account is not the goal's.
     expect(flow("current", "trip-account", "2026-02-15")).toBeNull();
+    // The goal's creation day and its closing day are the goal's.
+    expect(flow("current", "trip-account", "2026-03-01")).toEqual({ kind: "goal", goalId: "trip" });
     expect(flow("current", "old-account", "2026-05-31")).toEqual({ kind: "goal", goalId: "old" });
     expect(flow("current", "old-account", "2026-06-01")).toBeNull();
   });
@@ -175,16 +178,38 @@ describe("BUD-08@PoC: «Залишилось на рахунках»", () => {
       cats,
       "EUR",
     );
-    const lines = [
-      line("2026-08", "debt", "1200"),
-      line("2026-09", "goal", "100", "trip"),
-      line("2026-09", "from-goals", "40"),
-    ];
+    const lines = [line("2026-08", "debt", "1200"), line("2026-09", "goal", "100", "trip")];
     const flows = monthFlows(figures, lines, "EUR");
     expect(flows.map((f) => f.leftOnAccounts.toDecimalString())).toEqual(["-200", "900"]);
     const period = periodFlows(periodTotals(figures, "EUR"), months, lines, "EUR");
     expect(period.leftOnAccounts.toDecimalString()).toBe("700");
     expect(period.debtRepayment.toDecimalString()).toBe("1200");
-    expect(period.fromGoals.toDecimalString()).toBe("40");
+  });
+});
+
+describe("BUD-08@PoC: a loan month by month", () => {
+  it("BUD-08@PoC FR 7: three months of 650,00 € on 120 000,00 € at 4,2 % — 420,00, 419,20, 418,39 € of interest", () => {
+    const op = (id: string, date: string) => ({
+      id,
+      date,
+      amount: eur("650.00"),
+      payment: true,
+      bankInterest: false,
+    });
+    const journal = new Map([
+      ["2026-09-05", eur("120000.00")],
+      ["2026-10-05", eur("119350.00")],
+      ["2026-11-05", eur("118700.00")],
+    ]);
+    const months = loanMonths(
+      [op("a", "2026-09-05"), op("b", "2026-10-05"), op("c", "2026-11-05")],
+      () => "4.2",
+      journal,
+    );
+    expect(months.map((m) => [m.month, ...amounts(m.splits).flat()])).toEqual([
+      ["2026-09", "420", "230"],
+      ["2026-10", "419.2", "230.8"],
+      ["2026-11", "418.39", "231.61"],
+    ]);
   });
 });

@@ -4,7 +4,7 @@ import type { Month, MonthFigures, PeriodTotals } from "./cashflow.ts";
 /**
  * Pure rules of where the net flow went (BUD-08@PoC; server part b): contributions to goals (FR 5) and investments with
  * withdrawals (FR 6), the split of a loan payment into interest and «Погашення боргу» (FR 7), «Залишилось на рахунках»
- * (FR 4) and the layer «з цілей» of the spending (FR 10). No I/O.
+ * (FR 4). The layer «з цілей» (FR 10) is not in PoC (owner decision 2026-11-20, item 2; it returns with BUD-05). No I/O.
  */
 
 /** FR 5, FR 6: a marked transfer between own accounts, by its accounts and the outflow's date. */
@@ -97,10 +97,84 @@ export function splitLoanMonth(input: {
   });
 }
 
+/** FR 7: an operation of a loan's account in the loan's currency, chronological. */
+export interface LoanOperation {
+  readonly id: string;
+  readonly date: string;
+  readonly amount: Money;
+  /** An inflow that is the loan's payment (not a side of a pair awaiting confirmation). */
+  readonly payment: boolean;
+  /** The bank's own interest operation (imported, in «Відсотки за кредитами»). */
+  readonly bankInterest: boolean;
+}
+
+/** FR 7: one calendar month of one loan, as calculated. */
+export interface LoanMonth {
+  readonly month: Month;
+  readonly splits: readonly LoanPaymentSplit[];
+  /** The month's bank interest operations: its interest spending instead of the calculation. */
+  readonly bankInterest: readonly LoanOperation[];
+  /** Edge case 2: the month's payments were not split for want of a rate. */
+  readonly withoutRate: boolean;
+}
+
+/** FR 7: what the calculation needs to read — the first payment's date of each month that is calculated. */
+export function loanDebtDates(
+  operations: readonly LoanOperation[],
+  rateOn: (date: string) => string | null,
+): string[] {
+  return groupByMonth(operations)
+    .map(([, ops]) => ops)
+    .filter((ops) => !ops.some((o) => o.bankInterest))
+    .map((ops) => ops.find((o) => o.payment)?.date ?? null)
+    .filter((d): d is string => d !== null && rateOn(d) !== null);
+}
+
+function groupByMonth(operations: readonly LoanOperation[]): [Month, LoanOperation[]][] {
+  const months = new Map<Month, LoanOperation[]>();
+  for (const o of operations) months.set(o.date.slice(0, 7), [...(months.get(o.date.slice(0, 7)) ?? []), o]);
+  return [...months].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/**
+ * FR 7, AC7: the loan's months from its opening on, oldest first. The journal lowers the debt by the whole payment and
+ * never holds the calculated interest, so the debt before a month's first payment is the journal's debt then plus the
+ * interest calculated for the earlier months — the unpaid interest «додано до боргу» and the paid one taken back out of
+ * the payment. A month with the bank's own interest operation carries the bank's real debt: no calculation, and the
+ * calculated interest of the earlier months is no longer added. `journalBefore` — the journal's debt at the end of the
+ * day before each date of `loanDebtDates`.
+ */
+export function loanMonths(
+  operations: readonly LoanOperation[],
+  rateOn: (date: string) => string | null,
+  journalBefore: ReadonlyMap<string, Money>,
+): LoanMonth[] {
+  let accrued: Money | null = null;
+  return groupByMonth(operations).map(([month, ops]) => {
+    const bank = ops.filter((o) => o.bankInterest);
+    const payments = ops.filter((o) => o.payment).map((o) => ({ date: o.date, amount: o.amount }));
+    const first = payments[0];
+    const annualRate = first && bank.length === 0 ? rateOn(first.date) : null;
+    const journal = first && annualRate !== null ? (journalBefore.get(first.date) ?? null) : null;
+    const debtBefore = journal === null ? null : accrued ? journal.plus(accrued) : journal;
+    const splits = splitLoanMonth({ payments, annualRate, debtBefore, bankInterest: bank.length > 0 });
+    if (bank.length > 0) accrued = null;
+    else
+      for (const sp of splits)
+        if (!sp.interest.isZero()) accrued = accrued ? accrued.plus(sp.interest) : sp.interest;
+    return {
+      month,
+      splits,
+      bankInterest: bank,
+      withoutRate: payments.length > 0 && bank.length === 0 && annualRate === null,
+    };
+  });
+}
+
 /** One amount of where the money went, in the report's currency at the rate of its date, in its month. */
 export interface FlowLine {
   readonly month: Month;
-  readonly kind: "goal" | "investment" | "withdrawal" | "debt" | "from-goals";
+  readonly kind: "goal" | "investment" | "withdrawal" | "debt";
   readonly amount: Money;
   /** The goal of a contribution («goal»); null otherwise. */
   readonly goalId: string | null;
@@ -117,8 +191,6 @@ export interface Flows {
   readonly debtRepayment: Money;
   /** FR 4: net flow − goals − investments − debt repayment; may be negative. */
   readonly leftOnAccounts: Money;
-  /** FR 10, AC2: the spending paid from goals, part of the month's spending, shown as its own layer. */
-  readonly fromGoals: Money;
 }
 
 function sumFlows(netFlow: Money, lines: readonly FlowLine[], currency: string): Flows {
@@ -139,7 +211,6 @@ function sumFlows(netFlow: Money, lines: readonly FlowLine[], currency: string):
     investmentWithdrawals: sum("withdrawal"),
     debtRepayment,
     leftOnAccounts: netFlow.minus(goalContributions).minus(investmentContributions).minus(debtRepayment),
-    fromGoals: sum("from-goals"),
   };
 }
 

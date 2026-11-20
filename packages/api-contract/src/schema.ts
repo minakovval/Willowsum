@@ -8249,10 +8249,6 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
-                            fromGoals: {
-                                amount: string;
-                                currency: string;
-                            };
                             goalContributions: {
                                 goals: {
                                     amount: {
@@ -8304,10 +8300,6 @@ export interface operations {
                                 currency: string;
                             };
                             expenses: {
-                                amount: string;
-                                currency: string;
-                            };
-                            fromGoals: {
                                 amount: string;
                                 currency: string;
                             };

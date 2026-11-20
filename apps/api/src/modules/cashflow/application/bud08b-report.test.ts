@@ -5,6 +5,7 @@ import {
   cashflowReport,
   type CashflowDeps,
   type CashflowFlowReads,
+  type CashflowLoan,
   type CashflowLoanOperation,
   type CashflowReads,
   type CashflowTransaction,
@@ -30,10 +31,14 @@ interface World {
   transfers?: Awaited<ReturnType<CashflowFlowReads["transfers"]>>;
   investment?: string[];
   marks?: { goalId: string; amount: Money; date: string }[];
-  spends?: Record<string, Money>;
   loanOps?: CashflowLoanOperation[];
   rate?: string | null;
+  /** Dated rates; default — `rate` since the registration. */
+  rates?: CashflowLoan["rates"];
+  /** A fixed journal debt; default — 120 000,00 less every operation of the loan up to the date (the journal). */
   debt?: Money;
+  /** A currency with no rate at all: its amounts convert to null («Курс недоступний»). */
+  noRate?: string;
 }
 
 function deps(w: World): CashflowDeps & { calls: string[] } {
@@ -45,22 +50,34 @@ function deps(w: World): CashflowDeps & { calls: string[] } {
     categoriesOf: async (_h, ids) =>
       new Map(Object.entries(w.categoriesOf ?? {}).filter(([id]) => ids.includes(id))),
     pendingTransferSides: async () => new Set(w.pending ?? []),
-    convert: async (amounts) => ({
-      values: amounts.map((a) => a.amount),
-      nearestRateCount: 0,
-      unavailableCount: 0,
-    }),
+    convert: async (amounts) => {
+      const values = amounts.map((a) => (a.amount.currency === w.noRate ? null : a.amount));
+      return { values, nearestRateCount: 0, unavailableCount: values.filter((v) => v === null).length };
+    },
     investmentAccountIds: async () => new Set(w.investment ?? []),
     transfers: async () => w.transfers ?? [],
     goalAccounts: async () => [],
     goalMarks: async () => w.marks ?? [],
-    goalSpends: async (_h, ids) => new Map(Object.entries(w.spends ?? {}).filter(([id]) => ids.includes(id))),
-    loans: async () => [{ accountId: "loan", currency: "EUR", ledgerAccountId: "loan-wallet" }],
-    loanOperations: async () => w.loanOps ?? [],
-    annualRate: async () => (w.rate === undefined ? "4.2" : w.rate),
-    debtAt: async (_h, _l, date) => {
-      calls.push(`debtAt ${date}`);
-      return w.debt ?? eur("120000.00");
+    loans: async () => [
+      {
+        accountId: "loan",
+        currency: "EUR",
+        ledgerAccountId: "loan-wallet",
+        openedOn: "2026-01-01",
+        rates: w.rates ?? [{ validFrom: null, annualRate: w.rate === undefined ? "4.2" : w.rate }],
+      },
+    ],
+    loanOperations: async (_h, _ids, from, to) =>
+      (w.loanOps ?? []).filter((o) => o.date >= from && o.date <= to),
+    debtsAt: async (_h, _l, dates) => {
+      calls.push(`debtsAt ${dates.join(",")}`);
+      return dates.map(
+        (d) =>
+          w.debt ??
+          (w.loanOps ?? [])
+            .filter((o) => o.date <= d && o.amount.currency === "EUR")
+            .reduce((t, o) => t.minus(o.amount), eur("120000.00")),
+      );
     },
   };
   return { reads, currency: "EUR", today: () => "2026-11-20", calls };
@@ -138,7 +155,7 @@ describe("BUD-08@PoC b: the report", () => {
     expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("230");
     // «Погашення боргу» does not lower the savings rate: (6 000 − 420) ÷ 6 000.
     expect(report.months[0]!.savingsRate?.toFixed(1)).toBe("93.0");
-    expect(d.calls).toEqual(["debtAt 2026-09-04"]);
+    expect(d.calls).toEqual(["debtsAt 2026-09-04"]);
     expect(report.loansWithoutRate).toEqual([]);
   });
 
@@ -187,17 +204,144 @@ describe("BUD-08@PoC b: the report", () => {
     expect(report.unpairedTransfers).toBe(1);
   });
 
-  it("BUD-08@PoC FR 10: spending paid from a goal stays in the month's spending and is its layer «з цілей»", async () => {
+  it("BUD-08@PoC AC2: spending paid from a goal stays in the month's spending (the layer «з цілей» is not in PoC: owner decision 2026-11-20, item 2)", async () => {
     const report = await cashflowReport(
       deps({
         transactions: [tx("trip", "-2900", "2026-07-10"), tx("shop", "-100", "2026-07-11")],
         categoriesOf: { trip: "food", shop: "food" },
-        spends: { trip: eur("2900") },
       }),
       H,
       ["2026-07", "2026-08"],
     );
     expect(report.months[0]!.expenses.toDecimalString()).toBe("3000");
-    expect(report.monthFlows.map((f) => f.fromGoals.toDecimalString())).toEqual(["2900", "0"]);
+  });
+
+  it("BUD-08@PoC FR 7: the interest of earlier months is in the debt — 120 000,00 € at 4,2 %, 650,00 € a month: October 419,20 €, November 418,39 €", async () => {
+    const d = deps({
+      loanOps: [
+        loanOp("p9", "650.00", "2026-09-05"),
+        loanOp("p10", "650.00", "2026-10-05"),
+        loanOp("p11", "650.00", "2026-11-05"),
+      ],
+    });
+    // September is before the period: it is calculated only for the debt it leaves.
+    const report = await cashflowReport(d, H, ["2026-10", "2026-11"]);
+    expect(report.months.map((m) => m.expenses.toDecimalString())).toEqual(["419.2", "418.39"]);
+    expect(report.monthFlows.map((f) => f.debtRepayment.toDecimalString())).toEqual(["230.8", "231.61"]);
+    expect(report.periodFlows.debtRepayment.toDecimalString()).toBe("462.41");
+    // One journal read for the loan, every month's date in it.
+    expect(d.calls).toEqual(["debtsAt 2026-09-04,2026-10-04,2026-11-04"]);
+  });
+
+  it("BUD-08@PoC FR 7: a payment less than the interest — the unpaid interest is added to the next month's debt", async () => {
+    const report = await cashflowReport(
+      deps({ loanOps: [loanOp("p9", "300.00", "2026-09-05"), loanOp("p10", "650.00", "2026-10-05")] }),
+      H,
+      ["2026-09", "2026-10"],
+    );
+    // September: interest 420, principal −120. October: (120 000 − 300 + 420) × 4,2 % ÷ 12 = 420,42.
+    expect(report.months.map((m) => m.expenses.toDecimalString())).toEqual(["420", "420.42"]);
+    expect(report.monthFlows.map((f) => f.debtRepayment.toDecimalString())).toEqual(["-120", "229.58"]);
+  });
+
+  it("BUD-08@PoC FR 7: a month with the bank's interest operation carries the real debt — the calculated interest before it is no longer added", async () => {
+    const report = await cashflowReport(
+      deps({
+        loanOps: [
+          loanOp("p9", "650.00", "2026-09-05"),
+          loanOp("p10", "650.00", "2026-10-05"),
+          loanOp("bank", "-419.20", "2026-10-31", "imported"),
+          loanOp("p11", "650.00", "2026-11-05"),
+        ],
+        categoriesOf: { bank: "interest" },
+      }),
+      H,
+      ["2026-10", "2026-11"],
+    );
+    // November: the journal only (120 000 − 1 300 + 419,20 = 119 119,20) × 4,2 % ÷ 12 = 416,92.
+    expect(report.months.map((m) => m.expenses.toDecimalString())).toEqual(["419.2", "416.92"]);
+    expect(report.monthFlows.map((f) => f.debtRepayment.toDecimalString())).toEqual(["650", "233.08"]);
+  });
+
+  it("BUD-08@PoC FR 7: an interest operation entered by hand does not cancel the calculation", async () => {
+    const report = await cashflowReport(
+      deps({
+        loanOps: [loanOp("p1", "650.00", "2026-09-05"), loanOp("m", "-415.10", "2026-09-30")],
+        debt: eur("120000.00"),
+        categoriesOf: { m: "interest" },
+      }),
+      H,
+      ["2026-09"],
+    );
+    expect(report.months[0]!.expenses.toDecimalString()).toBe("420");
+    expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("230");
+  });
+
+  it("BUD-08@PoC FR 7: an outflow on the loan's account is no payment; the first payment is the first inflow", async () => {
+    const report = await cashflowReport(
+      deps({ loanOps: [loanOp("c", "-50.00", "2026-09-01"), loanOp("p1", "650.00", "2026-09-05")] }),
+      H,
+      ["2026-09"],
+    );
+    // The debt before it: 120 050,00 × 4,2 % ÷ 12 = 420,175 → 420,18.
+    expect(report.months[0]!.expenses.toDecimalString()).toBe("420.18");
+    expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("229.82");
+  });
+
+  it("BUD-08@PoC FR 7: a rate changed in the middle of the month — the rate on the first payment's date", async () => {
+    const report = await cashflowReport(
+      deps({
+        rates: [
+          { validFrom: null, annualRate: "4.2" },
+          { validFrom: "2026-09-10", annualRate: "6" },
+        ],
+        loanOps: [loanOp("p1", "650.00", "2026-09-05"), loanOp("p2", "100.00", "2026-09-20")],
+      }),
+      H,
+      ["2026-09"],
+    );
+    expect(report.months[0]!.expenses.toDecimalString()).toBe("420");
+    expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("330");
+  });
+
+  it("BUD-08@PoC EC2: a month with the bank's interest operation and no rate gives no «внесіть ставку» hint", async () => {
+    const report = await cashflowReport(
+      deps({
+        rate: null,
+        loanOps: [loanOp("p1", "650.00", "2026-09-05"), loanOp("bank", "-415.10", "2026-09-30", "imported")],
+        categoriesOf: { bank: "interest" },
+      }),
+      H,
+      ["2026-09"],
+    );
+    expect(report.loansWithoutRate).toEqual([]);
+    expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("650");
+  });
+
+  it("BUD-08@PoC FR 7: an overpaid loan (the journal owes nothing) — no interest, the whole payment lowers the debt", async () => {
+    const report = await cashflowReport(
+      deps({ debt: eur("-500.00"), loanOps: [loanOp("p1", "650.00", "2026-09-05")] }),
+      H,
+      ["2026-09"],
+    );
+    expect(report.months[0]!.expenses.toDecimalString()).toBe("0");
+    expect(report.monthFlows[0]!.debtRepayment.toDecimalString()).toBe("650");
+  });
+
+  it("BUD-08@PoC EC4: a «Внести» mark in a currency with no rate at all is left out of the goals and counted as unavailable", async () => {
+    const report = await cashflowReport(
+      deps({
+        noRate: "USD",
+        marks: [
+          { goalId: "g1", amount: eur("200"), date: "2026-09-12" },
+          { goalId: "g2", amount: Money.of("300", "USD"), date: "2026-09-12" },
+        ],
+      }),
+      H,
+      ["2026-09"],
+    );
+    expect(report.monthFlows[0]!.goalContributions.toDecimalString()).toBe("200");
+    expect(report.monthFlows[0]!.byGoal.map((g) => g.goalId)).toEqual(["g1"]);
+    expect(report.unavailableCount).toBe(1);
   });
 });
