@@ -603,6 +603,19 @@ describe("IMP-16@PoC FR 1, FR 3: 7 days, once", () => {
   });
 });
 
+describe("IMP-16@PoC FR 8: what the rollback keeps", () => {
+  it("IMP-16@PoC FR 8: the batch's original is kept after the rollback — its signed link still opens", async () => {
+    nowMs = start;
+    const space = await newSpace();
+    const batchId = await applied(space, "kviten.csv", purchases(2));
+    expect((await rollback(space, batchId)).statusCode).toBe(200);
+    const detail = await call(space, "GET", `/v1/import/batches/${batchId}`);
+    const fileId = (detail.json().fileList as { id: string }[])[0]!.id;
+    const link = await call(space, "POST", `/v1/import/batches/${batchId}/files/${fileId}/link`);
+    expect(link.statusCode, link.body).toBe(200);
+  });
+});
+
 describe("IMP-04@PoC FR 10, IMP-16@PoC FR 9: the rollback in the audit log", () => {
   it("IMP-16@PoC FR 9: who, the state and how many rolled back, kept and restored; each transaction's reversal is its own entry", async () => {
     nowMs = start;
@@ -673,7 +686,7 @@ describe("IMP-16@PoC FR 3: the rollback and a new apply on the same account at o
     // Whichever went first, every operation the books still hold is in the journal once, never twice.
     expect(await balance(space)).toBe(new Decimal(await expectedBalance(space.householdId)).toFixed(2));
     const counts = apply.json().result.counts as Record<string, number>;
-    // The apply after the rollback writes all 5; before it, the 4 shared rows are its duplicates (IMP-16 FR 7 later).
+    // The apply after the rollback writes all 5; before it, the 4 shared rows are its duplicates (re-creating them is a later part).
     expect([5, 1]).toContain(counts["import"]);
     expect(await balance(space)).toBe(counts["import"] === 5 ? "-125.55" : "-5.55");
   });
