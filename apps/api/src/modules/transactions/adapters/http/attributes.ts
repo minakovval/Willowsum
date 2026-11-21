@@ -6,6 +6,7 @@ import {
   deleteTag,
   renameTag,
   setAttributes,
+  setOneOff,
   type TagAudit,
   type TransactionsDeps,
 } from "../../application/index.ts";
@@ -18,6 +19,7 @@ import {
   FEATURE,
   handOffNow,
   invalid,
+  ONE_OFF,
   outcome,
   params,
   refuseScoped,
@@ -85,6 +87,44 @@ export const setAttributesRoute = defineRoute({
     const { deps } = transactionsServices(ctx);
     const result = await ctx.inHousehold((q) =>
       setAttributes(deps, transactionsTx(q), tagsTx(q), caller(ctx), params.transactionId, body),
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOff);
+    return shown(ctx, result.transaction);
+  },
+});
+
+/**
+ * BUD-06@PoC FR 8, AC4: the switch «Одноразова витрата» in the transaction's details. Behind the release flag and
+ * feature key `transactions.one-off` (requires `transactions.manual`); no plan limit (BUD-06 «Ліміти плану»). The space
+ * is the session's; a transaction of another space is «not found». Scoped members: «Транзакції» are closed.
+ */
+export const setOneOffRoute = defineRoute({
+  module: MODULE,
+  method: "PUT",
+  path: "/v1/transactions/{transactionId}/one-off",
+  operationId: "setTransactionOneOff",
+  summary:
+    "«Одноразова витрата» on or off: a marked expense stays in the fact of its period, but leaves the averages, the budget template and «Подушка безпеки» (BUD-06 FR 8)",
+  access: { permission: "household.data.write", feature: ONE_OFF },
+  bodyLimitBytes: 1024,
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_MERGED", "TRANSACTION_IN_TRANSFER"],
+  request: {
+    params,
+    body: z
+      .object({
+        /** true — marked «Одноразова витрата» (an expense only: else 400 `oneOff: not_expense`); false — not. */
+        oneOff: z.boolean(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The transaction with its mark", schema: transactionSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = transactionsServices(ctx);
+    const result = await ctx.inHousehold((q) =>
+      setOneOff(deps, transactionsTx(q), caller(ctx), params.transactionId, body.oneOff),
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
@@ -249,6 +289,7 @@ export const selectionSummaryRoute = defineRoute({
 
 export const attributesRoutes = [
   setAttributesRoute,
+  setOneOffRoute,
   listTagsRoute,
   renameTagRoute,
   deleteTagRoute,

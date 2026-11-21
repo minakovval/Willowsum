@@ -404,6 +404,8 @@ export async function writeImport(
         mergedInto: null,
         note: manual?.note ?? null,
         tagIds: manual?.tagIds ?? [],
+        // BUD-06 FR 8: a manual one merged into the bank's row keeps its «Одноразова витрата» there.
+        oneOff: manual?.oneOff ?? false,
         // BUD-12 FR 8: an imported transaction goes into «До розбору»; one a manual one is merged into keeps that one's
         // state (its category is the user's).
         review: manual ? manual.review : reviewOnCreate({ importedFromStatement: true }),

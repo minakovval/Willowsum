@@ -62,7 +62,10 @@ export function budgetReads(options: {
     async amounts(householdId, accountIds, period, currency, since, until, opts) {
       const { from, to } = periodDays(period);
       const last = until !== undefined && until < to ? until : to;
-      return counted(householdId, accountIds, from, last, currency, since, opts?.withoutGoalSpends === true);
+      return counted(householdId, accountIds, from, last, currency, since, {
+        withoutGoalSpends: opts?.withoutGoalSpends === true,
+        withoutOneOffs: opts?.withoutOneOffs === true,
+      });
     },
     window: (householdId, accountIds, from, to, currency) =>
       counted(householdId, accountIds, from, to, currency),
@@ -81,10 +84,13 @@ export function budgetReads(options: {
     to: string,
     currency: string,
     since?: string,
-    withoutGoalSpends = false,
+    { withoutGoalSpends = false, withoutOneOffs = false } = {},
   ) {
     let rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
-      (r) => since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null),
+      (r) =>
+        (since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null)) &&
+        // BUD-06@PoC FR 8: «Одноразова витрата» leaves an average (the wizard's «Створити за моїми витратами»).
+        !(withoutOneOffs && r.oneOff === true),
     );
     // BUD-03@PoC EC5 (BUD-05@PoC FR 8): a transaction written off from a goal no longer lowers «Можна витратити» —
     // the whole transaction leaves the sum, so the goal's money held back by its contribution is not taken a second
@@ -105,6 +111,7 @@ export function budgetReads(options: {
       amount: CountedAmount["amount"];
       date: string;
       period: string;
+      oneOff: boolean;
     }[] = [];
     const inDates = (date: string) => date >= from && date <= to;
     for (const r of rows) {
@@ -114,6 +121,7 @@ export function budgetReads(options: {
           amount: r.amount,
           date: r.date,
           period: periodOf(r.date),
+          oneOff: r.oneOff === true,
         });
       else
         for (const p of r.parts)
@@ -126,6 +134,7 @@ export function budgetReads(options: {
               amount: p.amount,
               date: r.date,
               period: periodOf(p.month ?? r.date),
+              oneOff: r.oneOff === true,
             });
     }
     // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
@@ -166,7 +175,7 @@ export function budgetReads(options: {
         }
       }
     }
-    const amounts: (CountedAmount & { period: string })[] = [];
+    const amounts: (CountedAmount & { period: string; oneOff: boolean })[] = [];
     let leftOut = counted.length - inRange.length + unavailable;
     let absolute = new Decimal("0");
     items.forEach((item, i) => {
@@ -178,7 +187,12 @@ export function budgetReads(options: {
         return;
       }
       absolute = absolute.plus(item.value.amount.abs());
-      amounts.push({ categoryId: inRange[i]!.categoryId, amount: item.value, period: inRange[i]!.period });
+      amounts.push({
+        categoryId: inRange[i]!.categoryId,
+        amount: item.value,
+        period: inRange[i]!.period,
+        oneOff: inRange[i]!.oneOff,
+      });
     });
     // The figures sum these by category and in total: past the bound, no figure beats a wrong one or a 500.
     if (absolute.greaterThan(BUDGET_MAX_ABSOLUTE_SUM)) return allLeftOut;

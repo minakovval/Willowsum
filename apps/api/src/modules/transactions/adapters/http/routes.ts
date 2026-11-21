@@ -68,6 +68,8 @@ const MODULE = "transactions";
 export const FEATURE = "transactions.manual";
 /** BUD-13: «атрибути транзакцій» — here «Розділити» (FR 6–8); its own key and flag, which requires `transactions.manual`. */
 export const ATTRIBUTES = "transactions.attributes";
+/** BUD-06@PoC FR 8 «Одноразова витрата»: its switch (release flag and feature key). */
+export const ONE_OFF = "transactions.one-off";
 
 const moneySchema = z.object({ amount: z.string(), currency: z.string() });
 const moneyInput = z
@@ -153,6 +155,11 @@ export const transactionSchema = z.object({
   /** BUD-13 FR 2: «Теги» — the space's tags of the transaction, in the order given; the row's icon lists them. */
   tags: z.array(z.object({ id: z.uuid(), name: z.string() })),
   /**
+   * BUD-06@PoC FR 8: «Одноразова витрата» — stays in the fact of its period, but leaves the averages (the base
+   * «Середнє за N міс.», «Створити за моїми витратами», «Подушка безпеки»); false — not marked.
+   */
+  oneOff: z.boolean(),
+  /**
    * BUD-12 FR 4, FR 8: «До розбору» — `queued` (in the queue), `confirmed` (its category confirmed), null (never in
    * the queue: entered by hand).
    */
@@ -220,6 +227,7 @@ function present(
     mergedDuplicates: [...duplicates],
     note: t.note,
     tags: tagsOut(t.tagIds, names),
+    oneOff: t.oneOff,
     review: t.review,
     version: t.version,
     recordedAt: t.createdAt,
@@ -515,6 +523,7 @@ function listItem(
     mergedDuplicates: merged.get(String(row["id"])) ?? [],
     note: (row["note"] as string | null) ?? null,
     tags: tagsOut(rowTags(row), names),
+    oneOff: row["oneOff"] === true,
     review: (row["review"] as StoredTransaction["review"]) ?? null,
     version: Number(row["version"]),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),

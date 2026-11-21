@@ -34,7 +34,18 @@ export async function wizard(
   const currency = deps.reportingCurrency;
   const months = [];
   for (const period of historyPeriods(today)) {
-    const { amounts } = await deps.reads.amounts(householdId, accountIds, period, currency);
+    // BUD-06@PoC FR 8: «Одноразова витрата» leaves the template «Створити за моїми витратами» (its averages).
+    const { amounts } = await deps.reads.amounts(
+      householdId,
+      accountIds,
+      period,
+      currency,
+      undefined,
+      undefined,
+      {
+        withoutOneOffs: true,
+      },
+    );
     months.push(monthHistory(period, currency, categories, amounts));
   }
   const { midPeriod, choices } = startChoices(today);

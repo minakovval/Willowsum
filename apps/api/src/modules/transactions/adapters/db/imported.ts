@@ -84,8 +84,10 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
       const { rows } = await q.query<{ id: string }>(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
                                    counterparty, description, status, source, version, review, import_batch_id,
-                                   import_file_id, import_row, bank_description, balance_after, note, tag_ids)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::uuid[])
+                                   import_file_id, import_row, bank_description, balance_after, note, tag_ids,
+                                   one_off)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::uuid[],
+                 $21)
          ON CONFLICT (household_id, import_batch_id, import_file_id, import_row) WHERE import_file_id IS NOT NULL
          DO NOTHING RETURNING id`,
         [
@@ -109,6 +111,7 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
           t.balanceAfter?.toDecimalString() ?? null,
           t.note,
           [...t.tagIds],
+          t.oneOff,
         ],
       );
       return rows[0] ? tx.find(householdId, rows[0].id) : null;

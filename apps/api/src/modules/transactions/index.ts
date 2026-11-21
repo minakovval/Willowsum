@@ -464,6 +464,12 @@ export interface BudgetTransactions {
       readonly parts:
         | readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[]
         | null;
+      /**
+       * BUD-06@PoC FR 8 «Одноразова витрата»: counted in the fact of its period, left out of the averages (BUD-06 FR 4,
+       * BUD-02 «Створити за моїми витратами») — the reader decides. Always false while `transactions.one-off` is off
+       * for the space (the mark then acts nowhere); absent — not marked.
+       */
+      readonly oneOff?: boolean;
     }[]
   >;
   /**
@@ -473,14 +479,29 @@ export interface BudgetTransactions {
   firstDate(householdId: string, accountIds: readonly string[]): Promise<string | null>;
 }
 
+/**
+ * BUD-06@PoC FR 8: whether «Одноразова витрата» (`transactions.one-off`) is on for the space — the API process wires the
+ * flag runtime; left out (a test's server), the marks act.
+ */
+export interface OneOffSwitch {
+  readonly oneOffEnabled?: (householdId: string) => Promise<boolean>;
+}
+
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
-export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions {
+export function createBudgetTransactions(db: ModuleDatabase, options: OneOffSwitch = {}): BudgetTransactions {
   return {
-    inPeriod: (householdId, accountIds, from, to) =>
-      db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to)),
+    async inPeriod(householdId, accountIds, from, to) {
+      const rows = await db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to));
+      if (!rows.some((r) => r.oneOff) || (await oneOffOn(options, householdId))) return rows;
+      return rows.map((r) => ({ ...r, oneOff: false }));
+    },
     firstDate: (householdId, accountIds) =>
       db.inHousehold(householdId, (q) => budgetFirstDate(q, householdId, accountIds)),
   };
+}
+
+async function oneOffOn(options: OneOffSwitch, householdId: string): Promise<boolean> {
+  return options.oneOffEnabled ? options.oneOffEnabled(householdId) : true;
 }
 
 /**
@@ -490,7 +511,8 @@ export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions
 export interface GoalTransactions {
   /**
    * FR 10 «Подушка безпеки»: the space's transactions from `from` to `to` as the budget period counts them — shown,
-   * «Очікує» too, no merged duplicate, no side of a transfer, any account; signed, with split parts.
+   * «Очікує» too, no merged duplicate, no side of a transfer, any account; signed, with split parts; without the ones
+   * marked «Одноразова витрата» (BUD-06@PoC FR 8) while `transactions.one-off` is on.
    */
   countedInWindow(householdId: string, from: string, to: string): Promise<readonly CountedTransaction[]>;
   /**
@@ -515,10 +537,13 @@ export interface GoalTransactions {
 export type { CountedTransaction, SpendCandidate, SpendCandidatesAfter };
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
-export function createGoalTransactions(db: ModuleDatabase): GoalTransactions {
+export function createGoalTransactions(db: ModuleDatabase, options: OneOffSwitch = {}): GoalTransactions {
   return {
-    countedInWindow: (householdId, from, to) =>
-      db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to)),
+    async countedInWindow(householdId, from, to) {
+      // BUD-06@PoC FR 8: «Одноразова витрата» leaves the average expenses of «Подушка безпеки» (BUD-05 FR 10).
+      const withoutOneOffs = await oneOffOn(options, householdId);
+      return db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to, withoutOneOffs));
+    },
     spendCandidates: (householdId, query) =>
       db.inHousehold(householdId, (q) => spendCandidates(q, householdId, query)),
   };
