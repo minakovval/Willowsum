@@ -5,7 +5,7 @@
 // (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check. One transfer
 // pairs the outflow −11,50 € (transaction 1) with the inflow 1 000,00 € (transaction 0); its key to the rows is checked
 // at commit, and the rows do not point back at it (the column is nullable). Transactions 1 and 2 are «Не дубль».
-// Transaction 2 has a note and the two synthetic tags (BUD-13).
+// Transaction 2 has a note and the two synthetic tags (BUD-13); transaction 3 is «Одноразова витрата» (BUD-06).
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -38,6 +38,8 @@ export const synthetic = [
           // BUD-13 FR 1, FR 2: transaction 2 has a note and both synthetic tags.
           note: i === 2 ? "Синтетична нотатка" : null,
           tag_ids: i === 2 ? `{${key(household.id, "tag", 0)},${key(household.id, "tag", 1)}}` : "{}",
+          // BUD-06 FR 8: transaction 3 (an expense) is marked «Одноразова витрата».
+          one_off: i === 3 ? "true" : "false",
           version: "1",
         };
     },

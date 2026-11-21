@@ -109,16 +109,23 @@ export interface BudgetReads {
      * BUD-03@PoC EC5, BUD-05@PoC FR 8: leave out the transactions written off from a goal («Витратити з цілі») — they no
      * longer lower «Можна витратити». Only that sum asks it; «Бюджет», «Порівняння» and the snapshot count them.
      */
-    options?: { readonly withoutGoalSpends?: boolean },
+    options?: {
+      readonly withoutGoalSpends?: boolean;
+    },
   ): Promise<{
-    readonly amounts: readonly CountedAmount[];
+    /**
+     * `oneOff` (BUD-06@PoC FR 8): the amount's transaction is marked «Одноразова витрата» — in the fact; an average
+     * (the wizard) leaves it out itself.
+     */
+    readonly amounts: readonly (CountedAmount & { readonly oneOff?: boolean })[];
     readonly nearestRateCount: number;
     readonly unavailableCount: number;
   }>;
   /**
    * BUD-06@PoC FR 1: what the transactions of these accounts count from `from` to `to` (dates, inclusive) — as `amounts`
    * for each month, a share «На кілька місяців» in its month when the 1st of it is in the dates; each amount with its
-   * month. One read and one cap (#586) for the whole window.
+   * month. One read and one cap (#586) for the whole window. `oneOff` (BUD-06@PoC FR 8): the amount's transaction is
+   * marked «Одноразова витрата» — in the fact, out of an average (the reader leaves it out).
    */
   window(
     householdId: string,
@@ -127,7 +134,7 @@ export interface BudgetReads {
     to: string,
     currency: string,
   ): Promise<{
-    readonly amounts: readonly (CountedAmount & { readonly period: Period })[];
+    readonly amounts: readonly (CountedAmount & { readonly period: Period; readonly oneOff?: boolean })[];
     readonly nearestRateCount: number;
     readonly unavailableCount: number;
   }>;

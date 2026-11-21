@@ -274,7 +274,12 @@ export const getCompareRoute = defineRoute({
       const months = new Set(base.included);
       // The counts of approximate amounts are the read's: reuse the widest read only for its own dates.
       const source = base.window!.from === widest!.from ? averages : await read(base.window!);
-      baseRead = { ...source, amounts: source.amounts.filter((a) => months.has(a.period)) };
+      // BUD-06@PoC FR 4, FR 8: an average leaves out «Одноразова витрата» (its amounts and its transactions count); the
+      // months «з даними» above still count it — it is data of its month, and the current period's fact keeps it.
+      baseRead = {
+        ...source,
+        amounts: source.amounts.filter((a) => months.has(a.period) && a.oneOff !== true),
+      };
     } else if (base.available && base.window) baseRead = await read(base.window);
     // «План» — BUD-16's rule: the sum of the month's limits, a finished month — its snapshot's.
     const plans = await ctx.inHousehold((q) =>

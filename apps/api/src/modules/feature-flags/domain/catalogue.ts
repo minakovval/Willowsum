@@ -128,6 +128,14 @@ export const FLAGS = {
     description:
       "Розділення транзакції (BUD-13@PoC, FIN-03@PoC b): за категоріями і на кілька місяців; /v1/transactions/{id}/split",
   },
+  "transactions.one-off": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-21",
+    requires: "transactions.manual",
+    description:
+      "«Одноразова витрата» (BUD-06@PoC п. 8): позначка витрати в деталях транзакції — лишається у факті свого періоду, але виключається з середніх «Порівняння», шаблону «Створити за моїми витратами» і середніх витрат «Подушки безпеки»; /v1/transactions/{id}/one-off",
+  },
   "transactions.review": {
     kind: "release",
     owner: "product-owner",

@@ -20,6 +20,7 @@ const row = (over: Partial<StoredTransaction> = {}): StoredTransaction => ({
   mergedInto: null,
   note: null,
   tagIds: [],
+  oneOff: false,
   review: "queued",
   version: 1,
   createdAt: "2026-11-20T10:00:00.000Z",

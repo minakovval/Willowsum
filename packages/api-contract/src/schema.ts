@@ -2190,6 +2190,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/one-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** «Одноразова витрата» on or off: a marked expense stays in the fact of its period, but leaves the averages, the budget template and «Подушка безпеки» (BUD-06 FR 8) */
+        put: operations["setTransactionOneOff"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/{transactionId}/review/confirm": {
         parameters: {
             query?: never;
@@ -17979,7 +17996,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.summary" | "budget.cashflow" | "data.import" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.one-off" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.summary" | "budget.cashflow" | "data.import" | "debts.payoff")[];
                     };
                 };
             };
@@ -22593,6 +22610,7 @@ export interface operations {
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
+                            oneOff: boolean;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -22813,6 +22831,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -22980,6 +22999,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23265,6 +23285,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23439,6 +23460,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23845,6 +23867,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24250,6 +24273,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24417,6 +24441,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24591,6 +24616,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24725,6 +24751,180 @@ export interface operations {
             };
         };
     };
+    setTransactionOneOff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    oneOff: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction with its mark */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        oneOff: boolean;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual" | "imported";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     confirmTransactionReview: {
         parameters: {
             query?: never;
@@ -24765,6 +24965,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24939,6 +25140,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25106,6 +25308,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25293,6 +25496,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25460,6 +25664,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25634,6 +25839,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25801,6 +26007,7 @@ export interface operations {
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -26108,6 +26315,7 @@ export interface operations {
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
+                            oneOff: boolean;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -26171,6 +26379,7 @@ export interface operations {
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
+                            oneOff: boolean;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */

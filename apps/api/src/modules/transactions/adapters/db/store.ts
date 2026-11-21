@@ -14,6 +14,7 @@ import {
   transferDate,
   transferFee,
   type TransferLink,
+  keepsOneOff,
 } from "../../domain/index.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
 import { transactionCreated } from "../../events.ts";
@@ -40,6 +41,7 @@ interface Row {
   merged_into: string | null;
   note: string | null;
   tag_ids: string[];
+  one_off: boolean;
   review: ReviewState | null;
   version: number;
   created_at: Date;
@@ -78,7 +80,7 @@ interface PartRow {
 // The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
   counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, note,
-  tag_ids::text[] AS tag_ids, review, version, created_at`;
+  tag_ids::text[] AS tag_ids, one_off, review, version, created_at`;
 
 /** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
 export async function transfersOf(
@@ -185,6 +187,7 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
     mergedInto: r.merged_into,
     note: r.note,
     tagIds: r.tag_ids,
+    oneOff: r.one_off,
     review: r.review,
     version: r.version,
     // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
@@ -252,8 +255,9 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       const row = await one(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
                                    counterparty, description, status, source, version, note, tag_ids, review,
-                                   transfer_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[], $15, $16) RETURNING ${COLUMNS}`,
+                                   transfer_id, one_off)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[], $15, $16, $17)
+         RETURNING ${COLUMNS}`,
         [
           householdId,
           t.id,
@@ -272,6 +276,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.review,
           // FIN-03 FR 1, FR 28: a side of a transfer created in one action, its pair written first (insertTransfer).
           t.transfer?.id ?? null,
+          // BUD-06 FR 8: an income or a transfer side keeps no «Одноразова витрата» (any write that makes it one).
+          keepsOneOff(t),
         ],
       );
       return row!;
@@ -294,7 +300,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
             SET account_id = $3, subaccount_id = $4, amount = $5, currency = $6, occurred_on = $7, counterparty = $8,
                 description = $9, version = $10, status = $11, hidden = $12, split_mode = $13,
                 split_needs_review = $14, transfer_id = $15, merged_into = $16, note = $17,
-                tag_ids = $18::uuid[], review = $19, updated_at = now()
+                tag_ids = $18::uuid[], review = $19, one_off = $20, updated_at = now()
           WHERE household_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
         [
           householdId,
@@ -316,6 +322,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.note,
           [...t.tagIds],
           t.review,
+          // BUD-06 FR 8: an income or a transfer side keeps no «Одноразова витрата» (any write that makes it one).
+          keepsOneOff(t),
         ],
       );
       return row!;
@@ -448,6 +456,7 @@ export const transactionsList = defineList({
     mergedInto: "merged_into",
     note: "note",
     tagIds: "tag_ids",
+    oneOff: "one_off",
     review: "review",
     version: "version",
     createdAt: "created_at",
@@ -688,6 +697,7 @@ export async function budgetRows(
     amount: Money;
     date: string;
     parts: { categoryId: string; month: string | null; amount: Money }[] | null;
+    oneOff: boolean;
   }[]
 > {
   if (accountIds.length === 0) return [];
@@ -699,9 +709,10 @@ export async function budgetRows(
     date: string;
     split_mode: string | null;
     parts: { categoryId: string; month: string | null; amount: string }[] | null;
+    one_off: boolean;
   }>(
     `SELECT t.id, t.account_id, t.amount::text AS amount, t.currency, to_char(t.occurred_on, 'YYYY-MM-DD') AS date,
-            t.split_mode,
+            t.split_mode, t.one_off,
             (SELECT json_agg(json_build_object('categoryId', p.category_id, 'month', to_char(p.month, 'YYYY-MM-DD'),
                                                'amount', p.amount::text) ORDER BY p.position)
                FROM transaction_parts p WHERE p.household_id = t.household_id AND p.transaction_id = t.id) AS parts
@@ -728,6 +739,7 @@ export async function budgetRows(
             month: p.month,
             amount: Money.of(p.amount, r.currency),
           })),
+    oneOff: r.one_off,
   }));
 }
 

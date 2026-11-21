@@ -283,6 +283,9 @@ const recurring = createRecurringServices({
   newId: randomUUID,
 });
 
+// BUD-06@PoC FR 8: «Одноразова витрата» acts (leaves the averages) only while its flag is on for the space.
+const oneOffOn = (householdId: string) => flags.isEnabled(householdId, "transactions.one-off");
+
 // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts); «Витратити»
 // reads the transaction (transactions) and its journal event (ledger). One instance for the goals routes and «План» of
 // the budget (BUD-17).
@@ -292,7 +295,8 @@ const goals = createGoalsServices({
   transactions: createTransactionLookup(databases.for("transactions")),
   // «Подушка безпеки» and the list of «Витратити»: expenses and candidates (transactions), rates (fx-rates).
   reads: {
-    transactions: createGoalTransactions(databases.for("transactions")),
+    // BUD-06 FR 8: «Одноразова витрата» leaves the cushion's average while `transactions.one-off` is on.
+    transactions: createGoalTransactions(databases.for("transactions"), { oneOffEnabled: oneOffOn }),
     fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
     categorization: createTransactionCategories(databases.for("categorization")),
     categories: createCategoryDirectory({
@@ -442,7 +446,10 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               accounts: createAccountList(databases.for("accounts")),
-              transactions: createBudgetTransactions(databases.for("transactions")),
+              // BUD-06 FR 8: «Одноразова витрата» leaves the averages while `transactions.one-off` is on.
+              transactions: createBudgetTransactions(databases.for("transactions"), {
+                oneOffEnabled: oneOffOn,
+              }),
               categorization: createTransactionCategories(databases.for("categorization")),
               fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
               audit,

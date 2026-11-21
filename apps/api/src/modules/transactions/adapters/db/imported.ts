@@ -13,6 +13,7 @@ import { importCandidates } from "./import-candidates.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
 import { transactionImportMerged } from "../../events.ts";
 import { storedRow, STORED_COLUMNS, transactionsTx, type StoredRowShape } from "./store.ts";
+import { keepsOneOff } from "../../domain/index.ts";
 
 /**
  * How long an apply waits for the import lock of an account another apply holds (application/imported.ts step 1): a
@@ -84,8 +85,10 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
       const { rows } = await q.query<{ id: string }>(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
                                    counterparty, description, status, source, version, review, import_batch_id,
-                                   import_file_id, import_row, bank_description, balance_after, note, tag_ids)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::uuid[])
+                                   import_file_id, import_row, bank_description, balance_after, note, tag_ids,
+                                   one_off)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::uuid[],
+                 $21)
          ON CONFLICT (household_id, import_batch_id, import_file_id, import_row) WHERE import_file_id IS NOT NULL
          DO NOTHING RETURNING id`,
         [
@@ -109,6 +112,7 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
           t.balanceAfter?.toDecimalString() ?? null,
           t.note,
           [...t.tagIds],
+          keepsOneOff(t),
         ],
       );
       return rows[0] ? tx.find(householdId, rows[0].id) : null;

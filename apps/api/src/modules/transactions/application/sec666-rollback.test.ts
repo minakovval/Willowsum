@@ -37,6 +37,7 @@ const row = (n: number, over: Partial<RollbackRow> = {}): RollbackRow => ({
   mergedInto: null,
   note: null,
   tagIds: [],
+  oneOff: false,
   review: "queued",
   version: 1,
   createdAt: "2026-11-20T10:00:00.000Z",

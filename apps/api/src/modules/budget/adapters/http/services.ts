@@ -105,6 +105,7 @@ export function budgetReads(options: {
       amount: CountedAmount["amount"];
       date: string;
       period: string;
+      oneOff: boolean;
     }[] = [];
     const inDates = (date: string) => date >= from && date <= to;
     for (const r of rows) {
@@ -114,6 +115,7 @@ export function budgetReads(options: {
           amount: r.amount,
           date: r.date,
           period: periodOf(r.date),
+          oneOff: r.oneOff === true,
         });
       else
         for (const p of r.parts)
@@ -126,6 +128,7 @@ export function budgetReads(options: {
               amount: p.amount,
               date: r.date,
               period: periodOf(p.month ?? r.date),
+              oneOff: r.oneOff === true,
             });
     }
     // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
@@ -166,7 +169,7 @@ export function budgetReads(options: {
         }
       }
     }
-    const amounts: (CountedAmount & { period: string })[] = [];
+    const amounts: (CountedAmount & { period: string; oneOff: boolean })[] = [];
     let leftOut = counted.length - inRange.length + unavailable;
     let absolute = new Decimal("0");
     items.forEach((item, i) => {
@@ -178,7 +181,12 @@ export function budgetReads(options: {
         return;
       }
       absolute = absolute.plus(item.value.amount.abs());
-      amounts.push({ categoryId: inRange[i]!.categoryId, amount: item.value, period: inRange[i]!.period });
+      amounts.push({
+        categoryId: inRange[i]!.categoryId,
+        amount: item.value,
+        period: inRange[i]!.period,
+        oneOff: inRange[i]!.oneOff,
+      });
     });
     // The figures sum these by category and in total: past the bound, no figure beats a wrong one or a 500.
     if (absolute.greaterThan(BUDGET_MAX_ABSOLUTE_SUM)) return allLeftOut;

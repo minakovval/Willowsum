@@ -381,6 +381,7 @@ export async function createTransfer(
         mergedInto: null,
         note: null,
         tagIds: [],
+        oneOff: false,
         // BUD-12 FR 8: a transaction entered by hand never goes into «До розбору».
         review: reviewOnCreate({ importedFromStatement: false }),
         version: 1,

@@ -293,6 +293,7 @@ export async function createTransaction(
     mergedInto: null,
     note: null,
     tagIds: [],
+    oneOff: false,
     // BUD-12 FR 8: a transaction entered by hand never goes into «До розбору».
     review: reviewOnCreate({ importedFromStatement: false }),
     version: 1,
@@ -393,6 +394,7 @@ export async function updateTransaction(
     mergedInto: current.mergedInto,
     note: current.note,
     tagIds: current.tagIds,
+    oneOff: current.oneOff,
     // BUD-12: a change after the confirmation does not put it back into the queue (business rules).
     review: current.review,
     version: current.version + 1,
