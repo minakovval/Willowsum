@@ -363,13 +363,31 @@ const HEADER_WORDS: Readonly<Record<Exclude<Role, "ignore">, readonly string[]>>
     "transaction date",
     "booking date",
     "posting date",
+    // IMP-02 FR 4 (S-047): a Spanish export («Fecha», BBVA-like).
+    "fecha",
+    "fecha operacion",
   ],
-  "value-date": ["дата валютування", "дата проведення", "value date", "дата обробки"],
-  amount: ["сума", "сума операції", "amount", "transaction amount", "сумма"],
+  "value-date": [
+    "дата валютування",
+    "дата проведення",
+    "value date",
+    "дата обробки",
+    "f valor",
+    "fecha valor",
+  ],
+  amount: ["сума", "сума операції", "amount", "transaction amount", "сумма", "importe"],
   debit: ["дебет", "списання", "витрата", "debit", "withdrawal", "money out"],
   credit: ["кредит", "зарахування", "надходження", "credit", "deposit", "money in"],
-  balance: ["залишок", "баланс", "balance", "залишок після операції", "running balance"],
-  currency: ["валюта", "currency", "валюта рахунку", "ccy"],
+  balance: [
+    "залишок",
+    "баланс",
+    "balance",
+    "залишок після операції",
+    "running balance",
+    "saldo",
+    "disponible",
+  ],
+  currency: ["валюта", "currency", "валюта рахунку", "ccy", "divisa"],
   description: [
     "опис",
     "призначення",
@@ -378,6 +396,16 @@ const HEADER_WORDS: Readonly<Record<Exclude<Role, "ignore">, readonly string[]>>
     "description",
     "details",
     "narrative",
+    // IMP-02 FR 4 (S-047): the bank's other text columns and its free-text notes are a part of its description.
+    "concepto",
+    "movimiento",
+    "observaciones",
+    "примітка",
+    "примітки",
+    "коментар",
+    "notes",
+    "remarks",
+    "memo",
   ],
   counterparty: [
     "контрагент",
@@ -410,6 +438,8 @@ const HEADER_WORDS: Readonly<Record<Exclude<Role, "ignore">, readonly string[]>>
 const MORE_HEADER_WORDS: Readonly<Partial<Record<Exclude<Role, "ignore">, readonly string[]>>> = {
   amount: ["сума в валюті картки", "сума у валюті картки"],
   fee: ["сума комісій", "комісій"],
+  // IMP-02 FR 4 (S-047, #696): a Spanish export's reference («Referencia»), never a figure.
+  reference: ["referencia"],
 };
 
 /**
@@ -420,7 +450,7 @@ const MORE_HEADER_WORDS: Readonly<Partial<Record<Exclude<Role, "ignore">, readon
 const IGNORE_WORDS: readonly string[] = ["сума кешбеку", "кешбек", "кешбеку", "cashback"];
 
 /** Words of a header that names a code (MCC, «код»): such a column of four-digit integers is never an amount (#694). */
-const CODE_WORDS: readonly string[] = ["mcc", "код"];
+const CODE_WORDS: readonly string[] = ["mcc", "код", "codigo"];
 
 /** The roles that read a number as money or a rate: never a code column's (#694). */
 const MONEY_ROLES: ReadonlySet<Role> = new Set([

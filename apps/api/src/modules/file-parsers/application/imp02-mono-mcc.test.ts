@@ -98,10 +98,14 @@ const csv = (rows: readonly (readonly string[])[]) =>
 const UAH_ACCOUNT: StatementOptions = { account: { currencies: ["UAH"], multiCurrency: false } };
 const parse = (rows: readonly (readonly string[])[]) => parseStatement(csv(rows), {}, UAH_ACCOUNT);
 const roles = (a: StatementAnalysis) => a.columns.map((c) => c.role.chosen.value);
-/** BBVA as it maps on main before #694: the second «Divisa» is the original currency of «Disponible». */
+/**
+ * BBVA as it maps on main before #694: the second «Divisa» is the original currency of «Disponible». #696 (IMP-02 FR 4):
+ * the Spanish header words read «F.Valor» as the value date and «Fecha» as the date (by content alone the first date
+ * column was the date).
+ */
 const BBVA_ROLES: readonly Role[] = [
-  "date",
   "value-date",
+  "date",
   "description",
   "description",
   "amount",

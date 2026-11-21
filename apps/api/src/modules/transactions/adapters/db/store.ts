@@ -431,6 +431,27 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
 }
 
 /**
+ * IMP-02@PoC FR 4 (S-047 data): what an imported transaction keeps of its statement row, under the names the list
+ * selects (`transactionsList`) — the bank's description, the balance after it, the batch, file and row it came from, the
+ * original amount and currency, the bank's rate, the value date and the reference. Null for one entered by hand.
+ */
+export const BANK_FIELDS = {
+  bankDescription: "bank_description",
+  balanceAfter: "balance_after",
+  importBatchId: "import_batch_id",
+  importFileId: "import_file_id",
+  importRow: "import_row",
+  originalAmount: "original_amount",
+  originalCurrency: "original_currency",
+  exchangeRate: "exchange_rate",
+  valueDate: "value_date",
+  bankReference: "bank_reference",
+} as const;
+export type BankFields = { readonly [K in keyof typeof BANK_FIELDS]: unknown } & {
+  readonly currency: unknown;
+};
+
+/**
  * The list «Транзакції» on the universal list engine (DAT-01@PoC; FIN-03 FR 13, FR 22): whitelisted filters and sorts,
  * numbered pages of 25, 50 or 100, and the amounts by currency, date and sign for the totals of income, expenses and
  * the difference at the official rate of each transaction's date. «Стан» (FR 22): `status` («Очікує»), `split`
@@ -460,6 +481,7 @@ export const transactionsList = defineList({
     review: "review",
     version: "version",
     createdAt: "created_at",
+    ...BANK_FIELDS,
   },
   tieBreaker: "id",
   filters: {
@@ -588,6 +610,25 @@ export async function mergedOf(
   );
   for (const r of rows) byKept.set(r.merged_into, [...(byKept.get(r.merged_into) ?? []), r.id]);
   return byKept;
+}
+
+/** The bank's fields (`BANK_FIELDS`) of the transactions `ids` of the space, by the primary key; one query. */
+export async function bankFieldsOf(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<Map<string, BankFields>> {
+  const byId = new Map<string, BankFields>();
+  if (ids.length === 0) return byId;
+  const columns = Object.entries(BANK_FIELDS)
+    .map(([name, column]) => `${column} AS "${name}"`)
+    .join(", ");
+  const { rows } = await q.query<BankFields & { id: string }>(
+    `SELECT id, currency, ${columns} FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[])`,
+    [householdId, ids],
+  );
+  for (const r of rows) byId.set(r.id, r);
+  return byId;
 }
 
 /** One side of a possible duplicate (FIN-03 FR 12), as module duplicate-matching receives it. */
