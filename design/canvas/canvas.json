@@ -2620,6 +2620,14 @@
       "x": 0,
       "y": 60440
     },
+    "PocPlanPeriodTexts.dc.html": {
+      "h": 2240,
+      "page": "poc",
+      "title": "S-135 Підсумок періоду · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 60440
+    },
     "PocPlanRecurring.dc.html": {
       "h": 2200,
       "is_interactive": true,
@@ -4521,6 +4529,7 @@
     "PocPlanFlowYear.dc.html",
     "PocPlanFlowTexts.dc.html",
     "PocPlanPeriod.dc.html",
+    "PocPlanPeriodTexts.dc.html",
     "PocPlanGoals.dc.html",
     "PocPlanGoalCard.dc.html",
     "PocPlanGoalCardAchieved.dc.html",

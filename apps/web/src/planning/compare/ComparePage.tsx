@@ -477,7 +477,7 @@ function Tables({
 }
 
 /** «, на 6 транзакцій більше»: a count of transactions, not money. */
-function txClause(t: Translate, locale: Locale, diff: number): string {
+export function txClause(t: Translate, locale: Locale, diff: number): string {
   const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(Math.abs(diff));
   const form = rule === "one" || rule === "few" || rule === "many" ? rule : "other";
   return t(K(`tx.${diff > 0 ? "more" : "less"}.${form}`), { count: Math.abs(diff) });
