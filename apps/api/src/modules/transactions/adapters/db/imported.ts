@@ -86,9 +86,10 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
                                    counterparty, description, status, source, version, review, import_batch_id,
                                    import_file_id, import_row, bank_description, balance_after, note, tag_ids,
-                                   one_off)
+                                   one_off, original_amount, original_currency, exchange_rate, value_date,
+                                   bank_reference)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20::uuid[],
-                 $21)
+                 $21, $22, $23, $24, $25, $26)
          ON CONFLICT (household_id, import_batch_id, import_file_id, import_row) WHERE import_file_id IS NOT NULL
          DO NOTHING RETURNING id`,
         [
@@ -113,6 +114,12 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
           t.note,
           [...t.tagIds],
           keepsOneOff(t),
+          // IMP-02 FR 4 (0014_bank_fields.sql).
+          t.original?.toDecimalString() ?? null,
+          t.original?.currency ?? null,
+          t.rate,
+          t.valueDate,
+          t.reference,
         ],
       );
       return rows[0] ? tx.find(householdId, rows[0].id) : null;

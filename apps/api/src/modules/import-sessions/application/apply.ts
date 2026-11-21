@@ -11,6 +11,7 @@ import {
 import type { StatementEvent } from "../../file-parsers/index.ts";
 import {
   ImportBusy,
+  importedRate,
   importedText,
   ImportWriteRefused,
   ImportWriteVoided,
@@ -164,6 +165,28 @@ export interface ApplyPorts {
 /** A row as the apply writes it: the plan's input and the texts the transaction keeps. */
 export interface ApplyRow extends IncomingRow {
   readonly counterparty: string | null;
+  /** IMP-02 FR 4: the original amount and currency, signed as the row's amount; null — none or not a known currency. */
+  readonly original: Money | null;
+  /** IMP-02 FR 4: the bank's rate (module transactions' `importedRate`); null — none. */
+  readonly rate: string | null;
+  readonly valueDate: string | null;
+  /** IMP-02 FR 4: the bank's reference, masked as the description is. */
+  readonly reference: string | null;
+}
+
+/**
+ * IMP-02 FR 4: the original amount of a row in its own currency, signed as the amount written (a flipped row flips it
+ * too); null — the row has none, its currency is not settled, or the books cannot hold it (it is no part of the money).
+ */
+function originalOf(e: StatementEvent, amount: Money): Money | null {
+  const code = e.original?.currency ?? null;
+  if (!e.original || code === null || !isCurrencyCode(code)) return null;
+  try {
+    const size = new Decimal(e.original.amount).abs();
+    return Money.of(amount.isNegative() ? size.negated() : size, code);
+  } catch {
+    return null;
+  }
 }
 
 /** The writable rows of one file under its plan, or the issues of the rows that are not. Pure. */
@@ -244,7 +267,8 @@ export function fileRows(
     // #654: the text as the transaction keeps it (clipped to its column), so the plan compares what is stored.
     const description = importedText(maskNumbers(e.description), "description");
     const counterparty = importedText(maskNumbers(e.counterparty), "counterparty");
-    if (description === undefined || counterparty === undefined) {
+    const reference = importedText(maskNumbers(e.reference), "reference");
+    if (description === undefined || counterparty === undefined || reference === undefined) {
       issues.push({ row: e.row, issue: "text" });
       continue;
     }
@@ -256,6 +280,10 @@ export function fileRows(
       counterparty,
       balance,
       status: "posted",
+      original: originalOf(e, money),
+      rate: importedRate(e.rate),
+      valueDate: e.valueDate,
+      reference,
     });
   }
   return { rows, excluded: skipped, zero, issues };
@@ -547,6 +575,10 @@ export async function applyBatch(
                 description: r.description,
                 counterparty: r.counterparty,
                 balanceAfter: r.balance,
+                original: r.original,
+                rate: r.rate,
+                valueDate: r.valueDate,
+                reference: r.reference,
                 ...link,
               });
             }

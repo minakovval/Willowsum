@@ -29,6 +29,8 @@ type Decimal = InstanceType<typeof Decimal>;
 export const EVENT_LIMITS = {
   /** Characters of the description, the counterparty and the reference carried out of the worker. */
   textChars: 2000,
+  /** What joins the row's description columns (FR 4: «Concepto · Movimiento · Observaciones»). */
+  descriptionJoin: " · ",
   /** The rate check's relative tolerance (FR 12): 0.5 %. */
   rateTolerance: "0.005",
 } as const;
@@ -136,6 +138,28 @@ export function readEvents(
   const at = (row: readonly string[], role: Role): string => {
     const c = column(role);
     return c > 0 ? (row[c - 1] ?? "") : "";
+  };
+  // FR 4 (S-047): every description column of the row (its other text columns, its notes), in the file's order.
+  const descriptionColumns = analysis.columns
+    .filter((c) => c.role.chosen.value === "description" && c.column > 0)
+    .map((c) => c.column)
+    .sort((a, b) => a - b);
+  /**
+   * The bank's description of a row: one filled column — its cell as printed; several — their values trimmed and joined
+   * with « · », an empty value and a repeat left out. Built only up to past the bound (`cut` flags and cuts it).
+   */
+  const descriptionOf = (row: readonly string[]): string => {
+    const cells: string[] = [];
+    let length = 0;
+    for (const c of descriptionColumns) {
+      const cell = row[c - 1] ?? "";
+      const value = cell.trim();
+      if (value === "" || cells.some((p) => p.trim() === value)) continue;
+      cells.push(cell);
+      length += value.length + EVENT_LIMITS.descriptionJoin.length;
+      if (length > EVENT_LIMITS.textChars) break;
+    }
+    return cells.length === 1 ? cells[0]! : cells.map((p) => p.trim()).join(EVENT_LIMITS.descriptionJoin);
   };
   const decimal: DecimalSeparator = analysis.numbers?.chosen.value.decimalSeparator ?? ",";
   const order = analysis.dates?.chosen.value.order ?? null;
@@ -339,8 +363,8 @@ export function readEvents(
       balance: balance ? text(balance) : null,
       original: originalAmount ? { amount: text(originalAmount), currency: originalCode } : null,
       rate: rate ? text({ value: rate.value.abs(), scale: rate.scale }) : null,
-      // As printed (FR 4): the cell untouched, cut only past the bound.
-      description: cut(at(r, "description"), false),
+      // As printed (FR 4): one cell untouched, several joined; cut only past the bound.
+      description: cut(descriptionOf(r), false),
       counterparty: cut(at(r, "counterparty")),
       reference: cut(at(r, "reference")),
       currencyMark,

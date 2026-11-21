@@ -234,6 +234,7 @@ export type { ImportBatchTransaction, ImportBatchTransactionsQuery };
 export {
   IMPORT_WAITERS_MAX,
   ImportBusy,
+  importedRate,
   importedText,
   ImportWriteRefused,
   ImportWriteVoided,
