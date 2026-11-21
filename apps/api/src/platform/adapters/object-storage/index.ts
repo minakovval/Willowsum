@@ -6,6 +6,7 @@ import { s3ObjectStorage, type S3Options } from "./s3.ts";
 export { checkObjectKey, OBJECT_STORAGE_PORT } from "./port.ts";
 export type { ObjectStorage } from "./port.ts";
 export { memoryObjectStorage } from "./memory.ts";
+export { directoryObjectStorage } from "./directory.ts";
 export type { MemoryObjectStorage } from "./memory.ts";
 export { ensureBucket, s3ObjectStorage } from "./s3.ts";
 export type { S3Options } from "./s3.ts";

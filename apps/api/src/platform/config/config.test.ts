@@ -218,4 +218,41 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
       "WS_DB_CONTEXT_PASSWORD",
     ]);
   });
+
+  it("CICD-04: locally the files may live in a directory the role processes share; never deployed, never beside S3", () => {
+    const mods = ["ledger", "bank-monobank"];
+    expect(loadConfig({ ...base, WS_FILES_DIR: "/tmp/ws-files" }, "worker", mods).files.dir).toBe(
+      "/tmp/ws-files",
+    );
+    expect(loadConfig(base, "worker", mods).files.dir).toBeUndefined();
+    expect(
+      errorOf(() => loadConfig({ ...base, WS_FILES_DIR: "relative" }, "worker", mods)).variables,
+    ).toEqual(["WS_FILES_DIR"]);
+    const s3 = {
+      WS_S3_ENDPOINT: "http://127.0.0.1:8333",
+      WS_S3_REGION: "eu-local-1",
+      WS_S3_BUCKET: "willowsum-files",
+      WS_S3_ACCESS_KEY_ID: "WSLOCALSYNTHETIC",
+      WS_S3_SECRET_ACCESS_KEY: "synthetic-synthetic-synthetic",
+    };
+    expect(
+      errorOf(() => loadConfig({ ...base, ...s3, WS_FILES_DIR: "/tmp/ws-files" }, "worker", mods)).variables,
+    ).toEqual(["WS_FILES_DIR"]);
+    for (const environment of ["staging", "production"])
+      expect(
+        errorOf(() =>
+          loadConfig(
+            {
+              ...base,
+              WS_TELEMETRY: "off",
+              WS_TELEMETRY_ENVIRONMENT: environment,
+              WS_PROVIDER_MODE: "live",
+              WS_FILES_DIR: "/tmp/ws-files",
+            },
+            "worker",
+            mods,
+          ),
+        ).variables,
+      ).toContain("WS_FILES_DIR");
+  });
 });

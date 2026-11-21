@@ -15,6 +15,7 @@ import { SpendableCard } from "./spendable/SpendableCard.tsx";
 import { PeriodSummary } from "./period/PeriodSummary.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
+  budgetFailureKey,
   loadBudget,
   monthOf,
   periodFromHash,
