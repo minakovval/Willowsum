@@ -186,6 +186,7 @@ describe("IMP-02@PoC FR 4: the card amount of a monobank file whatever it prints
       0,
     );
     expect(roleOf(a, 2).alternatives.map((h) => h.value)).toEqual(expect.arrayContaining(["debit"]));
+    expect(roleOf(a, 3).chosen.value).toBe("amount");
   });
 
   it("IMP-02@PoC FR 4: the commission with 0.00 is the fee column; the card amount scores above it as the amount", () => {
@@ -216,6 +217,22 @@ describe("IMP-02@PoC FR 4: the card amount of a monobank file whatever it prints
   });
 });
 
+describe("IMP-02@PoC FR 9: a numeric currency code under a «код» header (review of #698)", () => {
+  it("IMP-02@PoC FR 9: a «Код валюти» column of numeric ISO codes stays the currency column", () => {
+    for (const h of ["Код валюти", "Валюта (код)"]) {
+      const p = parseStatement(
+        new TextEncoder().encode(
+          `Дата;Сума;${h};Опис\n01.03.2026;-10,00;980;Кава\n02.03.2026;-20,00;840;Хліб\n03.03.2026;-30,00;978;Хліб\n`,
+        ),
+        { delimiter: ";" },
+        { account: { currencies: ["UAH", "USD", "EUR"], multiCurrency: true } },
+      );
+      expect(roleOf(p.analysis, 3).chosen.value).toBe("currency");
+      expect(p.events.events.map((e) => e.legs[0]!.currency)).toEqual(["UAH", "USD", "EUR"]);
+    }
+  });
+});
+
 describe("IMP-02@PoC FR 12: «—» in «Курс» is an empty rate", () => {
   it("IMP-02@PoC FR 12: «—» leaves the rate empty; the printed rates are kept and checked", () => {
     for (const empty of ["—", "0.00"] as const) {
@@ -242,8 +259,8 @@ describe("IMP-02@PoC FR 12: «—» in «Курс» is an empty rate", () => {
   });
 });
 
-describe("IMP-02@PoC FR 3: the other banks' layouts map as before (tools/synthetic family statements)", () => {
-  it("IMP-02@PoC FR 3: Revolut — amount, fee 0.00, currency, state, balance", () => {
+describe("IMP-02@PoC FR 4: the other banks' layouts map as before (tools/synthetic family statements)", () => {
+  it("IMP-02@PoC FR 4: Revolut — amount, fee 0.00, currency, state, balance", () => {
     const rows = [
       "Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance",
       "CARD_PAYMENT,Current,2026-11-01 10:00:00,2026-11-02 10:00:00,Synth Cafe,-12.50,0.00,EUR,COMPLETED,987.50",
@@ -274,7 +291,7 @@ describe("IMP-02@PoC FR 3: the other banks' layouts map as before (tools/synthet
     expect(p.events.events.map((e) => e.legs[0]!.amount)).toEqual(["-12.50", "500.00", "-40.00", "-87.50"]);
   });
 
-  it("IMP-02@PoC FR 3: Raiffeisen UA — debit and credit columns, «1 234,56» numbers", () => {
+  it("IMP-02@PoC FR 4: Raiffeisen UA — debit and credit columns, «1 234,56» numbers", () => {
     const rows = [
       "Виписка по рахунку;UA000000000000000000000000000",
       "Період;01.11.2026 - 30.11.2026",
@@ -302,7 +319,7 @@ describe("IMP-02@PoC FR 3: the other banks' layouts map as before (tools/synthet
     ]);
   });
 
-  it("IMP-02@PoC FR 3: BBVA — «Importe», «Divisa», «Disponible» as the sheet's cells read", () => {
+  it("IMP-02@PoC FR 4: BBVA — «Importe», «Divisa», «Disponible» as the sheet's cells read", () => {
     const a = analyzeTable(
       [
         ["Últimos movimientos"],

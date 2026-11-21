@@ -527,7 +527,9 @@ function codeColumn(facts: ColumnFacts): string | null {
   const word = CODE_WORDS.find((w) => words.includes(w));
   if (!word) return null;
   const values = facts.cells.map((c) => c.trim()).filter((c) => c !== "");
-  return values.length > 0 && values.every((c) => /^\d{1,4}$/.test(c)) ? word : null;
+  // A numeric currency code (980, 840) is a currency, not a code to ignore (IMP-02@PoC FR 9, AC7).
+  if (values.length === 0 || values.every((c) => currencyOf(c) !== null)) return null;
+  return values.every((c) => /^\d{1,4}$/.test(c)) ? word : null;
 }
 
 function roleScores(facts: ColumnFacts): Map<Role, { score: number; word?: string }> {
