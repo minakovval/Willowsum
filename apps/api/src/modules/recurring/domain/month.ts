@@ -1,7 +1,7 @@
 import type { Money } from "@willowsum/domain-kernel";
 import type { PaymentFields } from "./payments.ts";
 import { daysBetween, FREQUENCY_RULES, scheduleDate } from "./schedule.ts";
-import type { ChargeStatus, Tracking } from "./tracking.ts";
+import { heldOn, type ChargeStatus, type Tracking } from "./tracking.ts";
 
 /**
  * The charges of a payment expected in one calendar month (BUD-03@PoC FR 5, BUD-02@PoC FR 16; BUD-07@PoC FR 17: a
@@ -42,7 +42,10 @@ const lastDay = (month: string) =>
 
 /**
  * BUD-03@PoC FR 5: the month's charges of one payment. A payment «Можливо, скасований» has none (FR 5 counts only an
- * active one), nor one after its end date. A date the tracking covers takes its status (a charge before the day the
+ * active one), nor one after its end date; BUD-07 FR 13: nor a date it holds — paused, or from the month it was marked
+ * cancelled (a paid charge stays: the tracking shows it). While paused, «його списання і частка в «Можна витратити»
+ * зникають» (BUD-03 FR 5 «не призупиненого»): an unpaid charge due before the pause began is left out too — it stays
+ * in the payment's history only; a date after a dated pause counts again. A date the tracking covers takes its status (a charge before the day the
  * payment was added, without a payment, is not shown — BUD-07 EC4); a later date (after today) is «Очікується» at the expected amount.
  */
 export function chargesInMonth(
@@ -53,14 +56,29 @@ export function chargesInMonth(
   month: string,
   today: string,
 ): MonthCharge[] {
-  if (tracking.state !== "active") return [];
+  // The pause that holds today: unpaid charges due up to its end are out of the month while it lasts.
+  const pause =
+    tracking.hold === "paused"
+      ? tracking.holds.find(
+          (h) => h.kind === "pause" && h.from <= today && (h.until === null || h.until >= today),
+        )
+      : undefined;
+  // «Можливо, скасований» has no charges — but the end of a dated pause counts the misses anew, so its later dates do.
+  const flagged = tracking.state === "possibly-cancelled";
+  if (flagged && (!pause || pause.until === null)) return [];
   const tracked = new Map(tracking.charges.map((c) => [c.dueOn, c]));
   const covered = tracking.charges.reduce((last, c) => (c.dueOn > last ? c.dueOn : last), "");
   const end = payment.endDate !== null && payment.endDate < lastDay(month) ? payment.endDate : lastDay(month);
   const out: MonthCharge[] = [];
   for (const dueOn of scheduleBetween(payment.anchorDate, payment.frequency, `${month}-01`, end)) {
     const c = tracked.get(dueOn);
-    if (!c && (dueOn <= covered || dueOn <= today)) continue;
+    if (!c && (dueOn <= covered || dueOn <= today || heldOn(tracking.holds, dueOn))) continue;
+    if (
+      pause &&
+      (pause.until === null || dueOn <= pause.until) &&
+      (flagged || !c || c.status === "expected" || c.status === "overdue")
+    )
+      continue;
     out.push({
       paymentId: payment.id,
       type: payment.type,

@@ -1,6 +1,12 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
-import type { RecurringTx, StoredMark, StoredPayment, StoredRejection } from "../../application/index.ts";
+import type {
+  RecurringTx,
+  StoredHold,
+  StoredMark,
+  StoredPayment,
+  StoredRejection,
+} from "../../application/index.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 
 /** The recurring schema through the module's own role (migrations/0001_payments.sql). The row policy binds the space; SQL filters it too. */
@@ -258,6 +264,45 @@ export function recurringTx(q: HouseholdQueryRunner): RecurringTx {
         [householdId, id, today],
       );
       return rows[0] ? payment(rows[0]) : null;
+    },
+    async holds(householdId) {
+      // FR 13: a few per payment (one per pause or mark); the space's are read with its payments.
+      const { rows } = await q.query<{
+        id: string;
+        payment_id: string;
+        kind: StoredHold["kind"];
+        starts_on: string;
+        ends_on: string | null;
+      }>(
+        `SELECT id, payment_id, kind, to_char(starts_on, 'YYYY-MM-DD') AS starts_on, to_char(ends_on, 'YYYY-MM-DD') AS ends_on
+         FROM payment_holds WHERE household_id = $1 ORDER BY payment_id, starts_on, id`,
+        [householdId],
+      );
+      return rows.map((r) => ({
+        id: r.id,
+        paymentId: r.payment_id,
+        kind: r.kind,
+        from: r.starts_on,
+        until: r.ends_on,
+      }));
+    },
+    async replaceHolds(householdId, paymentId, holds, keptOn) {
+      await q.query(`DELETE FROM payment_holds WHERE household_id = $1 AND payment_id = $2`, [
+        householdId,
+        paymentId,
+      ]);
+      for (const h of holds)
+        await q.query(
+          `INSERT INTO payment_holds (household_id, id, payment_id, kind, starts_on, ends_on) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [householdId, h.id, paymentId, h.kind, h.from, h.until],
+        );
+      const { rows } = await q.query<PaymentRow>(
+        `UPDATE payments SET kept_on = COALESCE($3::date, kept_on), version = version + 1, updated_at = now()
+         WHERE household_id = $1 AND id = $2
+         RETURNING ${PAYMENT_COLUMNS}`,
+        [householdId, paymentId, keptOn],
+      );
+      return payment(rows[0]!);
     },
     async setCurrentAmount(householdId, id, before, after) {
       // Compare and set: of two reads that find the same change, one writes it (and its audit entry).

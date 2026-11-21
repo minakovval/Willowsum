@@ -1689,6 +1689,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/recurring/payments/{paymentId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Позначити скасованим»: a mark in the app only (nothing is cancelled at the provider) — the payment leaves the plan from this month, its history stays (BUD-07 FR 13) */
+        post: operations["cancelRecurringPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recurring/payments/{paymentId}/charges": {
         parameters: {
             query?: never;
@@ -1751,6 +1768,40 @@ export type paths = {
         put?: never;
         /** «Залишити»: a payment «Можливо, скасований» stays; its misses are counted anew from today (BUD-07 FR 10, AC4) */
         post: operations["keepRecurringPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Призупинити»: to a date or until «Відновити» — the payment's charges and its share of «Можна витратити» are gone meanwhile (BUD-07 FR 13) */
+        post: operations["pauseRecurringPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Відновити»: a paused or cancelled payment is active again from today; its misses are counted anew (BUD-07 FR 13) */
+        post: operations["resumeRecurringPayment"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19645,6 +19696,12 @@ export interface operations {
                             };
                             /** @enum {string} */
                             frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                            holds: {
+                                from: string;
+                                /** @enum {string} */
+                                kind: "pause" | "cancel";
+                                until: string | null;
+                            }[];
                             /** Format: uuid */
                             id: string;
                             merchantId: string | null;
@@ -19792,6 +19849,12 @@ export interface operations {
                         };
                         /** @enum {string} */
                         frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        holds: {
+                            from: string;
+                            /** @enum {string} */
+                            kind: "pause" | "cancel";
+                            until: string | null;
+                        }[];
                         /** Format: uuid */
                         id: string;
                         merchantId: string | null;
@@ -19921,6 +19984,12 @@ export interface operations {
                         };
                         /** @enum {string} */
                         frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        holds: {
+                            from: string;
+                            /** @enum {string} */
+                            kind: "pause" | "cancel";
+                            until: string | null;
+                        }[];
                         /** Format: uuid */
                         id: string;
                         merchantId: string | null;
@@ -20012,6 +20081,141 @@ export interface operations {
             };
         };
     };
+    cancelRecurringPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payment, marked cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        anchorDate: string;
+                        categoryId: string | null;
+                        createdOn: string;
+                        endDate: string | null;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        /** @enum {string} */
+                        frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        holds: {
+                            from: string;
+                            /** @enum {string} */
+                            kind: "pause" | "cancel";
+                            until: string | null;
+                        }[];
+                        /** Format: uuid */
+                        id: string;
+                        merchantId: string | null;
+                        name: string;
+                        nextDate: string | null;
+                        /** @enum {string} */
+                        source: "proposal" | "manual";
+                        subscription: boolean;
+                        /** @enum {string} */
+                        type: "expense" | "income";
+                        variable: boolean;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listRecurringCharges: {
         parameters: {
             query?: never;
@@ -20048,6 +20252,7 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        hold: ("paused" | "cancelled") | null;
                         items: {
                             amount: {
                                 amount: string;
@@ -20535,6 +20740,288 @@ export interface operations {
                         };
                         /** @enum {string} */
                         frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        holds: {
+                            from: string;
+                            /** @enum {string} */
+                            kind: "pause" | "cancel";
+                            until: string | null;
+                        }[];
+                        /** Format: uuid */
+                        id: string;
+                        merchantId: string | null;
+                        name: string;
+                        nextDate: string | null;
+                        /** @enum {string} */
+                        source: "proposal" | "manual";
+                        subscription: boolean;
+                        /** @enum {string} */
+                        type: "expense" | "income";
+                        variable: boolean;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    pauseRecurringPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    until?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The payment, paused */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        anchorDate: string;
+                        categoryId: string | null;
+                        createdOn: string;
+                        endDate: string | null;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        /** @enum {string} */
+                        frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        holds: {
+                            from: string;
+                            /** @enum {string} */
+                            kind: "pause" | "cancel";
+                            until: string | null;
+                        }[];
+                        /** Format: uuid */
+                        id: string;
+                        merchantId: string | null;
+                        name: string;
+                        nextDate: string | null;
+                        /** @enum {string} */
+                        source: "proposal" | "manual";
+                        subscription: boolean;
+                        /** @enum {string} */
+                        type: "expense" | "income";
+                        variable: boolean;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    resumeRecurringPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payment, active */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        anchorDate: string;
+                        categoryId: string | null;
+                        createdOn: string;
+                        endDate: string | null;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        /** @enum {string} */
+                        frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        holds: {
+                            from: string;
+                            /** @enum {string} */
+                            kind: "pause" | "cancel";
+                            until: string | null;
+                        }[];
                         /** Format: uuid */
                         id: string;
                         merchantId: string | null;
@@ -20810,6 +21297,12 @@ export interface operations {
                         };
                         /** @enum {string} */
                         frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        holds: {
+                            from: string;
+                            /** @enum {string} */
+                            kind: "pause" | "cancel";
+                            until: string | null;
+                        }[];
                         /** Format: uuid */
                         id: string;
                         merchantId: string | null;
@@ -21075,6 +21568,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            hold: ("paused" | "cancelled") | null;
                             lastCharge: {
                                 amount: {
                                     amount: string;
