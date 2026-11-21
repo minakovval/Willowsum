@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseStatement } from "../../file-parsers/application/index.ts";
-import type { StatementEvent } from "../../file-parsers/index.ts";
-import { importedRate, importedText } from "../../transactions/index.ts";
-import { fileRows } from "./apply.ts";
-import type { FilePlan, FileReview } from "./review.ts";
+import { parseStatement } from "../src/modules/file-parsers/application/index.ts";
+import type { StatementEvent } from "../src/modules/file-parsers/index.ts";
+import { importedRate, importedText } from "../src/modules/transactions/index.ts";
+import { fileRows } from "../src/modules/import-sessions/application/apply.ts";
+import type { FilePlan, FileReview } from "../src/modules/import-sessions/application/review.ts";
 
 // Synthetic numbers built so no real-looking literal sits in the source.
 const IBAN_SPACED = ["ES00", "0000", "0000", "0000", "0000", "4821"].join(" ");

@@ -20,6 +20,7 @@ import {
 import { createLedger, type Ledger } from "../src/modules/ledger/index.ts";
 import { createImportedTransactions, createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -268,12 +269,12 @@ describe("IMP-02@PoC FR 4 (#696 security probe): the bank's fields in the databa
     ]) {
       const res = await call(owner, "GET", url, undefined, true);
       expect(res.statusCode, url).toBe(404);
-      expect(res.body).not.toMatch(/SINTETICO|bankDescription|importedFrom/);
+      expect(leakText(res.body)).not.toMatch(/SINTETICO|bankDescription|importedFrom/);
     }
     const other = await newSpace("EUR");
     const found = await call(other, "GET", "/v1/transactions?filter=search.has:SINTETICO");
     expect(found.statusCode, found.body).toBe(200);
     expect(found.json()).toMatchObject({ items: [], count: 0 });
-    expect(found.body).not.toContain("SINTETICO");
+    expect(leakText(found.body)).not.toContain("SINTETICO");
   });
 });
