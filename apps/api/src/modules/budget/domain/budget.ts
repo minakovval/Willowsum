@@ -277,8 +277,8 @@ export interface IncomeLine {
  * FR 9, AC18: the card «Дохід» — the plan and the fact of each income category of the plan, then the income of a
  * category without a plan as a line with plan 0. A merged category's plan and income count in the one it went to
  * (BUD-01 FR 8). Order: first the categories whose fact is still below the plan, then those that reached it; inside
- * each — the order of the space's tree (the order of `categories`). A future month (`amounts` null) has no fact: the
- * plan's lines only.
+ * each — the larger plan first, then the larger fact, then the category's id. A future month (`amounts` null) has no
+ * fact: the plan's lines only.
  */
 export function incomeLines(
   plan: PeriodPlan,
@@ -295,7 +295,6 @@ export function incomeLines(
   const actual = amounts === null ? null : categoryTotals(categories, amounts, currency).income;
   const ids = new Set([...planned.keys()]);
   for (const [id, t] of actual ?? []) if (!t.amount.isZero()) ids.add(id);
-  const order = new Map([...categories.keys()].map((id, i) => [id, i]));
   const lines = [...ids].map((categoryId): IncomeLine => ({
     categoryId,
     plan: planned.get(categoryId) ?? zero,
@@ -305,7 +304,8 @@ export function incomeLines(
   return lines.sort(
     (a, b) =>
       reached(a) - reached(b) ||
-      (order.get(a.categoryId) ?? Number.MAX_SAFE_INTEGER) -
-        (order.get(b.categoryId) ?? Number.MAX_SAFE_INTEGER),
+      b.plan.compare(a.plan) ||
+      (b.actual && a.actual ? b.actual.compare(a.actual) : 0) ||
+      (a.categoryId < b.categoryId ? -1 : 1),
   );
 }

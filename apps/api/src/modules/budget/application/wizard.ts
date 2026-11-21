@@ -50,6 +50,6 @@ export async function wizard(
     today,
     midPeriod,
     starts: choices,
-    fromSpending: proposeFromSpending(currency, months, [...categories.keys()]),
+    fromSpending: proposeFromSpending(currency, months),
   };
 }

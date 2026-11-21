@@ -6972,7 +6972,7 @@ export interface operations {
                             amount: string;
                             currency: string;
                         } | null;
-                        /** @description FR 9, AC18: the card «Дохід» — the plan and the fact of each income category of the period's plan (a finished period — its snapshot's; a snapshot written before the plan by category has none), then the income of a category without a plan with plan 0. First the categories whose fact is below the plan, then those that reached it; inside each, the order of the space's tree. `actual` null — a future month. The month's own «План доходу» of «План» changes `incomePlan` only */
+                        /** @description FR 9, AC18: the card «Дохід» — the plan and the fact of each income category of the period's plan (a finished period — its snapshot's; a snapshot written before the plan by category has none), then the income of a category without a plan with plan 0. First the categories whose fact is below the plan, then those that reached it; inside each, the larger plan first, then the larger fact. `actual` null — a future month. The month's own «План доходу» of «План» changes `incomePlan` only */
                         incomeCategories: {
                             actual: {
                                 amount: string;
@@ -8235,7 +8235,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
-                            /** @description FR 3, FR 21, EC1: «План доходу» — each income category with income in the 3 months, in the order of the space's tree: its 3-month average (the field's hint) and the plan — the average to tens (an exact half to even), or for an irregular category (2 of 6 months off its 6-month average by more than 30 %) its lowest month of 6 to tens */
+                            /** @description FR 3, FR 21, EC1: «План доходу» — each income category with income in the 3 months, the largest plan first: its 3-month average (the field's hint) and the plan — the average to tens (an exact half to even), or for an irregular category (2 of 6 months off its 6-month average by more than 30 %) its lowest month of 6 to tens */
                             incomes: {
                                 average: {
                                     amount: string;

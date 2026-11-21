@@ -403,8 +403,7 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
     await transaction(space, acc, "150.00", "2026-11-03", "Дохід від оренди");
     const nov = await period(space, "2026-11");
     expect(nov.incomePlan).toEqual(eur("5700"));
-    // FR 9: first the categories still below the plan (in the order the space's tree lists them; a new custom category
-    // comes after the catalogue's), then those that reached it.
+    // FR 9: first the categories still below the plan (the larger plan first), then those that reached it.
     expect(nov.incomeCategories).toEqual([
       { categoryId: rent, plan: eur("400"), actual: eur("150") },
       { categoryId: tutoring, plan: eur("300"), actual: eur("0") },

@@ -551,7 +551,8 @@ describe("sec646: integrity", () => {
     for (const allocation of [
       [{ kind: "savings", amount: eur("200") }],
       [{ kind: "goal", goalId, amount: eur("200") }],
-      [{ kind: "from-goal", goalId, amount: eur("200.01") }],
+      // Over the goal's 300 € of December (the deficit is 500 €: a part covered is saved, AC17).
+      [{ kind: "from-goal", goalId, amount: eur("300.01") }],
       [
         { kind: "from-goal", goalId, amount: eur("100") },
         { kind: "from-goal", goalId, amount: eur("100") },

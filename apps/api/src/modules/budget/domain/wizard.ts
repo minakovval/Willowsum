@@ -209,7 +209,7 @@ export interface Proposal {
   readonly incomePlan: Money | null;
   /** EC1: at least one income category is irregular. */
   readonly incomeIrregular: boolean;
-  /** FR 21: the income categories with income in the 3 months, in the order of the space's tree. */
+  /** FR 21: the income categories with income in the 3 months, the largest plan first. */
   readonly incomes: readonly ProposedIncome[];
   readonly limits: readonly ProposedLimit[];
 }
@@ -235,14 +235,9 @@ export function incomeIrregular(months: readonly MonthHistory[], categoryId: str
  * categorized history, a limit for each active expense category = its average spending over the last 3 full months, to
  * tens (an exact half to even); a plan for each income category with income in those months = its average to tens, or
  * for an irregular category its lowest month of 6 to tens; the income plan = the sum of the categories' plans. Without
- * the history only «Почати з нуля». `months` — the 6 full months before the current one, newest first. `order` — the
- * categories in the order of the space's tree.
+ * the history only «Почати з нуля». `months` — the 6 full months before the current one, newest first.
  */
-export function proposeFromSpending(
-  currency: string,
-  months: readonly MonthHistory[],
-  order: readonly string[] = [],
-): Proposal {
+export function proposeFromSpending(currency: string, months: readonly MonthHistory[]): Proposal {
   const history = historyMonths(months);
   if (history < MIN_HISTORY_MONTHS)
     return {
@@ -268,10 +263,7 @@ export function proposeFromSpending(
       limit: limit.isZero() ? null : limit,
     });
   }
-  const rank = new Map(order.map((id, i) => [id, i]));
-  const incomeIds = [...new Set(three.flatMap((m) => [...m.incomeByCategory.keys()]))].sort(
-    (a, b) => (rank.get(a) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b) ?? Number.MAX_SAFE_INTEGER),
-  );
+  const incomeIds = [...new Set(three.flatMap((m) => [...m.incomeByCategory.keys()]))];
   const incomes: ProposedIncome[] = [];
   for (const categoryId of incomeIds) {
     const exact = three
@@ -290,6 +282,11 @@ export function proposeFromSpending(
       irregular,
     });
   }
+  // The largest plan first, then the larger average; the category's id last — one order on every read.
+  incomes.sort(
+    (a, b) =>
+      b.plan.compare(a.plan) || b.average.compare(a.average) || (a.categoryId < b.categoryId ? -1 : 1),
+  );
   return {
     available: true,
     historyMonths: history,
