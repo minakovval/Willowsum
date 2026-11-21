@@ -586,6 +586,7 @@ describe("FLW-38@PoC BUD-02 FR 16: the page «Бюджет» shows the summary f
     approximate: { nearestRateCount: 0, unavailableCount: 0 },
     groups: [],
     incomeActual: eur("5550.00"),
+    incomeCategories: [],
     incomePlan: eur("5500.00"),
     outsidePlan: { categories: [], total: eur("0.00") },
     plannedSavings: eur("0.00"),

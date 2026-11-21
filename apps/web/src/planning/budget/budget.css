@@ -454,3 +454,118 @@
   padding: 0;
   border: 0;
 }
+
+/* BUD-02@PoC FR 7, FR 9, FR 21–23, AC17 (owner, 2026-11-21): the income plan by categories, the row menu «…», the deficit banner. Tokens only. */
+.bud-wiz-income {
+  display: grid;
+  gap: var(--ws-space-3);
+  max-inline-size: none;
+  margin-block-end: var(--ws-space-5);
+}
+
+.bud-wiz-income-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.bud-wiz-income-head h3,
+.bud-wiz-income-sum {
+  margin: 0;
+}
+
+.bud-wiz-income-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--ws-space-3);
+}
+
+.bud-wiz-income-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.bud-wiz-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+/* Long names of categories wrap in their cell instead of widening the table. */
+.bud-wiz-table th[scope="row"],
+.bud-table th[scope="row"],
+.bud-income-list .bud-name {
+  overflow-wrap: anywhere;
+}
+
+.bud-menu {
+  inline-size: 1%;
+  white-space: nowrap;
+}
+
+.bud-banner[data-kind="deficit"] {
+  border-color: var(--ws-loss);
+}
+
+.bud-income-list {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bud-income-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-2) var(--ws-space-3);
+}
+
+.bud-income-figures {
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-income-mark {
+  margin-inline-start: var(--ws-space-2);
+}
+
+/* BUD-02@PoC FR 9: «Інші · N» — the last row of the card «Дохід» when its categories do not fit. */
+.bud-others {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ws-ink-muted);
+  font: inherit;
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+/* BUD-02@PoC FR 7: the popover «Обов'язкова» of a row. */
+.bud-mandatory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  min-width: 200px;
+}
+.bud-mandatory-field {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+.bud-mandatory-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ws-space-2);
+}
+.bud-wiz-group-add {
+  text-align: end;
+}

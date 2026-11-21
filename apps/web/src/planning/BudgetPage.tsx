@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { Button, Icon, IconButton, PageTabs, Skeleton, StatusMark } from "@willowsum/ui";
+import { Button, Icon, IconButton, PageTabs, Skeleton, StatusMark, Tooltip } from "@willowsum/ui";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { PlanEmpty } from "./PlanEmpty.tsx";
@@ -14,8 +14,10 @@ import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
 import { SpendableCard } from "./spendable/SpendableCard.tsx";
 import { PeriodSummary } from "./period/PeriodSummary.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
+import { Decimal } from "@willowsum/domain-kernel";
 import {
   loadBudget,
+  loadDeficit,
   monthOf,
   periodFromHash,
   shiftMonth,
@@ -98,6 +100,9 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
       </div>
       <PageTabs label={tabs.label} panelId="budget-panel" selected="budget" tabs={tabs.tabs}>
         <PlanGrid page="budget">
+          {data?.kind === "ready" && settled && data.period.mode !== "past" ? (
+            <DeficitBanner period={data.period.period} version={data.version} />
+          ) : null}
           {data?.kind === "ready" && settled && data.period.mode === "past" ? (
             <PeriodSummary key={data.period.period} period={data.period.period} />
           ) : (
@@ -146,7 +151,12 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
             ) : (
               <>
                 <PeriodNotes view={data} month={monthYear(t, data.period.period)} />
-                <CategoriesCard key={data.period.period} view={data} plan={data.period.mode === "future"} />
+                <CategoriesCard
+                  key={data.period.period}
+                  view={data}
+                  plan={data.period.mode === "future"}
+                  onChanged={reload}
+                />
               </>
             )}
           </PlanRegion>
@@ -199,11 +209,65 @@ function PeriodNotes({ view, month }: { view: BudgetView; month: string }) {
   );
 }
 
-/** «Дохід» (BUD-02 FR 9): the plan and the fact of the month as the API gives them; the sources wait for their API. */
+/**
+ * BUD-02@PoC FR 9, AC17 (owner, 2026-11-21): «План з дефіцитом N €» — a plan whose limits and planned contributions are
+ * above the income plan. N is the server's «Дефіцит» of «План» for this month; the banner leads to «План» when it is on.
+ */
+function DeficitBanner({ period, version }: { period: string; version: number }) {
+  const { t, locale } = useI18n();
+  // The deficit moves with the plan: a new budget version (a row action) reads it again.
+  const load = useCallback(
+    (api: Parameters<typeof loadDeficit>[0]) => loadDeficit(api, period),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` only triggers the new read
+    [period, version],
+  );
+  const { result } = useLoad(load);
+  if (result.state !== "ready" || result.data === null) return null;
+  return (
+    <div className="plan-region plan-span-12 bud-banner" role="status" data-kind="deficit">
+      <p>
+        <span aria-hidden="true">!</span>{" "}
+        <strong>
+          {t("planning.budget.deficit.title", {
+            amount: formatMoney(locale, result.data.amount, result.data.currency),
+          })}
+        </strong>
+      </p>
+      <p className="ws-muted">{t("planning.budget.deficit.body")}</p>
+      <p>
+        <Button
+          variant="secondary"
+          size="sm"
+          href={hrefFor(childPath("budgetPlan"))}
+          label={t("planning.budget.deficit.open")}
+        />
+      </p>
+    </div>
+  );
+}
+
+/** Rows of the card «Дохід» that fit the height of the top row of cards, the row «Інші · N» included. */
+const INCOME_ROWS = 4;
+
+/**
+ * «Дохід» (BUD-02 FR 9, AC18): the plan and the fact of the month as the API gives them, and under them the plan and the
+ * fact of each income category (`incomeCategories`: the ones below their plan first, the server's order). «План
+ * виконано в N з M категорій» counts the categories that have a plan.
+ */
 function IncomeCard({ view }: { view: BudgetView }) {
   const { t, locale } = useI18n();
-  const { incomePlan, incomeActual, mode } = view.period;
+  const { incomePlan, incomeActual, incomeCategories, mode } = view.period;
   const money = (m: Money) => formatMoney(locale, m.amount, m.currency);
+  const names = new Map(view.tree.groups.flatMap((g) => g.categories).map((c) => [c.id, c.name]));
+  const planned = incomeCategories.filter((c) => new Decimal(c.plan.amount).gt(0));
+  const reached = (c: (typeof incomeCategories)[number]) =>
+    c.actual !== null && new Decimal(c.actual.amount).gte(c.plan.amount);
+  const done = planned.filter(reached).length;
+  // The card has the height of its row of cards: when the categories do not fit, the last row is «Інші · N» (FR 9).
+  const fits = incomeCategories.length <= INCOME_ROWS;
+  const shown = fits ? incomeCategories : incomeCategories.slice(0, INCOME_ROWS - 1);
+  const others = fits ? [] : incomeCategories.slice(INCOME_ROWS - 1);
+  const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(planned.length);
   return (
     <section className="bud-card" aria-labelledby="bud-income-title">
       <h2 id="bud-income-title" className="ws-text-heading-3 bud-card-title">
@@ -221,6 +285,55 @@ function IncomeCard({ view }: { view: BudgetView }) {
           </div>
         ) : null}
       </dl>
+      {mode !== "future" && planned.length > 0 ? (
+        <p className="ws-muted">
+          {t(rule === "one" ? "planning.budget.income.done.one" : "planning.budget.income.done.other", {
+            done,
+            count: planned.length,
+          })}
+        </p>
+      ) : null}
+      {incomeCategories.length > 0 ? (
+        <ul className="bud-income-list">
+          {shown.map((c) => {
+            const mark = c.actual === null ? null : reached(c) ? "reached" : "expected";
+            const label =
+              mark === "reached" ? t("planning.budget.income.reached") : t("planning.budget.income.expected");
+            return (
+              <li key={c.categoryId} data-state={mark ?? undefined}>
+                <span className="bud-name">{names.get(c.categoryId) ?? ""}</span>
+                <span className="bud-income-figures">
+                  {c.actual ? <strong>{money(c.actual)}</strong> : null}{" "}
+                  <span className="ws-muted">
+                    {t("planning.budget.income.of", { amount: money(c.plan) })}
+                  </span>
+                  {mark ? (
+                    <span role="img" aria-label={label} title={label} className="bud-income-mark">
+                      {mark === "reached" ? "✓" : "…"}
+                    </span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
+          {others.length > 0 ? (
+            <li className="bud-income-others">
+              <Tooltip
+                text={others
+                  .map(
+                    (c) =>
+                      `${names.get(c.categoryId) ?? ""}: ${c.actual ? money(c.actual) : "—"} ${t("planning.budget.income.of", { amount: money(c.plan) })}`,
+                  )
+                  .join("; ")}
+              >
+                <button type="button" className="bud-others">
+                  {t("status.e1.others", { count: others.length })}
+                </button>
+              </Tooltip>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
     </section>
   );
 }

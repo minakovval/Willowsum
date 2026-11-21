@@ -113,6 +113,7 @@ function period(
         })),
     })),
     incomeActual: future ? null : money("5600.00"),
+    incomeCategories: [],
     incomePlan: money("5600.00"),
     mode_: undefined,
     outsidePlan: {
@@ -177,8 +178,13 @@ const names = (group?: string) =>
       group ? `.bud-table tbody[data-group='${group}'] .bud-name` : ".bud-table .bud-name",
     ),
   ].map((e) => e.firstChild?.textContent);
-const heads = () => [...document.querySelectorAll(".bud-table thead th")].map((h) => h.textContent);
-const cellsOf = (row: HTMLElement) => [...row.querySelectorAll("td")].map((c) => plain(c.textContent));
+// The last column is the visually hidden «Ще дії» of the row menu (FR 7).
+const heads = () =>
+  [...document.querySelectorAll(".bud-table thead th")]
+    .filter((h) => !h.querySelector(".ws-visually-hidden"))
+    .map((h) => h.textContent);
+const cellsOf = (row: HTMLElement) =>
+  [...row.querySelectorAll("td:not(.bud-menu)")].map((c) => plain(c.textContent));
 
 async function open(over: Record<string, Reply> = {}, hash = PAGE, cats: Cat[] = CATS) {
   renderAt(hash, api(over, cats).client);
