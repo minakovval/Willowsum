@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Decimal, Money } from "@willowsum/domain-kernel";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { buildServer } from "../src/platform/process/server.ts";
@@ -276,19 +277,28 @@ async function ac2() {
   return { space, card, out, into };
 }
 
-/** The postings of the space through «Валютна різниця». */
-async function fxDifferencePostings(householdId: string): Promise<number> {
+/**
+ * The live postings of the space through «Валютна різниця», signed from that account's side: positive — into it
+ * (it is debited), negative — out of it (credited); one per currency, by currency.
+ */
+async function fxDifferencePostings(householdId: string): Promise<{ currency: string; amount: string }[]> {
   const { rows } = await db.owner.query(
-    `SELECT count(*)::int AS n FROM ledger.postings p
+    `SELECT p.currency,
+            (CASE WHEN p.debit_account_id = a.id THEN p.amount ELSE -p.amount END)::text AS amount
+       FROM ledger.postings p
        JOIN ledger.accounts a ON a.household_id = p.household_id AND a.service_kind = 'fx-difference'
                              AND a.id IN (p.debit_account_id, p.credit_account_id)
        JOIN ledger.entries e ON e.household_id = p.household_id AND e.id = p.entry_id
       WHERE p.household_id = $1 AND e.reverses_entry_id IS NULL
         AND NOT EXISTS (SELECT 1 FROM ledger.entries r WHERE r.household_id = e.household_id
-                          AND r.reverses_entry_id = e.id)`,
+                          AND r.reverses_entry_id = e.id)
+      ORDER BY p.currency`,
     [householdId],
   );
-  return rows[0].n as number;
+  return rows.map((r: { currency: string; amount: string }) => ({
+    currency: r.currency,
+    amount: Money.of(r.amount, r.currency).toDecimalString(),
+  }));
 }
 
 describe("IMP-03@PoC FR 2, FR 4, FR 21: «обмін валют» between the wallets of one account is proposed with the bank's rate", () => {
@@ -368,7 +378,18 @@ describe("IMP-03@PoC FR 9, FR 13: the user confirms an exchange; it is a transfe
     expect(await liveEntries(space.householdId)).toEqual([["fx-transfer", "2026-03-02"]]);
     // Neither income nor expense: nothing goes through «Зовнішні кошти».
     expect(await externalFlow(space.householdId)).toEqual({});
-    expect(await fxDifferencePostings(space.householdId)).toBe(2);
+    // «Валютна різниця»: 1 000 UAH come in from the UAH wallet, 22,50 EUR go out to the EUR wallet. At the reference
+    // rate of the date (44,50 UAH per EUR) the UAH side is worth 22,4719… EUR, so the account gives 0,0281 EUR more
+    // than it takes: the difference of FR 9 (positive for the space), never an expense «Комісії банку».
+    const fx = await fxDifferencePostings(space.householdId);
+    expect(fx).toEqual([
+      { currency: "EUR", amount: "-22.5" },
+      { currency: "UAH", amount: "1000" },
+    ]);
+    const atReference = new Decimal(fx[1]!.amount).dividedBy("44.5");
+    expect(new Decimal(fx[0]!.amount).negated().minus(atReference).toDecimalPlaces(6).toFixed()).toBe(
+      "0.02809",
+    );
     // Both actual amounts stay on their wallets.
     expect(await wallets(space, card)).toEqual({ UAH: "4000", EUR: "22.5" });
     expect((await proposals(space)).count).toBe(0);
@@ -389,7 +410,7 @@ describe("IMP-03@PoC FR 9, FR 13: the user confirms an exchange; it is a transfe
       ["transaction", "2026-03-02"],
       ["transaction", "2026-03-02"],
     ]);
-    expect(await fxDifferencePostings(space.householdId)).toBe(0);
+    expect(await fxDifferencePostings(space.householdId)).toEqual([]);
     expect(await wallets(space, card)).toEqual({ UAH: "4000", EUR: "22.5" });
     expect((await proposals(space)).items).toMatchObject([{ pairKind: "exchange" }]);
   });
