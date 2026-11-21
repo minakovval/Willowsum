@@ -1,6 +1,6 @@
 # Модуль budget
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-03@PoC d: EC5 — списане з цілі не зменшує суму, порт `GoalSpends`; «приблизно» для доходів, цілей і запланованих витрат; транзакція без курсу — `figures: null` з `unavailableCount`; BUD-02@PoC h: «Розподіл» зберігається з бюджетом — `allocation` у `POST /v1/budget` і `/allocation`, клітинки першого періоду, вид клітинки `debt` (`0006_plan_cell_debt.sql`), `spendable` у розрахунку; BUD-03@PoC c: «Можна витратити» — `GET /v1/budget/periods/{period}/spendable`, прапорець `budget.spendable`; `BudgetObligations` дає платіж, дату й прострочення списання і `incomeExpected`; `BudgetPlanSources.goals` — `contributed`); 2026-11-19 (BUD-17@PoC b: рішення власника Q2 — власні значення місяців зберігаються при зміні ліміту чи плану доходу; Q3 — «Інші надходження», `income.plan`, `income.other`; раніше BUD-17@PoC a: «План» — `GET /v1/budget/plan-grid`, `PUT /v1/budget/plan-grid/cells`, прапорець `budget.plan`, таблиця `plan_cells`, порт `BudgetPlanSources` над goals і debt-payoff; раніше BUD-06@PoC a: «Порівняння» — `GET /v1/budget/compare`, `GET /v1/budget/compare/year`, прапорець `budget.compare`; BUD-16@PoC a: метод «Ліміти», «План місяця» = сума лімітів, `GET /v1/budget/trend`; раніше #586: «Витрачено» — суми поза межами пропущено, ніколи не 500, `adapters/money-range.ts`; #567 і BUD-03@PoC a: порт `BudgetObligations` під'єднано — адаптер над recurring, accounts, liabilities, transactions; ядро розрахунку «Можна витратити»; раніше BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (FLW-38@PoC: «Підсумок періоду» — `GET /v1/budget/periods/{period}/summary`, прапорець `budget.summary`, порт `BudgetChargeHistory` над recurring; BUD-03@PoC d: EC5 — списане з цілі не зменшує суму, порт `GoalSpends`; «приблизно» для доходів, цілей і запланованих витрат; транзакція без курсу — `figures: null` з `unavailableCount`; BUD-02@PoC h: «Розподіл» зберігається з бюджетом — `allocation` у `POST /v1/budget` і `/allocation`, клітинки першого періоду, вид клітинки `debt` (`0006_plan_cell_debt.sql`), `spendable` у розрахунку; BUD-03@PoC c: «Можна витратити» — `GET /v1/budget/periods/{period}/spendable`, прапорець `budget.spendable`; `BudgetObligations` дає платіж, дату й прострочення списання і `incomeExpected`; `BudgetPlanSources.goals` — `contributed`); 2026-11-19 (BUD-17@PoC b: рішення власника Q2 — власні значення місяців зберігаються при зміні ліміту чи плану доходу; Q3 — «Інші надходження», `income.plan`, `income.other`; раніше BUD-17@PoC a: «План» — `GET /v1/budget/plan-grid`, `PUT /v1/budget/plan-grid/cells`, прапорець `budget.plan`, таблиця `plan_cells`, порт `BudgetPlanSources` над goals і debt-payoff; раніше BUD-06@PoC a: «Порівняння» — `GET /v1/budget/compare`, `GET /v1/budget/compare/year`, прапорець `budget.compare`; BUD-16@PoC a: метод «Ліміти», «План місяця» = сума лімітів, `GET /v1/budget/trend`; раніше #586: «Витрачено» — суми поза межами пропущено, ніколи не 500, `adapters/money-range.ts`; #567 і BUD-03@PoC a: порт `BudgetObligations` під'єднано — адаптер над recurring, accounts, liabilities, transactions; ядро розрахунку «Можна витратити»; раніше BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -170,7 +170,17 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
     сума цілі чи запланована витрата за найближчим курсом). Заплановані заощадження (п. 10, бюджет без лімітів) —
     заплановані внески в цілі й «Заощадження без цілі» «Плану». EC5: транзакції, списані з цілі («Витратити з цілі»),
     сума не враховує зовсім (BUD-05 п. 8); «Бюджет», «Порівняння» і знімок їх рахують.
-- `createBudgetServices({ categories, accounts, transactions, categorization, fx, audit, clock, newId, obligations?, planSources?, goalSpends? })` →
+  - `GET /v1/budget/periods/{period}/summary` (`getBudgetPeriodSummary`; прапорець випуску і ключ функції
+    `budget.summary`, вимагає `budget.period`; FLW-38@PoC п. 1, AC5, EC1; S-135) — лише завершений місяць (поточний чи
+    пізніший — 400 `period: not_finished`; без бюджету — 404; до першого періоду — 404 `BUDGET_PERIOD_BEFORE_START`) →
+    `period`, `currency`, `window` (`from` — перший день, пропорційний перший — від `countsFrom`; `to`), `income` і
+    `expenses` (`actual`, `plan` — зі знімка, `difference` = факт − план; витрати — категорії з лімітом і «Поза планом»,
+    план — сума лімітів), `netFlow` = дохід − витрати, `savingsRate` (відсоток з одним знаком, до парного; null — без
+    доходу, «–»), `regularPayments` (списання витратних регулярних платежів місяця, хоч який стан платежу зараз:
+    `count` M, `paid` N, `late`, `missed`; `items` — `paymentId`, `categoryId`, `dueOn`, `expected` у валюті платежу,
+    `status`, `paidOn`, `overdueDays`; null без `BudgetChargeHistory`), `approximate` — як у періоду. Таблиця категорій —
+    `GET /v1/budget/periods/{period}`, найбільші зміни — `GET /v1/budget/compare` з базою `avg3`.
+- `createBudgetServices({ categories, accounts, transactions, categorization, fx, audit, clock, newId, obligations?, planSources?, goalSpends?, chargeHistory? })` →
   `BudgetServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `CategoryDirectory.categories`
   (categories), `AccountList` (accounts), `BudgetTransactions` (transactions), `TransactionCategories`
   (categorization), `FxReporting.total` (fx-rates); «сьогодні» — дата за Києвом; валюта — `SPACE_REPORTING_CURRENCY`;
@@ -180,7 +190,9 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   місяця, що ще очікуються, null — без курсу; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
   кредиту, лише тут, не в `recurring`; `approximate`; `incomeApproximate`; суми у валюті бюджету за сьогоднішнім курсом);
   `goalSpends` — `GoalSpends` (goals): `BudgetReads.amounts(…, { withoutGoalSpends: true })` лишає поза сумою
-  «Можна витратити» транзакції, списані з цілі (без нього — тестовий сервер — жодної).
+  «Можна витратити» транзакції, списані з цілі (без нього — тестовий сервер — жодної); `chargeHistory` —
+  `BudgetChargeHistory.finishedMonth(householdId, period)` (recurring: `createRecurringHistory`, списання місяця з
+  `paidOn`; без нього `regularPayments` null).
 - `createBudgetPlanSources({ goals, debts, fx, recurring?, planEnabled? })` → `BudgetPlanSources` (`src/main.ts`): `GoalPlans` (goals:
   активні цілі з потрібним внеском, датою і внесеним цього місяця — `contributed`; `requiredApproximate`,
   `contributedApproximate` — за найближчим курсом), `DebtPlannedExpenses` (debt-payoff: додаткові платежі місяця),

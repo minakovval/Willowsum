@@ -40,6 +40,7 @@ import { budgetTx } from "../db/store.ts";
 import { compareRoutes } from "./compare.ts";
 import { planGridRoutes } from "./plan-grid.ts";
 import { spendableRoutes } from "./spendable.ts";
+import { summaryRoutes } from "./summary.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
 /**
@@ -880,4 +881,5 @@ export const budgetRoutes = [
   ...compareRoutes,
   ...planGridRoutes,
   ...spendableRoutes,
+  ...summaryRoutes,
 ];

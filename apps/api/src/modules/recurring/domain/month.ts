@@ -73,3 +73,34 @@ export function chargesInMonth(
   }
   return out;
 }
+
+/** A charge of a finished month as «Підсумок періоду» shows it: its status now and the day it was paid. */
+export interface FinishedMonthCharge extends MonthCharge {
+  /** «Сплачено <дата>» / «Сплачено із запізненням · <дата>»: the paying transaction's date; null — not paid. */
+  readonly paidOn: string | null;
+}
+
+/**
+ * FLW-38@PoC FR 1 (S-135 «Підсумок періоду», card «Регулярні платежі»): the charges of a finished month of one payment,
+ * as its history is — whatever the payment's state is now («Можливо, скасований» or ended later keeps the charges it had
+ * in that month). Only the charges the tracking covers: one before the day the payment was added, without a payment, is
+ * not shown (BUD-07 EC4). No I/O.
+ */
+export function chargesOfFinishedMonth(
+  payment: Pick<PaymentFields, "type" | "categoryId"> & { readonly id: string },
+  tracking: Pick<Tracking, "charges">,
+  month: string,
+): FinishedMonthCharge[] {
+  return tracking.charges
+    .filter((c) => c.dueOn.slice(0, 7) === month)
+    .map((c) => ({
+      paymentId: payment.id,
+      type: payment.type,
+      categoryId: payment.categoryId,
+      dueOn: c.dueOn,
+      expected: c.expected,
+      status: c.status,
+      overdueDays: c.overdueDays,
+      paidOn: c.paidOn,
+    }));
+}

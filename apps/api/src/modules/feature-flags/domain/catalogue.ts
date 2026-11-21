@@ -244,6 +244,14 @@ export const FLAGS = {
     description:
       "«Можна витратити» (BUD-03@PoC c): сума до кінця поточного періоду, денний ліміт, перевитрата, 5 рядків картки і повна розбивка — регулярні платежі, внески в цілі за «Планом», заплановані витрати, обов'язкові категорії; маршрут /v1/budget/periods/{period}/spendable",
   },
+  "budget.summary": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-20",
+    requires: "budget.period",
+    description:
+      "«Підсумок періоду» (FLW-38@PoC, S-135): завершений місяць — дохід і витрати проти плану зі знімка, чистий потік, норма заощаджень, регулярні платежі місяця зі статусами; маршрут /v1/budget/periods/{period}/summary",
+  },
   "budget.cashflow": {
     kind: "release",
     owner: "product-owner",

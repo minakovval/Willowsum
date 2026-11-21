@@ -150,6 +150,29 @@ export interface BudgetObligations {
   ): Promise<PeriodObligations | null>;
 }
 
+/**
+ * FLW-38@PoC FR 1 (S-135 «Підсумок періоду»): the regular charges of a finished month of every payment, whatever its
+ * state now, with their status and the day each was paid (module recurring's `RecurringHistory`). Amounts in the
+ * payment's currency.
+ */
+export interface BudgetChargeHistory {
+  finishedMonth(
+    householdId: string,
+    month: Period,
+  ): Promise<
+    readonly {
+      readonly paymentId: string;
+      readonly type: "expense" | "income";
+      readonly categoryId: string | null;
+      readonly dueOn: string;
+      readonly expected: Money;
+      readonly status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+      readonly overdueDays: number | null;
+      readonly paidOn: string | null;
+    }[]
+  >;
+}
+
 export interface BudgetDeps {
   readonly newId: () => string;
   /** «Сьогодні» — the Kyiv date. */
@@ -161,6 +184,8 @@ export interface BudgetDeps {
   readonly obligations: BudgetObligations | null;
   /** BUD-17: the goals and the debts' extra payments of the grid; null — not wired (a test's server only). */
   readonly planSources: BudgetPlanSources | null;
+  /** FLW-38 (S-135): a finished month's regular charges; null or left out — not wired (a test's server only). */
+  readonly chargeHistory?: BudgetChargeHistory | null;
   /**
    * BUD-17 business rules (owner decision 2026-11-20, batch 2, item 2): whether «План» (release flag `budget.plan`) is
    * on for the space. While it is off the months' own values typed on «План» act nowhere (`planCellsInEffect`); they
