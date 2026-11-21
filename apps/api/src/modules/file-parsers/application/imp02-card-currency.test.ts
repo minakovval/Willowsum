@@ -188,3 +188,53 @@ describe("IMP-05@PoC EC3: the file's currency against a single-currency account"
     expect(p.checks.account.reasons).toEqual([]);
   });
 });
+
+describe("IMP-02@PoC FR 4: «Валюта» and a separate original-currency column (security review #693)", () => {
+  const file = (lines: string[]) => new TextEncoder().encode(lines.join("\n"));
+
+  it("IMP-02@PoC FR 4: with «Валюта операції» present, the bare «Валюта» is not taken as the original currency", () => {
+    const p = parseStatement(
+      file([
+        "Дата;Сума (UAH);Сума в валюті операції;Валюта операції;Валюта;Опис",
+        "01.03.2026;-415,00;-10,00;USD;UAH;Кава",
+        "02.03.2026;-5,00;-5,00;UAH;UAH;Хліб",
+      ]),
+      { delimiter: ";" },
+      UAH_ACCOUNT,
+    );
+    expect(p.analysis.columns[3]!.role.chosen.value).toBe("original-currency");
+    expect(p.analysis.columns[4]!.role.chosen.value).toBe("currency");
+    expect(p.events.events[0]).toMatchObject({
+      currency: "UAH",
+      original: { amount: "-10.00", currency: "USD" },
+    });
+  });
+
+  it("IMP-02@PoC FR 4: debit and credit columns that name the card currency make «Валюта» the original currency", () => {
+    const p = parseStatement(
+      file([
+        "Дата;Дебет (UAH);Кредит (UAH);Сума в валюті операції;Валюта;Опис",
+        "01.03.2026;415,00;;-10,00;USD;Кава",
+        "02.03.2026;;500,00;500,00;UAH;Переказ",
+      ]),
+      { delimiter: ";" },
+      UAH_ACCOUNT,
+    );
+    expect(p.analysis.columns[4]!.role.chosen.value).toBe("original-currency");
+    expect(p.events.currencies).toEqual(["UAH"]);
+    expect(p.checks.account.reasons).toEqual([]);
+  });
+
+  it("IMP-02@PoC FR 3: a currency only in the balance header leaves «Валюта» as each row's currency", () => {
+    const p = parseStatement(
+      file([
+        "Дата;Сума;Сума в валюті операції;Валюта;Залишок (UAH);Опис",
+        "01.03.2026;-22,50;-1 000,00;EUR;100,00;Кава",
+        "02.03.2026;-5,00;-5,00;EUR;95,00;Хліб",
+      ]),
+      { delimiter: ";" },
+      { account: { currencies: ["EUR"], multiCurrency: false } },
+    );
+    expect(p.analysis.columns[3]!.role.chosen.value).toBe("currency");
+  });
+});

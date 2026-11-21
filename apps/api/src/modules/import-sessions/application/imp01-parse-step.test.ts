@@ -86,6 +86,25 @@ describe("IMP-05@PoC EC3: the file's currencies are shown as codes", () => {
   });
 });
 
+describe("IMP-05@PoC FR 4: the boundary passes only currency codes for a currency reason (#637 item 3)", () => {
+  const checks = (file: string) =>
+    ({
+      account: { status: "mismatch", reasons: [{ kind: "currency", file, account: "UAH" }] },
+      flags: [],
+    }) as unknown as StatementChecks;
+  const digits = (n: number) => Array.from({ length: n }, (_, i) => String((i * 7 + 4) % 10)).join("");
+
+  it("IMP-05@PoC FR 4: a card number with spaces in a currency reason is masked", () => {
+    const card = [digits(4), digits(4), digits(4), digits(4)].join(" ");
+    expect(maskedChecks(checks(card)).account.reasons[0]!.file).toMatch(/^….{0,4}$/u);
+  });
+
+  it("IMP-05@PoC FR 4: a card number split as a «list of codes» is masked", () => {
+    const split = `${digits(8)}, ${digits(8)}`;
+    expect(maskedChecks(checks(split)).account.reasons[0]!.file).toMatch(/^….{0,4}$/u);
+  });
+});
+
 describe("IMP-05@PoC «Бізнес-правила»: numbers in a bank's text are masked in the rows' answer", () => {
   it("IMP-05@PoC «Бізнес-правила»: an IBAN or a card number in a description shows only its last 4 characters", () => {
     const iban = ["UA", "21", "3223130000026007233566001"].join("");
