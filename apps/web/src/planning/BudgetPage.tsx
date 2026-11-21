@@ -7,14 +7,14 @@ import { PlanEmpty } from "./PlanEmpty.tsx";
 import { useBudgetTabs } from "./trend/tabs.ts";
 import { BUDGET, childPath } from "../routing/routes.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
-import { failureOf } from "../auth/failure.ts";
+import { BudgetError } from "./budget/BudgetError.tsx";
 import { kyivToday, useLoad } from "../recurring/data.ts";
 import "./budget/budget.css";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
 import { SpendableCard } from "./spendable/SpendableCard.tsx";
+import { PeriodSummary } from "./period/PeriodSummary.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
-  budgetFailureKey,
   loadBudget,
   monthOf,
   periodFromHash,
@@ -98,37 +98,28 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
       </div>
       <PageTabs label={tabs.label} panelId="budget-panel" selected="budget" tabs={tabs.tabs}>
         <PlanGrid page="budget">
-          {data?.kind === "ready" && settled && data.period.mode === "current" ? (
-            <SpendableCard period={data.period.period} />
+          {data?.kind === "ready" && settled && data.period.mode === "past" ? (
+            <PeriodSummary key={data.period.period} period={data.period.period} />
           ) : (
-            <PlanRegion name="spendable" span={4} />
+            <>
+              {data?.kind === "ready" && settled && data.period.mode === "current" ? (
+                <SpendableCard period={data.period.period} />
+              ) : (
+                <PlanRegion name="spendable" span={4} />
+              )}
+              {data?.kind === "ready" && settled ? (
+                <PlanRegion name="income" span={4} card>
+                  <IncomeCard view={data} />
+                </PlanRegion>
+              ) : (
+                <PlanRegion name="income" span={4} />
+              )}
+              <PlanRegion name="recurring" span={4} />
+            </>
           )}
-          {data?.kind === "ready" && settled ? (
-            <PlanRegion name="income" span={4} card>
-              <IncomeCard view={data} />
-            </PlanRegion>
-          ) : (
-            <PlanRegion name="income" span={4} />
-          )}
-          <PlanRegion name="recurring" span={4} />
           <PlanRegion name="categories" span={12}>
             {result.state === "error" ? (
-              <section className="ws-card bud-card" role="alert" aria-labelledby="bud-error-title">
-                <h2 id="bud-error-title" className="ws-text-heading-3 bud-card-title">
-                  <Icon name="close" size={16} /> {t("planning.budget.error.title")}
-                </h2>
-                <p className="ws-muted">{t(budgetFailureKey(result.failure))}</p>
-                <p>
-                  <button type="button" className="ws-button" onClick={reload}>
-                    {t("planning.budget.error.retry")}
-                  </button>
-                </p>
-                {failureOf(result.failure).code ? (
-                  <p className="ws-muted">
-                    {t("planning.budget.error.code", { code: failureOf(result.failure).code ?? "" })}
-                  </p>
-                ) : null}
-              </section>
+              <BudgetError failure={result.failure} onRetry={reload} />
             ) : !data || !settled ? (
               <section className="ws-card bud-card" aria-label={t("planning.budget.categories.title")}>
                 <Skeleton variant="row" lines={6} />

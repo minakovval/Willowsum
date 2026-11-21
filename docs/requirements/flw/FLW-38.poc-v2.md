@@ -10,7 +10,7 @@
 - Спільні правила: П-4, П-14, П-17, П-24, П-25, П-26, CHT-01, SCR-02
 - Сценарії: UC-BUD-08, UC-BUD-11, UC-BUD-113, UC-BUD-115, UC-BUD-31, UC-BUD-32, UC-BUD-42, UC-BUD-43
 - Модуль: budget, reports
-- Перевіряється: `apps/api/src/modules/budget/domain/flw38-summary.test.ts`, `apps/api/src/modules/recurring/domain/flw38-finished-month.test.ts`, `apps/api/src/modules/cashflow/domain/flw38-cashflow.test.ts`, `apps/api/src/modules/feature-flags/domain/flw38-summary-flag.test.ts`, `apps/api/test/flw38-summary.it.test.ts`
+- Перевіряється: `apps/api/src/modules/budget/domain/flw38-summary.test.ts`, `apps/api/src/modules/recurring/domain/flw38-finished-month.test.ts`, `apps/api/src/modules/cashflow/domain/flw38-cashflow.test.ts`, `apps/api/src/modules/feature-flags/domain/flw38-summary-flag.test.ts`, `apps/api/test/flw38-summary.it.test.ts`, `apps/web/src/planning/period/flw38-period.test.tsx`
 
 **Мета.** Як власник бюджету, я хочу наприкінці періоду зрозуміти, куди пішли гроші порівняно з минулими періодами, і спокійно скоригувати план без почуття провини.
 
