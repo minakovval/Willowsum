@@ -8,7 +8,7 @@ import { useLoad } from "../../recurring/data.ts";
 import { BUDGET } from "../../routing/routes.ts";
 import { useDocumentTitle } from "../../useDocumentTitle.ts";
 import "./budget.css";
-import { monthOf, shiftMonth } from "./model.ts";
+import { budgetFailureKey, monthOf, shiftMonth } from "./model.ts";
 import {
   DistributionStep,
   LimitsStrip,
@@ -60,7 +60,7 @@ export function BudgetWizardPage() {
           <h2 id="bud-wiz-error" className="ws-text-heading-3 bud-card-title">
             <Icon name="close" size={16} /> {t("planning.budget.error.title")}
           </h2>
-          <p className="ws-muted">{t(failureOf(result.failure).key)}</p>
+          <p className="ws-muted">{t(budgetFailureKey(result.failure))}</p>
           <p>
             <button type="button" className="ws-button" onClick={reload}>
               {t("planning.budget.error.retry")}

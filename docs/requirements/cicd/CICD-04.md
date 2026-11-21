@@ -30,7 +30,7 @@
 - [MVP] Спільні правила: П-9, ARC-08
 - Сценарії: —
 - Модуль: —
-- Перевіряється: tools/local-env/test/compose.test.mjs, tools/local-env/test/state.test.mjs, tools/local-env/test/info.test.mjs, tools/local-env/test/backup.test.mjs, tools/local-env/test/smoke.it.mjs, apps/api/scripts/lib/local-dev.test.ts, apps/api/scripts/lib/local-dev-macos.test.ts, apps/api/scripts/lib/local-dev.security.test.ts, apps/api/test/local-dev.it.test.ts
+- Перевіряється: tools/local-env/test/compose.test.mjs, tools/local-env/test/state.test.mjs, tools/local-env/test/info.test.mjs, tools/local-env/test/backup.test.mjs, tools/local-env/test/smoke.it.mjs, apps/api/scripts/lib/local-dev.test.ts, apps/api/scripts/lib/local-dev-macos.test.ts, apps/api/scripts/lib/local-dev.security.test.ts, apps/api/test/local-dev.it.test.ts, tools/local-env/test/s3.test.mjs, apps/api/src/platform/adapters/object-storage/directory.test.ts
 
 | Середовище | Призначення | Дані | Як оновлюється |
 | --- | --- | --- | --- |

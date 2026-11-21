@@ -94,3 +94,26 @@ export async function ensureBucket(values) {
   if (res.ok || /BucketAlreadyOwnedByYou/.test(text)) return 'created';
   throw new Error(`Creating bucket ${values.WS_LOCAL_S3_BUCKET} failed: HTTP ${res.status}`);
 }
+
+/** The local S3 values `pnpm local:dev` hands to apps/api/scripts/local-dev.ts (it passes them to every role process). */
+export const LOCAL_DEV_S3_KEYS = [
+  'WS_LOCAL_S3_PORT',
+  'WS_LOCAL_S3_REGION',
+  'WS_LOCAL_S3_BUCKET',
+  'WS_LOCAL_S3_ACCESS_KEY',
+  'WS_LOCAL_S3_SECRET_KEY',
+];
+
+export function localDevS3Env(values) {
+  const env = {};
+  for (const key of LOCAL_DEV_S3_KEYS) {
+    if (!values[key]) throw new Error(`${key} is missing in the local state; run \`pnpm local:reset\``);
+    env[key] = values[key];
+  }
+  return env;
+}
+
+/** The environment without stray local S3 values: only the storage this run started is handed on. */
+export function withoutLocalS3(env) {
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !LOCAL_DEV_S3_KEYS.includes(key)));
+}
