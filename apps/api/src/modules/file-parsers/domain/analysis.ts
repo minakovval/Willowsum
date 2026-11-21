@@ -531,6 +531,30 @@ function roleScores(facts: ColumnFacts): Map<Role, { score: number; word?: strin
   return scores;
 }
 
+/**
+ * IMP-02@PoC FR 4: a card statement names the currency posted to the account in the amount column's header («Сума в
+ * валюті картки (UAH)») and prints the original operation's amount and currency beside it («Сума в валюті операції»,
+ * «Валюта» — USD for a purchase abroad). There the bare currency column is the original currency, never each row's:
+ * the rows are in the header's currency, so a purchase abroad does not make the file another currency's (IMP-05 EC3).
+ * Only when the original amount has no currency column of its own; without a currency in the amount's header the
+ * column stays the row's currency (FR 3).
+ */
+function postedCurrency(
+  facts: readonly ColumnFacts[],
+  assigned: ReadonlyMap<number, Role>,
+  taken: ReadonlyMap<Role, number>,
+): { column: number; from: number; code: string } | null {
+  const column = taken.get("currency");
+  if (column === undefined || !taken.has("original-amount") || taken.has("original-currency")) return null;
+  for (const [i, f] of facts.entries()) {
+    const role = assigned.get(i);
+    const code = f.header ? headerCurrency(f.header) : null;
+    if (code && (role === "amount" || role === "debit" || role === "credit"))
+      return { column, from: i, code };
+  }
+  return null;
+}
+
 function decideColumns(
   facts: readonly ColumnFacts[],
   readCell: (role: Role, cell: string) => string | null,
@@ -545,6 +569,15 @@ function decideColumns(
     if (assigned.has(i) || (SINGLE.has(role) && taken.has(role))) continue;
     assigned.set(i, role);
     if (SINGLE.has(role)) taken.set(role, i);
+  }
+  const posted = postedCurrency(facts, assigned, taken);
+  if (posted) {
+    // The bare currency column is the original operation's: its score is the one it had as the row's currency.
+    const scores = scored[posted.column]!;
+    scores.set("original-currency", { score: scores.get("currency")!.score });
+    assigned.set(posted.column, "original-currency");
+    taken.delete("currency");
+    taken.set("original-currency", posted.column);
   }
   return facts.map((f, i) => {
     const scores = scored[i]!;
@@ -566,6 +599,8 @@ function decideColumns(
       count: f.kind.count,
       of: f.kind.of,
     });
+    if (posted?.column === i)
+      evidence.push({ code: "currency-in-header", column: facts[posted.from]!.column, word: posted.code });
     const ranked = [...scores].sort((a, b) => b[1].score - a[1].score);
     const better = ranked.find(
       ([role]) => role !== chosenRole && SINGLE.has(role) && taken.has(role) && taken.get(role) !== i,
