@@ -794,6 +794,25 @@ export const uk = {
   "planning.budget.wizard.limits.of": "Ліміт: {category}",
   "planning.budget.wizard.limits.outside":
     "Категорії без ліміту — у групі «Поза планом»; їхні витрати теж зменшують «Можна витратити».",
+  "planning.budget.wizard.income.title": "План доходу",
+  "planning.budget.wizard.income.sum": "сума категорій доходу",
+  "planning.budget.wizard.income.col.plan": "План на місяць",
+  "planning.budget.wizard.income.of": "План доходу: {category}",
+  "planning.budget.wizard.income.remove": "Прибрати",
+  "planning.budget.wizard.income.add": "Додати категорію доходу",
+  "planning.budget.wizard.income.add.hint": "категорія доходу без плану або «Нова категорія доходу…»",
+  "planning.budget.wizard.income.new": "Нова категорія доходу…",
+  "planning.budget.wizard.income.category": "Категорія доходу",
+  "planning.budget.wizard.income.confirm": "Додати",
+  "planning.budget.cat.add": "Додати категорію",
+  "planning.budget.cat.add.menu": "Додати категорію: {group}",
+  "planning.budget.cat.new": "Нова категорія…",
+  "planning.budget.cat.rename": "Перейменувати",
+  "planning.budget.cat.unbudget": "Прибрати з бюджету",
+  "planning.budget.cat.delete": "Видалити категорію…",
+  "planning.budget.cat.delete.keep":
+    "Цю категорію не можна видалити: у ній є транзакції, правила або ліміти. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
+  "planning.budget.cat.error": "Не вдалося змінити бюджет. Спробуйте ще раз",
   "planning.budget.wizard.error.create": "Не вдалося створити бюджет. Спробуйте ще раз",
   "planning.budget.wizard.step.distribute": "Розподіл",
   "planning.budget.wizard.strip.unallocated": "Не розподілено {amount}",
@@ -804,7 +823,7 @@ export const uk = {
     "План доходу більший за ліміти на {amount}. Вирішіть, на що піде різниця.",
   "planning.budget.wizard.dist.deficit.title": "Звідки візьмуться {amount}?",
   "planning.budget.wizard.dist.deficit.lead":
-    "Ліміти більші за план доходу. Оберіть, з чого покрити різницю — можна поєднати кілька джерел.",
+    "Ліміти більші за план доходу. Можна покрити різницю з кількох джерел або лишити дефіцит — бюджет створюється в будь-якому разі.",
   "planning.budget.wizard.dist.balanced":
     "Нічого розподіляти: план доходу покриває ліміти й мінімальні платежі.",
   "planning.budget.wizard.dist.unknown":
@@ -845,13 +864,16 @@ export const uk = {
   "planning.budget.wizard.dist.planOnly.surplus":
     "Це план: гроші не переказуються. Суми з’являться в «Бюджет → План» у розділах «Цілі й заощадження» і «Погашення боргів».",
   "planning.budget.wizard.dist.planOnly.deficit":
-    "Це план: гроші не переказуються. Покриття з’явиться в «Бюджет → План» у рядку «Не розподілено / Дефіцит».",
+    "Це план: гроші не переказуються. Покриття і непокритий дефіцит з’являться в «Бюджет → План» у рядку «Не розподілено / Дефіцит»; з дефіцитом сторінка «Бюджет» покаже банер «План з дефіцитом {amount}».",
   "planning.budget.wizard.dist.planOff.surplus":
     "Це план: гроші не переказуються. Обрані суми буде збережено разом із бюджетом.",
   "planning.budget.wizard.dist.planOff.deficit":
     "Це план: гроші не переказуються. Покриття буде збережено разом із бюджетом.",
+  "planning.budget.wizard.dist.leaveDeficit": "Лишити дефіцит",
+  "planning.budget.wizard.dist.leaveDeficit.hint":
+    "непокрита частина лишиться в плані; «Можна витратити» може стати від’ємним",
+  "planning.budget.wizard.dist.leaveDeficit.rest": "решта",
   "planning.budget.wizard.dist.amountOf": "Сума: {name}",
-  "planning.budget.wizard.dist.reason.deficit": "Покрийте дефіцит повністю",
   "planning.budget.wizard.dist.reason.over": "Обрано більше, ніж треба розподілити",
   "planning.budget.wizard.dist.reason.wait": "Рахуємо розподіл",
   "planning.budget.wizard.dist.error": "Не вдалося порахувати розподіл. Спробуйте ще раз",
@@ -977,6 +999,15 @@ export const uk = {
   "planning.spend.source.incomes": "регулярні доходи",
   "planning.spend.source.goals": "внески в цілі",
   "planning.spend.source.plannedExpenses": "заплановані витрати",
+  "planning.budget.deficit.title": "План з дефіцитом {amount}",
+  "planning.budget.deficit.body":
+    "ліміти й заплановані внески більші за план доходу; «Можна витратити» може стати від’ємним",
+  "planning.budget.deficit.open": "Відкрити «План»",
+  "planning.budget.income.done.one": "план виконано в {done} з {count} категорії",
+  "planning.budget.income.done.other": "план виконано в {done} з {count} категорій",
+  "planning.budget.income.of": "з {amount}",
+  "planning.budget.income.reached": "План досягнуто",
+  "planning.budget.income.expected": "Очікується",
   "planning.budget.income.title": "Дохід",
   "planning.budget.income.plan": "План доходу",
   "planning.budget.income.actual": "Отримано",

@@ -1,6 +1,7 @@
 import "./budget.css";
 import { useMemo, useState } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
+import { useAuthApi } from "../../auth/api.ts";
 import {
   CardFilter,
   CardFilterChips,
@@ -9,6 +10,7 @@ import {
   type CardFilterSection,
   type FilterChipItem,
 } from "@willowsum/ui";
+import { categoryMenu, RowMenu, useCategoryActions } from "./CategoryActions.tsx";
 import {
   filterCount,
   hasScale,
@@ -17,6 +19,7 @@ import {
   optionalLimits,
   OUTSIDE,
   overspend,
+  removeLimit,
   sortRows,
   STATE_VALUES,
   stateValueOf,
@@ -73,8 +76,49 @@ function shownText(t: Translate, locale: string, shown: number, count: number): 
  * overspent row says «✕ перевищено» and shows the minus amount only in «Залишок»; the filter changes the table only,
  * not the totals row. `plan` — the future month: only the limits, no fact (S-289).
  */
-export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean }) {
+export function CategoriesCard({
+  view,
+  plan,
+  onChanged,
+}: {
+  view: BudgetView;
+  plan: boolean;
+  /** A row action went through (or the budget changed elsewhere): read the page again. */
+  onChanged: () => void;
+}) {
   const { t, locale } = useI18n();
+  const api = useAuthApi();
+  const [failed, setFailed] = useState(false);
+  const actions = useCategoryActions({ tree: view.tree, onChanged, onCreated: () => onChanged() });
+  const treeCategories = useMemo(
+    () => new Map(view.tree.groups.flatMap((g) => g.categories).map((c) => [c.id, c])),
+    [view],
+  );
+  /** The «…» of a row (FR 7, FR 22, FR 23); «Без категорії» has none, «Прибрати з бюджету» only a row with a limit. */
+  const menuOf = (row: Row) => {
+    const category = treeCategories.get(row.id);
+    if (!category) return null;
+    return (
+      <RowMenu
+        name={row.name}
+        items={categoryMenu(t, {
+          rename: () => actions.rename(category),
+          removeFromBudget:
+            row.limit === null
+              ? null
+              : () => {
+                  setFailed(false);
+                  void removeLimit(api, view.version, row.id).then((o) => {
+                    // A conflict of versions (the budget changed in another window) is answered by reading it again.
+                    if (o.ok || (o.kind === "problem" && o.problem.code === "VERSION_CONFLICT")) onChanged();
+                    else setFailed(true);
+                  });
+                },
+          remove: () => actions.remove(category),
+        })}
+      />
+    );
+  };
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [sort, setSort] = useState<Sort | undefined>(undefined);
   const money = (m: Money) => formatMoney(locale, m.amount, m.currency);
@@ -202,6 +246,11 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
         )}
       </div>
       {plan ? null : <CardFilterChips chips={chips} onRemove={remove} />}
+      {failed ? (
+        <p role="alert" className="bud-note">
+          {t("planning.budget.cat.error")}
+        </p>
+      ) : null}
       {plan ? null : (
         <dl className="bud-summary">
           <div>
@@ -237,12 +286,15 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
                 )}
               </th>
             ))}
+            <th scope="col">
+              <span className="ws-visually-hidden">{t("categories.more")}</span>
+            </th>
           </tr>
         </thead>
         {sections.map((s) => (
           <tbody key={s.id} data-group={s.id}>
             <tr className="bud-group">
-              <th scope="colgroup" colSpan={columns.length}>
+              <th scope="colgroup" colSpan={columns.length + 1}>
                 {s.name}
               </th>
             </tr>
@@ -269,6 +321,7 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
                     {cell(row, c.key)}
                   </td>
                 ))}
+                <td className="bud-menu">{menuOf(row)}</td>
               </tr>
             ))}
           </tbody>
@@ -276,7 +329,7 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
         {outside.length > 0 ? (
           <tbody data-group={OUTSIDE}>
             <tr className="bud-group">
-              <th scope="colgroup" colSpan={columns.length}>
+              <th scope="colgroup" colSpan={columns.length + 1}>
                 <StatusMark id="v.outOfPlan" />
                 <span className="bud-sub">{t("planning.budget.outside.note")}</span>
               </th>
@@ -291,6 +344,7 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
                     {cell(row, c.key)}
                   </td>
                 ))}
+                <td className="bud-menu">{menuOf(row)}</td>
               </tr>
             ))}
           </tbody>
@@ -298,7 +352,7 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
         {sections.length === 0 && outside.length === 0 ? (
           <tbody>
             <tr>
-              <td colSpan={columns.length}>{t("planning.budget.noMatch")}</td>
+              <td colSpan={columns.length + 1}>{t("planning.budget.noMatch")}</td>
             </tr>
           </tbody>
         ) : null}
@@ -312,6 +366,7 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
                 {c.key === "remaining" && totals.remaining ? money(totals.remaining) : null}
               </td>
             ))}
+            <td />
           </tr>
         </tfoot>
       </table>
@@ -323,6 +378,7 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
           </button>
         </p>
       )}
+      {actions.dialogs}
     </section>
   );
 }

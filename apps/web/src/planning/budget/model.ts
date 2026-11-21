@@ -15,7 +15,7 @@ type Json<T> = T extends { responses: { 200: { content: { "application/json": in
  */
 export type Period = Json<operations["getBudgetPeriod"]>;
 export type Money = Period["incomePlan"];
-type Tree = Json<operations["listCategories"]>;
+export type Tree = Json<operations["listCategories"]>;
 
 /** The state of a row on the usage scale (DS-23 family «а»), or «поза планом» for a category without a limit. */
 export type RowState = UsageState | "outOfPlan";
@@ -42,6 +42,10 @@ export const OUTSIDE = "outside";
 
 export interface BudgetView {
   readonly firstPeriod: string;
+  /** The budget's version: `PATCH /v1/budget/plan` (the row actions) names the one the user saw. */
+  readonly version: number;
+  /** The category tree: names for the rows of the card «Дохід» and what the row menu needs (`deletable`). */
+  readonly tree: Tree;
   readonly period: Period;
   readonly sections: readonly Section[];
   /** The rows of «Поза планом» (a category without a limit). */
@@ -79,7 +83,7 @@ export function stateOf(spent: Money | null, limit: Money | null, mandatory: boo
   return usageState(spent.amount, limit.amount, mandatory);
 }
 
-function build(period: Period, tree: Tree): Omit<BudgetView, "firstPeriod"> {
+function build(period: Period, tree: Tree): Omit<BudgetView, "firstPeriod" | "version"> {
   const categories = new Map<string, { name: string }>();
   const groups = new Map<string, string>();
   for (const g of tree.groups) {
@@ -113,7 +117,7 @@ function build(period: Period, tree: Tree): Omit<BudgetView, "firstPeriod"> {
     remaining: null,
     state: "outOfPlan",
   }));
-  return { period, sections, outside };
+  return { period, tree, sections, outside };
 }
 
 export async function loadBudget(
@@ -136,6 +140,7 @@ export async function loadBudget(
     data: {
       kind: "ready",
       firstPeriod: budget.data.budget.firstPeriod,
+      version: budget.data.budget.version,
       ...build(periodResult.data, categories.data),
     },
   };
@@ -258,3 +263,24 @@ export function budgetFailureKey(failure: Parameters<typeof failureOf>[0]): Mess
     ? "planning.budget.error.body"
     : key;
 }
+
+/**
+ * BUD-02@PoC FR 9, AC17: the deficit of the plan for the banner «План з дефіцитом N €» — the «Не розподілено / Дефіцит»
+ * figure of `GET /v1/budget/plan-grid` for this month (the server's, never `income − limits` here). Null — no deficit,
+ * a month outside the grid (a past one), or the grid unavailable (`budget.plan` off): the banner is simply not shown.
+ */
+export async function loadDeficit(api: ApiClient, period: string): Promise<Load<Money | null>> {
+  const grid = await outcome(api.GET("/v1/budget/plan-grid"));
+  if (!grid.ok) return { state: "ready", data: null };
+  const at = grid.data.months.findIndex((m) => m.period === period);
+  const cell = at < 0 ? null : (grid.data.unallocated[at] ?? null);
+  return { state: "ready", data: cell?.kind === "deficit" ? cell.amount : null };
+}
+
+/** `PATCH /v1/budget/plan`: «Прибрати з бюджету» — the category's limit goes, it moves to «Поза планом» (FR 23). */
+export const removeLimit = (api: ApiClient, version: number, categoryId: string) =>
+  outcome(
+    api.PATCH("/v1/budget/plan", {
+      body: { version, limits: [{ categoryId, amount: null }] },
+    }),
+  );
