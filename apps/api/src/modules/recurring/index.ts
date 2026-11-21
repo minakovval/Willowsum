@@ -60,12 +60,13 @@ export interface RecurringMonth {
 export function createRecurringMonth(db: ModuleDatabase, services: RecurringServices): RecurringMonth {
   return {
     async chargesIn(householdId, month) {
-      const { payments, marks } = await db.inHousehold(householdId, async (q) => ({
+      const { payments, marks, holds } = await db.inHousehold(householdId, async (q) => ({
         payments: await recurringTx(q).payments(householdId),
         marks: await recurringTx(q).marks(householdId),
+        holds: await recurringTx(q).holds(householdId),
       }));
       if (payments.length === 0) return [];
-      const tracked = await trackSpace(services.tracking, householdId, payments, marks);
+      const tracked = await trackSpace(services.tracking, householdId, payments, marks, holds);
       const today = services.tracking.today();
       return payments
         .flatMap((p) => {
@@ -105,12 +106,13 @@ export interface RecurringHistory {
 export function createRecurringHistory(db: ModuleDatabase, services: RecurringServices): RecurringHistory {
   return {
     async finishedMonth(householdId, month) {
-      const { payments, marks } = await db.inHousehold(householdId, async (q) => ({
+      const { payments, marks, holds } = await db.inHousehold(householdId, async (q) => ({
         payments: await recurringTx(q).payments(householdId),
         marks: await recurringTx(q).marks(householdId),
+        holds: await recurringTx(q).holds(householdId),
       }));
       if (payments.length === 0) return [];
-      const tracked = await trackSpace(services.tracking, householdId, payments, marks);
+      const tracked = await trackSpace(services.tracking, householdId, payments, marks, holds);
       return payments
         .flatMap((p) => {
           const t = tracked.byPayment.get(p.id);

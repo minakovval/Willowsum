@@ -86,6 +86,7 @@ function payment(over: Partial<RecurringPayment> & Pick<RecurringPayment, "name"
     source: "manual",
     createdOn: "2026-01-01",
     version: 1,
+    holds: [],
     ...over,
   };
 }

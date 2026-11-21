@@ -1,7 +1,9 @@
 import type { Money } from "@willowsum/domain-kernel";
 import {
+  addDays,
   isRejected,
   type ChargeMark,
+  type Hold,
   nextDate,
   type PaymentFields,
   type PaymentIssue,
@@ -37,6 +39,12 @@ export type StoredMark = {
   readonly dueOn: string;
 } & ChargeMark;
 
+/** FR 13: a pause or a «скасовано» mark of a payment, as stored (migrations/0005_payment_holds.sql). */
+export type StoredHold = {
+  readonly id: string;
+  readonly paymentId: string;
+} & Hold;
+
 /** A rejected series as stored. */
 export interface StoredRejection extends RejectedSeries {
   readonly id: string;
@@ -67,6 +75,18 @@ export interface RecurringTx {
   settledElsewhere(householdId: string, transactionId: string): Promise<boolean>;
   /** FR 10 «Залишити». */
   keep(householdId: string, id: string, today: string): Promise<StoredPayment | null>;
+  /** FR 13: the holds of the space's payments. */
+  holds(householdId: string): Promise<StoredHold[]>;
+  /**
+   * FR 13: the payment's holds become `holds` (the payment's version + 1); `keptOn` — misses are counted anew from this
+   * day («Відновити»). Returns the payment.
+   */
+  replaceHolds(
+    householdId: string,
+    paymentId: string,
+    holds: readonly StoredHold[],
+    keptOn: string | null,
+  ): Promise<StoredPayment>;
   /** FR 11: the current expected amount, if it is still `before` (compare and set); false — another read wrote it. */
   setCurrentAmount(householdId: string, id: string, before: Money | null, after: Money): Promise<boolean>;
 }
@@ -314,11 +334,22 @@ export async function applyCategoryMerge(
     });
 }
 
-/** The next date of a payment's schedule on or after today; null once its end date has passed. */
+/**
+ * The next date of a payment's schedule on or after today; null once its end date has passed. FR 13: a held date is no
+ * next date — the first one after a pause; null while paused until «Відновити» or marked cancelled.
+ */
 export function nextPaymentDate(
   p: Pick<PaymentFields, "anchorDate" | "frequency" | "endDate">,
   today: string,
+  holds: readonly Hold[] = [],
 ): string | null {
-  const next = nextDate(p.anchorDate, p.frequency, today);
-  return p.endDate !== null && next > p.endDate ? null : next;
+  let next = nextDate(p.anchorDate, p.frequency, today);
+  for (;;) {
+    if (p.endDate !== null && next > p.endDate) return null;
+    const hold = holds.find((h) => next >= h.from && (h.until === null || next <= h.until));
+    if (!hold) return next;
+    if (hold.until === null) return null;
+    // Past the hold in one step: a dated hold ends, so this ends too.
+    next = nextDate(p.anchorDate, p.frequency, addDays(hold.until, 1));
+  }
 }

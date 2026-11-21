@@ -3,13 +3,23 @@ import {
   addDays,
   canSettle,
   canSkip,
+  holdAction,
+  MAX_PAUSE_DAYS,
   trackPayment,
   type Candidate,
   type ChargeMark,
+  type Hold,
   type TrackedCharge,
   type Tracking,
 } from "../domain/index.ts";
-import type { Caller, RecurringHandOff, RecurringTx, StoredMark, StoredPayment } from "./payments.ts";
+import type {
+  Caller,
+  RecurringHandOff,
+  RecurringTx,
+  StoredHold,
+  StoredMark,
+  StoredPayment,
+} from "./payments.ts";
 import { HISTORY_DAYS, HISTORY_MAX, type ProposalDeps } from "./proposals.ts";
 
 /**
@@ -77,6 +87,7 @@ export async function trackSpace(
   householdId: string,
   payments: readonly StoredPayment[],
   marks: readonly StoredMark[],
+  holds: readonly StoredHold[] = [],
 ): Promise<SpaceTracking> {
   const today = deps.today();
   const from = addDays(today, -(HISTORY_DAYS - 1));
@@ -103,6 +114,13 @@ export async function trackSpace(
     marksOf.set(m.paymentId, own);
     if (m.kind === "settled") taken.add(m.transactionId);
   }
+
+  const holdsOf = new Map<string, Hold[]>();
+  for (const h of holds)
+    holdsOf.set(h.paymentId, [
+      ...(holdsOf.get(h.paymentId) ?? []),
+      { kind: h.kind, from: h.from, until: h.until },
+    ]);
 
   const order = [...payments].sort(
     (a, b) =>
@@ -170,6 +188,7 @@ export async function trackSpace(
       endDate: p.endDate,
       createdOn: p.createdOn,
       keptOn: p.keptOn,
+      holds: holdsOf.get(p.id) ?? [],
       type: p.type,
       base: p.expected,
       variable: p.variable,
@@ -237,6 +256,17 @@ export type ChargeOutcome<R> =
   /** The transaction pays a charge already, or cannot pay this one (`RECURRING_TRANSACTION_TAKEN`). */
   | { readonly kind: "taken" };
 
+/** The space tracked as it is now, read inside the module's transaction. */
+async function trackLocked(deps: TrackingDeps, tx: RecurringTx, householdId: string): Promise<SpaceTracking> {
+  return trackSpace(
+    deps,
+    householdId,
+    await tx.payments(householdId),
+    await tx.marks(householdId),
+    await tx.holds(householdId),
+  );
+}
+
 /** Under the payment's lock: the space tracked as it is now, and the payment's charge of `dueOn`. */
 async function lockedCharge(
   deps: TrackingDeps,
@@ -247,12 +277,7 @@ async function lockedCharge(
 ): Promise<{ payment: StoredPayment; tracked: SpaceTracking; charge: TrackedCharge } | null> {
   const payment = await tx.lockPayment(householdId, paymentId);
   if (!payment) return null;
-  const tracked = await trackSpace(
-    deps,
-    householdId,
-    await tx.payments(householdId),
-    await tx.marks(householdId),
-  );
+  const tracked = await trackLocked(deps, tx, householdId);
   const charge = tracked.byPayment.get(paymentId)?.charges.find((c) => c.dueOn === dueOn);
   return charge ? { payment, tracked, charge } : null;
 }
@@ -383,12 +408,7 @@ export async function keepPayment(
 ): Promise<ChargeOutcome<StoredPayment>> {
   const payment = await tx.lockPayment(caller.householdId, paymentId);
   if (!payment) return { kind: "not-found" };
-  const tracked = await trackSpace(
-    deps,
-    caller.householdId,
-    await tx.payments(caller.householdId),
-    await tx.marks(caller.householdId),
-  );
+  const tracked = await trackLocked(deps, tx, caller.householdId);
   if (tracked.byPayment.get(paymentId)?.state !== "possibly-cancelled") return { kind: "state" };
   const today = deps.today();
   const kept = (await tx.keep(caller.householdId, paymentId, today))!;
@@ -402,4 +422,66 @@ export async function keepPayment(
   };
   await tx.enqueueHandOff(handOff);
   return { kind: "done", result: kept, handOffs: [handOff] };
+}
+
+/** FR 13: «Призупинити» (`until` — the last day paused, after today; null — until «Відновити»), «Позначити
+ * скасованим», «Відновити». */
+export type HoldRequest =
+  | { readonly kind: "pause"; readonly until: string | null }
+  | { readonly kind: "cancel" }
+  | { readonly kind: "resume" };
+
+const HOLD_STATE = { pause: "paused", cancel: "cancelled", resume: null } as const;
+
+/**
+ * FR 13: a pause, a «скасовано» mark (only in the app: nothing is cancelled at the provider) or «Відновити» of a payment
+ * — its charges of the span held leave the schedule and «Можна витратити», the history of its paid ones stays, and
+ * «Відновити» counts the misses anew from today. Pause: an active payment or one «Можливо, скасований»; «Позначити
+ * скасованим»: any not marked yet; «Відновити»: a paused or marked one. Under the payment's lock; audited. A hold that
+ * ended before the 430 days analysed is dropped (no charge before them is tracked).
+ */
+export async function holdPayment(
+  deps: TrackingDeps,
+  tx: RecurringTx,
+  caller: Caller,
+  paymentId: string,
+  request: HoldRequest,
+): Promise<ChargeOutcome<StoredPayment>> {
+  const payment = await tx.lockPayment(caller.householdId, paymentId);
+  if (!payment) return { kind: "not-found" };
+  const today = deps.today();
+  if (
+    request.kind === "pause" &&
+    request.until !== null &&
+    (request.until <= today || request.until > addDays(today, MAX_PAUSE_DAYS))
+  )
+    return { kind: "state" };
+  const tracked = await trackLocked(deps, tx, caller.householdId);
+  const hold = tracked.byPayment.get(paymentId)?.hold ?? null;
+  const own = (await tx.holds(caller.householdId)).filter((h) => h.paymentId === paymentId);
+  const next = holdAction(own, hold, request, today);
+  if (next === null) return { kind: "state" };
+  const from = addDays(today, -(HISTORY_DAYS - 1));
+  const kept: StoredHold[] = next
+    .filter((h) => h.until === null || h.until >= from)
+    .map((h) => ("id" in h ? h : { ...h, paymentId, id: deps.newId() }));
+  // «відновлення перезапускає лічильник пропусків»: from today, as «Залишити» (FR 10).
+  const keptOn = request.kind === "resume" ? today : null;
+  const saved = await tx.replaceHolds(caller.householdId, paymentId, kept, keptOn);
+  const changes: RecurringHandOff["changes"][number][] = [
+    { field: "hold", before: hold, after: HOLD_STATE[request.kind] },
+  ];
+  if (keptOn !== null) changes.push({ field: "keptOn", before: payment.keptOn, after: keptOn });
+  if (request.kind === "pause" && request.until !== null)
+    changes.push({ field: "pausedUntil", before: null, after: request.until });
+  const handOff: RecurringHandOff = {
+    entity: "recurring.payment",
+    entityId: paymentId,
+    actorAccountId: caller.accountId,
+    action: "update",
+    changeId: deps.newId(),
+    changes,
+  };
+  await tx.enqueueHandOff(handOff);
+  return { kind: "done", result: saved, handOffs: [handOff] };
 }

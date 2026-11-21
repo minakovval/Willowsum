@@ -144,7 +144,8 @@ describe("#567: the adapter of BudgetObligations", () => {
       ],
     });
     const o = await port.month("h", "2026-11", "EUR");
-    expect(o!.incomeExpected!.toDecimalString()).toBe("1100");
+    // BUD-07@PoC FR 15: the overdue income («Дохід не надійшов») is not expected any more.
+    expect(o!.incomeExpected!.toDecimalString()).toBe("1000");
     expect((await port.month("h", "2026-11", "EUR", "2026-11-18"))!.incomeExpected!.toDecimalString()).toBe(
       "1000",
     );
@@ -155,6 +156,21 @@ describe("#567: the adapter of BudgetObligations", () => {
     const without = await usd.port.month("h", "2026-11", "EUR");
     expect(without!.incomeExpected).toBeNull();
     expect(without!.recurring.map((r) => r.amount.toDecimalString())).toEqual(["5"]);
+  });
+
+  it("BUD-07@PoC FR 15: a regular income still expected raises the expected income; «Дохід не надійшов» and «Пропущено» do not", async () => {
+    const income = (dueOn: string, amount: Money, more: Partial<Charge> = {}) =>
+      charge(dueOn, amount, { type: "income", ...more });
+    const { port } = adapter({
+      charges: [
+        income("2026-11-10", eur("2500"), { status: "overdue", overdueDays: 3 }),
+        income("2026-11-12", eur("40"), { status: "skipped" }),
+        income("2026-11-14", eur("60"), { status: "paid-late" }),
+        income("2026-11-25", eur("300.50")),
+        income("2026-11-28", eur("0.25")),
+      ],
+    });
+    expect((await port.month("h", "2026-11", "EUR"))!.incomeExpected!.toDecimalString()).toBe("300.75");
   });
 
   it("BUD-03@PoC FR 5: each loan with a monthly payment once, paid when the month has a payment to it; a credit card and a loan without the payment add nothing", async () => {
