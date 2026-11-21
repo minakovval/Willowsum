@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApiClient, operations } from "@willowsum/api-contract";
 import { maskNumber } from "@willowsum/i18n";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
@@ -155,19 +155,34 @@ export async function loadRecurring(api: ApiClient): Promise<Load<RecurringData>
   };
 }
 
-/** Reads on mount and on `reload()`; the last answer wins, an older one is dropped. */
-export function useLoad<T>(load: (api: ApiClient) => Promise<Load<T>>): {
+/**
+ * Reads on mount and on `reload()`; the last answer wins, an older one is dropped.
+ *
+ * A `load` that is a stable function (module level, or `useCallback`) reads again when its identity changes. An inline
+ * arrow is a new function on every render, so it would read again after every answer, endlessly (FLW-38 «Підсумок
+ * періоду»): such a caller passes `key` — the values `load` depends on, as a string — and the read repeats only when the
+ * key changes, with the latest `load` kept in a ref.
+ */
+export function useLoad<T>(
+  load: (api: ApiClient) => Promise<Load<T>>,
+  key?: string,
+): {
   readonly result: Load<T>;
   readonly reload: () => void;
 } {
   const api = useAuthApi();
   const [result, setResult] = useState<Load<T>>({ state: "loading" });
   const [round, setRound] = useState(0);
+  const latest = useRef(load);
+  useEffect(() => {
+    latest.current = load;
+  });
+  const dependsOn = key === undefined ? load : key;
   useEffect(() => {
     let live = true;
     // Any rejection or throw is the error state (DS-04 FR 13, «Стани інтерфейсу»), never an endless «loading».
     const failed: Load<T> = { state: "error", failure: { ok: false, kind: "network" } };
-    void (async () => load(api))().then(
+    void (async () => (key === undefined ? load : latest.current)(api))().then(
       (r) => {
         if (live) setResult(r);
       },
@@ -178,7 +193,9 @@ export function useLoad<T>(load: (api: ApiClient) => Promise<Load<T>>): {
     return () => {
       live = false;
     };
-  }, [api, load, round]);
+    // `load` and `key` are read through `dependsOn`: with a key only the key re-runs the effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, dependsOn, round]);
   const reload = useCallback(() => {
     setResult({ state: "loading" });
     setRound((n) => n + 1);

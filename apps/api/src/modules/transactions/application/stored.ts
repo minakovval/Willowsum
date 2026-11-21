@@ -1,7 +1,7 @@
 import type { Money } from "@willowsum/domain-kernel";
 import type { ReviewState, Split, TransactionStatus, TransferLink } from "../domain/index.ts";
 
-/** A transaction as the module stores it (migrations/0001_transactions.sql, 0004_states_and_splits.sql, 0007_attributes.sql, 0008_review.sql). */
+/** A transaction as the module stores it (migrations/0001_transactions.sql, 0004_states_and_splits.sql, 0007_attributes.sql, 0008_review.sql, 0013_one_off.sql). */
 export interface StoredTransaction {
   readonly id: string;
   readonly accountId: string;
@@ -30,6 +30,11 @@ export interface StoredTransaction {
   readonly note: string | null;
   /** BUD-13 FR 2: the space's tags of the transaction (`tags`), in the order given; at most 20. */
   readonly tagIds: readonly string[];
+  /**
+   * BUD-06@PoC FR 8 «Одноразова витрата» (0013_one_off.sql): it stays in the fact of its period, but leaves the averages
+   * (BUD-06 FR 4, BUD-02 «Створити за моїми витратами», BUD-05 «Подушка безпеки»).
+   */
+  readonly oneOff: boolean;
   /** BUD-12 FR 4, FR 8: «До розбору» — `queued`, its category `confirmed`, or null: never in the queue. */
   readonly review: ReviewState | null;
   readonly version: number;

@@ -368,6 +368,20 @@
   overflow-wrap: anywhere;
 }
 
+.bud-wiz-strip-diff,
+.bud-wiz-spend {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.bud-wiz-spend {
+  overflow-wrap: anywhere;
+}
+
+.bud-wiz-strip-diff + .bud-wiz-spend {
+  margin-top: var(--ws-space-2);
+}
+
 .bud-wiz-dist {
   display: grid;
   gap: var(--ws-space-4);

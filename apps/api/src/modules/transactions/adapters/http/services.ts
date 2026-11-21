@@ -15,6 +15,8 @@ import type {
 
 /** The release flag of «Очікує» and hiding (FIN-03 b, wave 2 row 16a); the routes of hiding are behind it too. */
 export const STATES_FLAG = "transactions.states";
+/** BUD-06@PoC FR 8: «Одноразова витрата» (adapters/http/routes.ts `ONE_OFF`). */
+const ONE_OFF_FLAG = "transactions.one-off";
 /** The release flag and feature key of transfers between own accounts (FIN-03 b, wave 2 row 16b). */
 export const TRANSFERS_FLAG = "transactions.transfers";
 /** The release flag and feature key of «Об'єднати», «Роз'єднати» and «Не дубль» (FIN-03 b, wave 2 row 16c). */
@@ -55,6 +57,11 @@ export interface TransactionsServices {
   readonly reportingCurrency: string;
   /** «Історія змін» (FIN-03 FR 27): the audit log's entries of one entity; null when the log given cannot read. */
   readonly history: Pick<AuditLog, "entriesFor"> | null;
+  /**
+   * BUD-06@PoC FR 8 (#685): whether «Одноразова витрата» (`transactions.one-off`) is on for the space; off — every
+   * transaction shows `oneOff: false`, as the budget's and the goals' reads see it. Without the flag runtime — on.
+   */
+  readonly oneOffEnabled: (householdId: string) => Promise<boolean>;
 }
 
 export function createTransactionsServices(options: {
@@ -102,6 +109,8 @@ export function createTransactionsServices(options: {
     categoryOf: options.categoryOf ?? null,
     reportingCurrency: REPORTING_CURRENCY,
     history: options.audit.entriesFor ? { entriesFor: options.audit.entriesFor.bind(options.audit) } : null,
+    oneOffEnabled: (householdId) =>
+      options.flags ? options.flags.isEnabled(householdId, ONE_OFF_FLAG) : Promise.resolve(true),
   };
 }
 

@@ -585,3 +585,34 @@ describe("BUD-08@PoC b: «Оновити залишок» (security review #642,
     }
   });
 });
+
+describe("IMP-03@PoC FR 9: an exchange in the cash flow (security review #688)", () => {
+  it("IMP-03@PoC FR 9: a confirmed exchange between two wallets of a goal's own account is not a contribution to the goal", async () => {
+    const s = await newSpace();
+    const res = await call(s, "POST", "/v1/accounts", {
+      kind: "current",
+      name: "Синтетична мультивалютна",
+      balance: { amount: "100.00", currency: "EUR" },
+      balanceDate: "2026-01-01",
+      extraCurrencies: [{ amount: "5000.00", currency: "UAH", date: "2026-01-01" }],
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const card = res.json().id as string;
+    await runWorker(s.householdId);
+    const g = await goal(s, "Власний рахунок", { kind: "account", accountId: card });
+    await db.owner.query(
+      `INSERT INTO fx_rates.rates (rate_date, currency, rate, source, fetched_at) VALUES ('2026-11-19', 'EUR', '44.5', 'NBU', now())
+       ON CONFLICT DO NOTHING`,
+    );
+    const out = await tx(s, card, "-1000.00", "2026-11-19", null, "UAH");
+    const into = await tx(s, card, "22.50", "2026-11-19", null, "EUR");
+    const proposals = await call(s, "GET", "/v1/transfer-proposals");
+    expect(proposals.json().items).toMatchObject([{ pairKind: "exchange" }]);
+    const marked = await call(s, "POST", `/v1/transactions/${out}/transfer`, { counterpartId: into });
+    expect(marked.statusCode, marked.body).toBe(200);
+    await runWorker(s.householdId);
+    const month = (await cashflow(s, "month", "2026-11")).months[0];
+    expect(month.goalContributions).toEqual({ total: eur("0"), goals: [] });
+    void g;
+  });
+});

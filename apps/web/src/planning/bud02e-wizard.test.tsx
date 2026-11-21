@@ -119,6 +119,7 @@ const ALLOCATION = {
     amount: eur("2740.00"),
   },
   choice: null,
+  spendable: { period: "2026-11", amount: eur("2902.34"), missing: [] },
 };
 
 function mount(over: Record<string, Reply> = {}) {
@@ -369,4 +370,18 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     await screen.findByText("Не вдалося завантажити бюджет");
     expect(screen.getByRole("button", { name: "Спробувати ще раз" })).toBeTruthy();
   });
+
+  it.each([
+    ["GET /v1/space", problem(404, "NOT_FOUND")],
+    ["GET /v1/budget/wizard", problem(503, "MODULE_UNAVAILABLE")],
+    ["GET /v1/budget", problem(404, "NOT_FOUND")],
+  ])(
+    "BUD-02 e) error state: a function not available (%s) reads «Бюджет зараз недоступний», never the sign-in text",
+    async (call, reply) => {
+      mount({ [call]: reply });
+      await screen.findByText("Не вдалося завантажити бюджет");
+      expect(screen.getByText("Бюджет зараз недоступний. Спробуйте пізніше")).toBeTruthy();
+      expect(screen.queryByText(/Реєстрація і вхід/)).toBeNull();
+    },
+  );
 });

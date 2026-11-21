@@ -17,7 +17,7 @@ import {
   type RecurringServices,
 } from "./adapters/index.ts";
 import { trackSpace } from "./application/index.ts";
-import { chargesInMonth, type ChargeStatus } from "./domain/index.ts";
+import { chargesInMonth, chargesOfFinishedMonth, type ChargeStatus } from "./domain/index.ts";
 
 export const recurringModule = defineModule({
   name: "recurring",
@@ -72,6 +72,51 @@ export function createRecurringMonth(db: ModuleDatabase, services: RecurringServ
         .flatMap((p) => {
           const t = tracked.byPayment.get(p.id);
           return t ? chargesInMonth(p, t, month, today) : [];
+        })
+        .sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.paymentId.localeCompare(b.paymentId));
+    },
+  };
+}
+
+/**
+ * FLW-38@PoC FR 1 (S-135 «Підсумок періоду», card «Регулярні платежі»): the space's charges of a finished calendar month
+ * (YYYY-MM) of every payment, whatever its state now, with the status «Регулярні платежі» shows and the day each was paid,
+ * by date. Expenses and incomes alike (`type`); amounts in the payment's currency. Read only (the expected amount the
+ * charges changed is written by «Регулярні платежі» itself); every call is bound to one space.
+ */
+export interface RecurringHistory {
+  finishedMonth(
+    householdId: string,
+    month: string,
+  ): Promise<
+    readonly {
+      readonly paymentId: string;
+      readonly type: "expense" | "income";
+      readonly categoryId: string | null;
+      readonly dueOn: string;
+      readonly expected: Money;
+      readonly status: ChargeStatus;
+      readonly overdueDays: number | null;
+      readonly paidOn: string | null;
+    }[]
+  >;
+}
+
+/** `db` is the recurring module's own database; `services` — the same `createRecurringServices` the routes use. */
+export function createRecurringHistory(db: ModuleDatabase, services: RecurringServices): RecurringHistory {
+  return {
+    async finishedMonth(householdId, month) {
+      const { payments, marks, holds } = await db.inHousehold(householdId, async (q) => ({
+        payments: await recurringTx(q).payments(householdId),
+        marks: await recurringTx(q).marks(householdId),
+        holds: await recurringTx(q).holds(householdId),
+      }));
+      if (payments.length === 0) return [];
+      const tracked = await trackSpace(services.tracking, householdId, payments, marks, holds);
+      return payments
+        .flatMap((p) => {
+          const t = tracked.byPayment.get(p.id);
+          return t ? chargesOfFinishedMonth(p, t, month) : [];
         })
         .sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.paymentId.localeCompare(b.paymentId));
     },

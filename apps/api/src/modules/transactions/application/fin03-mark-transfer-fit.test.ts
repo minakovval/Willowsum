@@ -28,6 +28,7 @@ function row(id: string, accountId: string, amount: Money): StoredTransaction {
     mergedInto: null,
     note: null,
     tagIds: [],
+    oneOff: false,
     review: null,
     version: 1,
     createdAt: "2026-10-14T10:00:00Z",

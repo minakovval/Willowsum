@@ -7,10 +7,12 @@ import { PlanEmpty } from "./PlanEmpty.tsx";
 import { useBudgetTabs } from "./trend/tabs.ts";
 import { BUDGET, childPath } from "../routing/routes.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
-import { failureOf } from "../auth/failure.ts";
+import { BudgetError } from "./budget/BudgetError.tsx";
 import { kyivToday, useLoad } from "../recurring/data.ts";
 import "./budget/budget.css";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
+import { SpendableCard } from "./spendable/SpendableCard.tsx";
+import { PeriodSummary } from "./period/PeriodSummary.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
   loadBudget,
@@ -38,8 +40,8 @@ const monthYear = (t: Translate, period: string): string => `${monthName(t, peri
  * budget period «‹ Листопад 2026 ›», then «Можна витратити», «Дохід» and «Регулярні платежі» — three blocks of 4
  * columns and one height — and the categories on 12. The current month shows the fact, a past one the plan against
  * the fact, a future one only the plan under the banner «Це план на <місяць> — витрат ще немає». Without a budget the
- * page shows its own empty state (#541, GRID-04 EC1). «Можна витратити» and «Регулярні платежі» are the slots of
- * BUD-03 (row 126) and BUD-07 (row 130); the tabs are the next rows.
+ * page shows its own empty state (#541, GRID-04 EC1). «Можна витратити» is the card of BUD-03 (row 126, only in the current month) and «Регулярні платежі» the slot of
+ * BUD-07 (row 130); the tabs are the next rows.
  */
 export function BudgetPage({ today = kyivToday() }: { today?: string }) {
   const { t } = useI18n();
@@ -96,33 +98,28 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
       </div>
       <PageTabs label={tabs.label} panelId="budget-panel" selected="budget" tabs={tabs.tabs}>
         <PlanGrid page="budget">
-          <PlanRegion name="spendable" span={4} />
-          {data?.kind === "ready" && settled ? (
-            <PlanRegion name="income" span={4} card>
-              <IncomeCard view={data} />
-            </PlanRegion>
+          {data?.kind === "ready" && settled && data.period.mode === "past" ? (
+            <PeriodSummary key={data.period.period} period={data.period.period} />
           ) : (
-            <PlanRegion name="income" span={4} />
+            <>
+              {data?.kind === "ready" && settled && data.period.mode === "current" ? (
+                <SpendableCard period={data.period.period} />
+              ) : (
+                <PlanRegion name="spendable" span={4} />
+              )}
+              {data?.kind === "ready" && settled ? (
+                <PlanRegion name="income" span={4} card>
+                  <IncomeCard view={data} />
+                </PlanRegion>
+              ) : (
+                <PlanRegion name="income" span={4} />
+              )}
+              <PlanRegion name="recurring" span={4} />
+            </>
           )}
-          <PlanRegion name="recurring" span={4} />
           <PlanRegion name="categories" span={12}>
             {result.state === "error" ? (
-              <section className="ws-card bud-card" role="alert" aria-labelledby="bud-error-title">
-                <h2 id="bud-error-title" className="ws-text-heading-3 bud-card-title">
-                  <Icon name="close" size={16} /> {t("planning.budget.error.title")}
-                </h2>
-                <p className="ws-muted">{t(budgetFailureKey(result.failure))}</p>
-                <p>
-                  <button type="button" className="ws-button" onClick={reload}>
-                    {t("planning.budget.error.retry")}
-                  </button>
-                </p>
-                {failureOf(result.failure).code ? (
-                  <p className="ws-muted">
-                    {t("planning.budget.error.code", { code: failureOf(result.failure).code ?? "" })}
-                  </p>
-                ) : null}
-              </section>
+              <BudgetError failure={result.failure} onRetry={reload} />
             ) : !data || !settled ? (
               <section className="ws-card bud-card" aria-label={t("planning.budget.categories.title")}>
                 <Skeleton variant="row" lines={6} />
@@ -157,14 +154,6 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
       </PageTabs>
     </AppLayout>
   );
-}
-
-/** The refusal in the budget's words: «Реєстрація і вхід недоступні» of the sign-in is not about the budget. */
-function budgetFailureKey(failure: Parameters<typeof failureOf>[0]): MessageKey {
-  const key = failureOf(failure).key;
-  return key === "auth.error.unavailable" || key === "auth.error.captcha"
-    ? "planning.budget.error.body"
-    : key;
 }
 
 /** The future month's banner (S-289), the note of a past month and the approximate-rate marks (BUD-02 AC3, AC8). */

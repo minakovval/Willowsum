@@ -21,6 +21,7 @@ import {
   enableModuleLogin,
   enableProbeLogin,
 } from "../src/platform/db/migrate.ts";
+import { FLAGS } from "../src/modules/feature-flags/index.ts";
 import { HOLDER_PID_ENV } from "../../../tools/test-guards/cluster-lock.mjs";
 import { acquireClusterLock } from "./cluster-lock.ts";
 import { createTestDatabase } from "./db.ts";
@@ -96,10 +97,16 @@ async function startLocked(webOrigin: string, releaseLock: () => Promise<void>):
     await enableContextLogin(owner, password);
     await enableProbeLogin(owner, password);
     // ACC-01: sign-up and sign-in are behind the release flag `identity.sign-in` (stage «all»), off by default.
-    await owner.query(
-      `INSERT INTO feature_flags.flags (key, stage, percent, fully_enabled_at) VALUES ('identity.sign-in', 'all', 100, now())
-       ON CONFLICT (key) DO UPDATE SET stage = 'all', percent = 100, fully_enabled_at = now()`,
-    );
+    // Every other flag too (stage «all»; a flag without a stored state is off): the browser tests of whole flows (FLW-38,
+    // FLW-44) meet the functions as a space does once they are released. The API reads the flags again every 15 s, so
+    // they are in the database before it starts.
+    for (const key of Object.keys(FLAGS)) {
+      await owner.query(
+        `INSERT INTO feature_flags.flags (key, stage, percent, fully_enabled_at) VALUES ($1, 'all', 100, now())
+         ON CONFLICT (key) DO UPDATE SET stage = 'all', percent = 100, fully_enabled_at = now()`,
+        [key],
+      );
+    }
   } catch (error) {
     await owner.end();
     await db.drop();
@@ -224,4 +231,13 @@ export async function spacesOf(
     ),
   );
   return rows;
+}
+
+/** One statement as the database owner: the seeding of a state the product reaches only with time (a budget that began months ago). */
+export async function ownerQuery(
+  databaseUrl: string,
+  sql: string,
+  values: readonly unknown[] = [],
+): Promise<readonly Record<string, unknown>[]> {
+  return withOwner(databaseUrl, async (owner) => (await owner.query(sql, [...values])).rows);
 }

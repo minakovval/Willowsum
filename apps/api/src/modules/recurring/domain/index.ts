@@ -65,4 +65,10 @@ export {
   type TrackInput,
   type Tracking,
 } from "./tracking.ts";
-export { chargesInMonth, scheduleBetween, type MonthCharge } from "./month.ts";
+export {
+  chargesInMonth,
+  chargesOfFinishedMonth,
+  scheduleBetween,
+  type FinishedMonthCharge,
+  type MonthCharge,
+} from "./month.ts";

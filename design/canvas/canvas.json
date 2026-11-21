@@ -1689,6 +1689,30 @@
       "x": 0,
       "y": 31860
     },
+    "PocMoneyImport1Texts.dc.html": {
+      "h": 3200,
+      "page": "poc",
+      "title": "S-170 Імпорт · файли · Тексти",
+      "w": 2640,
+      "x": 9520,
+      "y": 31860
+    },
+    "PocMoneyImport2Texts.dc.html": {
+      "h": 5240,
+      "page": "poc",
+      "title": "S-171 Імпорт · перевірка · Тексти",
+      "w": 2640,
+      "x": 12240,
+      "y": 31860
+    },
+    "PocMoneyImport3Texts.dc.html": {
+      "h": 3060,
+      "page": "poc",
+      "title": "S-174 Імпорт · результат · Тексти",
+      "w": 2640,
+      "x": 14960,
+      "y": 31860
+    },
     "PocMoneyImport2.dc.html": {
       "h": 1100,
       "is_interactive": true,
@@ -2198,7 +2222,7 @@
       "y": 40360
     },
     "PocPlanBudgetTexts.dc.html": {
-      "h": 10150,
+      "h": 10550,
       "page": "poc",
       "title": "S-121 Бюджет · Тексти (словник статусів DS-23)",
       "w": 2640,
@@ -2418,6 +2442,14 @@
       "x": 1360,
       "y": 58470
     },
+    "PocPlanFlowTexts.dc.html": {
+      "h": 3780,
+      "page": "poc",
+      "title": "S-134 Грошовий потік · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 58470
+    },
     "PocPlanGoalCard.dc.html": {
       "h": 1040,
       "is_interactive": true,
@@ -2586,6 +2618,14 @@
       "title": "S-135 Підсумок періоду",
       "w": 1280,
       "x": 0,
+      "y": 60440
+    },
+    "PocPlanPeriodTexts.dc.html": {
+      "h": 2240,
+      "page": "poc",
+      "title": "S-135 Підсумок періоду · Тексти",
+      "w": 1280,
+      "x": 2720,
       "y": 60440
     },
     "PocPlanRecurring.dc.html": {
@@ -4439,10 +4479,13 @@
     "PocMoneyCloseAccTexts.dc.html",
     "PocMoneyMergeAcc.dc.html",
     "PocMoneyImport1.dc.html",
+    "PocMoneyImport1Texts.dc.html",
     "PocMoneyImport2.dc.html",
+    "PocMoneyImport2Texts.dc.html",
     "PocMoneyImportRules.dc.html",
     "PocMoneyImportMismatch.dc.html",
     "PocMoneyImport3.dc.html",
+    "PocMoneyImport3Texts.dc.html",
     "PocImportHistory.dc.html",
     "PocMoneyConnections.dc.html",
     "PocMoneySource.dc.html",
@@ -4484,7 +4527,9 @@
     "PocPlanTrendTexts.dc.html",
     "PocPlanFlow.dc.html",
     "PocPlanFlowYear.dc.html",
+    "PocPlanFlowTexts.dc.html",
     "PocPlanPeriod.dc.html",
+    "PocPlanPeriodTexts.dc.html",
     "PocPlanGoals.dc.html",
     "PocPlanGoalCard.dc.html",
     "PocPlanGoalCardAchieved.dc.html",

@@ -7,6 +7,7 @@ import type {
   FileReview,
   ApplyBatchesTx,
   ParseBatchesTx,
+  RollbackTx,
   SpaceTx,
 } from "../../application/index.ts";
 import type { BatchState } from "../../domain/index.ts";
@@ -22,6 +23,8 @@ interface BatchRow {
   version: number;
   created_at: Date;
   last_action_at: Date;
+  applying: boolean;
+  applied_at: Date | null;
 }
 
 interface FileRow {
@@ -37,7 +40,11 @@ interface FileRow {
   created_at: Date;
 }
 
-const BATCH = "household_id, id, name, state, created_by, version, created_at, last_action_at";
+const BATCH = `household_id, id, name, state, created_by, version, created_at, last_action_at,
+  EXISTS (SELECT 1 FROM batch_applications a
+           WHERE a.household_id = batches.household_id AND a.batch_id = batches.id AND a.in_progress) AS applying,
+  (SELECT a.applied_at FROM batch_applications a
+    WHERE a.household_id = batches.household_id AND a.batch_id = batches.id AND NOT a.in_progress) AS applied_at`;
 const FILE =
   "id, batch_id, position, file_name, file_id, format, size_bytes, rejection_code, content_sha256, created_at";
 
@@ -50,6 +57,8 @@ const batch = (r: BatchRow): Batch => ({
   version: r.version,
   createdAt: r.created_at,
   lastActionAt: r.last_action_at,
+  applying: r.applying,
+  appliedAt: r.applied_at,
 });
 
 const file = (r: FileRow): BatchFile => ({
@@ -270,12 +279,15 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
       return rows.map(review);
     },
     async previousStatement(accountId, batchId) {
-      // FR 3: applied batches only; the latest end of period, then the batch's latest action.
+      // FR 3: applied batches only (their apply finished); the latest end of period, then the batch's latest action.
       const { rows } = await q.query<{ batch_file_id: string; bounds: FileReview["checks"]["bounds"] }>(
         `SELECT c.batch_file_id, c.checks -> 'bounds' AS bounds FROM file_checks c
            JOIN batches b ON b.household_id = c.household_id AND b.id = c.batch_id
          WHERE c.household_id = $1 AND c.account_id = $2 AND c.batch_id <> $3
            AND b.state = 'applied' AND b.deleting_at IS NULL
+           -- An apply still «in progress» is not an applied statement yet.
+           AND NOT EXISTS (SELECT 1 FROM batch_applications a
+                            WHERE a.household_id = b.household_id AND a.batch_id = b.id AND a.in_progress)
          ORDER BY c.checks -> 'bounds' ->> 'end' DESC NULLS LAST, b.last_action_at DESC, c.batch_file_id
          LIMIT 1`,
         [h, accountId, batchId],
@@ -394,7 +406,7 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
 }
 
 /** The batch's transaction with the stored result of its apply (application/apply.ts). */
-export function applyTx(q: HouseholdQueryRunner): ApplyBatchesTx {
+export function applyTx(q: HouseholdQueryRunner): ApplyBatchesTx & RollbackTx {
   return { ...batchesTx(q), ...applicationsTx(q) };
 }
 

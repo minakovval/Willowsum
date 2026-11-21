@@ -4,7 +4,9 @@ import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import type { FileStorage } from "../file-storage/index.ts";
+import type { ImportedTransactions } from "../transactions/index.ts";
 import {
+  applyTx,
   applicationsTx,
   batchesAudit,
   batchesTx,
@@ -22,7 +24,10 @@ import {
   deleteStaleBatches,
   readinessOf,
   recordChecks,
+  recoverStuckApplications,
+  recoverStuckRollbacks,
   type BatchReadiness,
+  type RollbackPorts,
   type FileReview,
   type RecordInput,
 } from "./application/index.ts";
@@ -42,6 +47,7 @@ export {
   type ImportSessionsServices,
   type ParseModules,
   type ParseServices,
+  type PreviewServices,
 } from "./adapters/index.ts";
 export { BatchNotFoundError } from "./application/index.ts";
 export {
@@ -54,7 +60,9 @@ export {
 export type { BatchState } from "./domain/index.ts";
 export {
   APPLICATION_COUNTS_MAX,
+  APPLY_ROWS_MAX,
   APPLY_UNSUPPORTED,
+  STUCK_AFTER_MS,
   ApplicationResultError,
   ROW_ISSUES,
   READINESS_CODES,
@@ -154,6 +162,57 @@ export function createImportSessionsHandOffRecovery(
       let requeued = 0;
       for (const householdId of await households()) requeued += await requeueDeadHandOffs(db, householdId);
       return requeued;
+    },
+  };
+}
+
+/**
+ * The scheduler's daily recovery of applies stuck «in progress» (IMP-01@PoC FR 11, IMP-04@PoC FR 7; #654): in every
+ * space, an apply whose request ended after it stored its result «in progress» and that nobody retried for
+ * `STUCK_AFTER_MS` is settled with module transactions — its rows written: finished with their counts and its audit
+ * entry; not written: given up, the batch back in its state. Also a rollback whose request ended after module
+ * transactions rolled the batch back (IMP-16@PoC FR 3, FR 9): the batch «відкочено» with the recorded mode, actor and
+ * count, and its audit entry. Returns how many were settled or finished.
+ */
+export function createImportSessionsApplyRecovery(options: {
+  readonly db: ModuleDatabase;
+  readonly transactions: Pick<ImportedTransactions, "settle" | "rolledBackSince">;
+  readonly audit: Pick<AuditLog, "record">;
+  readonly households: () => Promise<readonly string[]>;
+  readonly now: () => number;
+  readonly newId: () => string;
+}): { run(): Promise<number> } {
+  const audit = batchesAudit(options.audit);
+  const deps = { newId: options.newId, now: () => new Date(options.now()) };
+  return {
+    async run() {
+      let settled = 0;
+      let failed = 0;
+      for (const householdId of await options.households()) {
+        try {
+          const run: RollbackPorts["run"] = (work) =>
+            options.db.inHousehold(householdId, (q) => work(applyTx(q)));
+          const applies = await recoverStuckApplications(deps, {
+            run,
+            settle: (input) => options.transactions.settle(householdId, input),
+          });
+          // The entries right away; a failure leaves them to the worker (the jobs are queued, ARC-04 FR 2).
+          for (const h of applies.handOffs) await applyHandOff(audit, householdId, h).catch(() => undefined);
+          const rollbacks = await recoverStuckRollbacks(deps, run, (since, before) =>
+            options.transactions.rolledBackSince(householdId, since, before),
+          );
+          for (const h of rollbacks.handOffs)
+            await applyHandOff(audit, householdId, h).catch(() => undefined);
+          settled += applies.result.settled + rollbacks.result.finished;
+          // An apply or a rollback that could not be finished stays for the next run: the task fails (a count only).
+          if (applies.result.failed > 0 || rollbacks.result.failed > 0) failed += 1;
+        } catch {
+          // One space's failure does not keep the others'; the task still fails (a count, never the space).
+          failed += 1;
+        }
+      }
+      if (failed > 0) throw new Error(`import-sessions.apply-recovery failed in ${failed} space(s)`);
+      return settled;
     },
   };
 }

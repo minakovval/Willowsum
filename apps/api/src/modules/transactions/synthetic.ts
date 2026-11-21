@@ -5,7 +5,7 @@
 // (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check. One transfer
 // pairs the outflow −11,50 € (transaction 1) with the inflow 1 000,00 € (transaction 0); its key to the rows is checked
 // at commit, and the rows do not point back at it (the column is nullable). Transactions 1 and 2 are «Не дубль».
-// Transaction 2 has a note and the two synthetic tags (BUD-13).
+// Transaction 2 has a note and the two synthetic tags (BUD-13); transaction 3 is «Одноразова витрата» (BUD-06).
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -38,6 +38,8 @@ export const synthetic = [
           // BUD-13 FR 1, FR 2: transaction 2 has a note and both synthetic tags.
           note: i === 2 ? "Синтетична нотатка" : null,
           tag_ids: i === 2 ? `{${key(household.id, "tag", 0)},${key(household.id, "tag", 1)}}` : "{}",
+          // BUD-06 FR 8: transaction 3 (an expense) is marked «Одноразова витрата».
+          one_off: i === 3 ? "true" : "false",
           version: "1",
         };
     },
@@ -104,6 +106,37 @@ export const synthetic = [
           counts: JSON.stringify({ import: 2, duplicate: 1 }),
           written_by: key(household.id, "account", 0),
           written_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
+  // IMP-01 FR 11 (#654): a given-up attempt of applying another synthetic batch (ids only).
+  defineSyntheticTable({
+    table: "transactions.import_voids",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          import_batch_id: key(household.id, "batch", 100 + i),
+          attempt_id: key(household.id, "attempt", i),
+          voided_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
+  // IMP-16 FR 3 (wave 2 row 44): the rollback of another synthetic batch (counts and kept ids only, never row text).
+  defineSyntheticTable({
+    table: "transactions.import_rollbacks",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          import_batch_id: key(household.id, "batch", 200 + i),
+          mode: i % 2 === 0 ? "keep-changed" : "all",
+          counts: JSON.stringify({ rolledBack: 2, kept: 1, transfers: 0, restored: 0 }),
+          kept: `{${key(household.id, "transaction", 1)}}`,
+          rolled_back_by: key(household.id, "account", 0),
+          rolled_back_at: "2026-10-16T10:00:00Z",
         };
     },
   }),

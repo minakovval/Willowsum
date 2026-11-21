@@ -206,8 +206,8 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     # Backend (ARC-01): module boundaries, the API contract (ARC-07) and integration tests on a real PostgreSQL 17 (ARC-03),
-    # in three parallel parts (owner, 2026-11-14: integration tests in 2 shards): `checks` (everything but the
-    # integration tests) and `integration 1/2`, `integration 2/2` (vitest --shard). Each part has its own PostgreSQL
+    # in four parallel parts (owner, 2026-11-21: integration tests in 3 shards, was 2 on 2026-11-14): `checks`
+    # (everything but the integration tests) and `integration 1/3`, `2/3`, `3/3` (vitest --shard). Each part has its own PostgreSQL
     # service, so the cluster-wide roles of the integration tests never meet another part's. The required check is
     # the job `api` below, which passes only when every part passed; the parts are not required checks by name
     # (tools/pr-rules/lib/workflows.mjs).
@@ -217,13 +217,17 @@ jobs:
       matrix:
         include:
           - part: checks
-          - part: integration 1/2
-            shard: 1/2
-          - part: integration 2/2
-            shard: 2/2
+          - part: integration 1/3
+            shard: 1/3
+          - part: integration 2/3
+            shard: 2/3
+          - part: integration 3/3
+            shard: 3/3
     runs-on: ubuntu-latest
     # 45: 30 (about 2x the p90 of the last 10 single api jobs, 2026-11-14) cancelled `integration 2/2` of #608 twice on
-    # 2026-11-19 (run 44577617439) while tests still passed; shards took 24-29.5 min under evening load.
+    # 2026-11-19 (run 44577617439) while tests still passed; shards took 24-29.5 min under evening load. On 2026-11-21
+    # two shards took 25-42 min and one was cancelled at 45 min twice (runs 44857461438, 44864666105): 3 shards, same
+    # limit (owner, 2026-11-21, docs/decisions/log/2026-11-21-ci-three-shards.md).
     timeout-minutes: 45
     services:
       postgres:
@@ -350,13 +354,13 @@ jobs:
     needs: [changes, api-parts]
     if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     # The required check `api` (AGENTS.md, branch rules, the daily check of main): passes only when every part of
-    # `api-parts` passed (checks and both integration shards). It is skipped, and counts as passed, only when the
+    # `api-parts` passed (checks and all three integration shards). It is skipped, and counts as passed, only when the
     # path filter says the PR does not need it; then the parts are skipped too. When `changes` fails, its outputs are
     # empty, the parts and this job run (fail closed).
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every part passed — checks, integration 1/2 and 2/2
+      - name: Every part passed — checks, integration 1/3, 2/3 and 3/3
         env:
           PARTS: ${{ needs.api-parts.result }}
         run: |
@@ -366,9 +370,9 @@ jobs:
   e2e:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.e2e != 'false' }}
-    # NFR-07@PoC: end-to-end tests at 1280 px in Chromium and WebKit (Firefox from PoC v2), and the contrast check of
+    # NFR-07@PoC: end-to-end tests at 1280 px in Chromium (WebKit dropped from CI, owner 2026-11-20; Firefox from PoC v2), and the contrast check of
     # every route (DS-06@PoC AC2). The static build behind `vite preview`, the real API process and a fresh database
-    # (apps/web/e2e). Only these two browsers are installed, and they are cached by the Playwright version.
+    # (apps/web/e2e). Only Chromium is installed, and it is cached by the Playwright version.
     runs-on: ubuntu-latest
     # 22 = a normal run (8 min measured, run 44471838826 attempt 2, of it 4 min install) + the install step's limit (14 min) with margin.
     # A browser cache miss (only after a Playwright version change) adds up to 6 min of browser download; this limit still caps it.
@@ -416,7 +420,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
       - name: Settings of apt (stalled connections, retries, dpkg lock)
         # #579: the downloaded .deb files are not cached between runs. A cache restored them unverified (apt does not
         # re-check a same-size file already in its archive directory), and it never saved anyway (`tar:
@@ -425,14 +429,15 @@ jobs:
         run: |
           printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nDPkg::Lock::Timeout "60";\n' \
             | sudo tee /etc/apt/apt.conf.d/99ci-retries > /dev/null
-      - name: Install Chromium and WebKit (browsers only; system libraries in the next step)
+      - name: Install Chromium (browser only; system libraries in the next step)
         if: steps.browsers.outputs.cache-hit != 'true'
         # #579: no `--with-deps` here, so the apt install of a cache miss goes through the bounded retry loop below too.
         timeout-minutes: 6
-        run: pnpm --filter @willowsum/web exec playwright install --only-shell chromium webkit
+        run: pnpm --filter @willowsum/web exec playwright install --only-shell chromium
       - name: System libraries of the browsers
-        # #568: `install-deps` downloads ~140 MB (~190 packages; WebKit pulls gstreamer and ffmpeg) from the runner's
-        # apt mirror. On a slow mirror one run used the whole 15-minute job budget and the job timeout cancelled this
+        # #568: `install-deps chromium webkit` downloaded ~140 MB (~190 packages; WebKit pulls gstreamer and ffmpeg) from
+        # the runner's apt mirror and stalled on #651, #657 and #659 (2026-11-20). WebKit was dropped from CI (owner,
+        # 2026-11-20), so only Chromium's libraries are installed. On a slow mirror one run used the whole 15-minute job budget and the job timeout cancelled this
         # step; a passing re-run still took 4 min 09 s, so one attempt gets 6 min. Runs on a browser cache hit and on a
         # miss alike (#579). Playwright runs apt-get through `sudo`, so `timeout`
         # kills only the sudo side and the root apt-get survives (run 44487894650 head bca17c3: it held the dpkg
@@ -441,7 +446,7 @@ jobs:
         timeout-minutes: 14
         run: |
           for attempt in 1 2; do
-            if timeout -k 30s 6m pnpm --filter @willowsum/web exec playwright install-deps chromium webkit; then
+            if timeout -k 30s 6m pnpm --filter @willowsum/web exec playwright install-deps chromium; then
               exit 0
             fi
             echo "::warning::install-deps attempt $attempt failed or stalled"
@@ -459,7 +464,7 @@ jobs:
           done
           echo "::error::install-deps failed 2 times"
           exit 1
-      - name: End-to-end tests and route contrast (build, then Chromium and WebKit at 1280 px)
+      - name: End-to-end tests and route contrast (build, then Chromium at 1280 px)
         run: pnpm test:e2e
       - name: Report and traces on failure
         if: failure()

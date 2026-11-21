@@ -29,7 +29,9 @@ import {
   transactionsWorkerQueue,
   transferCandidates,
   duplicateCandidates,
+  importBatchTransactions,
   importCandidates,
+  importRollbackTx,
   importWriteTx,
   transactionRows,
   ruleCandidates,
@@ -40,6 +42,8 @@ import {
   type DuplicateSide,
   type ImportCandidate,
   type ImportCandidatesQuery,
+  type ImportBatchTransaction,
+  type ImportBatchTransactionsQuery,
   type RuleInput,
 } from "./adapters/index.ts";
 import {
@@ -55,26 +59,38 @@ import {
   type AccountOperation,
   type MovementSide,
 } from "./adapters/db/cashflow-reads.ts";
-import { transactionCreated } from "./events.ts";
+import { transactionCreated, transactionImportMerged, type TransactionImportMerged } from "./events.ts";
 import {
   applyHandOff,
+  ROLLBACK_RECOVERY_LISTED,
+  rollbackImport,
+  rolledBackImport,
+  settleImport,
   writeImport,
   type HandOffDeps,
   type ImportCounts,
   type ImportPlanContext,
   type ImportWriteInput,
   type ImportWriteResult,
+  type ImportRollbackInput,
+  type ImportRollbackResult,
+  type RollbackCategory,
 } from "./application/index.ts";
 import { logEvent } from "../../platform/telemetry/signals.ts";
 
 export const transactionsModule = defineModule({
   name: "transactions",
-  publishes: [transactionCreated],
+  publishes: [transactionCreated, transactionImportMerged],
   consumes: [],
   routes: transactionsRoutes,
 });
 
-export { transactionCreated, type TransactionCreated } from "./events.ts";
+export {
+  transactionCreated,
+  transactionImportMerged,
+  type TransactionCreated,
+  type TransactionImportMerged,
+} from "./events.ts";
 
 export { createTransactionsServices, type TransactionsServices } from "./adapters/index.ts";
 export { TRANSACTION_TYPES, typeOf } from "./domain/index.ts";
@@ -136,7 +152,8 @@ export function createTransactionsErasure(db: ModuleDatabase): TransactionsErasu
 
 /**
  * The candidate pairs of transfers between own accounts (FIN-03@PoC FR 5) for module transfer-matching, which decides
- * by its rule which are proposals: a debit and a credit on two accounts of the space within `windowDays`, both posted,
+ * by its rule which are proposals: a debit and a credit on two accounts of the space (or on two wallets of one account
+ * in two currencies — an exchange, IMP-03 FR 2) within `windowDays`, both posted,
  * shown, not split and in no transfer; in one currency the credit at most the debit and at least `sameCurrencyMinShare`
  * of it. Newest first, at most `limit`. Read only.
  */
@@ -195,9 +212,44 @@ export function createImportCandidates(db: ModuleDatabase): ImportCandidates {
 }
 export type { ImportCandidate, ImportCandidatesQuery };
 
+/**
+ * IMP-08@PoC FR 11, AC7 (the step «Результат»): the transactions an applied import batch wrote that a category is asked
+ * of — shown, not split, no side of a transfer — for module import-sessions, which asks module categorization which of
+ * them have one. One page in the order of the batch's rows after `after`, at most `limit`, on the index by batch and
+ * row. Read only; ids only.
+ */
+export interface ImportBatchTransactions {
+  page(householdId: string, query: ImportBatchTransactionsQuery): Promise<readonly ImportBatchTransaction[]>;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createImportBatchTransactions(db: ModuleDatabase): ImportBatchTransactions {
+  return {
+    page: (householdId, query) =>
+      db.inHousehold(householdId, (q) => importBatchTransactions(q, householdId, query)),
+  };
+}
+export type { ImportBatchTransaction, ImportBatchTransactionsQuery };
+
 export {
+  IMPORT_WAITERS_MAX,
+  ImportBusy,
+  importedRate,
+  importedText,
+  importedValueDate,
   ImportWriteRefused,
+  ImportWriteVoided,
+  ImportRollbackBusy,
+  ROLLBACK_KEPT_LISTED,
+  ROLLBACK_RECOVERY_LISTED,
+  ROLLBACK_MODES,
+  type ImportRollbackCounts,
+  type ImportRollbackInput,
+  type ImportRollbackResult,
+  type RollbackCategory,
+  type RollbackMode,
   type ImportCounts,
+  type ImportCreated,
   type ImportedRowInput,
   type ImportPlanContext,
   type ImportWriteInput,
@@ -219,6 +271,35 @@ export interface ImportedTransactions {
     input: ImportWriteInput,
     plan: (context: ImportPlanContext) => Promise<ImportCounts>,
   ): Promise<ImportWriteResult>;
+  /**
+   * #654: gives up the attempt unless the batch is written — under the accounts' import lock, so a write in progress
+   * finishes first. The counts of the batch's write (the caller finishes its apply with them), or null: the attempt is
+   * given up and no write of it can follow (`ImportWriteVoided`).
+   */
+  settle(
+    householdId: string,
+    input: Pick<ImportWriteInput, "batchId" | "attemptId" | "accountIds">,
+  ): Promise<ImportCounts | null>;
+  /**
+   * IMP-04 FR 8, IMP-16 FR 1–5 (wave 2 row 44): «Відкотити» the batch in one transaction under the import lock and the
+   * money lock of its accounts — each transaction of it rolled back (hidden, its journal event reversed, never
+   * deleted), kept when the person changed it («Залишити змінені») or it is a side of a transfer; what was merged into a
+   * rolled-back one comes back. Once per batch (`first` false: rolled back before, nothing now). A closed account —
+   * `ImportWriteRefused`; a row held by another change — `ImportRollbackBusy`; nothing changed either way. Throws when
+   * the port `categories` was not given.
+   */
+  rollback(householdId: string, input: ImportRollbackInput): Promise<ImportRollbackResult>;
+  /** The batch's rollback as recorded; null — not rolled back. Read only. */
+  rolledBack(householdId: string, batchId: string): Promise<Omit<ImportRollbackResult, "first"> | null>;
+  /**
+   * The rollbacks recorded in `[since, before)` (at most `ROLLBACK_RECOVERY_LISTED`, earliest first), for module
+   * import-sessions' recovery of a request that ended before it marked its batch. Read only.
+   */
+  rolledBackSince(
+    householdId: string,
+    since: Date,
+    before: Date,
+  ): Promise<readonly (Omit<ImportRollbackResult, "first"> & { readonly batchId: string })[]>;
 }
 
 /** The hand-offs run right away after the write; the worker runs the rest from the queue (ARC-04 FR 2). */
@@ -233,6 +314,19 @@ export function createImportedTransactions(
     readonly audit: Pick<AuditLog, "record">;
     readonly newId: () => string;
     readonly now: () => number;
+    /**
+     * IMP-04 FR 5 (#658): run right away after the write for each merge with a manual transaction (module
+     * categorization carries its category); the event `transactions.import-merged` makes it happen later too.
+     */
+    readonly merged?: (householdId: string, merge: TransactionImportMerged) => Promise<void>;
+    /**
+     * IMP-16 FR 4 (wave 2 row 44): module categorization's categories of the transactions `ids` — a category set by
+     * hand after the apply keeps a transaction with «Залишити змінені». Without it the rollback throws.
+     */
+    readonly categories?: (
+      householdId: string,
+      ids: readonly string[],
+    ) => Promise<ReadonlyMap<string, RollbackCategory>>;
   },
 ): ImportedTransactions {
   const deps: HandOffDeps = {
@@ -242,7 +336,7 @@ export function createImportedTransactions(
   };
   return {
     async write(householdId, input, plan) {
-      const { handOffs, ...result } = await db.inHousehold(householdId, (q) =>
+      const { handOffs, merges, ...result } = await db.inHousehold(householdId, (q) =>
         writeImport(
           { accounts: ports.accounts, newId: ports.newId, now: () => new Date(ports.now()) },
           importWriteTx(q),
@@ -266,8 +360,54 @@ export function createImportedTransactions(
           "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
         });
       }
+      // FR 5 (#658): the manual ones' categories right away; the event's job does it if this fails.
+      for (const m of ports.merged ? merges : [])
+        await ports.merged!(householdId, { ...m, actorAccountId: input.actorId }).catch((error: unknown) =>
+          logEvent("transactions.import_merge_deferred", "warn", {
+            "ws.module": "transactions",
+            "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+          }),
+        );
       return result;
     },
+    settle: (householdId, input) =>
+      db.inHousehold(householdId, (q) =>
+        settleImport({ now: () => new Date(ports.now()) }, importWriteTx(q), householdId, input),
+      ),
+    async rollback(householdId, input) {
+      const categories = ports.categories;
+      if (!categories) throw new Error("the rollback needs module categorization's categories");
+      const { handOffs, ...result } = await db.inHousehold(householdId, (q) =>
+        rollbackImport(
+          { accounts: ports.accounts, now: () => new Date(ports.now()), categories },
+          importRollbackTx(q),
+          householdId,
+          input,
+        ),
+      );
+      try {
+        for (const h of handOffs.slice(0, IMPORT_HAND_OFF_NOW))
+          await applyHandOff(
+            deps,
+            transactionRows((work) => db.inHousehold(householdId, work)),
+            householdId,
+            h,
+          );
+      } catch (error) {
+        // The jobs are queued: the worker finishes them (class only, never a value).
+        logEvent("transactions.hand_off_deferred", "warn", {
+          "ws.module": "transactions",
+          "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+        });
+      }
+      return result;
+    },
+    rolledBack: (householdId, batchId) =>
+      db.inHousehold(householdId, (q) => rolledBackImport(importRollbackTx(q), householdId, batchId)),
+    rolledBackSince: (householdId, since, before) =>
+      db.inHousehold(householdId, (q) =>
+        importRollbackTx(q).rolledBackSince(householdId, since, before, ROLLBACK_RECOVERY_LISTED),
+      ),
   };
 }
 
@@ -327,6 +467,12 @@ export interface BudgetTransactions {
       readonly parts:
         | readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[]
         | null;
+      /**
+       * BUD-06@PoC FR 8 «Одноразова витрата»: counted in the fact of its period, left out of the averages (BUD-06 FR 4,
+       * BUD-02 «Створити за моїми витратами») — the reader decides. Always false while `transactions.one-off` is off
+       * for the space (the mark then acts nowhere); absent — not marked.
+       */
+      readonly oneOff?: boolean;
     }[]
   >;
   /**
@@ -336,14 +482,29 @@ export interface BudgetTransactions {
   firstDate(householdId: string, accountIds: readonly string[]): Promise<string | null>;
 }
 
+/**
+ * BUD-06@PoC FR 8: whether «Одноразова витрата» (`transactions.one-off`) is on for the space — the API process wires the
+ * flag runtime; left out (a test's server), the marks act.
+ */
+export interface OneOffSwitch {
+  readonly oneOffEnabled?: (householdId: string) => Promise<boolean>;
+}
+
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
-export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions {
+export function createBudgetTransactions(db: ModuleDatabase, options: OneOffSwitch = {}): BudgetTransactions {
   return {
-    inPeriod: (householdId, accountIds, from, to) =>
-      db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to)),
+    async inPeriod(householdId, accountIds, from, to) {
+      const rows = await db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to));
+      if (!rows.some((r) => r.oneOff) || (await oneOffOn(options, householdId))) return rows;
+      return rows.map((r) => ({ ...r, oneOff: false }));
+    },
     firstDate: (householdId, accountIds) =>
       db.inHousehold(householdId, (q) => budgetFirstDate(q, householdId, accountIds)),
   };
+}
+
+async function oneOffOn(options: OneOffSwitch, householdId: string): Promise<boolean> {
+  return options.oneOffEnabled ? options.oneOffEnabled(householdId) : true;
 }
 
 /**
@@ -353,7 +514,8 @@ export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions
 export interface GoalTransactions {
   /**
    * FR 10 «Подушка безпеки»: the space's transactions from `from` to `to` as the budget period counts them — shown,
-   * «Очікує» too, no merged duplicate, no side of a transfer, any account; signed, with split parts.
+   * «Очікує» too, no merged duplicate, no side of a transfer, any account; signed, with split parts; `oneOff` — marked
+   * «Одноразова витрата» (BUD-06@PoC FR 8; false while `transactions.one-off` is off).
    */
   countedInWindow(householdId: string, from: string, to: string): Promise<readonly CountedTransaction[]>;
   /**
@@ -378,10 +540,13 @@ export interface GoalTransactions {
 export type { CountedTransaction, SpendCandidate, SpendCandidatesAfter };
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
-export function createGoalTransactions(db: ModuleDatabase): GoalTransactions {
+export function createGoalTransactions(db: ModuleDatabase, options: OneOffSwitch = {}): GoalTransactions {
   return {
-    countedInWindow: (householdId, from, to) =>
-      db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to)),
+    async countedInWindow(householdId, from, to) {
+      // BUD-06@PoC FR 8: «Одноразова витрата» leaves the sum of «Подушка безпеки» (BUD-05 FR 10), not its months.
+      const oneOffs = await oneOffOn(options, householdId);
+      return db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to, oneOffs));
+    },
     spendCandidates: (householdId, query) =>
       db.inHousehold(householdId, (q) => spendCandidates(q, householdId, query)),
   };

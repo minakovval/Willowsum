@@ -10,6 +10,11 @@ export interface CountedTransaction {
   /** Its parts in order (`month` — the first day of a share «На кілька місяців»); null — not split. */
   readonly parts:
     readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[] | null;
+  /**
+   * BUD-06@PoC FR 8: marked «Одноразова витрата» — out of the cushion's sum, still a month of history (#685); always
+   * false while `transactions.one-off` is off for the space.
+   */
+  readonly oneOff: boolean;
 }
 
 /**
@@ -17,12 +22,14 @@ export interface CountedTransaction {
  * the budget period counts them (BUD-02@PoC FR 12): shown, «Очікує» too, merged into none, no side of a transfer
  * between own accounts, of every account; a split one with its parts (a share «На кілька місяців» in the window
  * brings its transaction even when the transaction's own date is outside). Signed exact NUMERIC as text.
+ * `oneOffs` (BUD-06@PoC FR 8): whether the marks «Одноразова витрата» act (the flag); off — every row reads unmarked.
  */
 export async function countedInWindow(
   q: ModuleQueryRunner,
   householdId: string,
   from: string,
   to: string,
+  oneOffs = false,
 ): Promise<CountedTransaction[]> {
   const { rows } = await q.query<{
     id: string;
@@ -31,8 +38,10 @@ export async function countedInWindow(
     date: string;
     split_mode: string | null;
     parts: { categoryId: string; month: string | null; amount: string }[] | null;
+    one_off: boolean;
   }>(
     `SELECT t.id, t.amount::text AS amount, t.currency, to_char(t.occurred_on, 'YYYY-MM-DD') AS date, t.split_mode,
+            $4::boolean AND t.one_off AS one_off,
             (SELECT json_agg(json_build_object('categoryId', p.category_id, 'month', to_char(p.month, 'YYYY-MM-DD'),
                                                'amount', p.amount::text) ORDER BY p.position)
                FROM transaction_parts p WHERE p.household_id = t.household_id AND p.transaction_id = t.id) AS parts
@@ -43,7 +52,7 @@ export async function countedInWindow(
                    WHERE p.household_id = t.household_id AND p.transaction_id = t.id
                      AND p.month BETWEEN $2::date AND $3::date)))
       ORDER BY t.occurred_on, t.id`,
-    [householdId, from, to],
+    [householdId, from, to, oneOffs],
   );
   return rows.map((r) => ({
     id: r.id,
@@ -57,6 +66,7 @@ export async function countedInWindow(
             month: p.month,
             amount: Money.of(p.amount, r.currency),
           })),
+    oneOff: r.one_off,
   }));
 }
 

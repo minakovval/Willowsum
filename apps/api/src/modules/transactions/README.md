@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (IMP-02@PoC п. 4, S-047: дані рядка виписки — `bankDescription`, `balanceAfter`, `importedFrom`, `originalAmount`, `exchangeRate`, `valueDate`, `bankReference` у транзакції й у списку, `ImportedRowInput.original` / `rate` / `valueDate` / `reference`, `importedRate`, колонки `0014_bank_fields.sql`); 2026-11-21 (IMP-03 a, рядок 47: обмін валют між гаманцями одного рахунку — кандидат пари і переказ; BUD-06@PoC п. 8: «Одноразова витрата» — `PUT /v1/transactions/{id}/one-off`, прапорець `transactions.one-off`, колонка `one_off` (`0013_one_off.sql`), `oneOff` у `BudgetTransactions.inPeriod`, `GoalTransactions.countedInWindow` без позначених); 2026-11-20 (IMP-08 п. 11: `ImportBatchTransactions` для кроку «Результат», `importBatchId` сторін `TransferCandidates`; IMP-04 FR 8, IMP-16, рядок 44: `ImportedTransactions.rollback` / `rolledBack` / `rolledBackSince`, порт `categories`, `rolled_back_at`, `listed_hidden`, `import_rollbacks`, дія передачі `rollback`; IMP-04 c, #654 п. 6, #658: `ImportedTransactions` — злиття з ручною (`mergeInto`: ручну злито в банківський рядок, подія `transactions.import-merged`, порт `merged`), заміна очікуваної (`replaces`), `ImportCandidates.merged`; BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11, частина b, #654: `ImportedTransactions.settle`, `import_voids`, місця очікування, блокування грошей лише навколо запису; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -75,7 +75,11 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   - `GET /v1/transactions/{transactionId}` (`getTransaction`, `household.data.read`) — `id`, `accountId`, `amount`,
     `type` (`income` / `expense`), `date`, `counterparty`, `description`, `status` (`posted` / `pending`), `source`
     (`manual`), `hidden`, `split` (`mode` — `categories` / `months`, `needsReview`, `parts` по порядку: `categoryId`,
-    `month` — YYYY-MM частки місяця або null, `amount`) або null, `recordedAt` («Дата і час»: час запису).
+    `month` — YYYY-MM частки місяця або null, `amount`) або null, `recordedAt` («Дата і час»: час запису). IMP-02@PoC
+    п. 4 (S-047): `bankDescription` (опис банку як надруковано, замаскований; правка «Опис» його не змінює),
+    `balanceAfter`, `importedFrom` (`batchId`, `fileId`, `row`), `originalAmount` (початкова сума й валюта зі знаком
+    суми), `exchangeRate` (курс банку), `valueDate` (дата валютування), `bankReference` — null у введеної вручну й там,
+    де виписка їх не має; так само в елементах `GET /v1/transactions`. Лише в просторі транзакції (інший — 404).
   - `PATCH /v1/transactions/{transactionId}` (`updateTransaction`, `household.data.write`) — ті самі поля, кожне
     необов'язкове; `null` чи порожній текст знімає контрагента чи опис. Зміна рахунку, суми чи дати — `correct` журналу
     (сторно і новий запис); лише тексти — без запису журналу; без змін — нічого. `status`: `pending` сторнує запис,
@@ -105,6 +109,13 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     тег, якого в просторі немає, створюється). Злитий дубль — 409 `TRANSACTION_MERGED`, закритий рахунок — 409
     `ACCOUNT_CLOSED`. Запис аудиту — `update` з полями `note` (замасковано) і `tags` (ідентифікатори); журнал не змінюється.
     Кожна транзакція має `note` і `tags` (`id`, `name` по порядку) — і в списку.
+  - `PUT /v1/transactions/{transactionId}/one-off` (`setTransactionOneOff`, ключ і прапорець `transactions.one-off`,
+    потребує `transactions.manual`; BUD-06@PoC п. 8, AC4) — `{ oneOff }`: «Одноразова витрата» в деталях транзакції.
+    Лише витрата (від'ємна сума; дохід — 400 `oneOff: not_expense`), не сторона переказу (409 `TRANSACTION_IN_TRANSFER`);
+    зняти можна завжди; злитий дубль — 409 `TRANSACTION_MERGED`, закритий рахунок — 409 `ACCOUNT_CLOSED`; те саме значення
+    — нічого. Запис аудиту — `update` з полем `oneOff` (`true` / null); журнал не змінюється. Кожна транзакція має
+    `oneOff` — і в списку (false, поки `transactions.one-off` вимкнено, #685). Зміна, після якої сума не від'ємна, або позначення стороною переказу знімає позначку із записом аудиту (`keepsOneOff`, #685). Позначена лишається у факті свого періоду, а середні (`BudgetTransactions`,
+    `GoalTransactions`) її не рахують; злиття ручної в імпортовану переносить позначку.
   - `GET /v1/transaction-tags` (`listTransactionTags`) — теги простору за назвою з `count` (транзакцій із тегом, приховані
     теж: «Тег буде знято з N транзакцій»). `PATCH /v1/transaction-tags/{tagId}` (`renameTransactionTag`) — `{ name }`;
     назва іншого тегу простору (без урахування регістру) — об'єднання: той лишається, кожна транзакція має його раз, цей
@@ -207,7 +218,7 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   підтверджена чи ручна — «без змін»; злитий дубль — `transaction.merged`. Груповий запис аудиту; «Відмінити» повертає в
   чергу.
 - `createTransactionsErasure(db)` → `TransactionsErasure.eraseHousehold(householdId)` → `{ transactions, idempotencyKeys,
-  jobs }` (і `import_writes`) — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
+  jobs }` (і `import_writes`, `import_voids`, `import_rollbacks`) — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
   `transactions.records`) перед рахунками і журналом.
 - `createTransactionsWorkerQueue(db, { accounts, ledger, audit })` → черга воркера (`src/wiring.ts`, `workerQueues`):
   задачі `transactions.hand-off` (`HAND_OFF_JOB`) зі схеми модуля, з тими самими портами, що в маршрутів.
@@ -227,10 +238,11 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   читання: `facts(householdId, ids)` — чи є транзакція (приховані теж), чи вона сторона переказу, розділена, злитий
   дубль; `select(householdId, filter, excluded, limit)` — «Вибрати всі M за фільтром» на рушії списку «Транзакції»
   (`transactionsList.ids`; без фільтра `hidden` — лише показані; невідомий фільтр — `invalid`).
-- `createGoalTransactions(db)` → `GoalTransactions` для `goals` (BUD-05@PoC п. 8, 10; #553, #559), лише читання:
+- `createGoalTransactions(db, { oneOffEnabled? })` → `GoalTransactions` для `goals` (BUD-05@PoC п. 8, 10; #553, #559), лише читання:
   `countedInWindow(householdId, from, to)` — транзакції простору, які рахує період бюджету, за вікно дат (як
   `budgetRows`, без фільтра рахунків): показані, «Очікує» теж, без злитих дублів і сторін переказу; сума зі знаком, у
-  розділених — частини (категорія, сума, місяць); `spendCandidates(householdId,
+  розділених — частини (категорія, сума, місяць); `oneOff` — «Одноразова витрата» (BUD-06@PoC п. 8; false, поки
+  `transactions.one-off` вимкнено, `createGoalTransactions(db, { oneOffEnabled })`); `spendCandidates(householdId,
   { accountId, currency, excluded, search, after, limit })` — вихідні «Проведена» показані транзакції у валюті, не
   сторони переказу й не злиті, на рахунку (null — будь-якому), крім `excluded`, з пошуком (`%`, `_` — буквально);
   найновіші спершу (дата, час запису, id) після `after`, не більше `limit`, і `count` — усього без `after`.
@@ -253,8 +265,9 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   `unchanged` / `refused`; `restoreTags(householdId, id, expected, next, actorAccountId)` — «Відмінити» запуску: `next`,
   лише якщо теги досі `expected` (за ключем і порядком) → `restored` / `changed`. Кожен виклик — окрема транзакція модуля.
   `TransactionHandOff.actorAccountId` може бути null (система; запис аудиту — `system`).
-- `createBudgetTransactions(db)` → `BudgetTransactions` для `budget` і `cashflow`, лише читання: `inPeriod` (транзакції
-  рахунків за датами з частинами) і `firstDate(householdId, accountIds)` — дата першої транзакції, яку рахує бюджет
+- `createBudgetTransactions(db, { oneOffEnabled? })` → `BudgetTransactions` для `budget` і `cashflow`, лише читання:
+  `inPeriod` (транзакції рахунків за датами з частинами і `oneOff` — «Одноразова витрата», BUD-06@PoC п. 8; false, поки
+  `transactions.one-off` вимкнено для простору; без `oneOffEnabled` — позначки діють) і `firstDate(householdId, accountIds)` — дата першої транзакції, яку рахує бюджет
   (BUD-06@PoC п. 4, 5: початок історії), null — немає.
 - `createCashflowMovements(db)` → `CashflowMovements` для `cashflow` (BUD-08@PoC п. 5–7), лише читання: `transfers(householdId,
   from, to)` — позначені перекази між власними рахунками, чия показана вихідна сторона датована в ці дати (обидві
@@ -267,26 +280,65 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   { from, to, limit })` — показані транзакції простору з контрагентом за період (обидві дати включно), не сторони переказу
   і не злиті, будь-якого стану, від новішої, не більше `limit`; сума зі знаком у валюті транзакції.
 - `createTransferCandidates(db)` → `TransferCandidates.candidatePairs(householdId, { windowDays, sameCurrencyMinShare,
-  limit })` — пари-кандидати для `transfer-matching` (лише читання; правило вирішує той модуль).
+  limit })` — пари-кандидати для `transfer-matching`: два рахунки або (IMP-03 п. 2, обмін валют) два гаманці одного
+  рахунку у двох валютах (лише читання; правило вирішує той модуль). «Позначити як переказ» / «Підтвердити»
+  (`POST /v1/transactions/{id}/transfer`) так само приймає обмін між гаманцями одного рахунку; один гаманець —
+  `same_account`.
 - `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` — пари
   можливих дублів для `duplicate-matching`: показані,
   на одному рахунку, та сама сума й валюта, у межах `windowDays`, не сторони переказу, не «Не дубль»; `first` — раніша
   (лише читання; правило вирішує той модуль).
+- `createImportBatchTransactions(db)` → `ImportBatchTransactions.page(householdId, { batchId, limit, after? })` (IMP-08@PoC
+  п. 11, AC7; для import-sessions): ідентифікатори транзакцій застосованої партії, про категорію яких питають — показані, не
+  розділені, не сторона переказу; сторінка в порядку рядків партії (файл, рядок) після `after` на індексі
+  `transactions_import_row`. Лише читання. `TransferCandidates`: кожна сторона має `importBatchId` (партія, що її записала;
+  null — ручна).
 - `createImportCandidates(db)` → `ImportCandidates.page(householdId, { accountId, from, to, limit, after })` — транзакції
   одного рахунку з датою в [from, to] для плану імпорту модуля `duplicate-matching` (IMP-04@PoC п. 1–6): приховані теж,
-  злитий дубль — ні; сума зі знаком, опис, залишок після операції, стан, джерело, партія імпорту, сторона переказу,
+  злитий ручний дубль (і ручна, злита в банківський рядок) — ні, злита імпортована (замінена очікувана) — так, з `merged`; сума зі знаком, опис, залишок після операції, стан, джерело, партія імпорту, сторона переказу,
   `matched` (у неї вже щось злито); сторінка в порядку (дата, id) після `after` за індексом `transactions_by_account`.
   Лише читання.
-- `createImportedTransactions(db, { accounts, ledger, audit, newId, now })` → `ImportedTransactions.write(householdId,
+- `createImportedTransactions(db, { accounts, ledger, audit, newId, now, merged? })` → `ImportedTransactions.write(householdId,
   input, plan)` для кроку застосування `import-sessions` (IMP-01@PoC п. 11, IMP-04@PoC п. 7): в одній транзакції —
-  блокування імпорту рахунків (`transactions.import:<простір>:<рахунок>`, чекає до 60 с), чи партію вже записано
-  (`import_writes` → `first: false`, нічого не створює), блокування грошей рахунків, перевірки рахунку (закритий —
-  `ACCOUNT_CLOSED`), план (`plan(ctx)` — `ctx.candidates` для `planImport` і `ctx.create(row)`), рядки з джерелом
-  `imported` (ключ `(партія, файл, рядок)` — унікальний, тож другий запис того самого рядка нічого не додає), «До
-  розбору», банківський опис окремо (`bank_description`), подія `transactions.created`, передачі в журнал, запис
-  `import_writes`. Після коміту виконує до 100 (`IMPORT_HAND_OFF_NOW`) передач, решту — воркер. Рядок, який рахунок не
-  приймає, — `ImportWriteRefused` (усе відкочено). Типи `ImportWriteInput`, `ImportedRowInput`, `ImportCounts`,
+  місце очікування простору (до `IMPORT_WAITERS_MAX` = 4 застосувань водночас, інакше `ImportBusy`, #654), блокування
+  імпорту рахунків (`transactions.import:<простір>:<рахунок>`, чекає до 60 с), чи партію вже записано
+  (`import_writes` → `first: false`, нічого не створює), чи спробу (`input.attemptId`) не відкликано (`import_voids` →
+  `ImportWriteVoided`), перевірки рахунку (закритий — `ACCOUNT_CLOSED`), план (`plan(ctx)` — `ctx.candidates` для
+  `planImport`, `ctx.creditCard(accountId)` — вид рахунку «кредитна картка» і `ctx.create(rows)` → `{ unlinked }`), рядки з джерелом `imported` (ключ `(партія, файл, рядок)` — унікальний, тож другий
+  запис того самого рядка нічого не додає), «До розбору», банківський опис окремо (`bank_description`), подія
+  `transactions.created`; IMP-04 п. 5 (`mergeInto`, #658): банківський рядок лишається показаним (дата, опис банку,
+  власна подія журналу) і бере нотатку, теги й стан «До розбору» ручної; ручну злито в нього (прихована, `mergedInto`,
+  її подія журналу сторнується; передачі `merge` ручної, потім `create` рядка; «Роз'єднати» повертає її), подія
+  `transactions.import-merged` — категорію переносить categorization (порт `merged` одразу після коміту, задача — ще
+  раз), п. 6 (`replaces` з сумою з плану): очікувану злито в проведений рядок (прихована, передача `merge`); інша
+  транзакція блокується (рядки зв'язків — за зростанням ідентифікатора, як «Об'єднати»; нижчий за вже взятий — лише
+  без очікування, `SKIP LOCKED`, зайнятий — зв'язку немає) й перевіряється знову (той самий рахунок і гаманець, не злита, не переказ, без злитих у неї;
+  ручна — проведена, показана, не розділена, та сама сума; очікувана — імпортована, та сама сума, що в плані), інакше зв'язку немає
+  (`unlinked`; рядок пишеться сам або, з `ifUnlinked: "skip"`, ні); лише потім блокування грошей рахунків і повторна перевірка рахунку (закритий чи замінений
+  гаманець — `ImportWriteRefused`, усе відкочено; #654), передачі в журнал, запис `import_writes`. Після коміту виконує
+  до 100 (`IMPORT_HAND_OFF_NOW`) передач, решту — воркер. Рядок, який рахунок не приймає, — `ImportWriteRefused` (усе
+  відкочено). `ImportedTransactions.settle(householdId, { batchId, attemptId, accountIds })` (#654): під блокуванням
+  імпорту — лічильники запису партії, якщо він є, інакше спробу відкликано (`import_voids`) і `null`. `importedText`
+  — текст банку так, як його зберігає рядок (для плану; також `reference` — до 200 символів), `importedRate` — курс банку
+  так, як його зберігає рядок (додатний, до 18 знаків, інакше null). IMP-02 п. 4: `ImportedRowInput.original`
+  (початкова сума), `rate`, `valueDate`, `reference` пишуться в колонки `0014_bank_fields.sql`. Типи `ImportWriteInput`, `ImportedRowInput`, `ImportCreated`, `ImportCounts`,
   `ImportWriteResult`, `ImportPlanContext`.
+- `createImportedTransactions(db, { …, categories? })` → `ImportedTransactions.rollback(householdId, { batchId, actorId,
+  accountIds, mode })` (IMP-04@PoC п. 8, IMP-16@PoC п. 1–5, рядок 44): «Відкотити» партію в одній транзакції модуля — місце
+  очікування, блокування імпорту рахунків партії (за id), запис `import_rollbacks` (є — `first: false`, нічого не змінює),
+  рядки партії й злиті в них — одним запитом за зростанням id (`FOR UPDATE`; злитий у рядок партії тим часом —
+  `ImportRollbackBusy`), блокування грошей і стан рахунків (закритий — `ImportWriteRefused`). Кожен рядок партії: сторона
+  переказу — лишається (`transfers`; п. 6 — пізніша частина); змінений людиною після застосування (розділення, власна
+  нотатка, категорія «вручну» за портом `categories` модуля categorization; нотатка й категорія ручної, злитої при
+  застосуванні, — не зміна) з `keep-changed` — лишається (`kept`); інакше відкочено — прихований, `rolled_back_at`, передача
+  `rollback` сторнує його подію журналу (нічого не видаляється), а злиті в нього (ручна, замінена очікувана) повертаються
+  передачею `unmerge` (`restored`). Результат — `mode`, `rolledBackBy`, `rolledBackAt` (першого запиту), `counts` і
+  `kept` (до 200 id). `ImportedTransactions.rolledBack(householdId, batchId)` — збережений результат або null;
+  `rolledBackSince(householdId, since, before)` — записані відкати за проміжок (до `ROLLBACK_RECOVERY_LISTED` = 200,
+  найраніші першими) для щоденного відновлення модуля import-sessions. Без порту `categories` відкат кидає помилку. Відкочена транзакція поза
+  будь-яким читанням і зміною модуля (`find` / `lock` її не бачать, список — за `listed_hidden`, кандидати плану імпорту
+  й категоризація — теж). Типи `ImportRollbackInput`, `ImportRollbackResult`, `RollbackMode` (`ROLLBACK_MODES`),
+  `RollbackCategory`.
 - `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`, тип `DuplicateCheck`.
 
 Журнал переказу (`application/hand-off.ts`): поки позначено, власна подія зарахування сторнована, власна подія списання —
@@ -344,6 +396,7 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 | Публікує | Версія | Коли |
 | --- | --- | --- |
 | `transactions.created` | 1 | «Нова транзакція»: у транзакції створення, лише ідентифікатор (BUD-14 п. 8 — правила категорій `categorization`) |
+| `transactions.import-merged` | 1 | «Злито з імпортом» (IMP-04 п. 5, #658): у транзакції запису партії — банківський рядок, злита в нього ручна, хто застосував; лише ідентифікатори (категорію переносить `categorization`) |
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |
@@ -355,12 +408,14 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 
 | Таблиця | Що |
 | --- | --- |
-| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual` / `imported`; імпортовану пише крок застосування імпорту), `import_batch_id` (партія import-sessions лише в імпортованої) і `balance_after` (залишок після операції з виписки) (`0009_imported.sql`), `import_file_id`, `import_row` (унікальний ключ рядка партії) і `bank_description` (опис банку) (`0010_import_rows.sql`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
+| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual` / `imported`; імпортовану пише крок застосування імпорту), `import_batch_id` (партія import-sessions лише в імпортованої) і `balance_after` (залишок після операції з виписки) (`0009_imported.sql`), `import_file_id`, `import_row` (унікальний ключ рядка партії) і `bank_description` (опис банку) (`0010_import_rows.sql`), `original_amount` і `original_currency` (початкова сума), `exchange_rate` (курс банку), `value_date` (дата валютування), `bank_reference` (референс банку) — лише в імпортованої (`0014_bank_fields.sql`), `hidden`, режим розділення і `split_needs_review`, `one_off` («Одноразова витрата», BUD-06 п. 8, `0013_one_off.sql`), версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
 | `tags` | Теги простору (BUD-13 п. 2): назва, ключ `name_key` (обрізана, нижній регістр; унікальний у просторі), версія; у `transactions` — `note` (до 2 000) і `tag_ids` (до 20, по порядку; GIN-індекс для фільтра) (`0007_attributes.sql`); `review` — «До розбору» (BUD-12: `queued` · `confirmed` · null), частковий індекс черги (`0008_review.sql`) |
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
 | `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
 | `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |
 | `import_writes` | Записана партія імпорту: лічильники, хто й коли (один рядок на партію; `0010_import_rows.sql`) |
+| `import_voids` | Відкликані спроби застосування партії: партія, спроба, коли (`0011_import_voids.sql`) |
+| `import_rollbacks` | Відкати партій (IMP-16 п. 3): партія, режим, лічильники, id залишених (до 200), хто й коли; `transactions.rolled_back_at` — транзакцію відкочено з партією, `listed_hidden` — фільтр «Приховані» без відкочених (`0012_import_rollbacks.sql`) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0003_queue.sql`, дослівно `queue-tables.sql`): задачі передачі `transactions.hand-off`; подій модуль поки не публікує |
 

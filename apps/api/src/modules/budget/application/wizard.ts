@@ -35,7 +35,15 @@ export async function wizard(
   const months = [];
   for (const period of historyPeriods(today)) {
     const { amounts } = await deps.reads.amounts(householdId, accountIds, period, currency);
-    months.push(monthHistory(period, currency, categories, amounts));
+    // BUD-06@PoC FR 8: «Одноразова витрата» leaves the template «Створити за моїми витратами» (its averages), but its
+    // month still has categorized history (FR 2: 3 months in a row) — #685.
+    const history = monthHistory(
+      period,
+      currency,
+      categories,
+      amounts.filter((a) => a.oneOff !== true),
+    );
+    months.push({ ...history, categorized: amounts.some((a) => a.categoryId !== null) });
   }
   const { midPeriod, choices } = startChoices(today);
   return { today, midPeriod, starts: choices, fromSpending: proposeFromSpending(currency, months) };

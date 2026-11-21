@@ -124,6 +124,28 @@ export async function setAttributes(
   });
 }
 
+/**
+ * BUD-06@PoC FR 8, AC4 «Одноразова витрата» in the transaction's details: the person marks (or unmarks) an expense; it
+ * stays in the fact of its period, and the averages leave it out (`BudgetTransactions`, `GoalTransactions`). An `update`
+ * of the transaction with its audit entry (field `oneOff`); the journal unchanged; the same value — nothing. Only an
+ * expense (a negative amount) is marked — an income is 400 `oneOff: not_expense`; a side of a transfer between own
+ * accounts is neither income nor expense — 409 `TRANSACTION_IN_TRANSFER`. Unmarking is always allowed.
+ */
+export async function setOneOff(
+  deps: TransactionsDeps,
+  tx: TransactionsTx,
+  caller: Caller,
+  id: string,
+  oneOff: boolean,
+): Promise<TransactionResult> {
+  return changeRow(deps, tx, caller, id, "update", (current) => {
+    if (current.oneOff === oneOff) return null;
+    if (oneOff && current.transfer !== null) return "in-transfer";
+    if (oneOff && !current.amount.isNegative()) return [{ field: "oneOff", issue: "not_expense" }];
+    return { ...current, oneOff };
+  });
+}
+
 export type TagResult =
   | { readonly kind: "ok"; readonly tag: Tag; readonly audit: readonly TagAudit[] }
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }

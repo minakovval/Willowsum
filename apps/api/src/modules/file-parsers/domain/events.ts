@@ -29,6 +29,13 @@ type Decimal = InstanceType<typeof Decimal>;
 export const EVENT_LIMITS = {
   /** Characters of the description, the counterparty and the reference carried out of the worker. */
   textChars: 2000,
+  /**
+   * #696: code points of the first description column carried as the legacy key (`legacyDescription`): an imported
+   * transaction kept at most 1 000 of its description, and the worker's answer stays within its bound.
+   */
+  legacyChars: 1000,
+  /** What joins the row's description columns (FR 4: «Concepto · Movimiento · Observaciones»). */
+  descriptionJoin: " · ",
   /** The rate check's relative tolerance (FR 12): 0.5 %. */
   rateTolerance: "0.005",
 } as const;
@@ -80,6 +87,12 @@ export interface StatementEvent {
   readonly rate: string | null;
   /** The bank's description as printed (FR 4); the merchant comes from it. */
   readonly description: string | null;
+  /**
+   * #696 (IMP-04 FR 1): the first description column's cell alone, as the description was before the columns were
+   * joined (at most `EVENT_LIMITS.legacyChars` code points): the duplicate key of a statement imported before. Null —
+   * the description is that cell; absent in a parse sealed before it was kept.
+   */
+  readonly legacyDescription?: string | null;
   readonly counterparty: string | null;
   readonly reference: string | null;
   /** What the user decides on an ambiguous or unknown currency: the mark as printed and the candidates. */
@@ -136,6 +149,38 @@ export function readEvents(
   const at = (row: readonly string[], role: Role): string => {
     const c = column(role);
     return c > 0 ? (row[c - 1] ?? "") : "";
+  };
+  // FR 4 (S-047): every description column of the row (its other text columns, its notes), in the file's order.
+  const descriptionColumns = analysis.columns
+    .filter((c) => c.role.chosen.value === "description" && c.column > 0)
+    .map((c) => c.column)
+    .sort((a, b) => a - b);
+  /**
+   * The bank's description of a row: one filled column — its cell as printed; several — their values trimmed and joined
+   * with « · », an empty value and a repeat left out. Built only up to past the bound (`cut` flags and cuts it).
+   */
+  const descriptionOf = (row: readonly string[]): string => {
+    const cells: string[] = [];
+    let length = 0;
+    for (const c of descriptionColumns) {
+      const cell = row[c - 1] ?? "";
+      const value = cell.trim();
+      if (value === "" || cells.some((p) => p.trim() === value)) continue;
+      cells.push(cell);
+      length += value.length + EVENT_LIMITS.descriptionJoin.length;
+      if (length > EVENT_LIMITS.textChars) break;
+    }
+    return cells.length === 1 ? cells[0]! : cells.map((p) => p.trim()).join(EVENT_LIMITS.descriptionJoin);
+  };
+  /**
+   * #696: the first description column's cell when the description is not that cell (several columns joined), at most
+   * `legacyChars` code points (the transaction kept no more of it); null — the same as the description, or empty.
+   */
+  const legacyOf = (row: readonly string[], description: string): string | null => {
+    const first = descriptionColumns[0];
+    const cell = first === undefined ? "" : (row[first - 1] ?? "");
+    if (cell.trim() === "" || cell === description) return null;
+    return [...cell].slice(0, EVENT_LIMITS.legacyChars).join("");
   };
   const decimal: DecimalSeparator = analysis.numbers?.chosen.value.decimalSeparator ?? ",";
   const order = analysis.dates?.chosen.value.order ?? null;
@@ -329,6 +374,7 @@ export function readEvents(
     const date = dateOf(at(r, "date"));
     if (date === null) flags.add("date-unreadable");
     const balance = amountOf(at(r, "balance"));
+    const joined = descriptionOf(r);
     return {
       row: i + 1,
       date,
@@ -339,8 +385,9 @@ export function readEvents(
       balance: balance ? text(balance) : null,
       original: originalAmount ? { amount: text(originalAmount), currency: originalCode } : null,
       rate: rate ? text({ value: rate.value.abs(), scale: rate.scale }) : null,
-      // As printed (FR 4): the cell untouched, cut only past the bound.
-      description: cut(at(r, "description"), false),
+      // As printed (FR 4): one cell untouched, several joined; cut only past the bound.
+      description: cut(joined, false),
+      legacyDescription: legacyOf(r, joined),
       counterparty: cut(at(r, "counterparty")),
       reference: cut(at(r, "reference")),
       currencyMark,

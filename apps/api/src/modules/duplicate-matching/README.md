@@ -1,6 +1,6 @@
 # Модуль duplicate-matching
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (крок застосування import-sessions викликає `planImport`; IMP-04 FR 6: допуск min(0,25; 10 % суми), рішення власника 2026-11-20, п. 8; раніше IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (#696, IMP-04 п. 1: `IncomingRow.legacyDescription` — рядок без збігу за ключем перевіряється ще раз ключем з описом першої колонки опису, як до об'єднання колонок); 2026-11-20 (IMP-04 c, #654 п. 6: збіг ключа з ручною — `duplicate` з `merge`; `KnownTransaction.merged`; #654, #655: залишок у ключі дубля — спершу значення, потім для кредитної картки модуль, `creditCard`; крок застосування import-sessions викликає `planImport`; IMP-04 FR 6: допуск min(0,25; 10 % суми), рішення власника 2026-11-20, п. 8; раніше IMP-04 a: план партії імпорту, рядок 43; раніше FIN-03 b: «Можливий дубль», рядок 16c)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -41,7 +41,9 @@ IMP-04@PoC a) (хвиля 2, рядок 43): п. 1–6 — план партії
   `createDuplicateCandidates` модуля transactions.
 - `createDuplicateCheck()` → `DuplicateCheck` модуля transactions (`windowDays` і `isPossibleDuplicate(pairs)`): правило,
   за яким модуль transactions у транзакції зміни вирішує, чи транзакція зараз «Можливий дубль» (FIN-03 п. 18).
-- `planImport({ candidates }, householdId, { batchId, accountId, rows, sameFileAppliedIn })` → `RowOutcome[]`
+- `planImport({ candidates }, householdId, { batchId, accountId, rows, sameFileAppliedIn, creditCard? })` → `RowOutcome[]`
+  (`creditCard` — рахунок виду «кредитна картка»: залишок після операції збігається й за модулем, обидві основи IMP-05 п. 6;
+  інакше лише за значенням)
   (IMP-04 п. 1–6): читає транзакції рахунку у вікні дат рядків ± 10 днів через публічний `ImportCandidates` модуля
   transactions сторінками по `PLAN_PAGE` (1 000) за індексом рахунку й дати; понад `PLAN_EXISTING_MAX` (50 000) —
   `PlanTooLargeError`; з `sameFileAppliedIn` (import-sessions `sameFileApplied`) нічого не читає. Нічого не пише.
@@ -49,7 +51,10 @@ IMP-04@PoC a) (хвиля 2, рядок 43): п. 1–6 — план партії
 - `planBatch(input)` — те саме правило, чисте (`domain/import-plan.ts`; порядок кроків — у його коментарі),
   `duplicateKey`, `normalizeDescription` (NFKC, нижній регістр, один пробіл, обрізано), `planWindow`, `outcomeCounts`,
   `ROW_OUTCOMES`, `REPLACE_WINDOW_DAYS` (10), `REPLACE_TOLERANCE` («0.25», межа допуску), `REPLACE_TOLERANCE_SHARE` («0.1»), `replaceTolerance(posted)`; типи `IncomingRow`, `KnownTransaction`,
-  `PlanInput`, `RowOutcome`, `RowOutcomeKind`.
+  `PlanInput`, `RowOutcome`, `RowOutcomeKind`. `duplicate` з `merge: true` — збіг ключа з ручною, ще ні з чим не
+  зіставленою (показана, проведена, не переказ): крок застосування записує рядок і зливає ручну в нього (#637 п. 6,
+  #658); `KnownTransaction.merged` — злита в іншу (імпортована: замінена очікувана): збіг ключа свого рядка, але
+  ніколи не кандидат злиття чи заміни.
 - `isPossibleDuplicate(a, b)`, `decideIncoming(incoming, existing)` → `merge` / `possible-duplicate` / `new`,
   `MATCH_WINDOW_DAYS` (3); типи `DuplicateSide`, `ExistingTransaction`, `IncomingDecision` (`domain/matching.ts`).
 

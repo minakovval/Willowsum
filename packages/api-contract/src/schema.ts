@@ -380,6 +380,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/budget/periods/{period}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Підсумок періоду» of a finished month: income and expenses against the plan, net flow, savings rate, regular payments (FLW-38 FR 1, AC5, EC1) */
+        get: operations["getBudgetPeriodSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/budget/plan": {
         parameters: {
             query?: never;
@@ -1174,6 +1191,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/import/batches/{batchId}/files/{fileId}/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Before «Застосувати» (IMP-04 FR 1–6, IMP-08 FR 6): the rows of a parsed file the apply would not write as new ones — «дубль», «уже імпортовано», «повтор у файлі», «Можливий дубль», «замінено», злиття — with what each matches, by the apply's own plan against the account's transactions as they are now; read only, a page at a time by row */
+        get: operations["listImportDuplicatePreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/import/batches/{batchId}/files/{fileId}/link": {
         parameters: {
             query?: never;
@@ -1185,6 +1219,40 @@ export type paths = {
         put?: never;
         /** A short signed link to an accepted file's original (FR 7): valid for at most 15 minutes, this space only */
         post: operations["linkImportOriginal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/batches/{batchId}/files/{fileId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The review of a parsed file (IMP-08 FR 5–7, AC3, AC5; IMP-06 FR 8, AC8): the counts of its rows by state, its group «знак не підтверджено» with the group's decision, and the engine's decisions (table, columns, dates, numbers, sign, currency, encoding, delimiter) with their alternatives, scores, examples and «чому так» */
+        get: operations["getImportFileReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/batches/{batchId}/files/{fileId}/review/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The review of a parsed file's rows (IMP-08 FR 6, FR 7, FR 10): each row's state, the person's decision, whether its value was changed, its sign's basis and group, and the readings of an ambiguous amount with «чому так»; a page at a time in the order of the file */
+        get: operations["listImportReviewRows"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1237,6 +1305,40 @@ export type paths = {
         get: operations["getImportBatchReadiness"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/batches/{batchId}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The wizard's step «Результат» (IMP-08 FR 11, AC7), read again at any time: the stored result of the batch's apply (created, replaced, skipped rows) and what is left after it as the space is now — card payments recorded as transfers, proposals of transfers with a side of this batch («Пари · N»), the batch's transactions without a category («До розбору») */
+        get: operations["getImportBatchResult"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/batches/{batchId}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Відкотити» (IMP-04 FR 8, IMP-16): within 7 days of the apply, every transaction of the batch is rolled back by a reversal in the journal — never deleted — and what was merged into it comes back; ones the person changed are kept with «Залишити змінені» (the default); rolling back again returns the stored result */
+        post: operations["rollbackImportBatch"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2139,6 +2241,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/one-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** «Одноразова витрата» on or off: a marked expense stays in the fact of its period, but leaves the averages, the budget template and «Подушка безпеки» (BUD-06 FR 8) */
+        put: operations["setTransactionOneOff"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/{transactionId}/review/confirm": {
         parameters: {
             query?: never;
@@ -2267,7 +2386,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** «Пари · N»: pairs of a debit and a credit on two own accounts within 3 days that look like one transfer; the system never marks them itself */
+        /** «Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself */
         get: operations["listTransferProposals"];
         put?: never;
         post?: never;
@@ -2289,7 +2408,7 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "IMPORT_NOT_READY" | "IMPORT_ROWS_REFUSED" | "IMPORT_PLAN_TOO_LARGE" | "IMPORT_APPLY_UNSUPPORTED" | "RECIPE_INVALID" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "IMPORT_NOT_READY" | "IMPORT_ROWS_REFUSED" | "IMPORT_PLAN_TOO_LARGE" | "IMPORT_APPLY_UNSUPPORTED" | "IMPORT_ROLLBACK_EXPIRED" | "RECIPE_INVALID" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
             /** @description VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload */
             currentCategoryId?: string | null;
             /** @description VERSION_CONFLICT: the current version of the record */
@@ -5299,6 +5418,72 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
+                    allocation?: ({
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "goal";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "from-goal";
+                    } | {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "debt";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "from-savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "to-debt";
+                    })[];
                     /** @description A calendar month, YYYY-MM */
                     firstPeriod: string;
                     incomePlan?: {
@@ -5762,7 +5947,73 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here */
+                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
+                    allocation?: ({
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "goal";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        goalId: string;
+                        /** @constant */
+                        kind: "from-goal";
+                    } | {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "debt";
+                    } | {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "from-savings";
+                    } | {
+                        /** Format: uuid */
+                        accountId?: string;
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** @constant */
+                        kind: "to-debt";
+                    })[];
+                    /** @description The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here. Each amount counts in full (N already holds the goals' planned contributions: `allocation` counts a goal's change against it). Not with `allocation` */
                     chosen?: {
                         /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
@@ -5799,7 +6050,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @description Null — the month's regular payments and loans' monthly payments are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead */
+                        /** @description Null — the month's regular payments and loans' monthly payments, or a goal's planned contribution, are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead */
                         balance: {
                             amount: {
                                 amount: string;
@@ -5810,6 +6061,10 @@ export interface operations {
                                 currency: string;
                             };
                             difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            goalContributions: {
                                 amount: string;
                                 currency: string;
                             };
@@ -5824,7 +6079,7 @@ export interface operations {
                                 currency: string;
                             };
                         } | null;
-                        /** @description Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact` */
+                        /** @description Null — no `chosen` or `allocation` in the request, or `balance` is null; a deficit counts as covered only when status is `exact` */
                         choice: {
                             chosen: {
                                 amount: string;
@@ -5846,6 +6101,15 @@ export interface operations {
                             currency: string;
                         };
                         period: string;
+                        spendable: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** @description Why `amount` is null: `obligations` (the month's payments unknown), `rates` (an amount without a rate: a transaction, a goal's contribution, a regular income, a payoff plan's payment). Never show a figure without them */
+                            missing: ("obligations" | "rates")[];
+                            period: string;
+                        };
                     };
                 };
             };
@@ -6906,8 +7170,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         approximate: {
+                            goals: boolean;
+                            incomes: boolean;
                             nearestRateCount: number;
                             obligations: boolean;
+                            plannedExpenses: boolean;
                             unavailableCount: number;
                         };
                         currency: string;
@@ -7056,6 +7323,169 @@ export interface operations {
                         } | null;
                         period: string;
                         unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses")[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space; The budget did not exist yet in this period (BUDGET_PERIOD_BEFORE_START) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getBudgetPeriodSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A finished calendar month, YYYY-MM (the current or a later one — 400 `period: not_finished`) */
+                period: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description «Підсумок періоду» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approximate: {
+                            nearestRateCount: number;
+                            unavailableCount: number;
+                        };
+                        currency: string;
+                        expenses: {
+                            actual: {
+                                amount: string;
+                                currency: string;
+                            };
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            };
+                        };
+                        income: {
+                            actual: {
+                                amount: string;
+                                currency: string;
+                            };
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            };
+                        };
+                        netFlow: {
+                            amount: string;
+                            currency: string;
+                        };
+                        period: string;
+                        /** @description The card «Регулярні платежі» of the finished month: every charge of the expense payments, whatever the payment's state now, by date. Null — the regular payments are not known (never an empty card) */
+                        regularPayments: {
+                            count: number;
+                            items: {
+                                categoryId: string | null;
+                                dueOn: string;
+                                expected: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                overdueDays: number | null;
+                                paidOn: string | null;
+                                /** Format: uuid */
+                                paymentId: string;
+                                /** @enum {string} */
+                                status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            }[];
+                            late: number;
+                            missed: number;
+                            paid: number;
+                        } | null;
+                        /** @description «Норма заощаджень» = (income − expenses) ÷ income × 100, one digit after the point, half to even («22.5»; negative — more spent than earned). Null — no income: show «–» (FLW-38 EC1) */
+                        savingsRate: string | null;
+                        window: {
+                            from: string;
+                            to: string;
+                        };
                     };
                 };
             };
@@ -14148,6 +14578,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -14157,6 +14588,7 @@ export interface operations {
                             id: string;
                             lastActionAt: string;
                             name: string | null;
+                            rollbackUntil: string | null;
                             /** @enum {string} */
                             state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                             version: number;
@@ -14269,6 +14701,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         files: {
                             accepted: number;
@@ -14278,6 +14711,7 @@ export interface operations {
                         id: string;
                         lastActionAt: string;
                         name: string | null;
+                        rollbackUntil: string | null;
                         /** @enum {string} */
                         state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                         version: number;
@@ -14387,6 +14821,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         fileList: {
                             createdAt: string;
@@ -14408,6 +14843,7 @@ export interface operations {
                         id: string;
                         lastActionAt: string;
                         name: string | null;
+                        rollbackUntil: string | null;
                         /** @enum {string} */
                         state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                         version: number;
@@ -14618,6 +15054,7 @@ export interface operations {
                     "application/json": {
                         appliedAt: string;
                         batch: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -14627,6 +15064,7 @@ export interface operations {
                             id: string;
                             lastActionAt: string;
                             name: string | null;
+                            rollbackUntil: string | null;
                             /** @enum {string} */
                             state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                             version: number;
@@ -14703,7 +15141,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route); Too many requests; try again shortly (RATE_LIMITED) */
             429: {
                 headers: {
                     /** @description Seconds until the current one-minute window ends */
@@ -14752,6 +15190,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         files: {
                             accepted: number;
@@ -14761,6 +15200,7 @@ export interface operations {
                         id: string;
                         lastActionAt: string;
                         name: string | null;
+                        rollbackUntil: string | null;
                         /** @enum {string} */
                         state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                         version: number;
@@ -15260,6 +15700,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         batch: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -15269,6 +15710,7 @@ export interface operations {
                             id: string;
                             lastActionAt: string;
                             name: string | null;
+                            rollbackUntil: string | null;
                             /** @enum {string} */
                             state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                             version: number;
@@ -15416,6 +15858,140 @@ export interface operations {
             };
         };
     };
+    listImportDuplicatePreview: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: string;
+                /** @description Items per page, 1–100. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                batchId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the file's duplicate preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        afterEarlierFile: boolean;
+                        items: {
+                            batchId: string | null;
+                            /** @enum {string} */
+                            kind: "repeat" | "duplicate" | "already-imported" | "merge" | "possible-duplicate" | "replace";
+                            merge: boolean;
+                            occurrence: number;
+                            row: number;
+                            transactionIds: string[];
+                        }[];
+                        /** @description Cursor of the next page; null on the last page. */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch covers too many transactions of the account at once (IMPORT_PLAN_TOO_LARGE) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     linkImportOriginal: {
         parameters: {
             query?: never;
@@ -15478,6 +16054,476 @@ export interface operations {
             };
             /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getImportFileReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file's review */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        analysis: {
+                            columns: {
+                                column: number;
+                                header: string | null;
+                                role: {
+                                    alternatives: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    }[];
+                                    chosen: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    };
+                                    evidence: {
+                                        code: string;
+                                        column?: number;
+                                        count?: number;
+                                        example?: string;
+                                        of?: number;
+                                        row?: number;
+                                        word?: string;
+                                    }[];
+                                    flags: string[];
+                                };
+                            }[];
+                            currency: {
+                                code: string | null;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                /** @enum {string} */
+                                mode: "column" | "file" | "unknown";
+                            };
+                            dates: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            numbers: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            sign: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            table: {
+                                dataRows: number;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                headerRow: number | null;
+                            };
+                        };
+                        counts: {
+                            changed: number;
+                            rows: number;
+                            signUnconfirmed: number;
+                            states: {
+                                error: number;
+                                excluded: number;
+                                "needs-clarification": number;
+                                "needs-review": number;
+                                ok: number;
+                            };
+                        };
+                        delimiter: {
+                            alternatives: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            }[];
+                            chosen: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            };
+                        } | null;
+                        encoding: {
+                            alternatives: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            }[];
+                            chosen: {
+                                reason?: string;
+                                score: number;
+                                value: string;
+                            };
+                        } | null;
+                        signGroup: {
+                            action: ("accept" | "exclude" | "flip-sign") | null;
+                            rows: number;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listImportReviewRows: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: string;
+                filter?: "ok" | "needs-review" | "needs-clarification" | "error" | "excluded" | "sign-unconfirmed" | "changed";
+                /** @description Items per page, 1–100. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                batchId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the file's review rows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            bankStatus: ("processing" | "failed") | null;
+                            changed: boolean;
+                            decision: {
+                                /** @enum {string} */
+                                action: "accept" | "flip-sign" | "exclude" | "include" | "import-anyway";
+                                /** @enum {string} */
+                                from: "row" | "group";
+                            } | null;
+                            issue: ("unreadable" | "currency" | "too-precise" | "fee" | "account" | "text") | null;
+                            reading: {
+                                cell: string;
+                                chosen: string | null;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                readings: {
+                                    /** @enum {string} */
+                                    decimal: "," | ".";
+                                    value: string;
+                                }[];
+                            } | null;
+                            row: number;
+                            sign: {
+                                /** @enum {string} */
+                                basis: "balance-chain" | "totals" | "direction-word" | "debit-credit" | "printed-both-signs" | "profile" | "card" | "majority";
+                                confidence: number;
+                                confirmed: boolean;
+                            } | null;
+                            signUnconfirmed: boolean;
+                            /** @enum {string} */
+                            state: "ok" | "needs-review" | "needs-clarification" | "error" | "excluded";
+                        }[];
+                        /** @description Cursor of the next page; null on the last page. */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15677,6 +16723,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         batch: {
+                            applying: boolean;
                             createdAt: string;
                             files: {
                                 accepted: number;
@@ -15686,6 +16733,7 @@ export interface operations {
                             id: string;
                             lastActionAt: string;
                             name: string | null;
+                            rollbackUntil: string | null;
                             /** @enum {string} */
                             state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                             version: number;
@@ -15854,6 +16902,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        applying: boolean;
                         createdAt: string;
                         files: {
                             accepted: number;
@@ -15863,6 +16912,7 @@ export interface operations {
                         id: string;
                         lastActionAt: string;
                         name: string | null;
+                        rollbackUntil: string | null;
                         /** @enum {string} */
                         state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
                         version: number;
@@ -16128,6 +17178,281 @@ export interface operations {
                 };
             };
             /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getImportBatchResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The batch, the stored result of its apply and the counts of what is left to do after it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        appliedAt: string;
+                        batch: {
+                            applying: boolean;
+                            createdAt: string;
+                            files: {
+                                accepted: number;
+                                rejected: number;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            name: string | null;
+                            rollbackUntil: string | null;
+                            /** @enum {string} */
+                            state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
+                            version: number;
+                        };
+                        followUp: {
+                            cardPaymentTransfers: number;
+                            transferProposals: {
+                                count: number;
+                                more: boolean;
+                            };
+                            uncategorized: number;
+                        } | null;
+                        result: {
+                            counts: {
+                                [key: string]: number;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    rollbackImportBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mode?: "keep-changed" | "all";
+                };
+            };
+        };
+        responses: {
+            /** @description The batch, «відкочено», and the result of its rollback */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: {
+                            applying: boolean;
+                            createdAt: string;
+                            files: {
+                                accepted: number;
+                                rejected: number;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            name: string | null;
+                            rollbackUntil: string | null;
+                            /** @enum {string} */
+                            state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
+                            version: number;
+                        };
+                        first: boolean;
+                        rollback: {
+                            counts: {
+                                [key: string]: number;
+                            };
+                            kept: string[];
+                            /** @enum {string} */
+                            mode: "keep-changed" | "all";
+                            rolledBackAt: string;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT); The time to roll back the batch has passed (IMPORT_ROLLBACK_EXPIRED); The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route); Too many requests; try again shortly (RATE_LIMITED) */
             429: {
                 headers: {
                     /** @description Seconds until the current one-minute window ends */
@@ -16722,7 +18047,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.cashflow" | "data.import" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.one-off" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.summary" | "budget.cashflow" | "data.import" | "debts.payoff")[];
                     };
                 };
             };
@@ -21770,15 +23095,34 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            balanceAfter: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            bankDescription: string | null;
+                            bankReference: string | null;
                             counterparty: string | null;
                             date: string;
                             description: string | null;
+                            exchangeRate: string | null;
                             hidden: boolean;
                             /** Format: uuid */
                             id: string;
+                            importedFrom: {
+                                /** Format: uuid */
+                                batchId: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                row: number;
+                            } | null;
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
+                            oneOff: boolean;
+                            originalAmount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -21824,6 +23168,7 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
+                            valueDate: string | null;
                             version: number;
                         }[];
                         page: number;
@@ -21990,15 +23335,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -22044,6 +23408,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -22157,15 +23522,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -22211,6 +23595,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -22442,15 +23827,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -22496,6 +23900,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -22616,15 +24021,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -22670,6 +24094,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23022,15 +24447,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23076,6 +24520,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23427,15 +24872,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23481,6 +24945,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23594,15 +25059,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23648,6 +25132,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23768,15 +25253,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23822,6 +25326,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23911,7 +25416,7 @@ export interface operations {
             };
         };
     };
-    confirmTransactionReview: {
+    setTransactionOneOff: {
         parameters: {
             query?: never;
             header?: never;
@@ -23923,13 +25428,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    categoryId?: string | null;
-                    version: number;
+                    oneOff: boolean;
                 };
             };
         };
         responses: {
-            /** @description The transaction after the change */
+            /** @description The transaction with its mark */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -23942,15 +25446,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23996,6 +25519,201 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    confirmTransactionReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    categoryId?: string | null;
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        exchangeRate: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual" | "imported";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24116,15 +25834,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24170,6 +25907,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24283,15 +26021,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24337,6 +26094,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24470,15 +26228,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24524,6 +26301,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24637,15 +26415,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24691,6 +26488,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24811,15 +26609,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24865,6 +26682,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24978,15 +26796,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25032,6 +26869,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -25285,15 +27123,34 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            balanceAfter: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            bankDescription: string | null;
+                            bankReference: string | null;
                             counterparty: string | null;
                             date: string;
                             description: string | null;
+                            exchangeRate: string | null;
                             hidden: boolean;
                             /** Format: uuid */
                             id: string;
+                            importedFrom: {
+                                /** Format: uuid */
+                                batchId: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                row: number;
+                            } | null;
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
+                            oneOff: boolean;
+                            originalAmount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -25339,6 +27196,7 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
+                            valueDate: string | null;
                             version: number;
                         };
                         outflow: {
@@ -25348,15 +27206,34 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            balanceAfter: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            bankDescription: string | null;
+                            bankReference: string | null;
                             counterparty: string | null;
                             date: string;
                             description: string | null;
+                            exchangeRate: string | null;
                             hidden: boolean;
                             /** Format: uuid */
                             id: string;
+                            importedFrom: {
+                                /** Format: uuid */
+                                batchId: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                row: number;
+                            } | null;
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
+                            oneOff: boolean;
+                            originalAmount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -25402,6 +27279,7 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
+                            valueDate: string | null;
                             version: number;
                         };
                     };
@@ -25510,6 +27388,7 @@ export interface operations {
                     "application/json": {
                         count: number;
                         items: {
+                            bankRate: string | null;
                             converted: {
                                 amount: string;
                                 currency: string;
@@ -25547,11 +27426,14 @@ export interface operations {
                                 /** Format: uuid */
                                 transactionId: string;
                             };
+                            /** @enum {string} */
+                            pairKind: "transfer" | "exchange";
                             rate: {
                                 date: string;
                                 rate: string;
                                 source: string;
                             } | null;
+                            rateBand: ("within-1" | "within-3") | null;
                         }[];
                         more: boolean;
                     };

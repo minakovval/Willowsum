@@ -48,7 +48,9 @@ export type FieldIssue = {
     | "has_duplicates"
     | "account_mismatch"
     // The attributes (attributes.ts, BUD-13 FR 2): more than 20 tags on a transaction — «Досягнуто 20 тегів».
-    | "too_many";
+    | "too_many"
+    // «Одноразова витрата» (attributes.ts, BUD-06 FR 8): only an expense is marked.
+    | "not_expense";
 };
 
 const AMOUNT_RE = /^-?\d{1,20}(?:\.\d{1,18})?$/;
@@ -102,6 +104,19 @@ export function descriptionText(text: string): string | null | undefined {
   return value;
 }
 
+/**
+ * BUD-06@PoC FR 8 «Одноразова витрата» marks an expense only: a row keeps the mark while its amount is negative and it is
+ * no side of a transfer between own accounts. An edit that makes it an income or a transfer side clears the mark (its
+ * audit entry shows `oneOff` «true» → null); the edit itself is never refused for it (lead decision 2026-11-21, #685).
+ */
+export function keepsOneOff(t: {
+  readonly oneOff: boolean;
+  readonly amount: Money;
+  readonly transfer: unknown;
+}): boolean {
+  return t.oneOff && t.amount.isNegative() && t.transfer === null;
+}
+
 /** FR 3: the type of a signed amount. */
 export function typeOf(amount: Money): TransactionType {
   return amount.isNegative() ? "expense" : "income";
@@ -110,6 +125,8 @@ export function typeOf(amount: Money): TransactionType {
 /** A subaccount (one currency) of a money account, as the accounts module answers it. */
 export interface PostingAccount {
   readonly accountId: string;
+  /** Accounts' kind (`ACCOUNT_KINDS`), when the directory gives it. */
+  readonly kind?: string;
   readonly status: "active" | "closed";
   readonly subaccounts: readonly {
     readonly subaccountId: string;

@@ -153,6 +153,8 @@ export interface GoalContributions {
     /** The month's cell of «План» (default — the required contribution; a goal without a date — 0). */
     readonly planned: Money;
     readonly contributed: Money;
+    /** `planned` is the goal's required contribution (no cell of its own) — at today's rate, maybe the nearest one. */
+    readonly fromRequired: boolean;
     /** max(0, planned − contributed): what the sum still holds back. */
     readonly amount: Money;
   }[];
@@ -190,13 +192,15 @@ export function goalContributions(
   const rows: GoalContributions["rows"][number][] = [];
   for (const g of goals) {
     const dated = g.lastPeriod !== null && period <= g.lastPeriod;
-    const planned = own("goal", g.goalId) ?? (dated ? g.required : zero);
+    const cell = own("goal", g.goalId);
+    const planned = cell ?? (dated ? g.required : zero);
     if (planned === null || g.contributed === null) return null;
     const rest = planned.minus(g.contributed);
     rows.push({
       goalId: g.goalId,
       planned,
       contributed: g.contributed,
+      fromRequired: cell === null && dated,
       amount: rest.isNegative() ? zero : rest,
     });
   }
@@ -210,6 +214,59 @@ export function goalContributions(
     total: sum(rows.map((r) => r.amount)),
     contributed: sum(rows.map((r) => r.contributed)),
     plannedSavings: sum([...rows.map((r) => r.planned), own("savings", null) ?? zero]),
+  };
+}
+
+/** FR 6: a debt's planned expense of the month — the payoff plan's extra payment, or the month's cell of «План». */
+export interface DebtPlannedExpense {
+  readonly accountId: string;
+  readonly amount: Money;
+  /** EC4 «приблизно»: the plan's amount at the nearest rate; a cell (the budget's currency) is exact. */
+  readonly approximate: boolean;
+}
+
+/**
+ * FR 6 «Заплановані витрати» (BUD-02 FR 15, BUD-17 FR 2; #661): each debt's planned expense of `period` — the saved
+ * payoff plan's extra payment, and a month's own `debt` cell of «План» in place of it (never added to it), as the grid
+ * shows the debt's «додатковий платіж». A cell counts only for a debt the month owes (`owed`: a minimum payment or a
+ * plan's extra payment) — a debt it no longer owes does not come back for it; an empty cell is no value.
+ */
+export function plannedDebtExpenses(
+  period: Period,
+  plan: readonly { readonly accountId: string; readonly amount: Money; readonly approximate?: boolean }[],
+  owed: ReadonlySet<string>,
+  cells: readonly {
+    readonly period: Period;
+    readonly kind: string;
+    readonly lineId: string | null;
+    readonly amount: Money | null;
+  }[],
+  currency: string,
+): { readonly items: readonly DebtPlannedExpense[]; readonly total: Money; readonly approximate: boolean } {
+  const byDebt = new Map<string, DebtPlannedExpense>(
+    plan.map((p) => [
+      p.accountId,
+      { accountId: p.accountId, amount: p.amount, approximate: p.approximate === true },
+    ]),
+  );
+  for (const c of cells)
+    if (
+      c.period === period &&
+      c.kind === "debt" &&
+      c.lineId !== null &&
+      c.amount !== null &&
+      owed.has(c.lineId)
+    )
+      byDebt.set(c.lineId, { accountId: c.lineId, amount: c.amount, approximate: false });
+  const items = [...byDebt.values()];
+  assertCurrency(
+    currency,
+    items.map((i) => i.amount),
+  );
+  return {
+    items,
+    total: items.reduce((t, i) => t.plus(i.amount), Money.zero(currency)),
+    approximate: items.some((i) => i.approximate),
   };
 }
 

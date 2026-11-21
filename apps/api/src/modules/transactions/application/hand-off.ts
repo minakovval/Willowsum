@@ -66,6 +66,8 @@ export const HAND_OFF_ACTIONS = [
   "merge",
   "unmerge",
   "not-duplicate",
+  // IMP-04 FR 8, IMP-16 FR 2 (application/rollback.ts): rolled back with its import batch — its event reversed.
+  "rollback",
 ] as const;
 
 /** The job's key (the queue's `dedupe_key`): one hand-off per change of a transaction. */
@@ -162,6 +164,8 @@ function fieldsOf(t: StoredTransaction | null): Map<string, string | null> {
   // BUD-13 FR 1, FR 2: «Нотатка» (free text: masked) and the tags — their ids, never their names (free text too).
   if (t?.note) fields.set("note", t.note);
   if (t && t.tagIds.length > 0) fields.set("tags", t.tagIds.join(","));
+  // BUD-06 FR 8 «Одноразова витрата» — «Позначка … пишеться в журнал аудиту».
+  if (t?.oneOff) fields.set("oneOff", "true");
   // BUD-12 FR 4, FR 10: «До розбору» — `queued`, or `confirmed` («Підтвердити»: who and when — this entry).
   if (t?.review) fields.set("review", t.review);
   return fields;

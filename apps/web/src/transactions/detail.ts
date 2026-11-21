@@ -39,6 +39,8 @@ export interface DetailData {
   readonly names: ReadonlyMap<string, string>;
   /** The categories a part of «Розділити» may take (BUD-13@PoC FR 6): not hidden; the dialog keeps the transaction's type. */
   readonly splitCategories: readonly SplitCategory[];
+  /** The flag `transactions.one-off` is on for the space (`GET /v1/me/features`); a failed read counts as off (BUD-06@PoC FR 8). */
+  readonly oneOffOn: boolean;
 }
 
 function failed(o: Exclude<Outcome<unknown>, { ok: true }>): Loaded<never> {
@@ -63,11 +65,12 @@ export async function loadDetail(api: ApiClient, transactionId: string): Promise
   const tx = await outcome(api.GET("/v1/transactions/{transactionId}", path));
   if (!tx.ok) return failed(tx);
   const accountId = tx.data.accountId;
-  const [category, tree, account, duplicates] = await Promise.all([
+  const [category, tree, account, duplicates, features] = await Promise.all([
     outcome(api.GET("/v1/transactions/{transactionId}/category", path)),
     outcome(api.GET("/v1/categories")),
     outcome(api.GET("/v1/accounts/{accountId}", { params: { path: { accountId } } })),
     outcome(api.GET("/v1/duplicate-proposals")),
+    outcome(api.GET("/v1/me/features")),
   ]);
   // A wrong «Без категорії» is worse than the error state; the account name and the duplicate mark are extras.
   if (!category.ok) return failed(category);
@@ -100,6 +103,7 @@ export async function loadDetail(api: ApiClient, transactionId: string): Promise
       possibleDuplicate,
       names,
       splitCategories,
+      oneOffOn: features.ok && (features.data.features as readonly string[]).includes("transactions.one-off"),
     },
   };
 }
@@ -194,3 +198,16 @@ export async function loadTagNames(api: ApiClient): Promise<string[]> {
   const o = await outcome(api.GET("/v1/transaction-tags"));
   return o.ok ? o.data.items.map((t) => t.name) : [];
 }
+
+/** BUD-06@PoC FR 8, AC4: «Одноразова витрата» on or off (`PUT …/one-off`); answers with the transaction. */
+export const saveOneOff = (
+  api: ApiClient,
+  transactionId: string,
+  oneOff: boolean,
+): Promise<Outcome<TransactionDetail>> =>
+  outcome(
+    api.PUT("/v1/transactions/{transactionId}/one-off", {
+      params: { path: { transactionId } },
+      body: { oneOff },
+    }),
+  );

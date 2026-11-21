@@ -14,6 +14,7 @@ import {
   transferDate,
   transferFee,
   type TransferLink,
+  keepsOneOff,
 } from "../../domain/index.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
 import { transactionCreated } from "../../events.ts";
@@ -40,6 +41,7 @@ interface Row {
   merged_into: string | null;
   note: string | null;
   tag_ids: string[];
+  one_off: boolean;
   review: ReviewState | null;
   version: number;
   created_at: Date;
@@ -78,7 +80,7 @@ interface PartRow {
 // The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
   counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, note,
-  tag_ids::text[] AS tag_ids, review, version, created_at`;
+  tag_ids::text[] AS tag_ids, one_off, review, version, created_at`;
 
 /** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
 export async function transfersOf(
@@ -185,6 +187,7 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
     mergedInto: r.merged_into,
     note: r.note,
     tagIds: r.tag_ids,
+    oneOff: r.one_off,
     review: r.review,
     version: r.version,
     // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
@@ -192,19 +195,36 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
   };
 }
 
+/** The columns of a stored transaction and its row as read (for the rollback's own reads, adapters/db/imported.ts). */
+export const STORED_COLUMNS = COLUMNS;
+export type StoredRowShape = Row;
+
+/** A read row with its split's parts and its transfer. */
+export async function storedRow(
+  q: ModuleQueryRunner,
+  householdId: string,
+  row: Row,
+): Promise<StoredTransaction> {
+  const parts = row.split_mode === null ? [] : ((await partsOf(q, householdId, [row.id])).get(row.id) ?? []);
+  const transfer =
+    row.transfer_id === null
+      ? null
+      : ((await transfersOf(q, householdId, [row.transfer_id])).get(row.transfer_id)?.link ?? null);
+  return stored(row, parts, transfer);
+}
+
+/**
+ * IMP-04 FR 8, IMP-16 FR 2: a transaction rolled back with its import batch is out of every read and change of the
+ * module — found by none (`find`, `lock`), so a hand-off of it reverses its journal event; only the rollback reads it.
+ */
+const LIVE = "rolled_back_at IS NULL";
+
 export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
   const one = async (text: string, values: unknown[]) => {
     const { rows } = await q.query<Row>(text, values);
     const row = rows[0];
     if (!row) return null;
-    const householdId = String(values[0]);
-    const parts =
-      row.split_mode === null ? [] : ((await partsOf(q, householdId, [row.id])).get(row.id) ?? []);
-    const transfer =
-      row.transfer_id === null
-        ? null
-        : ((await transfersOf(q, householdId, [row.transfer_id])).get(row.transfer_id)?.link ?? null);
-    return stored(row, parts, transfer);
+    return storedRow(q, String(values[0]), row);
   };
   /** The parts of `t` replace the stored ones (none when it is not split). */
   const writeParts = async (householdId: string, t: { id: string; split: Split | null }) => {
@@ -235,8 +255,9 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       const row = await one(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
                                    counterparty, description, status, source, version, note, tag_ids, review,
-                                   transfer_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[], $15, $16) RETURNING ${COLUMNS}`,
+                                   transfer_id, one_off)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[], $15, $16, $17)
+         RETURNING ${COLUMNS}`,
         [
           householdId,
           t.id,
@@ -255,14 +276,19 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.review,
           // FIN-03 FR 1, FR 28: a side of a transfer created in one action, its pair written first (insertTransfer).
           t.transfer?.id ?? null,
+          // BUD-06 FR 8: an income or a transfer side keeps no «Одноразова витрата» (any write that makes it one).
+          keepsOneOff(t),
         ],
       );
       return row!;
     },
     find: (householdId, id) =>
-      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2`, [householdId, id]),
+      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2 AND ${LIVE}`, [
+        householdId,
+        id,
+      ]),
     lock: (householdId, id) =>
-      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2 FOR UPDATE`, [
+      one(`SELECT ${COLUMNS} FROM transactions WHERE household_id = $1 AND id = $2 AND ${LIVE} FOR UPDATE`, [
         householdId,
         id,
       ]),
@@ -274,7 +300,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
             SET account_id = $3, subaccount_id = $4, amount = $5, currency = $6, occurred_on = $7, counterparty = $8,
                 description = $9, version = $10, status = $11, hidden = $12, split_mode = $13,
                 split_needs_review = $14, transfer_id = $15, merged_into = $16, note = $17,
-                tag_ids = $18::uuid[], review = $19, updated_at = now()
+                tag_ids = $18::uuid[], review = $19, one_off = $20, updated_at = now()
           WHERE household_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
         [
           householdId,
@@ -296,6 +322,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.note,
           [...t.tagIds],
           t.review,
+          // BUD-06 FR 8: an income or a transfer side keeps no «Одноразова витрата» (any write that makes it one).
+          keepsOneOff(t),
         ],
       );
       return row!;
@@ -403,6 +431,27 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
 }
 
 /**
+ * IMP-02@PoC FR 4 (S-047 data): what an imported transaction keeps of its statement row, under the names the list
+ * selects (`transactionsList`) — the bank's description, the balance after it, the batch, file and row it came from, the
+ * original amount and currency, the bank's rate, the value date and the reference. Null for one entered by hand.
+ */
+export const BANK_FIELDS = {
+  bankDescription: "bank_description",
+  balanceAfter: "balance_after",
+  importBatchId: "import_batch_id",
+  importFileId: "import_file_id",
+  importRow: "import_row",
+  originalAmount: "original_amount",
+  originalCurrency: "original_currency",
+  exchangeRate: "exchange_rate",
+  valueDate: "value_date",
+  bankReference: "bank_reference",
+} as const;
+export type BankFields = { readonly [K in keyof typeof BANK_FIELDS]: unknown } & {
+  readonly currency: unknown;
+};
+
+/**
  * The list «Транзакції» on the universal list engine (DAT-01@PoC; FIN-03 FR 13, FR 22): whitelisted filters and sorts,
  * numbered pages of 25, 50 or 100, and the amounts by currency, date and sign for the totals of income, expenses and
  * the difference at the official rate of each transaction's date. «Стан» (FR 22): `status` («Очікує»), `split`
@@ -428,9 +477,11 @@ export const transactionsList = defineList({
     mergedInto: "merged_into",
     note: "note",
     tagIds: "tag_ids",
+    oneOff: "one_off",
     review: "review",
     version: "version",
     createdAt: "created_at",
+    ...BANK_FIELDS,
   },
   tieBreaker: "id",
   filters: {
@@ -455,8 +506,8 @@ export const transactionsList = defineList({
     status: { column: "status", cast: "text", value: z.enum(TRANSACTION_STATUSES), operators: ["eq", "in"] },
     /** «Стан: розділені». */
     split: { column: "is_split", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
-    /** «Стан: приховані» — `hidden.eq:true`. */
-    hidden: { column: "hidden", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
+    /** «Стан: приховані» — `hidden.eq:true`; a rolled-back transaction (IMP-16 FR 2) is in neither. */
+    hidden: { column: "listed_hidden", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
     /** «Стан: переказ» (FR 22) — `transfer.eq:true`; budgets and reports leave transfers out with `false` (FR 7). */
     transfer: { column: "is_transfer", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
     /** «Теги» (BUD-13 FR 2, FR 5): `tag.eq:<id>` — has the tag, `tag.in:<id>,<id>` — any of them. */
@@ -481,10 +532,13 @@ export interface CandidateSide {
   readonly accountId: string;
   readonly amount: Money;
   readonly date: string;
+  /** IMP-08 FR 11: the import batch that wrote it; null — entered by hand. */
+  readonly importBatchId: string | null;
 }
 
 /**
- * The candidate pairs of a space for module transfer-matching (FIN-03 FR 5): a debit and a credit on two accounts within
+ * The candidate pairs of a space for module transfer-matching (FIN-03 FR 5): a debit and a credit on two accounts (or,
+ * IMP-03 FR 2, an exchange: on two wallets of one account in two currencies) within
  * `windowDays`, both posted, shown, not split and in no transfer; in one currency the credit at most the debit and at
  * least `sameCurrencyMinShare` of it (the rule of transfer-matching decides the rest, in two currencies by the rate).
  * Newest first; at most `limit` pairs.
@@ -505,13 +559,17 @@ export async function transferCandidates(
     i_amount: string;
     i_currency: string;
     i_date: string;
+    o_batch: string | null;
+    i_batch: string | null;
   }>(
     `SELECT o.id AS o_id, o.account_id AS o_account, o.amount::text AS o_amount, o.currency AS o_currency,
             o.occurred_on::text AS o_date, i.id AS i_id, i.account_id AS i_account, i.amount::text AS i_amount,
-            i.currency AS i_currency, i.occurred_on::text AS i_date
+            i.currency AS i_currency, i.occurred_on::text AS i_date, o.import_batch_id AS o_batch,
+            i.import_batch_id AS i_batch
        FROM transactions o
        JOIN transactions i ON i.household_id = o.household_id
-      WHERE o.household_id = $1 AND o.amount < 0 AND i.amount > 0 AND i.account_id <> o.account_id
+      WHERE o.household_id = $1 AND o.amount < 0 AND i.amount > 0
+        AND (i.account_id <> o.account_id OR i.currency <> o.currency)
         AND o.status = 'posted' AND i.status = 'posted' AND NOT o.hidden AND NOT i.hidden
         AND o.split_mode IS NULL AND i.split_mode IS NULL AND o.transfer_id IS NULL AND i.transfer_id IS NULL
         AND i.occurred_on BETWEEN o.occurred_on - $2::int AND o.occurred_on + $2::int
@@ -526,12 +584,14 @@ export async function transferCandidates(
       accountId: r.o_account,
       amount: Money.of(r.o_amount, r.o_currency),
       date: r.o_date,
+      importBatchId: r.o_batch,
     },
     inflow: {
       transactionId: r.i_id,
       accountId: r.i_account,
       amount: Money.of(r.i_amount, r.i_currency),
       date: r.i_date,
+      importBatchId: r.i_batch,
     },
   }));
 }
@@ -550,6 +610,25 @@ export async function mergedOf(
   );
   for (const r of rows) byKept.set(r.merged_into, [...(byKept.get(r.merged_into) ?? []), r.id]);
   return byKept;
+}
+
+/** The bank's fields (`BANK_FIELDS`) of the transactions `ids` of the space, by the primary key; one query. */
+export async function bankFieldsOf(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<Map<string, BankFields>> {
+  const byId = new Map<string, BankFields>();
+  if (ids.length === 0) return byId;
+  const columns = Object.entries(BANK_FIELDS)
+    .map(([name, column]) => `${column} AS "${name}"`)
+    .join(", ");
+  const { rows } = await q.query<BankFields & { id: string }>(
+    `SELECT id, currency, ${columns} FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[])`,
+    [householdId, ids],
+  );
+  for (const r of rows) byId.set(r.id, r);
+  return byId;
 }
 
 /** One side of a possible duplicate (FIN-03 FR 12), as module duplicate-matching receives it. */
@@ -661,6 +740,7 @@ export async function budgetRows(
     amount: Money;
     date: string;
     parts: { categoryId: string; month: string | null; amount: Money }[] | null;
+    oneOff: boolean;
   }[]
 > {
   if (accountIds.length === 0) return [];
@@ -672,9 +752,10 @@ export async function budgetRows(
     date: string;
     split_mode: string | null;
     parts: { categoryId: string; month: string | null; amount: string }[] | null;
+    one_off: boolean;
   }>(
     `SELECT t.id, t.account_id, t.amount::text AS amount, t.currency, to_char(t.occurred_on, 'YYYY-MM-DD') AS date,
-            t.split_mode,
+            t.split_mode, t.one_off,
             (SELECT json_agg(json_build_object('categoryId', p.category_id, 'month', to_char(p.month, 'YYYY-MM-DD'),
                                                'amount', p.amount::text) ORDER BY p.position)
                FROM transaction_parts p WHERE p.household_id = t.household_id AND p.transaction_id = t.id) AS parts
@@ -701,6 +782,7 @@ export async function budgetRows(
             month: p.month,
             amount: Money.of(p.amount, r.currency),
           })),
+    oneOff: r.one_off,
   }));
 }
 
@@ -759,7 +841,7 @@ export async function categorizableFacts(
   if (ids.length === 0) return new Map();
   const { rows } = await q.query<{ id: string; transfer: boolean; split: boolean; merged: boolean }>(
     `SELECT id, is_transfer AS transfer, is_split AS split, merged_into IS NOT NULL AS merged
-       FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[])`,
+       FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[]) AND rolled_back_at IS NULL`,
     [householdId, ids],
   );
   return new Map(rows.map((r) => [r.id, { transfer: r.transfer, split: r.split, merged: r.merged }]));

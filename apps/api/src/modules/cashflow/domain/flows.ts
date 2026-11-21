@@ -39,6 +39,9 @@ export function transferFlow(
   investment: ReadonlySet<string>,
   goals: readonly GoalAccountSpan[],
 ): TransferFlow | null {
+  // IMP-03@PoC FR 2, FR 9: an exchange between two wallets of one account moves no money out of it — no contribution,
+  // investment or withdrawal (security review #688).
+  if (t.fromAccountId === t.toAccountId) return null;
   const fromBudget = budget.has(t.fromAccountId);
   if (investment.has(t.fromAccountId))
     return investment.has(t.toAccountId) || !budget.has(t.toAccountId) ? null : { kind: "withdrawal" };

@@ -27,6 +27,10 @@ export interface Batch {
   readonly version: number;
   readonly createdAt: Date;
   readonly lastActionAt: Date;
+  /** #654: «застосовано» with its apply still «in progress» (its rows being written, or stuck until the recovery). */
+  readonly applying?: boolean;
+  /** When its apply finished (IMP-16 FR 1: the rollback's 7 days count from it); null — not applied. */
+  readonly appliedAt?: Date | null;
 }
 
 export interface BatchFile {

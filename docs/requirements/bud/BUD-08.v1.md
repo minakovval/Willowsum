@@ -10,7 +10,7 @@
 - Спільні правила: П-17, П-21, CHT-01, CMP-72, DS-01
 - Сценарії: UC-BUD-42, UC-BUD-43, UC-BUD-44
 - Модуль: cashflow
-- Перевіряється: `apps/api/src/modules/cashflow/domain/bud08-cashflow.test.ts`, `apps/api/src/modules/cashflow/domain/bud08b-flows.test.ts`, `apps/api/src/modules/cashflow/application/bud08b-report.test.ts`, `apps/api/src/modules/cashflow/application/sec642-report.test.ts`, `apps/api/test/bud08-cashflow.it.test.ts`, `apps/api/test/bud08b-cashflow-flows.it.test.ts`
+- Перевіряється: `apps/api/src/modules/cashflow/domain/bud08-cashflow.test.ts`, `apps/api/src/modules/cashflow/domain/bud08b-flows.test.ts`, `apps/api/src/modules/cashflow/application/bud08b-report.test.ts`, `apps/api/src/modules/cashflow/application/sec642-report.test.ts`, `apps/api/test/bud08-cashflow.it.test.ts`, `apps/api/test/bud08b-cashflow-flows.it.test.ts`, `apps/web/src/planning/flow/bud08c-flow.test.tsx`
 
 **Мета.** Як власник бюджету, я хочу бачити, скільки з доходу реально залишається щомісяця і куди воно йде, щоб розуміти, чи росте мій капітал.
 

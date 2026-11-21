@@ -6,7 +6,12 @@ export {
   type ImportCandidate,
   type ImportCandidatesQuery,
 } from "./db/import-candidates.ts";
-export { importWriteTx } from "./db/imported.ts";
+export {
+  importBatchTransactions,
+  type ImportBatchTransaction,
+  type ImportBatchTransactionsQuery,
+} from "./db/import-batch-reads.ts";
+export { importRollbackTx, importWriteTx } from "./db/imported.ts";
 export { reviewQueueMembers, reviewQueueSlices, type ReviewQueueSlice } from "./db/review-queue.ts";
 export {
   requeueDeadHandOffs,

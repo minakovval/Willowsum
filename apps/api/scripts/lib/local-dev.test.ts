@@ -11,9 +11,14 @@ import {
   databaseUrlFor,
   parseLocalDevArgs,
   parsePrompt,
+  ROLES,
+  localFiles,
   releaseFlagKeys,
+  requiredOperationalFlagKeys,
   roleEnv,
 } from "./local-dev.ts";
+
+const LINK_KEY = Buffer.alloc(32, 7).toString("base64");
 
 describe("CICD-04: pnpm local:dev — the whole app locally with one command", () => {
   it("takes only --fresh", () => {
@@ -35,6 +40,8 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
       password: "pw",
       modules: ["identity", "feature-flags"],
       path: "/bin",
+      files: { kind: "directory", dir: "/state/files" },
+      fileLinkKey: LINK_KEY,
     });
     expect(env).toMatchObject({
       WS_PORT: "41001",
@@ -54,6 +61,66 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
     // The superuser's credentials never reach a role process.
     expect(JSON.stringify(env)).not.toContain("u:p");
     expect(env).not.toHaveProperty("DATABASE_URL");
+  });
+
+  it("every role gets the same file storage and link key: the API stores an import's original, the worker parses it", () => {
+    const S3 = {
+      WS_LOCAL_S3_PORT: "8333",
+      WS_LOCAL_S3_REGION: "eu-local-1",
+      WS_LOCAL_S3_BUCKET: "willowsum-files",
+      WS_LOCAL_S3_ACCESS_KEY: "WSLOCALSYNTHETIC",
+      WS_LOCAL_S3_SECRET_KEY: "synthetic-secret-value",
+    };
+    const filesOf = (files: ReturnType<typeof localFiles>) =>
+      ROLES.map((_role, i) =>
+        Object.fromEntries(
+          Object.entries(
+            roleEnv({
+              port: 41000 + i,
+              databaseUrl: "postgres://u:p@127.0.0.1:5433/ws_dev",
+              password: "pw",
+              modules: ["identity"],
+              path: "/bin",
+              files,
+              fileLinkKey: LINK_KEY,
+            }),
+          ).filter(([k]) => /^WS_(S3_|FILE)/.test(k)),
+        ),
+      );
+    // With the S3 of `pnpm local:up`: every role on it, with the same key of signed links.
+    const s3 = filesOf(localFiles(S3, "/state"));
+    expect(s3[0]).toEqual({
+      WS_S3_ENDPOINT: "http://127.0.0.1:8333",
+      WS_S3_REGION: "eu-local-1",
+      WS_S3_BUCKET: "willowsum-files",
+      WS_S3_ACCESS_KEY_ID: "WSLOCALSYNTHETIC",
+      WS_S3_SECRET_ACCESS_KEY: "synthetic-secret-value",
+      WS_FILE_LINK_KEY: LINK_KEY,
+    });
+    expect(s3[1]).toEqual(s3[0]);
+    expect(s3[2]).toEqual(s3[0]);
+    // Without Docker: one directory of the run for every role, never each process's memory.
+    const dir = filesOf(localFiles({}, "/state"));
+    expect(dir[0]).toEqual({ WS_FILES_DIR: "/state/files", WS_FILE_LINK_KEY: LINK_KEY });
+    expect(dir[1]).toEqual(dir[0]);
+    expect(dir[2]).toEqual(dir[0]);
+    // Half of the S3 settings is a mistake, said by name.
+    expect(() => localFiles({ WS_LOCAL_S3_PORT: "8333" }, "/state")).toThrow(/WS_LOCAL_S3_SECRET_KEY/);
+    expect(() => localFiles({ ...S3, WS_LOCAL_S3_PORT: "x" }, "/state")).toThrow(/WS_LOCAL_S3_PORT/);
+  });
+
+  it("turns on the operational flags a release flag requires (household.core under household.space-settings: GET /v1/space)", () => {
+    const keys = requiredOperationalFlagKeys(FLAGS);
+    expect(keys).toContain("household.core");
+    expect(keys.every((k) => FLAGS[k as keyof typeof FLAGS].kind !== "release")).toBe(true);
+    expect(
+      requiredOperationalFlagKeys({
+        a: { kind: "release", requires: "b" },
+        b: { kind: "release", requires: "c" },
+        c: { kind: "operational" },
+        d: { kind: "operational" },
+      }),
+    ).toEqual(["c"]);
   });
 
   it("turns on every release flag and no operational one", () => {

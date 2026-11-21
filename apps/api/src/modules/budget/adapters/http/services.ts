@@ -8,11 +8,13 @@ import type { AuditLog } from "../../../audit/index.ts";
 import type { TransactionCategories } from "../../../categorization/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { FxReporting } from "../../../fx-rates/index.ts";
+import type { GoalSpends } from "../../../goals/index.ts";
 import { SPACE_REPORTING_CURRENCY } from "../../../household/index.ts";
 import type { BudgetTransactions } from "../../../transactions/index.ts";
 import {
   applyHandOff,
   type BudgetAudit,
+  type BudgetChargeHistory,
   type BudgetDeps,
   type BudgetHandOff,
   type BudgetObligations,
@@ -51,14 +53,16 @@ export function budgetReads(options: {
   readonly transactions: BudgetTransactions;
   readonly categorization: TransactionCategories;
   readonly fx: Pick<FxReporting, "total">;
+  /** BUD-03@PoC EC5: the transactions written off from a goal (module goals); left out (a test's server) — none. */
+  readonly goalSpends?: GoalSpends;
 }): BudgetReads {
   return {
     categories: async (householdId) => [...(await options.categories.categories(householdId))],
     accounts: async (householdId) => [...(await options.accounts.accounts(householdId))],
-    async amounts(householdId, accountIds, period, currency, since, until) {
+    async amounts(householdId, accountIds, period, currency, since, until, opts) {
       const { from, to } = periodDays(period);
       const last = until !== undefined && until < to ? until : to;
-      return counted(householdId, accountIds, from, last, currency, since);
+      return counted(householdId, accountIds, from, last, currency, since, opts?.withoutGoalSpends === true);
     },
     window: (householdId, accountIds, from, to, currency) =>
       counted(householdId, accountIds, from, to, currency),
@@ -77,10 +81,21 @@ export function budgetReads(options: {
     to: string,
     currency: string,
     since?: string,
+    withoutGoalSpends = false,
   ) {
-    const rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
+    let rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
       (r) => since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null),
     );
+    // BUD-03@PoC EC5 (BUD-05@PoC FR 8): a transaction written off from a goal no longer lowers «Можна витратити» —
+    // the whole transaction leaves the sum, so the goal's money held back by its contribution is not taken a second
+    // time, whatever month it was put aside in. Before any conversion: its rate is no matter of the sum either.
+    if (withoutGoalSpends && options.goalSpends && rows.length > 0) {
+      const spent = await options.goalSpends.spent(
+        householdId,
+        rows.map((r) => r.id),
+      );
+      if (spent.size > 0) rows = rows.filter((r) => !spent.has(r.id));
+    }
     const own = await options.categorization.categoriesOf(
       householdId,
       rows.filter((r) => r.parts === null).map((r) => r.id),
@@ -90,6 +105,7 @@ export function budgetReads(options: {
       amount: CountedAmount["amount"];
       date: string;
       period: string;
+      oneOff: boolean;
     }[] = [];
     const inDates = (date: string) => date >= from && date <= to;
     for (const r of rows) {
@@ -99,6 +115,7 @@ export function budgetReads(options: {
           amount: r.amount,
           date: r.date,
           period: periodOf(r.date),
+          oneOff: r.oneOff === true,
         });
       else
         for (const p of r.parts)
@@ -111,6 +128,7 @@ export function budgetReads(options: {
               amount: p.amount,
               date: r.date,
               period: periodOf(p.month ?? r.date),
+              oneOff: r.oneOff === true,
             });
     }
     // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
@@ -151,7 +169,7 @@ export function budgetReads(options: {
         }
       }
     }
-    const amounts: (CountedAmount & { period: string })[] = [];
+    const amounts: (CountedAmount & { period: string; oneOff: boolean })[] = [];
     let leftOut = counted.length - inRange.length + unavailable;
     let absolute = new Decimal("0");
     items.forEach((item, i) => {
@@ -163,7 +181,12 @@ export function budgetReads(options: {
         return;
       }
       absolute = absolute.plus(item.value.amount.abs());
-      amounts.push({ categoryId: inRange[i]!.categoryId, amount: item.value, period: inRange[i]!.period });
+      amounts.push({
+        categoryId: inRange[i]!.categoryId,
+        amount: item.value,
+        period: inRange[i]!.period,
+        oneOff: inRange[i]!.oneOff,
+      });
     });
     // The figures sum these by category and in total: past the bound, no figure beats a wrong one or a 500.
     if (absolute.greaterThan(BUDGET_MAX_ABSOLUTE_SUM)) return allLeftOut;
@@ -203,6 +226,15 @@ export function createBudgetServices(options: {
   readonly obligations?: BudgetObligations;
   /** BUD-17: the goals and the debts' extra payments of «План» (`createBudgetPlanSources`); left out — none. */
   readonly planSources?: BudgetPlanSources;
+  /** BUD-03@PoC EC5: «Витратити з цілі» (`createGoalSpends`); left out (a test's server) — no spends left out. */
+  readonly goalSpends?: GoalSpends;
+  /** FLW-38 (S-135): a finished month's regular charges (`createRecurringHistory`); left out — `regularPayments` null. */
+  readonly chargeHistory?: BudgetChargeHistory;
+  /**
+   * BUD-17 (owner decision 2026-11-20, batch 2, item 2): whether «План» (`budget.plan`) is on for the space; while it is
+   * off the months' own values act nowhere. Required: a server without it does not build (#652 security review).
+   */
+  readonly planEnabled: (householdId: string) => Promise<boolean>;
 }): BudgetServices {
   return {
     [BRAND]: true,
@@ -214,6 +246,8 @@ export function createBudgetServices(options: {
       reads: budgetReads(options),
       obligations: options.obligations ?? null,
       planSources: options.planSources ?? null,
+      chargeHistory: options.chargeHistory ?? null,
+      planEnabled: options.planEnabled,
     },
     audit: budgetAudit(options.audit),
   };

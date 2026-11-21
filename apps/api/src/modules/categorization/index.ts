@@ -9,6 +9,8 @@ import type { AccountDirectory } from "../accounts/index.ts";
 import type { MerchantDirectory } from "../merchants/index.ts";
 import {
   transactionCreated,
+  transactionImportMerged,
+  type TransactionImportMerged,
   type TransactionLookup,
   type TransactionRuleInputs,
   type TransactionRuleTags,
@@ -23,17 +25,18 @@ import {
   categorizationWorkerQueue,
   eraseHouseholdCategorization,
   HAND_OFF_JOB,
+  IMPORT_MERGED_JOB,
   requeueDeadJobsOf,
   setCategoryAction,
   TRANSACTION_CREATED_JOB,
   transactionsCategoryTarget,
 } from "./adapters/index.ts";
-import { categoriesInUse, type RuleDeps } from "./application/index.ts";
+import { carryImportMerged, categoriesInUse, type RuleDeps } from "./application/index.ts";
 
 export const categorizationModule = defineModule({
   name: "categorization",
   publishes: [],
-  consumes: [categoryMerged, transactionCreated],
+  consumes: [categoryMerged, transactionCreated, transactionImportMerged],
   routes: categorizationRoutes,
 });
 
@@ -45,9 +48,56 @@ export type { CategorySource, TransactionCategory } from "./domain/index.ts";
 
 /**
  * The categorization queue's jobs (ARC-04): the audit hand-off of a change, «Категорію об'єднано» (BUD-01 FR 8), the
- * rules of a new transaction and the audit entries of the rules (BUD-14 FR 8).
+ * rules of a new transaction and the audit entries of the rules (BUD-14 FR 8), the category of a merge on import
+ * (IMP-04 FR 5).
  */
-export { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, RULE_RUN_PART_JOB, TRANSACTION_CREATED_JOB };
+export {
+  AUDIT_JOB,
+  CATEGORY_MERGED_JOB,
+  HAND_OFF_JOB,
+  IMPORT_MERGED_JOB,
+  RULE_RUN_PART_JOB,
+  TRANSACTION_CREATED_JOB,
+};
+
+/**
+ * IMP-04@PoC FR 5 (#658): the bank's row takes the category of the manual transaction merged into it on apply — the
+ * port `merged` of module transactions' `createImportedTransactions` (src/main.ts, src/wiring.ts), run right after the
+ * apply commits; the job of `transactions.import-merged` runs it again if this failed. `db` is the categorization
+ * database.
+ */
+export function createImportCategoryCarry(
+  db: ModuleDatabase,
+): (householdId: string, merge: TransactionImportMerged) => Promise<void> {
+  return async (householdId, merge) => {
+    await db.inHousehold(householdId, (q) => carryImportMerged(categorizationTx(q), householdId, merge));
+  };
+}
+
+/** At most this many transactions per read of `createTransactionCategoryRead` (the rest in the next one). */
+const CATEGORY_READ_CHUNK = 1000;
+
+/**
+ * IMP-16@PoC FR 4 (wave 2 row 44): the categories of the transactions `ids` (their category and source; absent — «Без
+ * категорії» never set) — the port `categories` of module transactions' `createImportedTransactions`: a category set
+ * «вручну» keeps a transaction of a rolled-back batch. Read only, in chunks of 1 000 on the primary key.
+ */
+export function createTransactionCategoryRead(
+  db: ModuleDatabase,
+): (
+  householdId: string,
+  ids: readonly string[],
+) => Promise<ReadonlyMap<string, { readonly categoryId: string | null; readonly source: string }>> {
+  return async (householdId, ids) => {
+    const out = new Map<string, { categoryId: string | null; source: string }>();
+    for (let i = 0; i < ids.length; i += CATEGORY_READ_CHUNK) {
+      const chunk = ids.slice(i, i + CATEGORY_READ_CHUNK);
+      const read = await db.inHousehold(householdId, (q) => categorizationTx(q).read(householdId, chunk));
+      for (const [id, c] of read) out.set(id, { categoryId: c.categoryId, source: c.source });
+    }
+    return out;
+  };
+}
 
 /** The ports of the category rules (BUD-14 b) — other modules' public interfaces, as the rules read them. */
 export type CategorizationRulePorts = Omit<RuleDeps, "categories">;
@@ -140,12 +190,13 @@ export function createCategorizationWorkerQueue(
 }
 
 /**
- * BUD-01 FR 8: module categories' «Категорію об'єднано» and BUD-14 FR 8: module transactions' «Нова транзакція» become
- * categorization jobs (src/wiring.ts).
+ * BUD-01 FR 8: module categories' «Категорію об'єднано», BUD-14 FR 8: module transactions' «Нова транзакція» and
+ * IMP-04 FR 5: its «Злито з імпортом» become categorization jobs (src/wiring.ts).
  */
 export const categorizationSubscriptions: readonly EventSubscription[] = [
   { event: categoryMerged, consumer: "categorization", job: CATEGORY_MERGED_JOB },
   { event: transactionCreated, consumer: "categorization", job: TRANSACTION_CREATED_JOB },
+  { event: transactionImportMerged, consumer: "categorization", job: IMPORT_MERGED_JOB },
 ];
 
 /**

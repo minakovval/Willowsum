@@ -115,7 +115,8 @@ async function changeBoth(
 
 /**
  * «Позначити як переказ» (FR 27) and «Підтвердити» (FR 6) on `id` with `counterpartId`: both of the space, posted,
- * shown, not split, in no transfer, on two active accounts, one a debit and the other a credit (domain orderPair). In
+ * shown, not split, in no transfer, on two active accounts (or two wallets of one in two currencies — an exchange,
+ * IMP-03 FR 2), one a debit and the other a credit (domain orderPair). In
  * two currencies the official rate of the transfer's date is read first, outside the transactions transaction.
  */
 export async function markTransfer(
@@ -381,6 +382,7 @@ export async function createTransfer(
         mergedInto: null,
         note: null,
         tagIds: [],
+        oneOff: false,
         // BUD-12 FR 8: a transaction entered by hand never goes into «До розбору».
         review: reviewOnCreate({ importedFromStatement: false }),
         version: 1,

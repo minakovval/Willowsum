@@ -40,6 +40,8 @@ const TREE = {
     },
   ],
 };
+const FEATURES_ON = { status: 200, body: { features: ["budget.period", "budget.plan"] } } as const;
+const FEATURES_OFF = { status: 200, body: { features: ["budget.period"] } } as const;
 const WIZARD = {
   today: "2026-11-01",
   midPeriod: false,
@@ -80,12 +82,22 @@ const balance = (kind: "surplus" | "deficit" | "balanced", amount: string) => ({
   kind,
   amount: eur(amount),
 });
-const answer = (b: ReturnType<typeof balance> | null, choice: unknown = null) => ({
+const spendable = (amount: string | null, missing: string[] = []) => ({
+  period: "2026-11",
+  amount: amount === null ? null : eur(amount),
+  missing,
+});
+const answer = (
+  b: ReturnType<typeof balance> | null,
+  choice: unknown = null,
+  spend = spendable("2902.34"),
+) => ({
   period: "2026-11",
   incomePlan: eur("5600.00"),
   limits: eur("2860.00"),
   balance: b,
   choice,
+  spendable: spend,
 });
 const choice = (chosen: string, rest: string, status: "short" | "exact" | "over") => ({
   chosen: eur(chosen),
@@ -119,11 +131,18 @@ const CARD = {
   creditCard: { available: eur("1360.00"), creditLimit: null, debt: eur("640.00"), gracePeriodDays: null },
 };
 
-type Body = { chosen?: { amount: string }[]; limits: unknown[] };
+type Row = {
+  kind: string;
+  goalId?: string;
+  accountId?: string;
+  amount: { amount: string; currency: string };
+};
+type Body = { chosen?: unknown; allocation?: Row[]; limits: unknown[] };
 function mount(allocation: (body: Body) => Reply, over: Record<string, Reply> = {}) {
   const api = fakeApi({
     "GET /v1/budget": { status: 200, body: { budget: null } },
     "GET /v1/budget/wizard": { status: 200, body: WIZARD },
+    "GET /v1/me/features": FEATURES_ON,
     "GET /v1/categories": { status: 200, body: TREE },
     "GET /v1/space": { status: 200, body: { name: "Дім", dataRegion: "eu", reportingCurrency: "EUR" } },
     "POST /v1/budget": { status: 201, body: { id: "b1" } },
@@ -252,16 +271,24 @@ describe("BUD-02@PoC FR 15 surplus", () => {
     });
   });
 
-  it("BUD-02@PoC FR 15: a chosen amount goes to the server as a decimal string and the server's allocated sum and rest are shown", async () => {
+  it("BUD-02@PoC FR 15: a chosen goal amount goes to the server as a typed `goal` row with a decimal string and the server's allocated sum and rest are shown", async () => {
     const api = await toLimits(
       mount((b) => ({
         status: 200,
-        body: answer(balance("surplus", "2710.00"), b.chosen ? choice("600.00", "2110.00", "short") : null),
+        body: answer(
+          balance("surplus", "2710.00"),
+          b.allocation ? choice("600.00", "2110.00", "short") : null,
+        ),
       })),
     );
     await toStep("Розподіл профіциту");
     typeAmount("Сума: Відпустка в Карпатах", "600");
-    await waitFor(() => expect(lastBody(api).chosen).toEqual([{ amount: "600.00", currency: "EUR" }]));
+    await waitFor(() =>
+      expect(lastBody(api).allocation).toEqual([
+        { kind: "goal", goalId: id(10), amount: { amount: "600.00", currency: "EUR" } },
+      ]),
+    );
+    expect(lastBody(api).chosen).toBeUndefined();
     await waitFor(() => expect(plain(document.body.textContent)).toContain("2 110,00 €"));
     expect(plain(document.body.textContent)).toContain("600,00 €");
   });
@@ -294,22 +321,27 @@ describe("BUD-02@PoC FR 15 surplus", () => {
 describe("BUD-02@PoC FR 15 and AC7 deficit", () => {
   const deficit = (status: "short" | "exact" | "over", chosen: string, rest: string) => (b: Body) => ({
     status: 200,
-    body: answer(balance("deficit", "200.00"), b.chosen ? choice(chosen, rest, status) : null),
+    body: answer(balance("deficit", "200.00"), b.allocation ? choice(chosen, rest, status) : null),
   });
 
-  it("BUD-02@PoC AC7: a deficit asks «Звідки візьмуться 200,00 €?» with the four options and keeps «Створити бюджет» inactive until it is covered", async () => {
+  it("BUD-02@PoC AC7: a deficit asks «Звідки візьмуться 200,00 €?» with the four options (two of them marked as not saved) and keeps «Створити бюджет» inactive until it is covered", async () => {
     const api = await toLimits(mount(deficit("short", "100.00", "100.00")));
     await toStep(/Звідки візьмуться 200,00/);
     const text = plain(document.body.textContent);
     expect(text).toContain("З цілі «Подушка безпеки»");
+    // AC7's four options are shown; owner Q3 а: «У PoC ці варіанти не зберігаються, і екран про це пише» — the two that
+    // are not saved say so and take no amount (the server refuses such rows as `not_saved`, so none is ever sent).
     expect(text).toContain("Із заощаджень · Ощадний ··1180");
     expect(text).toContain("У борг · Кредитна ··9021");
     expect(text).toContain("доступний ліміт 1 360,00 €");
+    expect(text.match(/поки не зберігається/g)).toHaveLength(2);
+    for (const name of ["Сума: Із заощаджень · Ощадний ··1180", "Сума: У борг · Кредитна ··9021"])
+      expect(screen.getByRole("textbox", { name }).hasAttribute("disabled")).toBe(true);
     expect(text).toContain("Зменшити ліміти");
     expect(text).toContain("Покрито 0,00 € з 200,00 €");
     expect(disabled("Створити бюджет")).toBe(true);
     expect(plain(document.body.textContent)).toContain("Покрийте дефіцит повністю");
-    typeAmount("Сума: Із заощаджень · Ощадний ··1180", "100");
+    typeAmount("Сума: З цілі «Подушка безпеки»", "100");
     await waitFor(() => expect(plain(document.body.textContent)).toContain("Покрито 100,00 € з 200,00 €"));
     expect(disabled("Створити бюджет")).toBe(true);
     click("Створити бюджет");
@@ -319,18 +351,23 @@ describe("BUD-02@PoC FR 15 and AC7 deficit", () => {
   it("BUD-02@PoC AC7: covered in full (the server says «exact») activates «Створити бюджет»; nothing is moved", async () => {
     const api = await toLimits(mount(deficit("exact", "200.00", "0.00")));
     await toStep(/Звідки візьмуться 200,00/);
-    typeAmount("Сума: Із заощаджень · Ощадний ··1180", "200");
+    typeAmount("Сума: З цілі «Подушка безпеки»", "200");
     await waitFor(() => expect(disabled("Створити бюджет")).toBe(false));
     click("Створити бюджет");
     await waitFor(() =>
       expect(api.calls.some((c) => c.method === "POST" && c.path === "/v1/budget")).toBe(true),
     );
+    // The cover leaves as a typed `from-goal` row in the create request too.
+    const body = api.calls.find((c) => c.method === "POST" && c.path === "/v1/budget")?.body as Body;
+    expect(body.allocation).toEqual([
+      { kind: "from-goal", goalId: id(11), amount: { amount: "200.00", currency: "EUR" } },
+    ]);
   });
 
   it("BUD-02@PoC AC7: more than the deficit (the server says «over») is refused with the reason", async () => {
     await toLimits(mount(deficit("over", "300.00", "0.00")));
     await toStep(/Звідки візьмуться 200,00/);
-    typeAmount("Сума: Із заощаджень · Ощадний ··1180", "300");
+    typeAmount("Сума: З цілі «Подушка безпеки»", "300");
     await waitFor(() => expect(plain(document.body.textContent)).toContain("Обрано більше, ніж 200,00 €."));
     expect(disabled("Створити бюджет")).toBe(true);
   });
@@ -345,8 +382,8 @@ describe("BUD-02@PoC FR 15 and AC7 deficit", () => {
     await waitFor(() =>
       expect((lastBody(api).limits[0] as { amount: { amount: string } }).amount.amount).toBe("200.00"),
     );
-    // «Зменшити ліміти» is never sent as a chosen amount.
-    expect(lastBody(api).chosen).toBeUndefined();
+    // «Зменшити ліміти» is never sent as a row: on the limits step no rows leave at all.
+    expect(lastBody(api).allocation).toBeUndefined();
   });
 });
 
@@ -440,21 +477,236 @@ describe("BUD-02@PoC FR 15 states", () => {
     await waitFor(() => expect(disabled("Створити бюджет")).toBe(false));
   });
 
-  it("BUD-02@PoC FR 15: the closing text differs for a surplus and a deficit and promises no appearance in «План» before the saving exists", async () => {
+  it("BUD-02@PoC FR 15: the closing text differs for a surplus and a deficit and says where the saved amounts appear (the board's text)", async () => {
     await toLimits();
     await toStep("Розподіл профіциту");
-    expect(plain(document.body.textContent)).toContain("Обрані суми поки що не зберігаються");
-    expect(plain(document.body.textContent)).not.toContain("Суми з’являться");
+    expect(plain(document.body.textContent)).toContain(
+      "Це план: гроші не переказуються. Суми з’являться в «Бюджет → План» у розділах «Цілі й заощадження» і «Погашення боргів».",
+    );
+    expect(plain(document.body.textContent)).not.toContain("поки що не зберігаються");
     cleanup();
     resetAuthState();
     await toLimits(mount(() => ({ status: 200, body: answer(balance("deficit", "200.00")) })));
     await toStep(/Звідки візьмуться 200,00/);
-    expect(plain(document.body.textContent)).toContain("Обране покриття поки що не зберігається");
+    expect(plain(document.body.textContent)).toContain(
+      "Це план: гроші не переказуються. Покриття з’явиться в «Бюджет → План» у рядку «Не розподілено / Дефіцит».",
+    );
+  });
+
+  it("BUD-02@PoC FR 15: with `budget.plan` off the closing text does not send to «Бюджет → План» (surplus and deficit)", async () => {
+    const off = { "GET /v1/me/features": FEATURES_OFF };
+    await toLimits(mount(() => ({ status: 200, body: answer(balance("surplus", "2710.00")) }), off));
+    await toStep("Розподіл профіциту");
+    expect(plain(document.body.textContent)).toContain(
+      "Це план: гроші не переказуються. Обрані суми буде збережено разом із бюджетом.",
+    );
+    expect(plain(document.body.textContent)).not.toContain("«Бюджет → План»");
+    cleanup();
+    resetAuthState();
+    await toLimits(mount(() => ({ status: 200, body: answer(balance("deficit", "200.00")) }), off));
+    await toStep(/Звідки візьмуться 200,00/);
+    expect(plain(document.body.textContent)).toContain(
+      "Це план: гроші не переказуються. Покриття буде збережено разом із бюджетом.",
+    );
+    expect(plain(document.body.textContent)).not.toContain("«Бюджет → План»");
+  });
+
+  it("BUD-02@PoC FR 15: a failed features read counts as `budget.plan` off — the text never promises the grid", async () => {
+    await toLimits(
+      mount(() => ({ status: 200, body: answer(balance("surplus", "2710.00")) }), {
+        "GET /v1/me/features": { status: 500, body: undefined },
+      }),
+    );
+    await toStep("Розподіл профіциту");
+    expect(plain(document.body.textContent)).not.toContain("«Бюджет → План»");
+    expect(plain(document.body.textContent)).toContain("буде збережено разом із бюджетом");
   });
 
   it("BUD-02@PoC FR 15: the four steps are named in the stepper, «Розподіл» last", async () => {
     await toLimits();
     const items = screen.getAllByRole("listitem").map((li) => plain(li.textContent));
     expect(items.some((x) => x.includes("Розподіл"))).toBe(true);
+  });
+});
+
+describe("BUD-02@PoC FR 15 and BUD-03@PoC FR 2 typed rows and «Можна витратити»", () => {
+  const surplus = (b: Body) => ({
+    status: 200,
+    body: answer(
+      balance("surplus", "2710.00"),
+      b.allocation ? choice("1000.00", "1710.00", "short") : null,
+      spendable(b.allocation ? "1902.34" : "2902.34"),
+    ),
+  });
+  const createBodyOf = (api: ReturnType<typeof mount>) =>
+    api.calls.find((c) => c.method === "POST" && c.path === "/v1/budget")?.body as Body;
+
+  it("BUD-02@PoC FR 15: goal, debt and «Заощадження без цілі» amounts leave as typed rows in the calculation and in POST /v1/budget, never as `chosen`", async () => {
+    const api = await toLimits(mount(surplus));
+    await toStep("Розподіл профіциту");
+    typeAmount("Сума: Відпустка в Карпатах", "300");
+    typeAmount("Сума: Кредитна ··9021", "250,25");
+    typeAmount("Сума: Відкласти", "100");
+    const rows: Row[] = [
+      { kind: "goal", goalId: id(10), amount: { amount: "300.00", currency: "EUR" } },
+      { kind: "debt", accountId: id(50), amount: { amount: "250.25", currency: "EUR" } },
+      { kind: "savings", amount: { amount: "100.00", currency: "EUR" } },
+    ];
+    await waitFor(() => expect(lastBody(api).allocation).toEqual(rows));
+    expect(lastBody(api).chosen).toBeUndefined();
+    await waitFor(() => expect(disabled("Створити бюджет")).toBe(false));
+    click("Створити бюджет");
+    await waitFor(() => expect(createBodyOf(api)).toBeTruthy());
+    expect(createBodyOf(api).allocation).toEqual(rows);
+    expect(createBodyOf(api).chosen).toBeUndefined();
+  });
+
+  it("BUD-02@PoC FR 15: an empty or zero amount sends no row, and the rows of a surplus are dropped when the difference becomes a deficit", async () => {
+    let kind: "surplus" | "deficit" = "surplus";
+    const api = await toLimits(
+      mount(() => ({
+        status: 200,
+        body: answer(balance(kind, kind === "surplus" ? "2710.00" : "200.00"), null),
+      })),
+    );
+    await toStep("Розподіл профіциту");
+    typeAmount("Сума: Відпустка в Карпатах", "0");
+    typeAmount("Сума: Відкласти", "100");
+    await waitFor(() =>
+      expect(lastBody(api).allocation).toEqual([
+        { kind: "savings", amount: { amount: "100.00", currency: "EUR" } },
+      ]),
+    );
+    kind = "deficit";
+    click("Назад");
+    await screen.findByRole("heading", { name: "Ліміти категорій" });
+    typeAmount("Ліміт: Продукти", "900");
+    await toStep(/Звідки візьмуться 200,00/);
+    await waitFor(() => expect(lastBody(api).allocation).toBeUndefined());
+  });
+
+  it("BUD-02@PoC FR 15: the amounts typed on «Розподіл» are not sent while the limits step is open, and come back with the step", async () => {
+    const api = await toLimits(mount(surplus));
+    await toStep("Розподіл профіциту");
+    typeAmount("Сума: Відпустка в Карпатах", "300");
+    await waitFor(() => expect(lastBody(api).allocation).toHaveLength(1));
+    click("Назад");
+    await screen.findByRole("heading", { name: "Ліміти категорій" });
+    await waitFor(() => expect(lastBody(api).allocation).toBeUndefined());
+    await toStep("Розподіл профіциту");
+    await waitFor(() => expect(lastBody(api).allocation).toHaveLength(1));
+  });
+
+  it("BUD-03@PoC FR 2 (BUD-02@PoC FR 3, AC6): «Можна витратити в листопаді ≈ M» is the server's figure under the bar of the limits step", async () => {
+    await toLimits(mount(surplus));
+    await waitFor(() =>
+      expect(plain(document.querySelector(".bud-wiz-strip")?.textContent)).toContain(
+        "Можна витратити в листопаді ≈ 2 902,34 €",
+      ),
+    );
+  });
+
+  it("BUD-03@PoC FR 2: on «Розподіл» the bottom row shows the figure after the chosen rows (the server's, from the `allocation` rows)", async () => {
+    const api = await toLimits(mount(surplus));
+    await toStep("Розподіл профіциту");
+    await waitFor(() =>
+      expect(plain(document.body.textContent)).toContain("Можна витратити в листопаді ≈ 2 902,34 €"),
+    );
+    typeAmount("Сума: Відпустка в Карпатах", "300");
+    await waitFor(() =>
+      expect(plain(document.body.textContent)).toContain("Можна витратити в листопаді ≈ 1 902,34 €"),
+    );
+    expect(api.calls.some((c) => c.method === "POST" && c.path === "/v1/budget")).toBe(false);
+    cleanup();
+    resetAuthState();
+    await toLimits(
+      mount(() => ({ status: 200, body: answer(balance("deficit", "200.00"), null, spendable("1000.00")) })),
+    );
+    await toStep(/Звідки візьмуться 200,00/);
+    await waitFor(() =>
+      expect(plain(document.body.textContent)).toContain("Можна витратити в листопаді ≈ 1 000,00 €"),
+    );
+  });
+
+  it("BUD-03@PoC FR 2: without a figure (amount null) the row says what is missing and shows no amount, never a partial one", async () => {
+    await toLimits(
+      mount(() => ({
+        status: 200,
+        body: answer(balance("surplus", "2710.00"), null, spendable(null, ["rates"])),
+      })),
+    );
+    await waitFor(() =>
+      expect(plain(document.querySelector(".bud-wiz-strip")?.textContent)).toContain(
+        "Можна витратити в листопаді: сума поки невідома",
+      ),
+    );
+    expect(plain(document.body.textContent)).toContain("немає курсу для однієї із сум");
+    expect(plain(document.body.textContent)).not.toContain("≈");
+  });
+
+  it("BUD-03@PoC FR 2: a pending calculation does not leave the old figure on «Розподіл»", async () => {
+    let release: (r: Reply) => void = () => undefined;
+    let first = true;
+    await toLimits(
+      mount(() => {
+        if (first) {
+          first = false;
+          return { status: 200, body: answer(balance("surplus", "2710.00")) };
+        }
+        return new Promise<Reply>((resolve) => (release = resolve)) as unknown as Reply;
+      }),
+    );
+    await toStep("Розподіл профіциту");
+    typeAmount("Сума: Відкласти", "100");
+    await waitFor(() => expect(plain(document.body.textContent)).not.toContain("≈ 2 902,34"));
+    release({ status: 200, body: answer(balance("surplus", "2710.00")) });
+    await waitFor(() => expect(plain(document.body.textContent)).toContain("≈ 2 902,34"));
+  });
+});
+
+describe("BUD-02@PoC AC7 and FR 15: the server refuses rows it would not save (400) — the step stays usable", () => {
+  // As POST /v1/budget/allocation answers for typed rows (#646): a deficit covered by less, or a surplus over N, is
+  // `400 VALIDATION_FAILED` on `allocation`, not a 200 with `choice.status`.
+  const refused = (issue: string): Reply => {
+    const r = problem(400, "VALIDATION_FAILED") as Exclude<Reply, "network"> & { body: object };
+    return { ...r, body: { ...r.body, errors: [{ in: "body", path: "allocation", issue }] } };
+  };
+
+  it("BUD-02@PoC AC7: a deficit covered by less (400 `allocation: short`) keeps the fields, no error screen, «Створити бюджет» inactive until covered", async () => {
+    await toLimits(
+      mount((b) => {
+        const amount = b.allocation?.[0]?.amount.amount;
+        if (amount === undefined) return { status: 200, body: answer(balance("deficit", "200.00")) };
+        return amount === "200.00"
+          ? { status: 200, body: answer(balance("deficit", "200.00"), choice("200.00", "0.00", "exact")) }
+          : refused("short");
+      }),
+    );
+    await toStep(/Звідки візьмуться 200,00/);
+    typeAmount("Сума: З цілі «Подушка безпеки»", "100");
+    await waitFor(() => expect(disabled("Створити бюджет")).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(plain(document.body.textContent)).not.toContain("Не вдалося порахувати розподіл");
+    expect(screen.getByRole("textbox", { name: "Сума: З цілі «Подушка безпеки»" })).toBeTruthy();
+    expect(plain(document.body.textContent)).toContain("Покрийте дефіцит повністю");
+    // No figure of the refused rows: neither «Покрито» nor the last «Можна витратити».
+    expect(plain(document.body.textContent)).not.toContain("≈");
+    typeAmount("Сума: З цілі «Подушка безпеки»", "200");
+    await waitFor(() => expect(disabled("Створити бюджет")).toBe(false));
+  });
+
+  it("BUD-02@PoC FR 15: a surplus over N (400 `allocation: over`) keeps the fields and says why «Створити бюджет» is inactive", async () => {
+    await toLimits(
+      mount((b) =>
+        b.allocation ? refused("over") : { status: 200, body: answer(balance("surplus", "2710.00")) },
+      ),
+    );
+    await toStep("Розподіл профіциту");
+    typeAmount("Сума: Відкласти", "5000");
+    await waitFor(() => expect(disabled("Створити бюджет")).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(plain(document.body.textContent)).not.toContain("Не вдалося порахувати розподіл");
+    expect(screen.getByRole("textbox", { name: "Сума: Відкласти" })).toBeTruthy();
+    expect(plain(document.body.textContent)).toContain("Обрано більше");
   });
 });

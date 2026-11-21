@@ -275,3 +275,30 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ws-space-2);
 }
+
+/* BUD-06@PoC FR 8: «Одноразова витрата» — the switch, what it does, the saving state or the refusal. */
+.txd-oneoff {
+  display: grid;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
+}
+
+.txd-oneoff p {
+  overflow-wrap: anywhere;
+}
+
+/* IMP-02@PoC FR 4: the bank's text as printed — wrapped at any character, never clamped (GRID-00 FR 33). */
+.txd-bank-text {
+  min-inline-size: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.txd-statement {
+  display: grid;
+  gap: var(--ws-space-2);
+}
+
+.txd-statement h2 {
+  margin: 0;
+}

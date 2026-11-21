@@ -47,7 +47,9 @@ const plan = (
   rows: readonly IncomingRow[],
   existing: readonly KnownTransaction[] = [],
   sameFile: string | null = null,
-) => planBatch({ batchId: BATCH, accountId: ACCOUNT, rows, existing, sameFileAppliedIn: sameFile });
+  creditCard = false,
+) =>
+  planBatch({ batchId: BATCH, accountId: ACCOUNT, rows, existing, sameFileAppliedIn: sameFile, creditCard });
 
 /** The rows the apply step creates a transaction for. */
 const CREATES = new Set(["import", "repeat", "possible-duplicate", "replace"]);
@@ -137,6 +139,108 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
     ]);
   });
 
+  it("IMP-04@PoC FR 4: a credit card's overlapping statements stored in the debt basis and as printed — the shared rows are duplicates (#654)", () => {
+    // The first statement, applied with the debt basis confirmed (IMP-05 FR 6): its balances stored negative.
+    const debt = [
+      tx({ amount: EUR("-40.00"), date: "2026-05-04", description: "SHOP", balanceAfter: EUR("-140.00") }),
+      tx({ amount: EUR("-10.00"), date: "2026-05-05", description: "CAFE", balanceAfter: EUR("-150.00") }),
+    ];
+    // The overlapping one, its «знак картки» confirmed as printed: the same balances, positive.
+    const printed = [
+      row({ amount: EUR("-40.00"), date: "2026-05-04", description: "SHOP", balance: EUR("140.00") }),
+      row({ amount: EUR("-10.00"), date: "2026-05-05", description: "CAFE", balance: EUR("150.00") }),
+      row({ amount: EUR("-5.00"), date: "2026-05-06", description: "BUS", balance: EUR("155.00") }),
+    ];
+    const out = plan(printed, debt, null, true);
+    expect(kinds(out)).toEqual(["duplicate", "duplicate", "import"]);
+    expect(created(out)).toBe(1);
+    // Another size of the balance is still another operation.
+    const other = row({
+      amount: EUR("-40.00"),
+      date: "2026-05-04",
+      description: "SHOP",
+      balance: EUR("141.00"),
+    });
+    expect(plan([other], [debt[0]!], null, true)[0]!.kind).not.toBe("duplicate");
+  });
+
+  it("IMP-04@PoC FR 1: on an account that is not a credit card a balance matches by value only — a stored +10.00 is no duplicate of a row with −10.00 (#655)", () => {
+    const stored = tx({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balanceAfter: EUR("10.00"),
+    });
+    // The new file starts in the middle of the day: only the later coffee, after it −10.00.
+    const later = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("-10.00"),
+    });
+    expect(plan([later], [stored])[0]!.kind).not.toBe("duplicate");
+    expect(created(plan([later], [stored]))).toBe(1);
+    // The same rows on a credit card: either basis of its balance, so a duplicate.
+    expect(plan([later], [stored], null, true)[0]).toMatchObject({
+      kind: "duplicate",
+      of: stored.transactionId,
+    });
+  });
+
+  it("IMP-04@PoC FR 1: a balance that crosses zero — the row with the same balance is the duplicate, the other one is imported", () => {
+    // An overdraft account: two coffees of a day, after the first +10.00, after the second −10.00 (rent in between).
+    const first = tx({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balanceAfter: EUR("10.00"),
+    });
+    // The next statement newest first: the −10.00 row comes before the +10.00 one.
+    const later = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("-10.00"),
+    });
+    const same = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("10.00"),
+    });
+    const out = plan([later, same], [first]);
+    expect(out.find((o) => o.row === same.row)).toMatchObject({ kind: "duplicate", of: first.transactionId });
+    expect(out.find((o) => o.row === later.row)!.kind).not.toBe("duplicate");
+    expect(created(out)).toBe(1);
+  });
+
+  it("IMP-04@PoC FR 4: on a credit card too the balance matches by value first — a card balance that crosses zero keeps its +X and −X rows apart (#655)", () => {
+    // A card overpaid to +10.00, then a purchase of the day takes it to −10.00 (repayment in between, not in the file).
+    const first = tx({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balanceAfter: EUR("10.00"),
+    });
+    const later = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("-10.00"),
+    });
+    const same = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("10.00"),
+    });
+    // Newest first: the −10.00 row comes before the +10.00 one, so a size match first would give it the transaction.
+    const out = plan([later, same], [first], null, true);
+    expect(out.find((o) => o.row === same.row)).toMatchObject({ kind: "duplicate", of: first.transactionId });
+    expect(out.find((o) => o.row === later.row)!.kind).not.toBe("duplicate");
+    expect(created(out)).toBe(1);
+  });
+
   it("IMP-04@PoC FR 1: the normalized description — NFKC, lower case, one space, trimmed", () => {
     expect(normalizeDescription("  CARD  PAYMENT\tＳｈｏｐ ")).toBe("card payment shop");
     expect(normalizeDescription(null)).toBe("");
@@ -153,6 +257,24 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
       kind: "duplicate",
       of: hidden.transactionId,
     });
+  });
+  it("IMP-04@PoC FR 1 (#696): a row of a statement imported before the joined description still finds its transaction", () => {
+    for (const over of [{}, { transfer: true }, { hidden: true }]) {
+      const e = tx({ amount: EUR("-25.00"), date: "2026-05-04", description: "Compra Mercadona", ...over });
+      const out = plan(
+        [
+          row({
+            amount: EUR("-25.00"),
+            date: "2026-05-04",
+            description: "Compra Mercadona · Tarjeta 1234",
+            legacyDescription: "Compra Mercadona",
+          }),
+        ],
+        [e],
+      );
+      expect(kinds(out)).toEqual(["duplicate"]);
+      expect(created(out)).toBe(0);
+    }
   });
 });
 
@@ -458,4 +580,88 @@ describe("IMP-04@PoC a): the work of one plan is bounded", () => {
     );
     expect(plan(rows, existing)).toHaveLength(20_000);
   }, 120_000);
+});
+
+describe("IMP-04@PoC FR 5: a key match with a manual transaction keeps the row as its link (#637 item 6, #654)", () => {
+  const manual = (over: Partial<KnownTransaction> = {}) =>
+    tx({
+      amount: EUR("-42.00"),
+      date: "2026-04-11",
+      description: "Кафе",
+      source: "manual",
+      importBatchId: null,
+      ...over,
+    });
+  const r = () => row({ amount: EUR("-42.00"), date: "2026-04-11", description: "Кафе" });
+
+  it("IMP-04@PoC FR 5: the same key as a manual one matched with nothing — a duplicate of it, merged into the bank's row (nothing new in the balance)", () => {
+    const m = manual();
+    const out = plan([r()], [m]);
+    expect(out).toEqual([
+      { row: out[0]!.row, occurrence: 1, kind: "duplicate", of: m.transactionId, merge: true },
+    ]);
+    expect(created(out)).toBe(0);
+  });
+
+  it("IMP-04@PoC FR 5: a manual one matched already, hidden, «Очікує» or a side of a transfer — a plain duplicate, nothing kept", () => {
+    for (const over of [
+      { matched: true },
+      { hidden: true },
+      { status: "pending" as const },
+      { transfer: true },
+    ]) {
+      const m = manual(over);
+      const rows = over.status === "pending" ? [{ ...r(), status: "pending" as const }] : [r()];
+      const out = plan(rows, [m]);
+      expect(out[0]).toMatchObject({ kind: "duplicate", of: m.transactionId });
+      expect(out[0]).not.toHaveProperty("merge");
+    }
+  });
+
+  it("IMP-04@PoC FR 4: an imported row kept as a link (merged) is still the key match of its row — a duplicate, never merged or offered again", () => {
+    const m = manual({ date: "2026-04-10", description: "Обід", matched: true });
+    const link = tx({
+      amount: EUR("-42.00"),
+      date: "2026-04-11",
+      description: "Кафе",
+      hidden: true,
+      merged: true,
+    });
+    const out = plan([r()], [m, link]);
+    expect(out).toEqual([{ row: out[0]!.row, occurrence: 1, kind: "duplicate", of: link.transactionId }]);
+    // Another row of the amount: neither the link (merged) nor the manual one (matched) merges it.
+    const other = row({ amount: EUR("-42.00"), date: "2026-04-12", description: "Інше" });
+    expect(plan([other], [m, link])[0]).toMatchObject({
+      kind: "possible-duplicate",
+      candidates: [m.transactionId],
+    });
+  });
+
+  it("IMP-04@PoC FR 6: a pending one replaced already (merged into its posted one) is never replaced again; the pending row is its duplicate", () => {
+    const replaced = tx({
+      amount: EUR("-30.00"),
+      date: "2026-05-01",
+      description: "HOLD SHOP",
+      status: "pending",
+      hidden: true,
+      merged: true,
+    });
+    expect(plan([row({ amount: EUR("-30.00"), date: "2026-05-02" })], [replaced])[0]!.kind).toBe("import");
+    const again = row({
+      amount: EUR("-30.00"),
+      date: "2026-05-01",
+      description: "HOLD SHOP",
+      status: "pending",
+    });
+    expect(plan([again], [replaced])[0]).toMatchObject({ kind: "duplicate", of: replaced.transactionId });
+  });
+});
+
+describe("IMP-04@PoC FR 5: only a manual transaction takes a link (sec #658)", () => {
+  it("IMP-04@PoC FR 5: the same key as an imported one of an earlier batch (shown, posted, matched with nothing) — a plain duplicate, nothing kept", () => {
+    const earlier = tx({ amount: EUR("-42.00"), date: "2026-04-11", description: "Кафе" });
+    const out = plan([row({ amount: EUR("-42.00"), date: "2026-04-11", description: "Кафе" })], [earlier]);
+    expect(out[0]).toMatchObject({ kind: "duplicate", of: earlier.transactionId });
+    expect(out[0]).not.toHaveProperty("merge");
+  });
 });

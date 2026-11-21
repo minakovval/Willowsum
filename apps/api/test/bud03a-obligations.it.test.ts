@@ -267,6 +267,7 @@ beforeAll(async () => {
         }),
         recurring,
         budget: createBudgetServices({
+          planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
           transactions: createBudgetTransactions(db.databases.for("transactions")),
@@ -310,6 +311,8 @@ describe("#567: «Розподіл» with the live port (POST /v1/budget/allocat
       recurringOutsideLimits: eur("0"),
       unallocated: eur("2740"),
       debtMinimums: eur("0"),
+      // Q5 а: the goals' planned contributions (no goal here).
+      goalContributions: eur("0"),
       difference: eur("2740"),
       kind: "surplus",
       amount: eur("2740"),
@@ -343,6 +346,7 @@ describe("#567: «Розподіл» with the live port (POST /v1/budget/allocat
       recurringOutsideLimits: eur("15.99"),
       unallocated: eur("484.01"),
       debtMinimums: eur("250"),
+      goalContributions: eur("0"),
       difference: eur("234.01"),
       kind: "surplus",
       amount: eur("234.01"),
@@ -573,6 +577,7 @@ describe("#567: the port in another currency and another space", () => {
       debtMinimums: [{ accountId: myLoan, amount: expect.anything(), paid: false }],
       approximate: false,
       incomeExpected: Money.zero("EUR"),
+      incomeApproximate: false,
     });
     expect(o!.debtMinimums[0]!.amount.toDecimalString()).toBe("100");
     // A space's id that is not the caller's: the period read through the API is the caller's own.
@@ -586,6 +591,7 @@ describe("#567: the port in another currency and another space", () => {
       debtMinimums: [],
       approximate: false,
       incomeExpected: Money.zero("EUR"),
+      incomeApproximate: false,
     });
   });
 });

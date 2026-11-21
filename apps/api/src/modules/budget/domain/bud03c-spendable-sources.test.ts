@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { Money } from "@willowsum/domain-kernel";
-import { goalContributions, mandatoryNeeds, type LimitLine, type SpendableGoal } from "./index.ts";
+import {
+  goalContributions,
+  incomeOf,
+  incomePlanApproximate,
+  mandatoryNeeds,
+  plannedDebtExpenses,
+  type LimitLine,
+  type SpendableGoal,
+} from "./index.ts";
 
 /** BUD-03@PoC c): what the read of «Можна витратити» takes from «План» (the goals) and the mandatory categories. */
 const eur = (amount: string) => Money.of(amount, "EUR");
@@ -121,5 +129,89 @@ describe("BUD-03@PoC FR 8: «Обов'язкові категорії: ще по
       { categoryId: "groceries", amount: eur("30") },
       { categoryId: "rent", amount: eur("100") },
     ]);
+  });
+});
+
+describe("BUD-03@PoC EC4: the month's income plan at the nearest rate (#651)", () => {
+  const income = (paymentId: string, amount: string | null, approximate = false) => ({
+    paymentId,
+    amount: amount === null ? null : eur(amount),
+    approximate,
+  });
+  const incomeCell = (lineId: string | null, amount: string) => ({
+    period: "2026-11",
+    kind: "income" as const,
+    lineId,
+    amount: eur(amount),
+    version: 1,
+  });
+
+  it("BUD-03@PoC EC4: the regular incomes are the plan and one is at the nearest rate — «приблизно»", () => {
+    const incomes = [income("a", "500.10", true), income("b", "299.90")];
+    expect(incomePlanApproximate(incomeOf(eur("100"), [], incomes), [], incomes)).toBe(true);
+  });
+
+  it("BUD-03@PoC EC4: «План доходу» above the regular incomes, an income's own cell, or nothing at the nearest rate — exact", () => {
+    const incomes = [income("a", "500.10", true)];
+    expect(incomePlanApproximate(incomeOf(eur("900"), [], incomes), [], incomes)).toBe(false);
+    const own = [incomeCell("a", "600")];
+    expect(incomePlanApproximate(incomeOf(eur("100"), own, incomes), own, incomes)).toBe(false);
+    const exact = [income("a", "500.10")];
+    expect(incomePlanApproximate(incomeOf(eur("100"), [], exact), [], exact)).toBe(false);
+    const none = [income("a", null, true)];
+    expect(incomePlanApproximate(incomeOf(eur("0"), [], none), [], none)).toBe(false);
+  });
+});
+
+describe("BUD-03@PoC FR 6: «Заплановані витрати» — a month's `debt` cell of «План» in place of the payoff plan's extra payment (#661)", () => {
+  const cell = (lineId: string, amount: string | null, period = "2026-11") => ({
+    period,
+    kind: "debt",
+    lineId,
+    amount: amount === null ? null : eur(amount),
+  });
+  const plan = [
+    { accountId: "a", amount: eur("100.00"), approximate: true },
+    { accountId: "b", amount: eur("75.50"), approximate: false },
+  ];
+  const owed = new Set(["a", "b", "c"]);
+
+  it("BUD-03@PoC FR 6: a cell above the plan's 100 € (250,25 €) or below it (40,10 €) replaces it — never added to it", () => {
+    for (const [own, total] of [
+      ["250.25", "325.75"],
+      ["40.10", "115.60"],
+      ["0", "75.50"],
+    ] as const) {
+      const r = plannedDebtExpenses("2026-11", plan, owed, [cell("a", own)], "EUR");
+      expect(r.items).toEqual([
+        { accountId: "a", amount: eur(own), approximate: false },
+        { accountId: "b", amount: eur("75.50"), approximate: false },
+      ]);
+      expect(r.total).toEqual(eur(total));
+      // The plan's amount at the nearest rate is no longer in the sum: not «приблизно».
+      expect(r.approximate).toBe(false);
+    }
+  });
+
+  it("BUD-03@PoC FR 6: no cell, an empty cell or another month's cell — the plan's extra payment, «приблизно» as read", () => {
+    for (const cells of [[], [cell("a", null)], [cell("a", "999", "2026-12")]]) {
+      const r = plannedDebtExpenses("2026-11", plan, owed, cells, "EUR");
+      expect(r.total).toEqual(eur("175.50"));
+      expect(r.approximate).toBe(true);
+    }
+  });
+
+  it("BUD-03@PoC FR 6: only a `debt` cell replaces a debt's extra payment — a goal's or another kind's cell with the same line id does not", () => {
+    for (const kind of ["goal", "savings"]) {
+      const r = plannedDebtExpenses("2026-11", plan, owed, [{ ...cell("a", "999"), kind }], "EUR");
+      expect(r.total).toEqual(eur("175.50"));
+      expect(r.approximate).toBe(true);
+    }
+  });
+
+  it("BUD-03@PoC FR 6: a debt the month owes without a plan's extra payment gets its cell; a debt it no longer owes does not come back", () => {
+    const r = plannedDebtExpenses("2026-11", [], owed, [cell("c", "30.01"), cell("gone", "500")], "EUR");
+    expect(r.items).toEqual([{ accountId: "c", amount: eur("30.01"), approximate: false }]);
+    expect(r.total).toEqual(eur("30.01"));
   });
 });

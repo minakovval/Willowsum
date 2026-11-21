@@ -73,9 +73,12 @@ const extras = new Map<string, { accountId: string; amount: Money }[]>();
 const debtCalls: string[] = [];
 /** The flags switched off for the next requests. */
 let off: string[] = [];
+/** The spaces `budget.plan` is switched off for (the other spaces keep it), for the next requests. */
+const planOffFor = new Set<string>();
 const FLAGS_UNDER_TEST = {
   ...fakeFlags(),
-  isEnabled: async (_h: string, flag: string) => !off.includes(flag),
+  isEnabled: async (h: string, flag: string) =>
+    !off.includes(flag) && !(flag === "budget.plan" && planOffFor.has(h)),
 };
 void goals;
 
@@ -249,7 +252,10 @@ beforeAll(async () => {
               inMonth: async (householdId) => (debtCalls.push(householdId), extras.get(householdId) ?? []),
             },
             fx,
+            planEnabled: (householdId) => FLAGS_UNDER_TEST.isEnabled(householdId, "budget.plan"),
           }),
+          // As main.ts: «План» off — the months' typed values act nowhere (owner decision 2026-11-20, batch 2, item 2).
+          planEnabled: (householdId) => FLAGS_UNDER_TEST.isEnabled(householdId, "budget.plan"),
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -265,6 +271,7 @@ afterAll(async () => {
 afterEach(() => {
   now = at(TODAY);
   off = [];
+  planOffFor.clear();
 });
 
 const NIL = "00000000-0000-0000-0000-000000000000";
@@ -462,7 +469,9 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     ).toBe(200);
     off = ["budget.plan"];
     expect((await call(space, "GET", "/v1/budget/plan-grid")).statusCode).toBe(404);
-    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).statusCode).toBe(200);
+    // Batch 2, item 2: while it is off the typed values act nowhere — «Бюджет» shows the budget's own limit.
+    expect(await limitOf(space, "2026-12", groceries)).toBe("700");
+    expect((await period(space, "2026-12")).plannedSavings.amount).toBe("0");
     // Switching off resets nothing: both typed cells stay as they were, with their versions.
     expect(await n("budget.plan_cells WHERE household_id = $1", space.householdId)).toBe(2);
     off = [];
@@ -471,6 +480,145 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect(row(g, groceries)!.cells[december]).toMatchObject({ amount: eur("650"), own: true, version: 1 });
     expect(g.goals.savings[december]).toMatchObject({ amount: eur("90"), own: true, version: 1 });
     expect(await limitOf(space, "2026-12", groceries)).toBe("650");
+    expect((await period(space, "2026-12")).plannedSavings.amount).toBe("90");
+  });
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-20, batch 2, item 2): with `budget.plan` off the typed values change nothing on «Бюджет», «Можна витратити», «Тренд» or «Порівняння»; on — the same values act again, exact", async () => {
+    const space = await newSpace();
+    await budgetWith(space, "1000.00", { Продукти: "700.00" });
+    const groceries = await category(space, "Продукти");
+    const trip = await goal(space, "Відпустка", "3000.00");
+    const reads = {
+      period: "/v1/budget/periods/2026-11",
+      december: "/v1/budget/periods/2026-12",
+      spendable: "/v1/budget/periods/2026-11/spendable",
+      trend: "/v1/budget/trend?from=2026-11&to=2027-01",
+      compare: "/v1/budget/compare?type=month&period=2026-11",
+    };
+    const snapshot = async () => {
+      const out: Record<string, unknown> = {};
+      for (const [name, url] of Object.entries(reads)) {
+        const res = await call(space, "GET", url);
+        expect(res.statusCode, `${name}: ${res.body}`).toBe(200);
+        out[name] = res.json();
+      }
+      return out;
+    };
+    const before = await snapshot();
+    expect((before.spendable as { figures: unknown }).figures).not.toBeNull();
+    for (const [cell, amount] of [
+      [{ kind: "limit", lineId: groceries }, "650.37"],
+      [{ kind: "income", lineId: null }, "1234.56"],
+      [{ kind: "savings", lineId: null }, "90.05"],
+      [{ kind: "goal", lineId: trip }, "200.10"],
+    ] as const)
+      for (const p of ["2026-11", "2026-12"]) {
+        const res = await put(space, { period: p, ...cell, amount: eur(amount), version: 0 });
+        expect(res.statusCode, res.body).toBe(200);
+      }
+    const typed = await snapshot();
+    off = ["budget.plan"];
+    // Off: every read is as it was before anything was typed.
+    expect(await snapshot()).toEqual(before);
+    expect(await limitOf(space, "2026-12", groceries)).toBe("700");
+    const december = await period(space, "2026-12");
+    expect(december.incomePlan.amount).toBe("1000");
+    // Kept: the eight cells with their amounts and versions.
+    const kept = await db.owner.query<{ amount: string; version: number }>(
+      `SELECT amount::text AS amount, version FROM budget.plan_cells WHERE household_id = $1 ORDER BY period, kind, amount`,
+      [space.householdId],
+    );
+    expect(kept.rows.map((r) => r.version)).toEqual(Array(8).fill(1));
+    expect(kept.rows.map((r) => Money.of(r.amount, "EUR").toDecimalString()).sort()).toEqual(
+      ["1234.56", "1234.56", "200.1", "200.1", "650.37", "650.37", "90.05", "90.05"].sort(),
+    );
+    off = [];
+    // On: the same values act again, as before switching off.
+    expect(await snapshot()).toEqual(typed);
+    expect(typed).not.toEqual(before);
+    expect(await limitOf(space, "2026-11", groceries)).toBe("650.37");
+    expect(await limitOf(space, "2026-12", groceries)).toBe("650.37");
+    const on = await period(space, "2026-12");
+    expect(on.incomePlan.amount).toBe("1234.56");
+    expect(on.plannedSavings.amount).toBe("290.15");
+  });
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-20, batch 2, item 2): a finished month's snapshot written while `budget.plan` is off keeps the plan then in effect — without the typed values", async () => {
+    const space = await newSpace();
+    await budgetWith(space, "1000.00", { Продукти: "700.00" });
+    const groceries = await category(space, "Продукти");
+    expect(
+      (
+        await put(space, {
+          period: "2026-11",
+          kind: "limit",
+          lineId: groceries,
+          amount: eur("650.37"),
+          version: 0,
+        })
+      ).statusCode,
+    ).toBe(200);
+    now = at("2026-12-03");
+    off = ["budget.plan"];
+    expect(await limitOf(space, "2026-11", groceries)).toBe("700");
+    off = [];
+    // The snapshot is the plan in effect when it was written (as #613 for the incomes); the cell stays stored.
+    expect(await limitOf(space, "2026-11", groceries)).toBe("700");
+    expect(await n("budget.plan_cells WHERE household_id = $1 AND amount = 650.37", space.householdId)).toBe(
+      1,
+    );
+  });
+
+  it("sec652: `budget.plan` is read for the caller's space — off for one space leaves another space's typed values acting, and the other way round", async () => {
+    const [a, b] = [await newSpace(), await newSpace()];
+    const cat: Record<string, string> = {};
+    for (const s of [a, b]) {
+      await budgetWith(s, "1000.00", { Продукти: "700.00" });
+      cat[s.householdId] = await category(s, "Продукти");
+    }
+    const typed = new Map([
+      [a, "650.37"],
+      [b, "611.19"],
+    ]);
+    for (const [s, amount] of typed) {
+      const res = await put(s, {
+        period: "2026-11",
+        kind: "limit",
+        lineId: cat[s.householdId],
+        amount: eur(amount),
+        version: 0,
+      });
+      expect(res.statusCode, res.body).toBe(200);
+    }
+    const views = async (s: Space) => {
+      const out: string[] = [];
+      for (const url of [
+        "/v1/budget/periods/2026-11",
+        "/v1/budget/periods/2026-11/spendable",
+        "/v1/budget/trend?from=2026-11&to=2027-01",
+        "/v1/budget/compare?type=month&period=2026-11",
+      ]) {
+        const res = await call(s, "GET", url);
+        expect(res.statusCode, `${url}: ${res.body}`).toBe(200);
+        out.push(res.body);
+      }
+      return out.join("\n");
+    };
+    for (const [offSpace, onSpace] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      planOffFor.clear();
+      planOffFor.add(offSpace.householdId);
+      // Off for this space: the budget's own limit, the route is closed, the typed amount is nowhere in the views.
+      expect(await limitOf(offSpace, "2026-11", cat[offSpace.householdId]!)).toBe("700");
+      expect((await call(offSpace, "GET", "/v1/budget/plan-grid")).statusCode).toBe(404);
+      expect(leakText(await views(offSpace))).not.toContain(typed.get(offSpace)!);
+      // The other space keeps its own typed value and never carries the first one's.
+      expect(await limitOf(onSpace, "2026-11", cat[onSpace.householdId]!)).toBe(typed.get(onSpace)!);
+      expect((await call(onSpace, "GET", "/v1/budget/plan-grid")).statusCode).toBe(200);
+      expect(leakText(await views(onSpace))).not.toContain(typed.get(offSpace)!);
+    }
   });
 
   it("sec613 bounds: a malformed or out-of-range PUT body is 400 (413 over the body limit), never 500, and writes nothing", async () => {
@@ -715,5 +863,61 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect((await period(later, "2026-12")).plannedSavings.amount).toBe("0");
     expect((await call(written, "POST", `/v1/goals/${goals[0]}/close`)).statusCode).toBe(200);
     expect((await period(written, "2026-12")).plannedSavings.amount).toBe("200");
+  });
+});
+
+describe("#665: with `budget.plan` off the wizard's «≈ M» ignores «Розподіл»'s typed rows, as the card does", () => {
+  const wizard = async (space: Space, body: Record<string, unknown>) => {
+    const res = await call(space, "POST", "/v1/budget/allocation", body);
+    expect(res.statusCode, res.body).toBe(200);
+    return res.json().spendable as { amount: { amount: string; currency: string } | null };
+  };
+  const card = async (space: Space) => {
+    const res = await call(space, "GET", "/v1/budget/periods/2026-11/spendable");
+    expect(res.statusCode, res.body).toBe(200);
+    return res.json().figures as { amount: unknown; plannedExpenses: unknown };
+  };
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-20, batch 2, item 2): «План» off — the wizard's «≈ M» (BUD-02@PoC FR 3) counts no typed debt or goal row of «Розподіл», so it equals «Можна витратити» (BUD-03@PoC FR 6) after saving: 6 000 − 100; on — both count the cell: 6 000 − 250,25", async () => {
+    const space = await newSpace();
+    const trip = await goal(space, "Відпустка", "3000.00");
+    const loanId = randomUUID();
+    extras.set(space.householdId, [{ accountId: loanId, amount: Money.of("100", "EUR") }]);
+    try {
+      const plain = { firstPeriod: "2026-11", incomePlan: eur("6000") };
+      const typed = {
+        ...plain,
+        allocation: [
+          { kind: "debt", accountId: loanId, amount: eur("250.25") },
+          { kind: "goal", goalId: trip, amount: eur("321.09") },
+        ],
+      };
+      planOffFor.add(space.householdId);
+      const without = (await wizard(space, plain)).amount;
+      expect(without).not.toBeNull();
+      const off = (await wizard(space, typed)).amount;
+      // Off: the typed rows change nothing — the plan's extra payment 100 € and the goal's required contribution count.
+      expect(off).toEqual(without);
+      const res = await call(space, "POST", "/v1/budget", typed);
+      expect(res.statusCode, res.body).toBe(201);
+      const offCard = await card(space);
+      expect(offCard.amount).toEqual(off);
+      expect(offCard.plannedExpenses).toEqual({
+        items: [{ accountId: loanId, amount: eur("100") }],
+        total: eur("100"),
+      });
+      // On: the same rows act in both, exact.
+      planOffFor.clear();
+      const on = (await wizard(space, typed)).amount;
+      const onCard = await card(space);
+      expect(onCard.plannedExpenses).toEqual({
+        items: [{ accountId: loanId, amount: eur("250.25") }],
+        total: eur("250.25"),
+      });
+      expect(onCard.amount).toEqual(on);
+      expect(on).not.toEqual(off);
+    } finally {
+      extras.delete(space.householdId);
+    }
   });
 });

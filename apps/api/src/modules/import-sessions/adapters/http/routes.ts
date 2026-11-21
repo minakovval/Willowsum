@@ -5,12 +5,21 @@ import { defineRoute, DOWNLOAD_RESPONSE, type ProtectedContext } from "../../../
 import { FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
 import { PlanTooLargeError, planImport } from "../../../duplicate-matching/index.ts";
 import { FileNotFoundError } from "../../../file-storage/index.ts";
-import { ImportWriteRefused } from "../../../transactions/index.ts";
+import {
+  ImportBusy,
+  ImportRollbackBusy,
+  ImportWriteRefused,
+  ROLLBACK_MODES,
+} from "../../../transactions/index.ts";
 import {
   addFiles,
   applyBatch,
+  batchResult,
+  followUpOf,
+  hasFollowUp,
   ApplyNotReady,
   ApplyRowsRefused,
+  ApplyTooLarge,
   ApplyUnsupported,
   BALANCE_CHOICES,
   decide,
@@ -45,6 +54,9 @@ import {
   parseViewOf,
   requestParse,
   rowsOf,
+  RollbackExpired,
+  rollbackBatch,
+  rollbackUntil,
   type FileParse,
   type FileReview,
   type ParseRequest,
@@ -97,6 +109,13 @@ const batchSchema = z.object({
   version: z.number().int(),
   createdAt: z.string(),
   lastActionAt: z.string(),
+  /** #654: «застосовано» with its apply still in progress (the rows being written; settled by a retry or the daily recovery). */
+  applying: z.boolean(),
+  /**
+   * IMP-16 FR 1, AC4: «застосовано» — the last moment «Відкотити» is offered (7 days after the apply finished); null —
+   * not applied, still applying, or rolled back. Past it the client shows no «Відкотити».
+   */
+  rollbackUntil: z.string().nullable(),
   /** Accepted and rejected files of the batch. */
   files: z.object({ accepted: z.number().int(), rejected: z.number().int() }),
 });
@@ -125,6 +144,9 @@ function presentBatch(b: Batch, files: readonly BatchFile[]): z.input<typeof bat
     version: b.version,
     createdAt: b.createdAt.toISOString(),
     lastActionAt: b.lastActionAt.toISOString(),
+    applying: b.applying ?? false,
+    rollbackUntil:
+      b.state === "applied" && !b.applying && b.appliedAt ? rollbackUntil(b.appliedAt).toISOString() : null,
     files: { accepted, rejected: files.length - accepted },
   };
 }
@@ -160,6 +182,8 @@ function refusal(error: unknown): unknown {
     });
   if (error instanceof ImportWriteRefused) {
     if (error.issue === "account-closed") return new ApiProblem("ACCOUNT_CLOSED");
+    // #654: a wallet of the account changed while the rows were planned: nothing written, try again.
+    if (error.issue === "account-changed") return new ApiProblem("BATCH_STATE_CONFLICT");
     const issue =
       error.issue === "account-not-found" || error.issue === "file-not-in-batch" ? "account" : error.issue;
     return new ApiProblem("IMPORT_ROWS_REFUSED", {
@@ -173,6 +197,15 @@ function refusal(error: unknown): unknown {
     });
   }
   if (error instanceof PlanTooLargeError) return new ApiProblem("IMPORT_PLAN_TOO_LARGE");
+  // IMP-04 AC8: «Строк відкату минув»; a row of the batch held by another change — try again.
+  if (error instanceof RollbackExpired) return new ApiProblem("IMPORT_ROLLBACK_EXPIRED");
+  if (error instanceof ImportRollbackBusy) return new ApiProblem("BATCH_STATE_CONFLICT");
+  // #654: the ceiling of rows per apply (split the batch), and of applies of the space at once (try again).
+  if (error instanceof ApplyTooLarge)
+    return new ApiProblem("IMPORT_PLAN_TOO_LARGE", {
+      errors: [{ in: "path", path: "batchId", issue: "rows" }],
+    });
+  if (error instanceof ImportBusy) return new ApiProblem("RATE_LIMITED", { retryAfterS: 60 });
   if (error instanceof ApplyUnsupported)
     return new ApiProblem("IMPORT_APPLY_UNSUPPORTED", {
       errors: [{ in: "path", path: "batchId", issue: error.reason }],
@@ -182,7 +215,7 @@ function refusal(error: unknown): unknown {
   return error;
 }
 
-async function guarded<T>(work: () => Promise<T>): Promise<T> {
+export async function guarded<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
@@ -196,8 +229,16 @@ const routeTx =
   (work) =>
     ctx.inHousehold((q) => work(batchesTx(q)));
 
-function owner(ctx: ProtectedContext): void {
+export function owner(ctx: ProtectedContext): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
+}
+
+/**
+ * IMP-04@PoC «Права доступу», IMP-16@PoC FR 1: «Відкочує партію лише Owner». `household.data.write` is also held by
+ * Admin and Editor, so the role is checked here, before the batch is read: one answer for any batch id, known or not.
+ */
+function ownerOnly(ctx: ProtectedContext): void {
+  if (ctx.principal.scoped || ctx.principal.role !== "owner") throw new ApiProblem("FORBIDDEN");
 }
 
 export const createImportBatchRoute = defineRoute({
@@ -875,6 +916,7 @@ export const applyImportBatchRoute = defineRoute({
     "IMPORT_PLAN_TOO_LARGE",
     "IMPORT_APPLY_UNSUPPORTED",
     "ACCOUNT_CLOSED",
+    "RATE_LIMITED",
   ],
   response: {
     status: 200,
@@ -900,6 +942,7 @@ export const applyImportBatchRoute = defineRoute({
           run: (work) => ctx.inHousehold((q) => work(applyTx(q))),
           open: (purpose, sealed) => parse.keys.openBytes(householdId, purpose, sealed),
           write: (input, plan) => apply.transactions.write(householdId, input, plan),
+          settle: (input) => apply.transactions.settle(householdId, input),
           plan: (planDeps, request) => planImport(planDeps, householdId, request),
         },
         userId,
@@ -914,6 +957,148 @@ export const applyImportBatchRoute = defineRoute({
       batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
       result: { counts: { ...result.application.result.counts } },
       appliedAt: result.application.appliedAt.toISOString(),
+      first: result.first,
+    };
+  },
+});
+
+// ——— Крок «Результат» (IMP-08@PoC FR 11, FR 12, AC7; plan row 138, the server part) ———
+
+const applyCountsSchema = z.object({ counts: z.record(z.string(), z.number().int()) });
+
+export const getImportBatchResultRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/import/batches/{batchId}/result",
+  operationId: "getImportBatchResult",
+  summary:
+    "The wizard's step «Результат» (IMP-08 FR 11, AC7), read again at any time: the stored result of the batch's apply (created, replaced, skipped rows) and what is left after it as the space is now — card payments recorded as transfers, proposals of transfers with a side of this batch («Пари · N»), the batch's transactions without a category («До розбору»)",
+  access: READ,
+  request: { params: batchParams },
+  problems: ["BATCH_STATE_CONFLICT"],
+  response: {
+    status: 200,
+    description: "The batch, the stored result of its apply and the counts of what is left to do after it",
+    schema: z.object({
+      batch: batchSchema,
+      /** The same counts as the apply's response (IMP-04 outcomes and excluded, zero, files). */
+      result: applyCountsSchema,
+      appliedAt: z.string(),
+      /**
+       * What is left after the apply, as the space is now; null — the batch is «відкочено» (`batch.state`
+       * `rolled-back`): its transactions are rolled back, nothing is left, and `result` is only the record of the apply.
+       */
+      followUp: z
+        .object({
+          /** «N платежів на картку записано як переказ» (IMP-03 FR 15): 0 until the apply records them. */
+          cardPaymentTransfers: z.number().int(),
+          /** «N пар переказів», «Пари · N»: proposals with a side of this batch; `more` — the read was capped. */
+          transferProposals: z.object({ count: z.number().int(), more: z.boolean() }),
+          /** «N без категорії» (the queue «До розбору»): shown, not split, no side of a transfer. */
+          uncategorized: z.number().int(),
+        })
+        .nullable(),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    const { result: services } = importSessionsServices(ctx);
+    if (!services) throw new ApiProblem("INTERNAL");
+    const { householdId } = ctx.principal;
+    const run = routeTx(ctx);
+    // The batch of the session's space only: another space's (or none) is «not found» before any module is asked.
+    const { batch, application } = await guarded(() =>
+      ctx.inHousehold((q) => batchResult(applyTx(q), params.batchId)),
+    );
+    // #673: a rolled-back batch has nothing left to do — no module is asked, and its old counts are not shown as current.
+    const followUp = hasFollowUp(batch)
+      ? await followUpOf(
+          {
+            transactions: (query) => services.transactions.page(householdId, query),
+            categoriesOf: (ids) => services.categories.categoriesOf(householdId, ids),
+            proposals: (batchId) => services.proposals.countFor(householdId, batchId),
+          },
+          batch.id,
+        )
+      : null;
+    return {
+      batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
+      result: { counts: { ...application.result.counts } },
+      appliedAt: application.appliedAt.toISOString(),
+      followUp: followUp && {
+        cardPaymentTransfers: followUp.cardPaymentTransfers,
+        transferProposals: { ...followUp.transferProposals },
+        uncategorized: followUp.uncategorized,
+      },
+    };
+  },
+});
+
+// ——— «Відкотити» (IMP-04@PoC FR 8, AC7, AC8, AC12; IMP-16@PoC FR 1–5, FR 9; wave 2 row 44) ———
+
+export const rollbackImportBatchRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/import/batches/{batchId}/rollback",
+  operationId: "rollbackImportBatch",
+  summary:
+    "«Відкотити» (IMP-04 FR 8, IMP-16): within 7 days of the apply, every transaction of the batch is rolled back by a reversal in the journal — never deleted — and what was merged into it comes back; ones the person changed are kept with «Залишити змінені» (the default); rolling back again returns the stored result",
+  access: WRITE,
+  request: {
+    params: batchParams,
+    body: z.object({
+      /** «Залишити змінені» (`keep-changed`, the default) or «Відкотити все» (`all`; IMP-16 FR 4). */
+      mode: z.enum(ROLLBACK_MODES).optional(),
+    }),
+  },
+  problems: ["BATCH_STATE_CONFLICT", "IMPORT_ROLLBACK_EXPIRED", "ACCOUNT_CLOSED", "RATE_LIMITED"],
+  response: {
+    status: 200,
+    description: "The batch, «відкочено», and the result of its rollback",
+    schema: z.object({
+      batch: batchSchema,
+      rollback: z.object({
+        mode: z.enum(ROLLBACK_MODES),
+        /** rolledBack, kept (changed by the person), transfers (sides of a transfer, kept), restored (merged into a rolled-back one, back). */
+        counts: z.record(z.string(), z.number().int()),
+        /** The transactions kept, at most 200 (the counts name them all). */
+        kept: z.array(z.uuid()),
+        rolledBackAt: z.string(),
+      }),
+      /** False — the batch was rolled back before: nothing changed now (IMP-16 FR 3). */
+      first: z.boolean(),
+    }),
+  },
+  handler: async ({ params, body }, ctx) => {
+    ownerOnly(ctx);
+    const { deps, audit, apply } = importSessionsServices(ctx);
+    if (!apply) throw new ApiProblem("INTERNAL");
+    const { householdId, userId } = ctx.principal;
+    const { result, handOffs } = await guarded(() =>
+      rollbackBatch(
+        deps,
+        {
+          run: (work) => ctx.inHousehold((q) => work(applyTx(q))),
+          rollback: (input) => apply.transactions.rollback(householdId, input),
+          rolledBack: (batchId) => apply.transactions.rolledBack(householdId, batchId),
+        },
+        userId,
+        params.batchId,
+        body.mode ?? "keep-changed",
+      ),
+    );
+    await handOffNow(audit, householdId, handOffs);
+    const run = routeTx(ctx);
+    const batch = await run((tx) => tx.findBatch(params.batchId));
+    if (!batch) throw new ApiProblem("NOT_FOUND");
+    return {
+      batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
+      rollback: {
+        mode: result.rollback.mode,
+        counts: { ...result.rollback.counts },
+        kept: [...result.rollback.kept],
+        rolledBackAt: result.rollback.rolledBackAt.toISOString(),
+      },
       first: result.first,
     };
   },
@@ -935,4 +1120,6 @@ export const importSessionsRoutes = [
   getImportBatchParseRoute,
   listImportFileRowsRoute,
   applyImportBatchRoute,
+  getImportBatchResultRoute,
+  rollbackImportBatchRoute,
 ];

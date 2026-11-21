@@ -27,7 +27,9 @@ import {
   createCategorizationCategoryUsage,
   categorizationRulePorts,
   createCategorizationServices,
+  createImportCategoryCarry,
   createTransactionCategories,
+  createTransactionCategoryRead,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/debt-payoff/index.ts";
@@ -43,6 +45,7 @@ import {
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
 import {
   createRecurringCategoryUsage,
+  createRecurringHistory,
   createRecurringMonth,
   createRecurringServices,
 } from "./modules/recurring/index.ts";
@@ -72,6 +75,8 @@ import {
   createTransactionRuleInputs,
   createTransactionRuleTags,
   createTransactionTexts,
+  createImportBatchTransactions,
+  createImportCandidates,
   createImportedTransactions,
   createTransactionPendingPostings,
   createTransactionWalletUsage,
@@ -79,6 +84,7 @@ import {
   createTransferCandidates,
 } from "./modules/transactions/index.ts";
 import {
+  createImportBatchProposals,
   createTransferMatchingServices,
   createTransferProposalSides,
 } from "./modules/transfer-matching/index.ts";
@@ -87,6 +93,7 @@ import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
 import {
+  directoryObjectStorage,
   ensureBucket,
   memoryObjectStorage,
   s3ObjectStorage,
@@ -199,6 +206,8 @@ const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 // Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01 b): the S3-compatible storage and the key of signed links from the
 // configuration (required in staging and production); locally and in CI without them, the process's memory and a key
 // drawn at start (links then end with the process). Locally the bucket is made if missing (the `pnpm local:up` storage).
+// `pnpm local:dev` gives every role the same storage and link key: the S3 of `pnpm local:up`, or without Docker a
+// directory of this machine (`WS_FILES_DIR`, which the configuration refuses in staging and production).
 const s3 = config.files.s3;
 // The scheduler too: its daily cleanup removes unapplied import batches with their originals (IMP-01 FR 20); and the
 // worker: the parse step reads each statement's original (IMP-01 FR 5).
@@ -214,7 +223,11 @@ const files =
         db: databases.for("file-storage"),
         audit,
         keys: createSpaceKeys(databases.for("household"), audit, kms),
-        objects: s3 ? s3ObjectStorage(s3) : memoryObjectStorage(),
+        objects: s3
+          ? s3ObjectStorage(s3)
+          : config.files.dir && !config.deployed
+            ? directoryObjectStorage(config.files.dir)
+            : memoryObjectStorage(),
         linkKey: linkKey(config.files.linkKey ?? randomBytes(32)),
       })
     : undefined;
@@ -270,6 +283,9 @@ const recurring = createRecurringServices({
   newId: randomUUID,
 });
 
+// BUD-06@PoC FR 8: «Одноразова витрата» acts (leaves the averages) only while its flag is on for the space.
+const oneOffOn = (householdId: string) => flags.isEnabled(householdId, "transactions.one-off");
+
 // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts); «Витратити»
 // reads the transaction (transactions) and its journal event (ledger). One instance for the goals routes and «План» of
 // the budget (BUD-17).
@@ -279,7 +295,8 @@ const goals = createGoalsServices({
   transactions: createTransactionLookup(databases.for("transactions")),
   // «Подушка безпеки» and the list of «Витратити»: expenses and candidates (transactions), rates (fx-rates).
   reads: {
-    transactions: createGoalTransactions(databases.for("transactions")),
+    // BUD-06 FR 8: «Одноразова витрата» leaves the cushion's average while `transactions.one-off` is on.
+    transactions: createGoalTransactions(databases.for("transactions"), { oneOffEnabled: oneOffOn }),
     fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
     categorization: createTransactionCategories(databases.for("categorization")),
     categories: createCategoryDirectory({
@@ -429,7 +446,10 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               accounts: createAccountList(databases.for("accounts")),
-              transactions: createBudgetTransactions(databases.for("transactions")),
+              // BUD-06 FR 8: «Одноразова витрата» leaves the averages while `transactions.one-off` is on.
+              transactions: createBudgetTransactions(databases.for("transactions"), {
+                oneOffEnabled: oneOffOn,
+              }),
               categorization: createTransactionCategories(databases.for("categorization")),
               fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
               audit,
@@ -451,6 +471,12 @@ const server = buildServer({
                 // #613: «План» off — «Бюджет» keeps the budget's own income plan.
                 planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               }),
+              // BUD-03 EC5: «Витратити з цілі» — a goal's spends leave «Можна витратити» (goals).
+              goalSpends: createGoalSpends(databases.for("goals")),
+              // FLW-38 (S-135): «Підсумок періоду» — a finished month's regular charges (recurring).
+              chargeHistory: createRecurringHistory(databases.for("recurring"), recurring),
+              // BUD-17 (owner decision 2026-11-20, batch 2, item 2): «План» off — its typed values act nowhere.
+              planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               obligations: createBudgetObligations({
                 recurring: createRecurringMonth(databases.for("recurring"), recurring),
                 credit: createCreditAccounts(databases.for("accounts")),
@@ -538,6 +564,25 @@ const server = buildServer({
                         audit,
                         newId: randomUUID,
                         now: () => systemClock.now(),
+                        merged: createImportCategoryCarry(databases.for("categorization")),
+                        // IMP-16 FR 4: a category set by hand keeps a transaction of a rolled-back batch.
+                        categories: createTransactionCategoryRead(databases.for("categorization")),
+                      }),
+                    },
+                    // IMP-08 FR 6: the duplicate preview reads the accounts' transactions as the apply's plan does.
+                    preview: { candidates: createImportCandidates(databases.for("transactions")) },
+                    // IMP-08 FR 11: the step «Результат» — the batch's transactions (transactions), their categories
+                    // (categorization) and the proposals of transfers with a side of the batch (transfer-matching).
+                    result: {
+                      transactions: createImportBatchTransactions(databases.for("transactions")),
+                      categories: createTransactionCategories(databases.for("categorization")),
+                      proposals: createImportBatchProposals({
+                        candidates: createTransferCandidates(databases.for("transactions")),
+                        rates: (requests) =>
+                          createFxRates({
+                            db: databases.for("fx-rates"),
+                            now: () => systemClock.now(),
+                          }).rates(requests),
                       }),
                     },
                   }),
@@ -574,8 +619,8 @@ if (config.role === "worker") {
     ...workerQueues(
       databases,
       flags,
-      // IMP-01 FR 5: the parse of import batches' files. Locally without S3 the worker's storage is its own memory, so
-      // it finds no original the API process stored (the file is refused as FILE_MISSING); `pnpm local:up` has S3.
+      // IMP-01 FR 5: the parse of import batches' files: the originals the API process stored, so the worker needs the
+      // same storage (`pnpm local:dev` passes it; with neither S3 nor WS_FILES_DIR a file is refused as FILE_MISSING).
       files ? { files, keys: createSpaceKeys(databases.for("household"), audit, kms) } : undefined,
     ),
     households: () => spaces.spaceIds(),

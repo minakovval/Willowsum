@@ -9,9 +9,13 @@ import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./m
  * In order, for one account:
  * 1. FR 3 — the same file (by content) as one of an applied batch: every row «дубль — уже імпортовано», nothing created.
  * 2. FR 1, FR 4 — the duplicate key: account, primary date, amount, currency, normalized description, and the balance
- *    after the operation when both sides have one. If the account has k transactions with a key and the file n rows,
+ *    after the operation when both sides have one — its value first, then (a credit card only) its size: either basis
+ *    of a card's balance (#654, #655). If the account has k transactions with a key and the file n rows,
  *    max(0, n − k) rows are imported and the first min(n, k) of them (in file order) are duplicates of those k. An
- *    existing «в обробці» (pending) one is a key match only for a pending row: a posted row replaces it (FR 6).
+ *    existing «в обробці» (pending) one is a key match only for a pending row: a posted row replaces it (FR 6). A key
+ *    match with a manual one not matched yet keeps the row merged into it as its link (`merge`, FR 5; #637 item 6); a
+ *    transaction merged into another (`merged`) is a key match of its own row and nothing else. A row the key does not
+ *    match is then tried with its legacy description (`legacyDescription`, #696) by the same rules.
  * 3. FR 2 — rows with the same key in the file (the balance left out) are all kept; the second and later get «повтор у
  *    файлі» and their occurrence number (`occurrence`, from 1 in file order, the duplicates of step 2 counted).
  * 4. FR 6 — a posted row replaces a pending one of a previous import on the account: the same currency and sign,
@@ -61,6 +65,13 @@ export interface IncomingRow {
   /** Signed, in the account's currency (of its wallet). */
   readonly amount: Money;
   readonly description: string | null;
+  /**
+   * #696 (IMP-04 FR 1, IMP-02 FR 4): the description as the parse gave it before several description columns were
+   * joined — the first description column's text alone. A row the key with `description` does not match is matched by
+   * the key with this one too (a statement imported before the joined text keeps finding its transactions). Absent or
+   * null — none (the same as `description`).
+   */
+  readonly legacyDescription?: string | null;
   /** The balance after the operation as printed; null — the file has none. */
   readonly balance: Money | null;
   readonly status: "posted" | "pending";
@@ -80,6 +91,11 @@ export interface KnownTransaction {
   readonly hidden: boolean;
   readonly transfer: boolean;
   readonly matched: boolean;
+  /**
+   * Merged into another transaction (a pending one replaced, FR 6): the same operation as the one it is merged into,
+   * so still a key match of its own row; never merged, replaced or offered again. Absent — not merged.
+   */
+  readonly merged?: boolean;
 }
 
 export const ROW_OUTCOMES = [
@@ -106,12 +122,18 @@ export type RowOutcome = Common &
     | /** FR 1, FR 4: nothing created; it is this transaction of the account. */ {
         readonly kind: "duplicate";
         readonly of: string;
+        /**
+         * FR 5 (#637 item 6): `of` is a manual transaction not matched yet — the row is written and the manual one is
+         * merged into it (the bank's identifier, text and date; the manual one's category and notes), still one
+         * operation in the balance. Absent — nothing written.
+         */
+        readonly merge?: true;
       }
     | /** FR 3: nothing created; the same file was applied in this batch. */ {
         readonly kind: "already-imported";
         readonly batchId: string;
       }
-    | /** FR 5: merged with this manual transaction (it keeps its category and notes). */ {
+    | /** FR 5: merged with this manual transaction (the row takes its category and notes; the bank's date and text stay). */ {
         readonly kind: "merge";
         readonly with: string;
       }
@@ -133,6 +155,12 @@ export interface PlanInput {
   readonly sameFileAppliedIn: string | null;
   /** The account's transactions in `planWindow(rows)`. */
   readonly existing: readonly KnownTransaction[];
+  /**
+   * FR 4 (#655): the account is a credit card (accounts' kind «credit-card»): a balance that matches by neither value
+   * also matches by its size (its statements may be stored in the debt basis or as printed, IMP-05 FR 6). Otherwise —
+   * by value only.
+   */
+  readonly creditCard?: boolean;
 }
 
 /** FR 1: the description as compared — Unicode NFKC, lower case, inner whitespace as one space, trimmed. */
@@ -141,6 +169,16 @@ export function normalizeDescription(text: string | null): string {
 }
 
 const amountText = (m: Money) => `${m.currency} ${m.amount.toString()}`;
+/**
+ * FR 1, FR 4 (#654): the balance after the operation as the key compares it — its value first, then only its size. A
+ * credit card's statement stored in the debt basis (IMP-05 FR 6, «inverted») and an overlapping one stored as printed
+ * (its «знак картки» confirmed) print the same balances with opposite signs; their shared rows are the same operations.
+ * The value goes first so that, in an account whose balance crosses zero, a row with +X never takes the transaction of
+ * the row with −X of the same day, amount and description; the size only for a credit card (#655: on any other account
+ * +X and −X are two operations).
+ */
+const balanceText = (m: Money) => `${m.currency} ${m.amount.toString()}`;
+const balanceSize = (m: Money) => `|${m.currency} ${m.amount.abs().toString()}`;
 
 /** FR 1 without the balance: account, primary date, amount, currency, normalized description. */
 export function duplicateKey(
@@ -210,7 +248,8 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   for (const t of existing) {
     const k = duplicateKey(input.accountId, t);
     push(byKey, listKey(k, t.status, ANY), t);
-    push(byKey, listKey(k, t.status, t.balanceAfter ? amountText(t.balanceAfter) : NONE), t);
+    push(byKey, listKey(k, t.status, t.balanceAfter ? balanceText(t.balanceAfter) : NONE), t);
+    if (t.balanceAfter && input.creditCard) push(byKey, listKey(k, t.status, balanceSize(t.balanceAfter)), t);
   }
   /** The first transaction of a list not taken yet. */
   const head = (k: string): KnownTransaction | undefined => {
@@ -225,13 +264,35 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   // FR 1, FR 4: each existing transaction is the duplicate of at most one row; an exact balance match first. A
   // pending transaction is a key match only for a pending row (FR 6 otherwise).
   const duplicateOf = new Map<number, string>();
-  for (const exact of [true, false])
+  // #696: then, for the rows still without a match, the same passes with the legacy description's key.
+  const legacyKey = (r: IncomingRow) =>
+    r.legacyDescription === undefined ||
+    r.legacyDescription === null ||
+    normalizeDescription(r.legacyDescription) === normalizeDescription(r.description)
+      ? null
+      : duplicateKey(input.accountId, { ...r, description: r.legacyDescription });
+  const balancePasses = input.creditCard
+    ? (["value", "size", "none"] as const)
+    : (["value", "none"] as const);
+  for (const [keyFor, pass] of [
+    ...balancePasses.map((p) => [keyOf, p] as const),
+    ...balancePasses.map((p) => [legacyKey, p] as const),
+  ])
     for (const r of ordered) {
       if (duplicateOf.has(r.row)) continue;
-      if (exact && r.balance === null) continue;
-      const balance = exact ? amountText(r.balance!) : r.balance === null ? ANY : NONE;
+      const rowKey = keyFor(r);
+      if (rowKey === null) continue;
+      if (pass !== "none" && r.balance === null) continue;
+      const balance =
+        pass === "value"
+          ? balanceText(r.balance!)
+          : pass === "size"
+            ? balanceSize(r.balance!)
+            : r.balance === null
+              ? ANY
+              : NONE;
       const match = (r.status === "pending" ? ["posted", "pending"] : ["posted"])
-        .map((status) => head(listKey(keyOf(r), status, balance)))
+        .map((status) => head(listKey(rowKey, status, balance)))
         .filter((t): t is KnownTransaction => t !== undefined)
         .sort(byDateThenId)[0];
       if (!match) continue;
@@ -244,9 +305,9 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   const shownByAmountDay = new Map<string, KnownTransaction[]>();
   const amountDay = (amount: Money, day: number) => `${amountText(amount)}|${day}`;
   for (const t of existing) {
-    if (t.status === "pending" && t.source === "imported" && t.importBatchId !== input.batchId)
+    if (t.status === "pending" && t.source === "imported" && !t.merged && t.importBatchId !== input.batchId)
       push(pendingByDay, dayNumber(t.date), t);
-    if (!t.hidden && !t.transfer && (t.source === "manual" || t.importBatchId !== input.batchId))
+    if (!t.hidden && !t.transfer && !t.merged && (t.source === "manual" || t.importBatchId !== input.batchId))
       push(shownByAmountDay, amountDay(t.amount, dayNumber(t.date)), t);
   }
   let work = 0;
@@ -268,6 +329,16 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   };
 
   const matched = new Set(existing.filter((t) => t.matched).map((t) => t.transactionId));
+  const byId = new Map(existing.map((t) => [t.transactionId, t]));
+  /** FR 5 (#637 item 6): a key match merged into the row — a manual one, shown, posted, matched with nothing. */
+  const linkable = (t: KnownTransaction | undefined) =>
+    t !== undefined &&
+    t.source === "manual" &&
+    t.status === "posted" &&
+    !t.hidden &&
+    !t.transfer &&
+    !t.merged &&
+    !matched.has(t.transactionId);
   const outcomes: RowOutcome[] = [];
   // FR 5: the rows that would merge with each manual transaction (their outcome's index and the gap in days).
   const mergeRows = new Map<string, { index: number; days: number }[]>();
@@ -275,7 +346,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
     const common = { row: r.row, occurrence: occ(r) };
     const of = duplicateOf.get(r.row);
     if (of !== undefined) {
-      outcomes.push({ ...common, kind: "duplicate", of });
+      outcomes.push({ ...common, kind: "duplicate", of, ...(linkable(byId.get(of)) ? { merge: true } : {}) });
       continue;
     }
 
