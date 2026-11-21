@@ -22686,16 +22686,34 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            balanceAfter: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            bankDescription: string | null;
+                            bankReference: string | null;
                             counterparty: string | null;
                             date: string;
                             description: string | null;
+                            exchangeRate: string | null;
                             hidden: boolean;
                             /** Format: uuid */
                             id: string;
+                            importedFrom: {
+                                /** Format: uuid */
+                                batchId: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                row: number;
+                            } | null;
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
                             oneOff: boolean;
+                            originalAmount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -22741,6 +22759,7 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
+                            valueDate: string | null;
                             version: number;
                         }[];
                         page: number;
@@ -22907,16 +22926,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -22962,6 +22999,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23075,16 +23113,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23130,6 +23186,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23361,16 +23418,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23416,6 +23491,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23536,16 +23612,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23591,6 +23685,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -23943,16 +24038,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -23998,6 +24111,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24349,16 +24463,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24404,6 +24536,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24517,16 +24650,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24572,6 +24723,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24692,16 +24844,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24747,6 +24917,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -24866,16 +25037,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -24921,6 +25110,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -25041,16 +25231,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25096,6 +25304,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -25216,16 +25425,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25271,6 +25498,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -25384,16 +25612,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25439,6 +25685,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -25572,16 +25819,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25627,6 +25892,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -25740,16 +26006,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25795,6 +26079,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -25915,16 +26200,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -25970,6 +26273,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -26083,16 +26387,34 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankReference: string | null;
                         counterparty: string | null;
                         date: string;
                         description: string | null;
+                        exchangeRate: string | null;
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
                         mergedDuplicates: string[];
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         recordedAt: string;
                         review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
@@ -26138,6 +26460,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        valueDate: string | null;
                         version: number;
                     };
                 };
@@ -26391,16 +26714,34 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            balanceAfter: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            bankDescription: string | null;
+                            bankReference: string | null;
                             counterparty: string | null;
                             date: string;
                             description: string | null;
+                            exchangeRate: string | null;
                             hidden: boolean;
                             /** Format: uuid */
                             id: string;
+                            importedFrom: {
+                                /** Format: uuid */
+                                batchId: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                row: number;
+                            } | null;
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
                             oneOff: boolean;
+                            originalAmount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -26446,6 +26787,7 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
+                            valueDate: string | null;
                             version: number;
                         };
                         outflow: {
@@ -26455,16 +26797,34 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            balanceAfter: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            bankDescription: string | null;
+                            bankReference: string | null;
                             counterparty: string | null;
                             date: string;
                             description: string | null;
+                            exchangeRate: string | null;
                             hidden: boolean;
                             /** Format: uuid */
                             id: string;
+                            importedFrom: {
+                                /** Format: uuid */
+                                batchId: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                row: number;
+                            } | null;
                             mergedDuplicates: string[];
                             mergedInto: string | null;
                             note: string | null;
                             oneOff: boolean;
+                            originalAmount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             recordedAt: string;
                             review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
@@ -26510,6 +26870,7 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
+                            valueDate: string | null;
                             version: number;
                         };
                     };

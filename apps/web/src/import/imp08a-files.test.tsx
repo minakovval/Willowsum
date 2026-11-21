@@ -422,6 +422,44 @@ describe("IMP-08@PoC FR 2 — the account of each file", () => {
     });
   });
 
+  it("IMP-05@PoC EC3 (screen): the reason «валюта» names the file's and the account's currencies", async () => {
+    const { client } = api({
+      "GET /v1/import/batches/{b}": {
+        status: 200,
+        body: { ...batch("parsed", 1), fileList: [file(F1, "card-usd.csv")] },
+      },
+      "GET /v1/import/batches/{b}/parse": { status: 200, body: view([parsed(F1, { accountId: CURRENT })]) },
+      "GET /v1/import/batches/{b}/readiness": {
+        status: 200,
+        body: {
+          ready: false,
+          codes: ["confirm-account"],
+          files: [],
+          refusals: [
+            {
+              code: "confirm-account",
+              message: { uk: "Підтвердіть рахунок", en: "Confirm the account" },
+              files: [
+                {
+                  fileId: F1,
+                  missing: false,
+                  reasons: [{ kind: "currency", file: "USD", account: "UAH" }],
+                  suggestedAccountId: null,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    renderAt(`#/import/${BATCH}`, client);
+    expect(
+      await screen.findByText(
+        "У файлі схоже інший рахунок (валюта USD у файлі, UAH у рахунку). Перевірте вибір.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("IMP-08@PoC FR 2: a file that shows another account's IBAN or card gets a warning and the choice", async () => {
     const { client, of } = api({
       "GET /v1/import/batches/{b}": {
@@ -453,7 +491,11 @@ describe("IMP-08@PoC FR 2 — the account of each file", () => {
       },
     });
     renderAt(`#/import/${BATCH}`, client);
-    expect(await screen.findByText("У файлі схоже інший рахунок (IBAN). Перевірте вибір.")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        "У файлі схоже інший рахунок (IBAN ••4421 у файлі, ••4417 у рахунку). Перевірте вибір.",
+      ),
+    ).toBeTruthy();
     const select = screen.getByRole("combobox", { name: "Рахунок для файлу mono.csv" }) as HTMLSelectElement;
     expect(select.value).toBe(CURRENT);
     expect(disabled(nextButton())).toBe(true);

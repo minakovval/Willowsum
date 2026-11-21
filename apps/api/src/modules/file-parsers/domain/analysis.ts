@@ -363,13 +363,31 @@ const HEADER_WORDS: Readonly<Record<Exclude<Role, "ignore">, readonly string[]>>
     "transaction date",
     "booking date",
     "posting date",
+    // IMP-02 FR 4 (S-047): a Spanish export («Fecha», BBVA-like).
+    "fecha",
+    "fecha operacion",
   ],
-  "value-date": ["дата валютування", "дата проведення", "value date", "дата обробки"],
-  amount: ["сума", "сума операції", "amount", "transaction amount", "сумма"],
+  "value-date": [
+    "дата валютування",
+    "дата проведення",
+    "value date",
+    "дата обробки",
+    "f valor",
+    "fecha valor",
+  ],
+  amount: ["сума", "сума операції", "amount", "transaction amount", "сумма", "importe"],
   debit: ["дебет", "списання", "витрата", "debit", "withdrawal", "money out"],
   credit: ["кредит", "зарахування", "надходження", "credit", "deposit", "money in"],
-  balance: ["залишок", "баланс", "balance", "залишок після операції", "running balance"],
-  currency: ["валюта", "currency", "валюта рахунку", "ccy"],
+  balance: [
+    "залишок",
+    "баланс",
+    "balance",
+    "залишок після операції",
+    "running balance",
+    "saldo",
+    "disponible",
+  ],
+  currency: ["валюта", "currency", "валюта рахунку", "ccy", "divisa"],
   description: [
     "опис",
     "призначення",
@@ -378,6 +396,16 @@ const HEADER_WORDS: Readonly<Record<Exclude<Role, "ignore">, readonly string[]>>
     "description",
     "details",
     "narrative",
+    // IMP-02 FR 4 (S-047): the bank's other text columns and its free-text notes are a part of its description.
+    "concepto",
+    "movimiento",
+    "observaciones",
+    "примітка",
+    "примітки",
+    "коментар",
+    "notes",
+    "remarks",
+    "memo",
   ],
   counterparty: [
     "контрагент",
@@ -401,6 +429,43 @@ const HEADER_WORDS: Readonly<Record<Exclude<Role, "ignore">, readonly string[]>>
   "original-currency": ["валюта операції", "original currency", "transaction currency"],
   "exchange-rate": ["курс", "курс валюти", "exchange rate", "rate"],
 };
+
+/**
+ * Header words besides the dictionary above, kept apart so the dictionary's lines stay as they are (#694). The amount
+ * posted to a card names the card's currency («Сума в валюті картки (UAH)»): its own phrase, so it scores above the
+ * other «Сума …» columns (the commission, the cashback, the operation's amount). The commission is «Сума комісій».
+ */
+const MORE_HEADER_WORDS: Readonly<Partial<Record<Exclude<Role, "ignore">, readonly string[]>>> = {
+  amount: ["сума в валюті картки", "сума у валюті картки"],
+  fee: ["сума комісій", "комісій"],
+  // IMP-02 FR 4 (S-047, #696): a Spanish export's reference («Referencia»), never a figure.
+  reference: ["referencia"],
+};
+
+/**
+ * Columns that are never an amount and are ignored by their header (IMP-02@PoC FR 4). Рішення ведучого (2026-11-21;
+ * власник не схвалював; IMP-02): the cashback is not a part of the operation's amount (FR 4 lists no cashback, and the
+ * bank posts it to the account as an operation of its own), so «Сума кешбеку» is ignored for the amount, not a note.
+ */
+const IGNORE_WORDS: readonly string[] = ["сума кешбеку", "кешбек", "кешбеку", "cashback"];
+
+/** Words of a header that names a code (MCC, «код»): such a column of four-digit integers is never an amount (#694). */
+const CODE_WORDS: readonly string[] = ["mcc", "код", "codigo"];
+
+/** The roles that read a number as money or a rate: never a code column's (#694). */
+const MONEY_ROLES: ReadonlySet<Role> = new Set([
+  "amount",
+  "debit",
+  "credit",
+  "balance",
+  "fee",
+  "original-amount",
+  "exchange-rate",
+]);
+
+/** «—» and «–» print «nothing» in a number column (monobank's «Курс», «Сума комісій»): an empty cell (#694). */
+const PLACEHOLDERS: ReadonlySet<string> = new Set(["—", "–"]);
+const blankPlaceholder = (cell: string): string => (PLACEHOLDERS.has(cell.trim()) ? "" : cell);
 
 const EXPECTS: Readonly<Record<Role, readonly Kind[]>> = {
   date: ["date"],
@@ -434,11 +499,11 @@ const SINGLE: ReadonlySet<Role> = new Set(
   ROLES.filter((r) => !["description", "counterparty", "ignore"].includes(r)),
 );
 
-function headerMatch(header: string, role: Exclude<Role, "ignore">): { score: number; word: string } | null {
+function headerMatch(header: string, phrases: readonly string[]): { score: number; word: string } | null {
   const words = normalizeHeaderCell(header);
   if (!words) return null;
   let best: { score: number; word: string } | null = null;
-  for (const phrase of HEADER_WORDS[role]) {
+  for (const phrase of phrases) {
     // The dictionary is normalised as the header is («операції» → «операціі»), or a word with «ї» never matches.
     const normal = normalizeHeaderCell(phrase);
     const score =
@@ -482,17 +547,39 @@ interface ColumnFacts {
   readonly codeLike: boolean;
 }
 
+/**
+ * #694: a column of integers 0000–9999 whose header names a code (MCC, «код») is a merchant category or another code,
+ * never money: four-digit integers read as numbers, so without the guard the MCC took a free amount role (the debit,
+ * beside the commission as the credit) and the amounts were imported from the codes. Returns the header's code word.
+ */
+function codeColumn(facts: ColumnFacts): string | null {
+  const words = facts.header ? normalizeHeaderCell(facts.header).split(" ") : [];
+  const word = CODE_WORDS.find((w) => words.includes(w));
+  if (!word) return null;
+  const values = facts.cells.map((c) => c.trim()).filter((c) => c !== "");
+  // A numeric currency code (980, 840) is a currency, not a code to ignore (IMP-02@PoC FR 9, AC7).
+  if (values.length === 0 || values.every((c) => currencyOf(c) !== null)) return null;
+  return values.every((c) => /^\d{1,4}$/.test(c)) ? word : null;
+}
+
 function roleScores(facts: ColumnFacts): Map<Role, { score: number; word?: string }> {
   const scores = new Map<Role, { score: number; word?: string }>();
+  const code = codeColumn(facts);
   for (const role of ROLES) {
     const fits =
       EXPECTS[role].includes(facts.kind.kind) ||
       ((role === "currency" || role === "original-currency") && facts.codeLike);
     if (role === "ignore") {
-      scores.set(role, { score: facts.kind.kind === "empty" ? 0.9 : 0.05 });
+      const ignored = facts.header ? headerMatch(facts.header, IGNORE_WORDS) : null;
+      if (ignored) scores.set(role, { score: ignored.score + 0.3, word: ignored.word });
+      else if (code) scores.set(role, { score: 0.9, word: code });
+      else scores.set(role, { score: facts.kind.kind === "empty" ? 0.9 : 0.05 });
       continue;
     }
-    const header = facts.header ? headerMatch(facts.header, role) : null;
+    if (code && MONEY_ROLES.has(role)) continue;
+    const header = facts.header
+      ? headerMatch(facts.header, [...HEADER_WORDS[role], ...(MORE_HEADER_WORDS[role] ?? [])])
+      : null;
     const score = header
       ? fits
         ? header.score + 0.3
@@ -501,6 +588,30 @@ function roleScores(facts: ColumnFacts): Map<Role, { score: number; word?: strin
     if (score > 0) scores.set(role, header ? { score, word: header.word } : { score });
   }
   return scores;
+}
+
+/**
+ * IMP-02@PoC FR 4: a card statement names the currency posted to the account in the amount column's header («Сума в
+ * валюті картки (UAH)») and prints the original operation's amount and currency beside it («Сума в валюті операції»,
+ * «Валюта» — USD for a purchase abroad). There the bare currency column is the original currency, never each row's:
+ * the rows are in the header's currency, so a purchase abroad does not make the file another currency's (IMP-05 EC3).
+ * Only when the original amount has no currency column of its own; without a currency in the amount's header the
+ * column stays the row's currency (FR 3).
+ */
+function postedCurrency(
+  facts: readonly ColumnFacts[],
+  assigned: ReadonlyMap<number, Role>,
+  taken: ReadonlyMap<Role, number>,
+): { column: number; from: number; code: string } | null {
+  const column = taken.get("currency");
+  if (column === undefined || !taken.has("original-amount") || taken.has("original-currency")) return null;
+  for (const [i, f] of facts.entries()) {
+    const role = assigned.get(i);
+    const code = f.header ? headerCurrency(f.header) : null;
+    if (code && (role === "amount" || role === "debit" || role === "credit"))
+      return { column, from: i, code };
+  }
+  return null;
 }
 
 function decideColumns(
@@ -515,8 +626,22 @@ function decideColumns(
   const taken = new Map<Role, number>();
   for (const { i, role } of pairs) {
     if (assigned.has(i) || (SINGLE.has(role) && taken.has(role))) continue;
+    // #694: a file has an amount column or a debit and a credit column. Once the amount is taken, a number column
+    // without a debit or credit header word is not a debit or credit by its content alone: two such columns (a zero
+    // commission and cashback) would switch the sign to «debit-credit» and import the amounts from them.
+    if ((role === "debit" || role === "credit") && taken.has("amount") && !scored[i]!.get(role)?.word)
+      continue;
     assigned.set(i, role);
     if (SINGLE.has(role)) taken.set(role, i);
+  }
+  const posted = postedCurrency(facts, assigned, taken);
+  if (posted) {
+    // The bare currency column is the original operation's: its score is the one it had as the row's currency.
+    const scores = scored[posted.column]!;
+    scores.set("original-currency", { score: scores.get("currency")!.score });
+    assigned.set(posted.column, "original-currency");
+    taken.delete("currency");
+    taken.set("original-currency", posted.column);
   }
   return facts.map((f, i) => {
     const scores = scored[i]!;
@@ -538,6 +663,8 @@ function decideColumns(
       count: f.kind.count,
       of: f.kind.of,
     });
+    if (posted?.column === i)
+      evidence.push({ code: "currency-in-header", column: facts[posted.from]!.column, word: posted.code });
     const ranked = [...scores].sort((a, b) => b[1].score - a[1].score);
     const better = ranked.find(
       ([role]) => role !== chosenRole && SINGLE.has(role) && taken.has(role) && taken.get(role) !== i,
@@ -711,7 +838,7 @@ export function analyzeTable(
     tableEvidence.push({ code: "rows-before-header", count: headerRow - firstRow });
   tableEvidence.push({ code: "data-rows", count: data.length });
   const facts: ColumnFacts[] = Array.from({ length: width }, (_, i) => {
-    const cells = sample.map((r) => r[i] ?? "");
+    const cells = sample.map((r) => blankPlaceholder(r[i] ?? ""));
     const h = header?.[i]?.trim();
     // Header words are matched on the first characters only: a longer header is not a bank's column name.
     return {
