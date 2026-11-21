@@ -59686,7 +59686,7 @@
     "/v1/transfer-proposals": {
       "get": {
         "operationId": "listTransferProposals",
-        "summary": "«Пари · N»: pairs of a debit and a credit on two own accounts within 3 days that look like one transfer; the system never marks them itself",
+        "summary": "«Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself",
         "tags": [
           "transfer-matching"
         ],
@@ -59795,6 +59795,14 @@
                           "date": {
                             "type": "string"
                           },
+                          "pairKind": {
+                            "type": "string",
+                            "enum": [
+                              "transfer",
+                              "exchange"
+                            ],
+                            "x-extensible-enum": true
+                          },
                           "kind": {
                             "type": "string",
                             "enum": [
@@ -59898,17 +59906,41 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "bankRate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "rateBand": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "within-1",
+                                  "within-3"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "outflow",
                           "inflow",
                           "date",
+                          "pairKind",
                           "kind",
                           "fee",
                           "rate",
                           "converted",
-                          "difference"
+                          "difference",
+                          "bankRate",
+                          "rateBand"
                         ],
                         "additionalProperties": false
                       }

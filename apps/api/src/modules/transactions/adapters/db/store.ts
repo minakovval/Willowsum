@@ -515,7 +515,8 @@ export interface CandidateSide {
 }
 
 /**
- * The candidate pairs of a space for module transfer-matching (FIN-03 FR 5): a debit and a credit on two accounts within
+ * The candidate pairs of a space for module transfer-matching (FIN-03 FR 5): a debit and a credit on two accounts (or,
+ * IMP-03 FR 2, an exchange: on two wallets of one account in two currencies) within
  * `windowDays`, both posted, shown, not split and in no transfer; in one currency the credit at most the debit and at
  * least `sameCurrencyMinShare` of it (the rule of transfer-matching decides the rest, in two currencies by the rate).
  * Newest first; at most `limit` pairs.
@@ -545,7 +546,8 @@ export async function transferCandidates(
             i.import_batch_id AS i_batch
        FROM transactions o
        JOIN transactions i ON i.household_id = o.household_id
-      WHERE o.household_id = $1 AND o.amount < 0 AND i.amount > 0 AND i.account_id <> o.account_id
+      WHERE o.household_id = $1 AND o.amount < 0 AND i.amount > 0
+        AND (i.account_id <> o.account_id OR i.currency <> o.currency)
         AND o.status = 'posted' AND i.status = 'posted' AND NOT o.hidden AND NOT i.hidden
         AND o.split_mode IS NULL AND i.split_mode IS NULL AND o.transfer_id IS NULL AND i.transfer_id IS NULL
         AND i.occurred_on BETWEEN o.occurred_on - $2::int AND o.occurred_on + $2::int

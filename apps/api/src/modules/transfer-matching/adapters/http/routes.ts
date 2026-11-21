@@ -28,6 +28,11 @@ const proposalSchema = z.object({
   inflow: sideSchema,
   /** Edge case 1: the earlier side's date. */
   date: z.string(),
+  /**
+   * IMP-03@PoC FR 2: «переказ між власними рахунками» (two accounts) or «обмін валют» (two wallets of one
+   * multi-currency account in two currencies).
+   */
+  pairKind: z.enum(["transfer", "exchange"]).meta({ "x-extensible-enum": true }),
   /** One currency, or two (a currency transfer, FR 5). */
   kind: z.enum(["same-currency", "cross-currency"]).meta({ "x-extensible-enum": true }),
   /** One currency: the difference, «Комісії банку» once confirmed (FR 8; negative or 0); else null. */
@@ -38,6 +43,13 @@ const proposalSchema = z.object({
   converted: moneySchema.nullable(),
   /** Two currencies: the credit less `converted` (unrounded). */
   difference: moneySchema.nullable(),
+  /**
+   * IMP-03@PoC FR 21: two currencies — the bank's rate, the actual rate of the pair (credit ÷ debit: 1 unit of the
+   * outflow's currency in the inflow's, 18 decimals), next to the reference `rate`; one currency — null.
+   */
+  bankRate: z.string().nullable(),
+  /** IMP-03@PoC FR 4: two currencies — the bank's rate within 1 % or within 3 % of the reference; one currency — null. */
+  rateBand: z.enum(["within-1", "within-3"]).meta({ "x-extensible-enum": true }).nullable(),
 });
 
 const side = (s: TransferSide): z.input<typeof sideSchema> => ({
@@ -53,11 +65,14 @@ function present(p: TransferProposal): z.input<typeof proposalSchema> {
     outflow: side(p.outflow),
     inflow: side(p.inflow),
     date: p.date,
+    pairKind: p.pairKind,
     kind: p.kind,
     fee: p.kind === "same-currency" ? p.fee.toJSON() : null,
     rate: cross && { rate: cross.rate.rate.toString(), date: cross.rate.date, source: cross.rate.source },
     converted: cross?.converted.toJSON() ?? null,
     difference: cross?.difference.toJSON() ?? null,
+    bankRate: cross?.bankRate.toFixed() ?? null,
+    rateBand: cross?.rateBand ?? null,
   };
 }
 
@@ -67,7 +82,7 @@ export const listTransferProposalsRoute = defineRoute({
   path: "/v1/transfer-proposals",
   operationId: "listTransferProposals",
   summary:
-    "«Пари · N»: pairs of a debit and a credit on two own accounts within 3 days that look like one transfer; the system never marks them itself",
+    "«Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself",
   access: { permission: "household.data.read", feature: FEATURE },
   response: {
     status: 200,

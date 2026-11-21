@@ -2335,7 +2335,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** «Пари · N»: pairs of a debit and a credit on two own accounts within 3 days that look like one transfer; the system never marks them itself */
+        /** «Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself */
         get: operations["listTransferProposals"];
         put?: never;
         post?: never;
@@ -26533,6 +26533,7 @@ export interface operations {
                     "application/json": {
                         count: number;
                         items: {
+                            bankRate: string | null;
                             converted: {
                                 amount: string;
                                 currency: string;
@@ -26570,11 +26571,14 @@ export interface operations {
                                 /** Format: uuid */
                                 transactionId: string;
                             };
+                            /** @enum {string} */
+                            pairKind: "transfer" | "exchange";
                             rate: {
                                 date: string;
                                 rate: string;
                                 source: string;
                             } | null;
+                            rateBand: ("within-1" | "within-3") | null;
                         }[];
                         more: boolean;
                     };
