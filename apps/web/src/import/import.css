@@ -517,6 +517,26 @@
   font-size: var(--ws-text-body-size);
 }
 
+/* IMP-04@PoC FR 8: the changed transactions the rollback kept, one link per line under the lines of counts. */
+.imp-result-kept {
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.imp-result-kept ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.imp-result-kept .imp-result-line {
+  min-height: 44px;
+}
+
+.imp-result-kept a {
+  color: var(--ws-ink);
+  overflow-wrap: anywhere;
+}
+
 .imp-result-issue {
   display: flex;
   flex-direction: column;
