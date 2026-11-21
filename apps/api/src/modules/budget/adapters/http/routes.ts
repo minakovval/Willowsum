@@ -645,7 +645,7 @@ const wizardSchema = z.object({
       )
       .meta({
         description:
-          "FR 3, FR 21, EC1: «План доходу» — each income category with income in the 3 months, the largest plan first: its 3-month average (the field's hint; over the months it has when its history is shorter) and the plan — the average to tens (an exact half to even), or for an irregular category (6 full months of its history, 2 of them off its 6-month average by more than 30 %) its lowest month of 6 to tens",
+          "FR 3, FR 21, EC1: «План доходу» — each income category with income in the 3 months, the largest plan first: its 3-month average (the field's hint; over the months it has when its history is shorter) and the plan — the average to tens (an exact half to even), or for an irregular category (under 6 full months of its history, a month without income since its first one; with 6, 2 of them off its 6-month average by more than 30 %) its lowest month of 6 to tens",
       }),
     /** FR 3, FR 7: each active expense category with spending — its 3-month average and the limit (tens, half up). */
     categories: z.array(

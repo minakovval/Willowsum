@@ -793,4 +793,229 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Прибрати з бюджету" }));
     expect(await screen.findByText("Не вдалося змінити бюджет. Спробуйте ще раз")).toBeTruthy();
   });
+  const rowFor = (name: string) =>
+    [...document.querySelectorAll<HTMLElement>(".bud-table tbody tr")].find(
+      (r) => r.querySelector(".bud-name")?.firstChild?.textContent === name,
+    )!;
+  const FUN: Cat = { id: id(6), name: "Розваги", kind: "expense", deletable: true };
+  const HIDDEN: Cat = {
+    id: id(7),
+    name: "Синтетичне приховане",
+    kind: "expense",
+    deletable: true,
+    hidden: true,
+  };
+  const averages = {
+    status: 200,
+    body: {
+      ...wizard(),
+      fromSpending: {
+        ...wizard().fromSpending,
+        categories: [{ categoryId: FUN.id, average: money("112.30"), limit: money("110.00") }],
+      },
+    },
+  };
+
+  it("BUD-02@PoC AC19: «Видалити категорію…» of «Транспорт» with 12 transactions shows «12 транзакцій» in the explanation and offers «Приховати» and «Об’єднати з іншою…»", async () => {
+    const api = open({
+      [`GET /v1/categories/${TRANSPORT.id}/usage`]: { status: 200, body: { transactions: 12 } },
+    });
+    await screen.findByRole("table");
+    fireEvent.click(within(rowFor("Транспорт")).getByRole("button", { name: "Ще дії: Транспорт" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Видалити категорію…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Видалити категорію «Транспорт»?" });
+    await waitFor(() =>
+      expect(plain(dialog.textContent)).toContain(
+        "Категорія має 12 транзакцій — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
+      ),
+    );
+    expect(within(dialog).getByRole("button", { name: "Приховати" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Об’єднати з іншою…" })).toBeTruthy();
+    expect(within(dialog).queryByRole("button", { name: "Видалити" })).toBeNull();
+    expect(api.calls.some((c) => c.path === `/v1/categories/${TRANSPORT.id}/usage`)).toBe(true);
+  });
+
+  it("BUD-02@PoC FR 23: the count takes the form of the language — «має 1 транзакцію», «має 3 транзакції»; a failed count leaves the explanation without a number and both ways out", async () => {
+    let count: number | null = 1;
+    open({
+      [`GET /v1/categories/${TRANSPORT.id}/usage`]: () =>
+        count === null ? problem(503, "MODULE_UNAVAILABLE") : { status: 200, body: { transactions: count } },
+    });
+    await screen.findByRole("table");
+    const ask = async () => {
+      fireEvent.click(within(rowFor("Транспорт")).getByRole("button", { name: "Ще дії: Транспорт" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Видалити категорію…" }));
+      return screen.findByRole("dialog", { name: "Видалити категорію «Транспорт»?" });
+    };
+    let dialog = await ask();
+    await waitFor(() =>
+      expect(plain(dialog.textContent)).toContain("Категорія має 1 транзакцію — її не можна видалити."),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+    count = 3;
+    dialog = await ask();
+    await waitFor(() =>
+      expect(plain(dialog.textContent)).toContain("Категорія має 3 транзакції — її не можна видалити."),
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+    count = null;
+    dialog = await ask();
+    expect(within(dialog).getByRole("button", { name: "Приховати" })).toBeTruthy();
+    expect(plain(dialog.textContent)).toContain("Цю категорію не можна видалити");
+    expect(plain(dialog.textContent)).not.toContain("Категорія має");
+  });
+
+  it("BUD-02@PoC AC12: the pencil «Змінити ліміт» of «Продукти» opens the limit popover from the row, with no modal dialog; the new limit is saved with the budget's version and the page is read again", async () => {
+    const api = open({ "PATCH /v1/budget/plan": { status: 200, body: budget.budget } });
+    await screen.findByRole("table");
+    const pencil = within(rowFor("Продукти")).getByRole("button", { name: "Змінити ліміт «Продукти»" });
+    expect(pencil.getAttribute("title")).toBe("Змінити ліміт");
+    fireEvent.click(pencil);
+    const popover = await screen.findByRole("dialog", { name: "Змінити ліміт «Продукти»" });
+    // From the row: the popover sits in the row's cell, not in a modal layer.
+    expect(rowFor("Продукти").contains(popover)).toBe(true);
+    expect(popover.getAttribute("aria-modal")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    const field = within(popover).getByRole("textbox", { name: "Ліміт" }) as HTMLInputElement;
+    expect(plain(field.value)).toBe("400,00");
+    fireEvent.change(field, { target: { value: "450" } });
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
+      version: 7,
+      limits: [{ categoryId: PRODUCTS.id, amount: money("450.00") }],
+    });
+    await waitFor(() =>
+      expect(
+        api.calls.filter((c) => c.method === "GET" && c.path === "/v1/budget/periods/2026-11"),
+      ).toHaveLength(2),
+    );
+  });
+
+  it("BUD-02@PoC FR 7: a row of «Поза планом» has «Задати ліміт»; the limit set moves it out of «Поза планом» on the next read; a refused save says so and keeps the popover", async () => {
+    let refuse = true;
+    const api = open({
+      "PATCH /v1/budget/plan": () =>
+        refuse ? problem(503, "MODULE_UNAVAILABLE") : { status: 200, body: budget.budget },
+    });
+    await screen.findByRole("table");
+    fireEvent.click(within(rowFor("Подорожі")).getByRole("button", { name: "Задати ліміт «Подорожі»" }));
+    const popover = await screen.findByRole("dialog", { name: "Задати ліміт «Подорожі»" });
+    fireEvent.change(within(popover).getByRole("textbox", { name: "Ліміт" }), { target: { value: "150" } });
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    expect(await within(popover).findByText("Не вдалося змінити бюджет. Спробуйте ще раз")).toBeTruthy();
+    refuse = false;
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() =>
+      expect(
+        api.calls.filter((c) => c.method === "GET" && c.path === "/v1/budget/periods/2026-11"),
+      ).toHaveLength(2),
+    );
+    expect(api.calls.filter((c) => c.method === "PATCH").at(-1)?.body).toEqual({
+      version: 7,
+      limits: [{ categoryId: TRAVEL.id, amount: money("150.00") }],
+    });
+  });
+
+  it("BUD-02@PoC FR 7: «Додати категорію» in the heading of a group adds an editable row at its bottom — the list («Поза планом · є витрати», then the categories without a limit, then «Нова категорія…»), the limit with the 3-month average in the field, «обов’язкова», ✓ and ✕", async () => {
+    const api = open({
+      "GET /v1/categories": { status: 200, body: tree([...CATS, TRAVEL, FUN, HIDDEN]) },
+      "GET /v1/budget/wizard": averages,
+      "PATCH /v1/budget/plan": { status: 200, body: budget.budget },
+      [`PATCH /v1/categories/${FUN.id}`]: { status: 200, body: {} },
+    });
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: "Додати категорію: Щоденне" }));
+    const row = document.querySelector<HTMLElement>(".bud-add-row")!;
+    // At the bottom of its group.
+    expect(row.parentElement!.lastElementChild).toBe(row);
+    expect(row.closest("tbody")!.getAttribute("data-group")).toBe(G_DAILY);
+    const list = within(row).getByRole("combobox", { name: "Категорія" }) as HTMLSelectElement;
+    const groups = [...list.querySelectorAll("optgroup")].map((g) => [
+      g.label,
+      [...g.querySelectorAll("option")].map((o) => plain(o.textContent)),
+    ]);
+    expect(groups).toEqual([
+      ["Поза планом · є витрати", ["Подорожі · 96,00 € цього місяця"]],
+      ["Без ліміту", ["Розваги"]],
+    ]);
+    expect(plain(list.options[list.options.length - 1]!.textContent)).toBe("Нова категорія…");
+    fireEvent.change(list, { target: { value: FUN.id } });
+    const limit = within(row).getByRole("textbox", { name: "Ліміт" }) as HTMLInputElement;
+    await waitFor(() => expect(plain(limit.placeholder)).toBe("сер. 112,30 €"));
+    fireEvent.change(limit, { target: { value: "110" } });
+    fireEvent.click(within(row).getByRole("checkbox", { name: "обов’язкова" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Додати" }));
+    await waitFor(() => expect(api.calls.filter((c) => c.method === "PATCH")).toHaveLength(2));
+    const patches = api.calls.filter((c) => c.method === "PATCH");
+    expect(patches[0]).toMatchObject({
+      path: "/v1/budget/plan",
+      body: { version: 7, limits: [{ categoryId: FUN.id, amount: money("110.00") }] },
+    });
+    expect(patches[1]).toMatchObject({ path: `/v1/categories/${FUN.id}`, body: { essential: true } });
+    await waitFor(() => expect(document.querySelector(".bud-add-row")).toBeNull());
+  });
+
+  it("BUD-02@PoC FR 7: ✓ of the add row does nothing until a category and a limit are chosen; ✕ closes the row and writes nothing", async () => {
+    const api = open({ "GET /v1/categories": { status: 200, body: tree([...CATS, TRAVEL, FUN]) } });
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: "Додати категорію: Щоденне" }));
+    const row = document.querySelector<HTMLElement>(".bud-add-row")!;
+    const confirm = within(row).getByRole("button", { name: "Додати" });
+    expect(confirm.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(confirm);
+    fireEvent.change(within(row).getByRole("combobox", { name: "Категорія" }), {
+      target: { value: TRAVEL.id },
+    });
+    expect(confirm.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(within(row).getByRole("button", { name: "Скасувати" }));
+    expect(document.querySelector(".bud-add-row")).toBeNull();
+    expect(api.calls.some((c) => c.method === "PATCH")).toBe(false);
+  });
+
+  it("BUD-02@PoC FR 23: «Нова категорія…» of the add row creates a custom expense category in that group and chooses it in the row at once", async () => {
+    const NEW_ID = id(20);
+    const NEW_CAT = {
+      ...category({ id: NEW_ID, name: "Обіди на роботі", kind: "expense", deletable: true }, G_DAILY),
+    };
+    const api = open({
+      "POST /v1/categories": { status: 201, body: NEW_CAT },
+      [`GET /v1/categories/${NEW_ID}`]: { status: 200, body: NEW_CAT },
+      "PATCH /v1/budget/plan": { status: 200, body: budget.budget },
+    });
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: "Додати категорію: Щоденне" }));
+    const row = document.querySelector<HTMLElement>(".bud-add-row")!;
+    fireEvent.change(within(row).getByRole("combobox", { name: "Категорія" }), {
+      target: { value: "__new" },
+    });
+    const dialog = await screen.findByRole("dialog", { name: "Нова категорія" });
+    expect((within(dialog).getByRole("combobox", { name: /Група/ }) as HTMLSelectElement).value).toBe(
+      G_DAILY,
+    );
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Назва/ }), {
+      target: { value: "Обіди на роботі" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Додати категорію" }));
+    const list = within(row).getByRole("combobox", { name: "Категорія" }) as HTMLSelectElement;
+    await waitFor(() => expect(list.value).toBe(NEW_ID));
+    fireEvent.change(within(row).getByRole("textbox", { name: "Ліміт" }), { target: { value: "120" } });
+    fireEvent.click(within(row).getByRole("button", { name: "Додати" }));
+    await waitFor(() =>
+      expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
+        version: 7,
+        limits: [{ categoryId: NEW_ID, amount: money("120.00") }],
+      }),
+    );
+  });
+
+  it("BUD-02@PoC FR 16: a past month shows the plan of its snapshot — no pencil, no «Задати ліміт», no «Додати категорію»", async () => {
+    open({
+      "GET /v1/budget/periods/2026-11": { status: 200, body: period({ mode: "past" }) },
+    });
+    await screen.findByRole("table");
+    expect(screen.queryByRole("button", { name: /Змінити ліміт/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Задати ліміт/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Додати категорію/ })).toBeNull();
+  });
 });

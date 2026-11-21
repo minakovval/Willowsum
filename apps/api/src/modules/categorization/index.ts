@@ -31,7 +31,7 @@ import {
   TRANSACTION_CREATED_JOB,
   transactionsCategoryTarget,
 } from "./adapters/index.ts";
-import { carryImportMerged, categoriesInUse, type RuleDeps } from "./application/index.ts";
+import { carryImportMerged, categoriesInUse, countWithCategory, type RuleDeps } from "./application/index.ts";
 
 export const categorizationModule = defineModule({
   name: "categorization",
@@ -135,7 +135,7 @@ export function categorizationRulePorts(deps: {
 
 /**
  * BUD-01@PoC FR 12: the categories that existing transactions of the space have as their own category, for module
- * categories («порожня» категорія). Read only; `db` is the categorization database, `transactions` module
+ * categories («порожня» категорія); BUD-02@PoC FR 23: how many they are, for the dialog «Видалити категорію…». Read only; `db` is the categorization database, `transactions` module
  * transactions' lookup (a row of a deleted transaction is no use).
  */
 export function createCategorizationCategoryUsage(
@@ -147,6 +147,11 @@ export function createCategorizationCategoryUsage(
     used: (householdId, ids) =>
       db.inHousehold(householdId, (q) =>
         categoriesInUse(categorizationTx(q), transactions, householdId, ids),
+      ),
+    // BUD-02@PoC FR 23: the transactions with the category as their own (a split one counts by its parts).
+    transactions: (householdId, categoryId) =>
+      db.inHousehold(householdId, (q) =>
+        countWithCategory(categorizationTx(q), transactions, householdId, categoryId),
       ),
   };
 }

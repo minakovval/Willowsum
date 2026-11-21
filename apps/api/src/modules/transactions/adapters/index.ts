@@ -35,6 +35,7 @@ export {
   subaccountsInUse,
   transactionsList,
   transactionsTx,
+  transactionsWithPartIn,
   transferCandidates,
   type CandidateSide,
   type DuplicateSide,

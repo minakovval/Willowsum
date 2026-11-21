@@ -1,6 +1,6 @@
 # Модуль categories
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (BUD-01@PoC п. 12: видалення порожньої власної категорії, серверна частина; BUD-01 b: споживач `categories.merged` і відповідь `categorization`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (BUD-02@PoC п. 23: `getCategoryUsage`, `CategoryUsage.transactions`); 2026-11-15 (BUD-01@PoC п. 12: видалення порожньої власної категорії, серверна частина; BUD-01 b: споживач `categories.merged` і відповідь `categorization`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -39,6 +39,9 @@ FLW-34@PoC лише читає дерево («типові групи без с
     службових), `hidden`, `deletable` (п. 12: меню має «Видалити» — власна і порожня; так само в кожній відповіді з
     категорією).
   - `GET /v1/categories/{categoryId}` (`getCategory`) — одна категорія; виведена з ужитку — 404.
+  - `GET /v1/categories/{categoryId}/usage` (`getCategoryUsage`) — `{ transactions }`: скільки транзакцій простору в
+    категорії, для «N транзакцій» діалогу «Видалити категорію…» (BUD-02@PoC п. 23, AC 19); сума відповідей
+    `CategoryUsage.transactions`; інший простір, невідома чи виведена з ужитку — 404.
   - `POST /v1/category-groups` (`createCategoryGroup`, `Idempotency-Key`) — `name` (1–60, один рядок), `kind`
     (`expense` / `income`); тон — тони свого типу по черзі. → 201 група.
   - `PATCH /v1/category-groups/{groupId}` (`renameCategoryGroup`) — `name`. → 200 група з категоріями.
@@ -68,7 +71,9 @@ FLW-34@PoC лише читає дерево («типові групи без с
   категорію (`categorization` — категорія транзакції й правила, `budget` — ліміти й клітинки «План», `recurring` —
   регулярні платежі), додає свою відповідь у `src/main.ts` у тому ж PR**, інакше категорію з його записами можна
   буде видалити.
-- `CategoryUsage` — тип цього порту.
+- `CategoryUsage` — тип цього порту. Необов'язковий `transactions(householdId, categoryId)` → кількість транзакцій
+  простору в категорії відповідають лише модулі, що зберігають категорію транзакції (`categorization` — власна категорія
+  нерозділеної, `transactions` — розділені за частинами); одна транзакція рахується одним модулем (BUD-02@PoC п. 23).
 - `createCategoryDirectory({ db, audit, newId })` → `CategoryDirectory` (п. 9) — для `categorization`, `budget`,
   `recurring`, `transfer-matching`: `category(householdId, id)` → `CategoryRef` (`kind`, `state`, `mergedInto`,
   `essential`, `systemKey`) або null (іншого простору чи невідома); `serviceCategory(householdId, "transfer" |
