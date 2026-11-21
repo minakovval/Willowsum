@@ -51,6 +51,24 @@ describe("IMP-02@PoC FR 4: the bank's description as printed, from every descrip
     expect(events.every((e) => !e.flags.includes("text-cut"))).toBe(true);
   });
 
+  it("IMP-02@PoC FR 4: an integer «Código» is no figure and «Referencia» is the reference — never a fee or a rate (#696, #698)", () => {
+    const lines = [
+      `${BBVA[0]};Código;Referencia`,
+      ...BBVA.slice(1).map((l, i) => `${l};${1234 + i};2026030100${i + 1}`),
+    ];
+    const { analysis, events } = parse(lines, EUR);
+    const role = (header: string) =>
+      analysis.columns.find((c) => c.header === header)?.role.chosen.value ?? null;
+    expect(role("Código")).toBe("ignore");
+    expect(role("Referencia")).toBe("reference");
+    expect(events.events.map((e) => [e.fee, e.rate, e.reference])).toEqual([
+      [null, null, "20260301001"],
+      [null, null, "20260301002"],
+      [null, null, "20260301003"],
+    ]);
+    expect(events.events.every((e) => e.flags.length === 0)).toBe(true);
+  });
+
   it("IMP-02@PoC FR 4: one description column keeps its cell untouched, as printed", () => {
     const { events } = parse(["Дата;Сума;Опис", "01.03.2026;-5,00;  Хліб  "], EUR).events;
     expect(events[0]!.description).toBe("  Хліб  ");
