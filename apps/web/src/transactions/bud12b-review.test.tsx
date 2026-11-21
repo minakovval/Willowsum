@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { formatDate } from "@willowsum/i18n";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import {
@@ -875,5 +875,40 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
       .map((b) => b.getAttribute("aria-label") ?? plain(b.textContent));
     expect(names).toEqual(["Пропустити", "Змінити категорію", "Підтвердити"]);
     for (const b of within(card()).getAllByRole("button")) expect(b.tabIndex).toBe(0);
+  });
+
+  /* Рішення ведучого (2026-11-21; власник не схвалював; BUD-12 S-058): the card shows the bank's text under the title. */
+  describe("lead decision 2026-11-21: the bank's text on the card", () => {
+    const BBVA =
+      "COMPRA TARJ. 4999 PAGO CON TARJETA EN SUPERMERCADOS-ALIMENTACION-DE-BARRIO-SIN-ESPACIOS-0123456789 MADRID ES REF 2026111300123 OBSERVACIONES TARJETA 4999";
+    const openCard = async (queue: Tx[]) => {
+      const { api } = space({ queue, groups: [] });
+      open(api);
+      const one = await screen.findByRole("radio", { name: "По одній" });
+      act(() => one.click());
+      return screen.findByRole("region");
+    };
+
+    it("BUD-12@PoC FR 2: without a merchant the description is always shown under the title", async () => {
+      const c = await openCard([tx(1, null as unknown as string, "-0.01", { description: BBVA })]);
+      const line = c.querySelector<HTMLElement>(".review-card-text")!;
+      expect(line.textContent).toBe(BBVA);
+      expect(within(c).getByRole("heading", { name: "Без мерчанта" })).toBeTruthy();
+    });
+
+    it("BUD-12@PoC FR 2: with a merchant the description is shown only when it differs from the merchant", async () => {
+      const same = await openCard([tx(1, "Starbucks", "-6.40", { description: " starbucks " })]);
+      expect(same.querySelector(".review-card-text")).toBeNull();
+      cleanup();
+      const other = await openCard([tx(1, "Starbucks", "-6.40", { description: "STARBUCKS 0457 MADRID" })]);
+      expect(other.querySelector(".review-card-text")!.textContent).toBe("STARBUCKS 0457 MADRID");
+    });
+
+    it("BUD-12@PoC FR 2: no description, no line; the title links to the transaction details (S-047)", async () => {
+      const c = await openCard([tx(1, "Starbucks", "-6.40")]);
+      expect(c.querySelector(".review-card-text")).toBeNull();
+      const link = within(c).getByRole("link", { name: "Starbucks" });
+      expect(link.getAttribute("href")).toBe(`#/money/transactions/${txId(1)}`);
+    });
   });
 });
