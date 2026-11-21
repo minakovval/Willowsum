@@ -243,4 +243,40 @@ describe("IMP-02@PoC FR 5: whether the amount includes the fee is read from the 
     expect(atm.feeIncluded).toBe(true);
     expect(atm.flags).toEqual([]);
   });
+
+  it("IMP-02@PoC FR 5: a real break and the fee row on no link — the card-currency header does not decide, the fee row is flagged (#703 review)", () => {
+    const rows = [
+      HEADER,
+      ["05.11.2026 10:00:00", "Кав'ярня Тест", "5814", "-50.00", "-50.00", "UAH", "—", "—", "—", "62940.00"],
+      [
+        "04.11.2026 18:00:00",
+        "Банкомат Синтетик",
+        "6011",
+        "-2020.00",
+        "-2000.00",
+        "UAH",
+        "—",
+        "20.00",
+        "—",
+        "62994.00",
+      ],
+    ];
+    const atm = byDetails(parse(rows), "Банкомат Синтетик");
+    expect(atm.feeIncluded).toBeUndefined();
+    expect(atm.flags).toContain("fee-basis-unknown");
+  });
+
+  it("IMP-02@PoC FR 5: a real break, one fee row linked with its fee in the amount and one without — flagged, never guessed (#703 review)", () => {
+    const p = parse([
+      ["Дата", "Опис", "Сума", "Комісія", "Залишок"],
+      ["01.03.2026", "Кава Тест", "-4.00", "", "996.00"],
+      ["02.03.2026", "Переказ Тест", "-100.00", "1.50", "896.00"],
+      ["03.03.2026", "Платіж Тест", "-50.00", "2.00", "844.00"],
+    ]);
+    expect(status(p, "balance-chain")).toBe("mismatch");
+    for (const details of ["Переказ Тест", "Платіж Тест"]) {
+      expect(byDetails(p, details).feeIncluded).toBeUndefined();
+      expect(byDetails(p, details).flags).toContain("fee-basis-unknown");
+    }
+  });
 });

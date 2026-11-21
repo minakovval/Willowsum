@@ -111,6 +111,17 @@ describe("IMP-08@PoC: the review's rows and counts", () => {
     ]);
   });
 
+  it("IMP-08@PoC FR 6: a fee row the balances do not place is «помилка» «fee» with the detail «fee-basis» (#703 review)", () => {
+    const r = review({ rows: [], unconfirmed: [], card: null });
+    const plan = readiness([r], []).files[0]!;
+    const fee = { fee: { amount: "1.00", currency: "EUR" }, flags: ["fee-basis-unknown" as const] };
+    const rows = reviewRows([event(2, fee), event(3)], analysis(), r, [], plan);
+    expect(rows.map((x) => [x.row, x.state, x.issue, x.issueDetail])).toEqual([
+      [2, "error", "fee", "fee-basis"],
+      [3, "ok", null, null],
+    ]);
+  });
+
   it("IMP-08@PoC AC6: a flipped row is changed; an excluded row is excluded, not changed; the others are as read", () => {
     const r = review({
       rows: [2, 3, 4].map((row) => ({ row, basis: "majority" as const, confidence: 0.4, confirmed: false })),
