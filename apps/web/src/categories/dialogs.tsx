@@ -42,7 +42,7 @@ function FailureText({ failure }: { failure: ActionFailure }) {
 }
 
 /** Runs one request at a time; `onDone` on success, otherwise the failure stays shown in the dialog. */
-function useAction(onDone: () => void) {
+function useAction(onDone: (data?: unknown) => void) {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ActionFailure | null>(null);
   const running = useRef(false);
@@ -54,7 +54,7 @@ function useAction(onDone: () => void) {
     const o = await send();
     running.current = false;
     setBusy(false);
-    if (o.ok) onDone();
+    if (o.ok) onDone(o.data);
     else setFailure(failureOf(o));
   };
   return { busy, failure, run };
@@ -67,13 +67,17 @@ function useAction(onDone: () => void) {
 export function NameDialog({
   target,
   groups,
+  groupKind,
   onClose,
   onDone,
 }: {
   target: NameTarget | null;
   groups: Tree["groups"];
+  /** «Нова категорія» of a budget screen: only the groups of this kind (an income plan takes income categories). */
+  groupKind?: "expense" | "income" | undefined;
   onClose: () => void;
-  onDone: () => void;
+  /** `created` — the category a «Нова категорія» made (BUD-02@PoC FR 21, FR 22 add its row at once). */
+  onDone: (created?: { readonly id: string }) => void;
 }) {
   if (!target) return null;
   return (
@@ -81,6 +85,7 @@ export function NameDialog({
       key={target.kind === "renameGroup" || target.kind === "renameCategory" ? target.id : target.kind}
       target={target}
       groups={groups}
+      groupKind={groupKind}
       onClose={onClose}
       onDone={onDone}
     />
@@ -90,13 +95,15 @@ export function NameDialog({
 function NameForm({
   target,
   groups,
+  groupKind,
   onClose,
   onDone,
 }: {
   target: NameTarget;
   groups: Tree["groups"];
+  groupKind?: "expense" | "income" | undefined;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (created?: { readonly id: string }) => void;
 }) {
   const t = useT();
   const api = useAuthApi();
@@ -106,7 +113,9 @@ function NameForm({
   const [groupId, setGroupId] = useState(target.kind === "newCategory" ? (target.groupId ?? "") : "");
   // A create keeps its key while the same request is retried (ARC-07 FR 4).
   const key = useRef(newIdempotencyKey());
-  const { busy, failure, run } = useAction(onDone);
+  const { busy, failure, run } = useAction((data) =>
+    onDone(target.kind === "newCategory" ? (data as { id: string }) : undefined),
+  );
 
   const value = visible(name);
   const nameField: FormDialogField = {
@@ -166,7 +175,7 @@ function NameForm({
         : t("categories.form.save");
   // Custom categories go into an expense or income group; «Службові» takes none (FR 1, 2).
   const groupOptions = groups
-    .filter((g) => g.kind !== "service")
+    .filter((g) => (groupKind ? g.kind === groupKind : g.kind !== "service"))
     .map((g: Group) => ({ value: g.id, label: g.name }));
 
   return (

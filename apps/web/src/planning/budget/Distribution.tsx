@@ -23,11 +23,11 @@ export interface AllocationState {
   readonly pending: boolean;
   readonly failed: boolean;
   /**
-   * The server refused the typed rows (`400 VALIDATION_FAILED` on `allocation…`): `short` — a deficit not covered
-   * exactly, `over` — anything else (more than N, more than a goal's contribution). The step stays open; no figure of
+   * The server refused the typed rows (`400 VALIDATION_FAILED` on `allocation…`): `over` — more than N or than a goal's
+   * contribution (a deficit left uncovered is no refusal, AC17). The step stays open; no figure of
    * the refused rows is shown.
    */
-  readonly refused: "short" | "over" | null;
+  readonly refused: "over" | null;
   readonly retry: () => void;
 }
 
@@ -42,7 +42,7 @@ export function useAllocation(args: PlanArgs | null, rows: AllocationRows): Allo
     key: string;
     allocation: Allocation | null;
     failed: boolean;
-    refused: "short" | "over" | null;
+    refused: "over" | null;
   }>({ key: "", allocation: null, failed: false, refused: null });
   const [attempt, setAttempt] = useState(0);
   const key = args ? `${attempt}${JSON.stringify(createBody({ ...args, rows }))}` : "";
@@ -79,9 +79,7 @@ function refusal(o: {
   const errors =
     o.kind === "problem" && o.problem?.code === "VALIDATION_FAILED" ? (o.problem.errors ?? []) : [];
   if (errors.length === 0 || !errors.every((e) => e.path?.startsWith("allocation"))) return null;
-  return errors.some((e) => e.path === "allocation" && e.issue === "short")
-    ? ("short" as const)
-    : ("over" as const);
+  return "over" as const;
 }
 
 /**
@@ -245,9 +243,12 @@ export function DistributionStep({
     );
   const rate = (r: string | null) =>
     r === null ? null : t("planning.budget.wizard.dist.debt.rate", { rate: `${formatNumber(locale, r)} %` });
+  // The uncovered part is the plan's deficit (FR 15, AC17): the banner of «Бюджет» names it.
   const planText = (kind: "surplus" | "deficit") => (
     <p className="ws-muted">
-      {t(`planning.budget.wizard.dist.${d.planOn ? "planOnly" : "planOff"}.${kind}` as MessageKey)}
+      {t(`planning.budget.wizard.dist.${d.planOn ? "planOnly" : "planOff"}.${kind}` as MessageKey, {
+        amount: money(a.choice?.rest ?? b?.amount ?? a.limits),
+      })}
     </p>
   );
   const choice = a.choice;
@@ -408,6 +409,13 @@ export function DistributionStep({
             notSaved: true,
           }),
         ),
+        <div className="bud-wiz-row" key="leave">
+          <span>
+            <strong>{t("planning.budget.wizard.dist.leaveDeficit")}</strong>
+            <span className="ws-muted">{t("planning.budget.wizard.dist.leaveDeficit.hint")}</span>
+          </span>
+          <output className="bud-num">{t("planning.budget.wizard.dist.leaveDeficit.rest")}</output>
+        </div>,
         <div className="bud-wiz-row" key="cut">
           <span>
             <strong>{t("planning.budget.wizard.dist.cutLimits")}</strong>
@@ -420,7 +428,7 @@ export function DistributionStep({
           />
         </div>,
       ])}
-      {/* Refused rows (`short`): no «Покрито» figure of them; the reason is at «Створити бюджет». */}
+      {/* Refused rows (`over`): no «Покрито» figure of them; the reason is at «Створити бюджет». */}
       <div className="bud-wiz-covered" role="status" hidden={alloc.refused !== null}>
         <strong>
           {t("planning.budget.wizard.dist.covered", {

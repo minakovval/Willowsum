@@ -96,6 +96,11 @@ const wizard = (over: { available?: boolean; months?: number; mid?: boolean } = 
     historyMonths: over.months ?? 7,
     incomePlan: over.available === false ? null : eur("5600.00"),
     incomeIrregular: false,
+    // FR 21: the income categories with their plan; the plan of the budget is their sum.
+    incomes:
+      over.available === false
+        ? []
+        : [{ categoryId: id(3), average: eur("5600.00"), plan: eur("5600.00"), irregular: false }],
     categories:
       over.available === false
         ? []
@@ -165,6 +170,7 @@ const postBody = (api: ReturnType<typeof mount>) =>
     firstPeriod: string;
     proportional: boolean;
     incomePlan?: { amount: string; currency: string };
+    incomePlans?: { categoryId: string; amount: { amount: string; currency: string } }[];
     limits: { categoryId: string; amount: { amount: string } }[];
   };
 
@@ -239,7 +245,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
 
   it("BUD-02@PoC AC1: an amount that does not parse keeps «Створити бюджет» inactive and nothing is sent in its place", async () => {
     const api = await toLimits();
-    const income = screen.getByRole("textbox", { name: /План доходу на місяць/ });
+    const income = screen.getByRole("textbox", { name: /План доходу: Зарплата/ });
     fireEvent.change(income, { target: { value: "12,345" } });
     fireEvent.blur(income);
     const limit = screen.getByRole("textbox", { name: "Ліміт: Продукти" });
@@ -250,7 +256,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
       true,
     );
     expect(plain(document.body.textContent)).toContain(
-      "Щоб продовжити, виправте: План доходу на місяць, Продукти",
+      "Щоб продовжити, виправте: План доходу: Зарплата, Продукти",
     );
     fireEvent.click(forward);
     expect(api.calls.some((c) => c.method === "POST" && c.path === "/v1/budget")).toBe(false);
@@ -261,18 +267,21 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     fireEvent.blur(limit);
     await create();
     await waitFor(() => expect(postBody(api)).toBeTruthy());
-    expect(postBody(api).incomePlan?.amount).toBe("5000.00");
+    expect(postBody(api).incomePlans).toEqual([
+      { categoryId: id(3), amount: { amount: "5000.00", currency: "EUR" } },
+    ]);
     expect(postBody(api).limits[0]!.amount.amount).toBe("300.00");
   });
 
   it("BUD-02@PoC AC1: an empty income plan is not sent as 0", async () => {
     const api = await toLimits();
-    const income = screen.getByRole("textbox", { name: /План доходу на місяць/ });
+    const income = screen.getByRole("textbox", { name: /План доходу: Зарплата/ });
     fireEvent.change(income, { target: { value: "" } });
     fireEvent.blur(income);
     await create();
     await waitFor(() => expect(postBody(api)).toBeTruthy());
     expect(postBody(api).incomePlan).toBeUndefined();
+    expect(postBody(api).incomePlans).toBeUndefined();
   });
 
   it("BUD-02@PoC AC1: «Назад» and «Далі» keep the edited limits", async () => {
@@ -308,13 +317,13 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     next();
     await screen.findByRole("heading", { name: "Ліміти категорій" });
     expect(screen.getByText("Продукти")).toBeTruthy();
-    expect(screen.queryByText("Зарплата")).toBeNull();
+    expect(screen.getByRole("rowheader", { name: "Зарплата" })).toBeTruthy();
     expect(plain(document.body.textContent)).toContain("405,00 €");
     expect((screen.getByRole("textbox", { name: "Ліміт: Продукти" }) as HTMLInputElement).value).toBe(
       "410,00",
     );
     expect(
-      plain((screen.getByRole("textbox", { name: /План доходу на місяць/ }) as HTMLInputElement).value),
+      plain((screen.getByRole("textbox", { name: /План доходу: Зарплата/ }) as HTMLInputElement).value),
     ).toBe("5 600,00");
     const field = screen.getByRole("textbox", { name: "Ліміт: Транспорт" });
     fireEvent.change(field, { target: { value: "170" } });
@@ -324,7 +333,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     const body = postBody(api);
     expect(body.firstPeriod).toBe("2026-11");
     expect(body.proportional).toBe(true);
-    expect(body.incomePlan).toEqual({ amount: "5600.00", currency: "EUR" });
+    expect(body.incomePlans).toEqual([{ categoryId: id(3), amount: { amount: "5600.00", currency: "EUR" } }]);
     expect(body.limits.map((l) => [l.categoryId, l.amount.amount])).toEqual([
       [id(1), "410.00"],
       [id(2), "170.00"],
@@ -347,6 +356,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     expect(body.limits).toEqual([]);
     expect(body.proportional).toBe(false);
     expect(body.incomePlan).toBeUndefined();
+    expect(body.incomePlans).toBeUndefined();
   });
 
   it("BUD-02 e) error state: a refused creation shows the error and keeps the entered amounts", async () => {

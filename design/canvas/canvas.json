@@ -2185,6 +2185,15 @@
       "x": 2720,
       "y": 40360
     },
+    "PocPlanBudgetDeficit.dc.html": {
+      "h": 2632,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет · план з дефіцитом",
+      "w": 1280,
+      "x": 12240,
+      "y": 40360
+    },
     "PocPlanBudgetEmpty.dc.html": {
       "h": 800,
       "is_interactive": true,
@@ -2222,7 +2231,7 @@
       "y": 40360
     },
     "PocPlanBudgetTexts.dc.html": {
-      "h": 10550,
+      "h": 11840,
       "page": "poc",
       "title": "S-121 Бюджет · Тексти (словник статусів DS-23)",
       "w": 2640,
@@ -2300,7 +2309,7 @@
       "y": 43330
     },
     "PocPlanBudgetWiz3.dc.html": {
-      "h": 1300,
+      "h": 1560,
       "is_interactive": true,
       "page": "poc",
       "title": "S-124 Новий бюджет",
@@ -2318,7 +2327,7 @@
       "y": 43330
     },
     "PocPlanBudgetWiz4Deficit.dc.html": {
-      "h": 840,
+      "h": 900,
       "is_interactive": true,
       "page": "poc",
       "title": "S-124 Новий бюджет · дефіцит",
@@ -4500,6 +4509,7 @@
     "PocPlanBudget.dc.html",
     "PocPlanBudgetNext.dc.html",
     "PocPlanBudgetCatFilter.dc.html",
+    "PocPlanBudgetDeficit.dc.html",
     "PocPlanBudgetIncome.dc.html",
     "PocPlanBudgetOverspent.dc.html",
     "PocPlanBudgetTexts.dc.html",

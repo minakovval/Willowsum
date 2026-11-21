@@ -410,7 +410,7 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        /** Set, change or remove limits and change the income plan — from the current period on (FR 7, FR 8, AC4) */
+        /** Set, change or remove limits and income categories' plans — from the current period on (FR 7, FR 8, FR 21, AC4) */
         patch: operations["updateBudgetPlan"];
         trace?: never;
     };
@@ -632,6 +632,23 @@ export type paths = {
         put?: never;
         /** «Об'єднати» with a category of the same type: its transactions, rules and limit go to the target (FR 8) */
         post: operations["mergeCategory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/categories/{categoryId}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Видалити категорію…» (BUD-02 FR 23, BUD-01 FR 13): how many transactions of the space are in the category; another space's or one out of use is not found */
+        get: operations["getCategoryUsage"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5310,6 +5327,14 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            incomePlans: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                            }[];
                             limits: {
                                 amount: {
                                     amount: string;
@@ -5418,7 +5443,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
+                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N; a deficit may stay uncovered in part or in full («Лишити дефіцит»: no row) — the rest is the plan's deficit (AC17). N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
                     allocation?: ({
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
@@ -5492,6 +5517,17 @@ export interface operations {
                         /** @description The budget's currency (the space's reporting currency) */
                         currency: string;
                     };
+                    /** @description «План доходу» by income category (FR 21): active income categories of the space, each once (400 `incomePlans.<i>.categoryId`: `not_found`, `not_income`, `hidden`, `duplicate`); the income plan is their sum. Not with `incomePlan` (400 `incomePlan: with_income_plans`) */
+                    incomePlans?: {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        categoryId: string;
+                    }[];
                     limits?: {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
@@ -5525,6 +5561,14 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        incomePlans: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            categoryId: string;
+                        }[];
                         limits: {
                             amount: {
                                 amount: string;
@@ -5947,7 +5991,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
+                    /** @description The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N; a deficit may stay uncovered in part or in full («Лишити дефіцит»: no row) — the rest is the plan's deficit (AC17). N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved */
                     allocation?: ({
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
@@ -6028,6 +6072,17 @@ export interface operations {
                         /** @description The budget's currency (the space's reporting currency) */
                         currency: string;
                     };
+                    /** @description «План доходу» by income category (FR 21): active income categories of the space, each once (400 `incomePlans.<i>.categoryId`: `not_found`, `not_income`, `hidden`, `duplicate`); the income plan is their sum. Not with `incomePlan` (400 `incomePlan: with_income_plans`) */
+                    incomePlans?: {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        categoryId: string;
+                    }[];
                     limits?: {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
@@ -6079,7 +6134,7 @@ export interface operations {
                                 currency: string;
                             };
                         } | null;
-                        /** @description Null — no `chosen` or `allocation` in the request, or `balance` is null; a deficit counts as covered only when status is `exact` */
+                        /** @description Null — no `chosen` or `allocation` in the request, or `balance` is null. A deficit is covered in full only when status is `exact`; `short` leaves the rest as the plan's deficit, which the budget may be saved with (AC17) */
                         choice: {
                             chosen: {
                                 amount: string;
@@ -6985,6 +7040,19 @@ export interface operations {
                             amount: string;
                             currency: string;
                         } | null;
+                        /** @description FR 9, AC18: the card «Дохід» — the plan and the fact of each income category of the period's plan (a finished period — its snapshot's; a snapshot written before the plan by category has none), then the income of a category without a plan with plan 0. First the categories whose fact is below the plan, then those that reached it; inside each, the larger plan first, then the larger fact. `actual` null — a future month. The month's own «План доходу» of «План» changes `incomePlan` only */
+                        incomeCategories: {
+                            actual: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            categoryId: string;
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            };
+                        }[];
                         incomePlan: {
                             amount: string;
                             currency: string;
@@ -7575,12 +7643,24 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description The income plan without categories. A budget with income categories (`incomePlans` not empty) takes none: 400 `incomePlan: by_category`; not with `incomePlans` (400 `incomePlan: with_income_plans`) */
                     incomePlan?: {
                         /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
                         /** @description The budget's currency (the space's reporting currency) */
                         currency: string;
                     };
+                    /** @description FR 21: set, change or remove (`amount` null — «Прибрати») the plan of income categories; the income plan becomes the sum of the categories' plans */
+                    incomePlans?: {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        } | null;
+                        /** Format: uuid */
+                        categoryId: string;
+                    }[];
                     limits?: {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
@@ -7612,6 +7692,14 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        incomePlans: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            categoryId: string;
+                        }[];
                         limits: {
                             amount: {
                                 amount: string;
@@ -8215,6 +8303,20 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            /** @description FR 3, FR 21, EC1: «План доходу» — each income category with income in the 3 months, the largest plan first: its 3-month average (the field's hint; over the months it has when its history is shorter) and the plan — the average to tens (an exact half to even), or for an irregular category (under 6 full months of its history, a month without income since its first one; with 6, 2 of them off its 6-month average by more than 30 %) its lowest month of 6 to tens */
+                            incomes: {
+                                average: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                irregular: boolean;
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            }[];
                         };
                         midPeriod: boolean;
                         starts: {
@@ -9928,6 +10030,104 @@ export interface operations {
             };
             /** @description Categories of different types cannot be merged (CATEGORY_KINDS_DIFFER); A service category cannot be hidden or merged (CATEGORY_SERVICE_FIXED) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getCategoryUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                categoryId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The count «N транзакцій» of the delete dialog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        transactions: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -356,14 +356,8 @@ describe("BUD-02@PoC: «Розподіл» is saved with the budget (POST /v1/bu
     expect(await cells(space.householdId)).toBe(1);
   });
 
-  it("BUD-02@PoC AC7: a deficit covered by less than 200 € or a sum over N is refused, and nothing is saved — no budget, no cell", async () => {
+  it("BUD-02@PoC AC7: a sum over N or over the goal's contribution is refused, and nothing is saved — no budget, no cell; less than N is a budget with a deficit (AC17)", async () => {
     const { space, goalId, plan } = await deficitSpace();
-    const short = await create(space, {
-      ...plan,
-      allocation: [{ kind: "from-goal", goalId, amount: eur("199.99") }],
-    });
-    expect(short.statusCode).toBe(400);
-    expect(paths(short)).toEqual(["allocation: short"]);
     const over = await create(space, {
       ...plan,
       allocation: [{ kind: "from-goal", goalId, amount: eur("250") }],
@@ -376,6 +370,13 @@ describe("BUD-02@PoC: «Розподіл» is saved with the budget (POST /v1/bu
     expect(paths(beyond)).toEqual(["allocation.0.amount: over_contribution"]);
     expect(await budgets(space.householdId)).toBe(0);
     expect(await cells(space.householdId)).toBe(0);
+    // FR 15 (owner decision 2026-11-21): covered by less than 200 € — saved; the rest 0.01 € stays the plan's deficit.
+    const short = await create(space, {
+      ...plan,
+      allocation: [{ kind: "from-goal", goalId, amount: eur("199.99") }],
+    });
+    expect(short.statusCode, short.body).toBe(201);
+    expect(await cells(space.householdId)).toBe(1);
   });
 
   it("BUD-02@PoC FR 15: a surplus refuses rows over N, deficit rows, duplicates, inexact amounts and another currency — the same issues as the calculation", async () => {

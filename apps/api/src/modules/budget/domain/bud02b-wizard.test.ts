@@ -38,21 +38,24 @@ const categories = new Map(
     cat("hidden", "expense", { state: "hidden" }),
     cat("old", "expense", { state: "retired", mergedInto: "cafes" }),
     cat("salary", "income"),
+    cat("hidden-income", "income", { state: "hidden" }),
     cat("transfer", "service"),
   ].map((c) => [c.id, c]),
 );
 
-/** A month of history: income and spending by category, all in EUR. */
+/** A month of history: the salary and spending by category, all in EUR. */
 const month = (period: string, income: string, spent: Record<string, string> = {}): MonthHistory => ({
   period,
   categorized: true,
   income: eur(income),
+  incomeByCategory: new Map(income === "0" ? [] : [["salary", eur(income)]]),
   spent: new Map(Object.entries(spent).map(([id, a]) => [id, eur(a)])),
 });
 const none = (period: string): MonthHistory => ({
   period,
   categorized: false,
   income: eur("0"),
+  incomeByCategory: new Map(),
   spent: new Map(),
 });
 
@@ -139,10 +142,10 @@ describe("BUD-02@PoC: the start of the first period", () => {
     expect(scaled.plannedSavings).toEqual(eur("130"));
     expect(scaled.limits).toEqual([
       { categoryId: "groceries", amount: eur("260"), mandatory: true },
-      // 250 × 13 / 30 = 108.333… → 108.33 (half up to minor units; lead decision).
+      // 250 × 13 / 30 = 108.333… → 108.33 (to minor units; lead decision).
       { categoryId: "cafes", amount: eur("108.33"), mandatory: false },
     ]);
-    // 100 × 13 / 30 = 43.333…; 5 × 1 / 30 = 0.1666… → 0.17: half up.
+    // 100 × 13 / 30 = 43.333…; 5 × 1 / 30 = 0.1666… → 0.17 (an exact half would go to the even cent).
     expect(
       scalePlan({ incomePlan: eur("5"), plannedSavings: eur("0"), limits: [] }, shareFrom("2026-11-30"))
         .incomePlan,
@@ -151,16 +154,19 @@ describe("BUD-02@PoC: the start of the first period", () => {
 });
 
 describe("BUD-02@PoC: «Створити за моїми витратами»", () => {
-  it("BUD-02@PoC FR 3: a limit is rounded to tens, a half up — in any reporting currency (UAH to 10 грн)", () => {
+  it("BUD-02@PoC FR 3: a limit is rounded to tens, an exact half to the even ten (405 → 400, 415 → 420) — in any reporting currency (UAH to 10 грн)", () => {
+    expect(roundToTen(new Decimal("405"), "EUR")).toEqual(eur("400"));
+    expect(roundToTen(new Decimal("415"), "EUR")).toEqual(eur("420"));
+    expect(roundToTen(new Decimal("405.01"), "EUR")).toEqual(eur("410"));
     expect(roundToTen(new Decimal("374.99"), "EUR")).toEqual(eur("370"));
     expect(roundToTen(new Decimal("375"), "EUR")).toEqual(eur("380"));
-    expect(roundToTen(new Decimal("365"), "EUR")).toEqual(eur("370"));
+    expect(roundToTen(new Decimal("365"), "EUR")).toEqual(eur("360"));
     expect(roundToTen(new Decimal("4.99"), "EUR")).toEqual(eur("0"));
     expect(roundToTen(new Decimal("1234.5"), "UAH")).toEqual(uah("1230"));
     expect(roundToTen(new Decimal("1235"), "UAH")).toEqual(uah("1240"));
   });
 
-  it("BUD-02@PoC AC1: limits = the 3-month average by category rounded to 10 €, the income plan = the average income", () => {
+  it("BUD-02@PoC AC1: limits = the 3-month average by category rounded to 10 €, the income category's plan = its average income rounded to 10 €, the income plan = their sum", () => {
     const p = proposeFromSpending("EUR", [
       month("2026-10", "3000", { groceries: "610", cafes: "300.10" }),
       month("2026-09", "3100", { groceries: "580", cafes: "250" }),
@@ -170,8 +176,11 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       none("2026-05"),
     ]);
     expect(p).toMatchObject({ available: true, historyMonths: 3, incomeIrregular: false });
-    // (3000 + 3100 + 2950) / 3 = 3016.666… → 3016.67.
-    expect(p.incomePlan).toEqual(eur("3016.67"));
+    // (3000 + 3100 + 2950) / 3 = 3016.666… → 3020, the hint 3016.67.
+    expect(p.incomes).toEqual([
+      { categoryId: "salary", average: eur("3016.67"), plan: eur("3020"), irregular: false },
+    ]);
+    expect(p.incomePlan).toEqual(eur("3020"));
     expect(p.limits).toEqual([
       // (610 + 580 + 596) / 3 = 595.33 → 600.
       { categoryId: "groceries", average: eur("595.33"), limit: eur("600") },
@@ -211,6 +220,7 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       historyMonths: 2,
       incomePlan: null,
       incomeIrregular: false,
+      incomes: [],
       limits: [],
     });
   });
@@ -225,24 +235,24 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
     const irregular = ["2000", "1300", "2000", "2700", "2000", "2000"].map((i, n) =>
       month(`2026-${String(10 - n).padStart(2, "0")}`, i),
     );
-    expect(incomeIrregular(irregular)).toBe(true);
+    expect(incomeIrregular(irregular, "salary")).toBe(true);
     expect(proposeFromSpending("EUR", irregular)).toMatchObject({
       incomeIrregular: true,
       incomePlan: eur("1300"),
     });
-    // One month off is regular: the 3-month average, (2000 + 1300 + 2000) / 3 = 1766.67.
+    // One month off is regular: the 3-month average, (2000 + 1300 + 2000) / 3 = 1766.67 → 1770.
     const regular = ["2000", "1300", "2000", "2000", "2000", "2000"].map((i, n) =>
       month(`2026-${String(10 - n).padStart(2, "0")}`, i),
     );
     expect(proposeFromSpending("EUR", regular)).toMatchObject({
       incomeIrregular: false,
-      incomePlan: eur("1766.67"),
+      incomePlan: eur("1770"),
     });
     // Exactly 30 % off is not «more than 30 %».
     const edge = ["2000", "1400", "2000", "2600", "2000", "2000"].map((i, n) =>
       month(`2026-${String(10 - n).padStart(2, "0")}`, i),
     );
-    expect(incomeIrregular(edge)).toBe(false);
+    expect(incomeIrregular(edge, "salary")).toBe(false);
   });
 
   it("BUD-02@PoC EC1: with fewer than 6 months of history the income counts as regular (lead decision)", () => {
@@ -254,8 +264,9 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       month("2026-06", "3000"),
       none("2026-05"),
     ];
-    expect(incomeIrregular(five)).toBe(false);
-    expect(proposeFromSpending("EUR", five).incomePlan).toEqual(eur("2033.33"));
+    expect(incomeIrregular(five, "salary")).toBe(false);
+    // 6100 / 3 = 2033.33 → 2030.
+    expect(proposeFromSpending("EUR", five).incomePlan).toEqual(eur("2030"));
   });
 
   it("BUD-02@PoC FR 3: a month counts like a period — merged categories in their target, hidden and service ones and income out", () => {
@@ -267,9 +278,13 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       { categoryId: "transfer", amount: eur("-500") },
       { categoryId: null, amount: eur("-15") },
       { categoryId: "salary", amount: eur("2500") },
+      // A hidden income category gets no line of «План доходу»: the wizard would propose a plan POST refuses (hidden).
+      { categoryId: "hidden-income", amount: eur("300") },
     ]);
     expect(m.categorized).toBe(true);
-    expect(m.income).toEqual(eur("2500"));
+    // The month's income counts it, as a period does; its line by category does not.
+    expect(m.income).toEqual(eur("2800"));
+    expect([...m.incomeByCategory]).toEqual([["salary", eur("2500")]]);
     expect([...m.spent]).toEqual([
       ["groceries", eur("80")],
       ["cafes", eur("30")],

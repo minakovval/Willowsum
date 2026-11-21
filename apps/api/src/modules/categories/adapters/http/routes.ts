@@ -11,6 +11,7 @@ import {
   mergeCategory,
   readTree,
   renameGroup,
+  transactionCount,
   updateCategory,
   type Result,
   type StoredCategory,
@@ -217,6 +218,33 @@ export const getCategoryRoute = defineRoute({
   },
 });
 
+export const getCategoryUsageRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/categories/{categoryId}/usage",
+  operationId: "getCategoryUsage",
+  summary:
+    "«Видалити категорію…» (BUD-02 FR 23, BUD-01 FR 13): how many transactions of the space are in the category; another space's or one out of use is not found",
+  access: { permission: "household.data.read", feature: FEATURE },
+  request: { params: categoryParams },
+  response: {
+    status: 200,
+    description: "The count «N транзакцій» of the delete dialog",
+    schema: z.object({
+      /** Existing transactions with the category (hidden ones too); a split one once, by its parts. */
+      transactions: z.number().int().min(0),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const householdId = ctx.principal.householdId;
+    const { usage } = categoriesServices(ctx);
+    const row = await ctx.inHousehold((q) => categoriesTx(q).category(householdId, params.categoryId));
+    if (!row || row.state === "retired") throw new ApiProblem("NOT_FOUND");
+    return { transactions: await transactionCount(usage, householdId, row.id) };
+  },
+});
+
 export const createGroupRoute = defineRoute({
   module: MODULE,
   method: "POST",
@@ -385,6 +413,7 @@ export const deleteCategoryRoute = defineRoute({
 export const categoriesRoutes = [
   listCategoriesRoute,
   getCategoryRoute,
+  getCategoryUsageRoute,
   createCategoryRoute,
   updateCategoryRoute,
   mergeCategoryRoute,

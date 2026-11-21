@@ -74,6 +74,15 @@ export function categorizationTx(q: HouseholdQueryRunner): CategorizationTx {
       );
       return new Map(rows.map((r) => [r.transaction_id, r.category_id]));
     },
+    async transactionsOf(householdId, categoryId, after, limit) {
+      const { rows } = await q.query<{ transaction_id: string }>(
+        `SELECT transaction_id FROM transaction_categories
+          WHERE household_id = $1 AND category_id = $2 AND ($3::uuid IS NULL OR transaction_id > $3::uuid)
+          ORDER BY transaction_id LIMIT $4`,
+        [householdId, categoryId, after, limit],
+      );
+      return rows.map((r) => r.transaction_id);
+    },
     async move(householdId, sourceId, targetId) {
       const { rowCount } = await q.query(
         `UPDATE transaction_categories SET category_id = $3, version = version + 1, updated_at = now()

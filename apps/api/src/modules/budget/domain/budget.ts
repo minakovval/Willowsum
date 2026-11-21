@@ -101,9 +101,35 @@ export function limitIssue(category: BudgetCategory | undefined): string | null 
   return category.state === "hidden" ? "hidden" : null;
 }
 
+/**
+ * FR 21: the income plan of one income category for the month. The budget's income plan is the sum of these lines; a
+ * budget saved before them (or with `incomePlan` alone) has its plan without categories.
+ */
+export interface IncomePlanLine {
+  readonly categoryId: string;
+  readonly amount: Money;
+}
+
+/** FR 21: an income plan belongs to an active income category of the space; a hidden one is out of the plan. */
+export function incomePlanIssue(category: BudgetCategory | undefined): string | null {
+  if (!category || category.state === "retired") return "not_found";
+  if (category.kind !== "income") return "not_income";
+  return category.state === "hidden" ? "hidden" : null;
+}
+
+/** FR 21: the income plan of the lines — their sum. */
+export const incomePlansTotal = (lines: readonly IncomePlanLine[], currency: string): Money =>
+  lines.reduce((t, l) => t.plus(l.amount), Money.zero(currency));
+
 /** The plan of a period: live for the current and future ones, the snapshot for a finished one (FR 11). */
 export interface PeriodPlan {
+  /** The month's income plan: the sum of `incomePlans` (FR 21), or the plan without categories. */
   readonly incomePlan: Money;
+  /**
+   * FR 11, FR 21: the plan of each income category; left out or empty — the plan has no categories (a budget or a
+   * snapshot saved before them).
+   */
+  readonly incomePlans?: readonly IncomePlanLine[];
   /** FR 11: planned contributions to goals and «Заощадження без цілі» — planned by «Розподіл» (row 31); 0 until then. */
   readonly plannedSavings: Money;
   readonly limits: readonly {
@@ -145,7 +171,10 @@ export interface PeriodFigures {
 }
 
 /** A retired (merged) category counts in the one it went to (BUD-01 FR 8); at most a few hops. */
-function resolve(categories: ReadonlyMap<string, BudgetCategory>, id: string | null): BudgetCategory | null {
+export function resolveCategory(
+  categories: ReadonlyMap<string, BudgetCategory>,
+  id: string | null,
+): BudgetCategory | null {
   let c = id === null ? undefined : categories.get(id);
   for (let i = 0; c && c.state === "retired" && i < 8; i++)
     c = c.mergedInto ? categories.get(c.mergedInto) : undefined;
@@ -183,7 +212,7 @@ export function categoryTotals(
     map.set(key, { amount: (t?.amount ?? zero).plus(amount), count: (t?.count ?? 0) + 1 });
   };
   for (const a of amounts) {
-    const c = resolve(categories, a.categoryId);
+    const c = resolveCategory(categories, a.categoryId);
     if (c?.kind === "service") continue;
     if (c?.kind === "income") add(income, c.id, a.amount);
     else if (c || a.amount.isNegative()) add(spent, c ? c.id : null, a.amount.negated());
@@ -235,4 +264,48 @@ export function periodFigures(
       incomeActual: amounts === null ? null : income,
     },
   };
+}
+
+/** FR 9: a line of the card «Дохід» — an income category's plan and fact (null — a future month). */
+export interface IncomeLine {
+  readonly categoryId: string;
+  readonly plan: Money;
+  readonly actual: Money | null;
+}
+
+/**
+ * FR 9, AC18: the card «Дохід» — the plan and the fact of each income category of the plan, then the income of a
+ * category without a plan as a line with plan 0. A merged category's plan and income count in the one it went to
+ * (BUD-01 FR 8). Order: first the categories whose fact is still below the plan, then those that reached it; inside
+ * each — the larger plan first, then the larger fact, then the category's id. A future month (`amounts` null) has no
+ * fact: the plan's lines only.
+ */
+export function incomeLines(
+  plan: PeriodPlan,
+  categories: ReadonlyMap<string, BudgetCategory>,
+  amounts: readonly CountedAmount[] | null,
+): IncomeLine[] {
+  const currency = plan.incomePlan.currency;
+  const zero = Money.zero(currency);
+  const planned = new Map<string, Money>();
+  for (const l of plan.incomePlans ?? []) {
+    const id = resolveCategory(categories, l.categoryId)?.id ?? l.categoryId;
+    planned.set(id, (planned.get(id) ?? zero).plus(l.amount));
+  }
+  const actual = amounts === null ? null : categoryTotals(categories, amounts, currency).income;
+  const ids = new Set([...planned.keys()]);
+  for (const [id, t] of actual ?? []) if (!t.amount.isZero()) ids.add(id);
+  const lines = [...ids].map((categoryId): IncomeLine => ({
+    categoryId,
+    plan: planned.get(categoryId) ?? zero,
+    actual: actual === null ? null : (actual.get(categoryId)?.amount ?? zero),
+  }));
+  const reached = (l: IncomeLine) => (l.actual !== null && l.actual.compare(l.plan) >= 0 ? 1 : 0);
+  return lines.sort(
+    (a, b) =>
+      reached(a) - reached(b) ||
+      b.plan.compare(a.plan) ||
+      (b.actual && a.actual ? b.actual.compare(a.actual) : 0) ||
+      (a.categoryId < b.categoryId ? -1 : 1),
+  );
 }

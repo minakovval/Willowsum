@@ -6,6 +6,7 @@ export {
   carryImportMerged,
   categoriesInUse,
   categoryOf,
+  countWithCategory,
   checkChange,
   setCategory,
   writeCategory,

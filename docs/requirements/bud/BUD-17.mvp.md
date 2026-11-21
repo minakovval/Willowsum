@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-11, П-17, П-18, П-21, NFR-01
 - Сценарії: UC-BUD-92, UC-BUD-93, UC-BUD-94, UC-BUD-95, UC-BUD-96, UC-BUD-97, UC-BUD-98
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`, `apps/api/test/sec613-plan-grid.it.test.ts`, `apps/api/test/sec613b-plan-incomes.it.test.ts`, `apps/web/src/planning/bud17c-plan.test.tsx`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`, `apps/api/test/sec613-plan-grid.it.test.ts`, `apps/api/test/sec613b-plan-incomes.it.test.ts`, `apps/web/src/planning/bud17c-plan.test.tsx`, `apps/api/test/bud02i-income.it.test.ts`
 
 **Мета.** Як учасник із правом редагування бюджету, я хочу планувати суми за категоріями на 12 місяців у сітці, автоматично заповнювати план, швидко виправляти перевитрати і за потреби почати бюджет з нуля, щоб тримати план актуальним без ручної рутини.
 

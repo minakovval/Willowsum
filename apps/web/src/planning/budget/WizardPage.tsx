@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatLocaleOf, formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { AmountField, Button, FocusShell, Skeleton, Stepper, type StepState } from "@willowsum/ui";
-import { useAuthApi } from "../../auth/api.ts";
+import { Decimal } from "@willowsum/domain-kernel";
+import {
+  AmountField,
+  Button,
+  FocusShell,
+  IconButton,
+  Select,
+  Skeleton,
+  Stepper,
+  type StepState,
+} from "@willowsum/ui";
+import { outcome, useAuthApi } from "../../auth/api.ts";
 import { failureOf } from "../../auth/failure.ts";
 import { Icon } from "@willowsum/ui";
 import { useLoad } from "../../recurring/data.ts";
@@ -19,9 +29,24 @@ import {
   useDistribution,
 } from "./Distribution.tsx";
 import { allocationRows } from "./distribution.ts";
-import { createBody, createBudget, loadWizard, newKey, type Start, type WizardData } from "./wizard.ts";
+import {
+  createBody,
+  createBudget,
+  groupsOf,
+  incomeCategories,
+  loadWizard,
+  newKey,
+  type IncomeRow,
+  type Start,
+  type Tree,
+  type WizardData,
+  type WizardGroup,
+} from "./wizard.ts";
+import { AddCategoryMenu, RowMenu, useCategoryActions } from "./CategoryActions.tsx";
 
 type Method = "spending" | "zero";
+/** The key of a problem field of a «План доходу» row (the rows of the limits are keyed by the category). */
+const INCOME = "inc:";
 type Ready = Extract<WizardData, { kind: "ready" }>;
 
 /** The month in the running text: lower case in Ukrainian («листопад»), as the catalogue has it in English. */
@@ -85,11 +110,15 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const { wizard, currency } = data;
+  // The category tree is read again after a rename, a delete, a hide, a merge or a new category (FR 22, FR 23).
+  const [tree, setTree] = useState<Tree>(data.tree);
+  const groups = groupsOf(tree, wizard);
+  const incomeOptions = incomeCategories(tree);
   const spending = wizard.fromSpending;
   const [step, setStep] = useState(0);
   const [method, setMethod] = useState<Method>(spending.available ? "spending" : "zero");
   const [startId, setStartId] = useState<Start["start"] | null>(null);
-  const [income, setIncome] = useState<string | null>(null);
+  const [incomes, setIncomes] = useState<readonly IncomeRow[]>([]);
   const [limits, setLimits] = useState<ReadonlyMap<string, string | null>>(new Map());
   // Fields whose text does not parse (AmountField reports a problem): the budget cannot be created while any is there.
   const [problems, setProblems] = useState<ReadonlySet<string>>(new Set());
@@ -104,7 +133,15 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
     ? (wizard.starts.find((s) => s.start === startId) ?? null)
     : (wizard.starts[0] ?? null);
   const money = (m: { amount: string; currency: string }) => formatMoney(locale, m.amount, m.currency);
-  const args = step >= 2 && start !== null ? { start, currency, income, limits } : null;
+  // A category that is gone (deleted, hidden or merged away) leaves no limit and no income row in the request.
+  const present = new Set([
+    ...groups.flatMap((g) => g.categories.map((c) => c.id)),
+    ...incomeOptions.map((c) => c.id),
+  ]);
+  const liveLimits = new Map([...limits].filter(([id]) => present.has(id)));
+  const liveIncomes = incomes.filter((r) => present.has(r.id));
+  const args =
+    step >= 2 && start !== null ? { start, currency, incomes: liveIncomes, limits: liveLimits } : null;
   const prefix = (kind: string | undefined) => (kind === "surplus" ? PLAN : kind === "deficit" ? SRC : null);
   const [kind, setKind] = useState<string | undefined>(undefined);
   // The typed rows of «Розподіл» go to the calculation and to the create request only while that step is open and only
@@ -139,6 +176,22 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
       return next;
     });
 
+  const refreshTree = async () => {
+    const o = await outcome(api.GET("/v1/categories"));
+    if (!o.ok) return;
+    setTree(o.data);
+    // A category that is gone (deleted, hidden or merged away) takes its row, its limit and its unparsed text with it.
+    const ids = new Set(o.data.groups.flatMap((g) => g.categories.filter((c) => !c.hidden).map((c) => c.id)));
+    setIncomes((old) => old.filter((r) => ids.has(r.id)));
+    setLimits((old) => new Map([...old].filter(([id]) => ids.has(id))));
+    setProblems(
+      (old) =>
+        new Set(
+          [...old].filter((p) => p.startsWith(PLAN) || p.startsWith(SRC) || ids.has(p.replace(INCOME, ""))),
+        ),
+    );
+  };
+
   // The limits step opens with the server's suggestion («за моїми витратами») or empty («з нуля»); going back
   // and forward keeps what was edited, and a changed method starts over.
   const openLimits = () => {
@@ -151,12 +204,11 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
     setOpened(method);
     setProblems(new Set());
     if (method === "spending") {
-      setIncome(spending.incomePlan?.amount ?? null);
-      setLimits(
-        new Map(data.groups.flatMap((g) => g.categories).map((c) => [c.id, c.suggested?.amount ?? null])),
-      );
+      // FR 3, FR 21: the list holds the income categories that had income, each with the server's plan.
+      setIncomes(spending.incomes.map((i) => ({ id: i.categoryId, amount: i.plan.amount })));
+      setLimits(new Map(groups.flatMap((g) => g.categories).map((c) => [c.id, c.suggested?.amount ?? null])));
     } else {
-      setIncome(null);
+      setIncomes([]);
       setLimits(new Map());
     }
     setStep(2);
@@ -175,7 +227,7 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
     if (busy || start === null || problems.size > 0) return;
     setBusy(true);
     setFailed(false);
-    const body = createBody({ start, currency, income, limits, rows });
+    const body = createBody({ start, currency, incomes: liveIncomes, limits: liveLimits, rows });
     const text = JSON.stringify(body);
     // The same request keeps its key on a retry (ARC-07 FR 4).
     if (key.current?.body !== text) key.current = { body: text, key: newKey() };
@@ -193,8 +245,10 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   const periodBlocked = wizard.midPeriod && start === null;
   const fixReason = t("dialog.form.reason.fix", {
     fields: [
-      ...(problems.has("income") ? [t("planning.budget.wizard.limits.income")] : []),
-      ...data.groups
+      ...incomeOptions
+        .filter((c) => problems.has(`${INCOME}${c.id}`))
+        .map((c) => t("planning.budget.wizard.income.of", { category: c.name })),
+      ...groups
         .flatMap((g) => g.categories)
         .filter((c) => problems.has(c.id))
         .map((c) => c.name),
@@ -203,7 +257,7 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
         : []),
     ].join(", "),
   });
-  // «Створити бюджет» (AC7): a deficit must be covered in full, nothing is chosen above N; the server says which.
+  // «Створити бюджет» (AC7, AC17): a deficit may stay, in part or in full; only more than N is refused, as the server says.
   const choiceStatus = alloc.allocation?.choice?.status;
   const createBlock: string | null =
     problems.size > 0
@@ -212,9 +266,7 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
         ? t("planning.budget.wizard.dist.reason.wait")
         : choiceStatus === "over" || alloc.refused === "over"
           ? t("planning.budget.wizard.dist.reason.over")
-          : allocKind === "deficit" && choiceStatus !== "exact"
-            ? t("planning.budget.wizard.dist.reason.deficit")
-            : null;
+          : null;
 
   return (
     <div className="bud-wiz">
@@ -252,12 +304,13 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
       ) : (
         <LimitsStep
           data={data}
+          groups={groups}
+          tree={tree}
+          refresh={refreshTree}
           method={method}
-          income={income}
-          onIncome={(v, problem) => {
-            setProblem("income", problem);
-            if (!problem) setIncome(v);
-          }}
+          incomes={incomes}
+          onIncomes={setIncomes}
+          onIncomeProblem={(id, problem) => setProblem(`${INCOME}${id}`, problem)}
           limits={limits}
           onLimit={(id, v, problem) => {
             setProblem(id, problem);
@@ -505,18 +558,26 @@ function PeriodStep({
 
 function LimitsStep({
   data,
+  groups,
+  tree,
+  refresh,
   method,
-  income,
-  onIncome,
+  incomes,
+  onIncomes,
+  onIncomeProblem,
   limits,
   onLimit,
   months,
   money,
 }: {
   data: Ready;
+  groups: readonly WizardGroup[];
+  tree: Tree;
+  refresh: () => Promise<void>;
   method: Method;
-  income: string | null;
-  onIncome: (v: string | null, problem: boolean) => void;
+  incomes: readonly IncomeRow[];
+  onIncomes: (rows: readonly IncomeRow[]) => void;
+  onIncomeProblem: (id: string, problem: boolean) => void;
   limits: ReadonlyMap<string, string | null>;
   onLimit: (id: string, v: string | null, problem: boolean) => void;
   months: readonly string[];
@@ -524,8 +585,36 @@ function LimitsStep({
 }) {
   const { t, locale } = useI18n();
   const spending = method === "spending";
-  const range = rangeOf(t, locale, months);
   const rangeGen = rangeOf(t, locale, months, "genitive");
+  // The row being added under the list of income categories: the chosen category and its plan (FR 21).
+  const [adding, setAdding] = useState<{ category: string; amount: string | null } | null>(null);
+  const [addProblem, setAddProblem] = useState(false);
+  const creating = useRef<"income" | "expense">("expense");
+  const actions = useCategoryActions({
+    tree,
+    onChanged: () => void refresh(),
+    onCreated: (id) => {
+      void refresh().then(() => {
+        // «Нова категорія доходу…» fills the row being added; «Нова категорія…» of a group adds its row at once (FR 22).
+        if (creating.current === "income") setAdding((a) => ({ category: id, amount: a?.amount ?? null }));
+      });
+    },
+  });
+  const averages = new Map(data.wizard.fromSpending.incomes.map((i) => [i.categoryId, i.average]));
+  const names = new Map(incomeCategories(tree).map((c) => [c.id, c.name]));
+  const free = incomeCategories(tree).filter((c) => !incomes.some((r) => r.id === c.id));
+  const total = incomes.reduce((sum, r) => (r.amount === null ? sum : sum.plus(r.amount)), new Decimal("0"));
+  const confirmAdd = () => {
+    if (adding === null || adding.category === "" || addProblem) return;
+    onIncomes([...incomes, { id: adding.category, amount: adding.amount }]);
+    setAdding(null);
+    setAddProblem(false);
+  };
+  const cancelAdd = () => {
+    setAdding(null);
+    setAddProblem(false);
+  };
+  const NEW_INCOME = "__new";
   return (
     <section aria-labelledby="bud-wiz-h">
       <h2 id="bud-wiz-h" className="ws-text-heading-2">
@@ -540,16 +629,107 @@ function LimitsStep({
           : t("planning.budget.wizard.limits.zero")}
       </p>
       <div className="bud-wiz-income">
-        <AmountField
-          label={t("planning.budget.wizard.limits.income")}
-          currency={data.currency}
-          value={income}
-          onChange={(v, problem) => onIncome(v, problem !== null)}
-          hint={spending ? t("planning.budget.wizard.limits.income.hint", { months: range }) : undefined}
-        />
+        <div className="bud-wiz-income-head">
+          <h3 className="ws-text-heading-3">{t("planning.budget.wizard.income.title")}</h3>
+          <p className="bud-wiz-income-sum">
+            <span className="ws-muted">{t("planning.budget.wizard.income.sum")}</span>{" "}
+            <strong>{money({ amount: total.toFixed(), currency: data.currency })}</strong>
+          </p>
+        </div>
         {spending && data.wizard.fromSpending.incomeIrregular ? (
           <p className="ws-muted">{t("planning.budget.wizard.limits.income.irregular")}</p>
         ) : null}
+        {incomes.length > 0 ? (
+          <table className="bud-wiz-table">
+            <thead>
+              <tr>
+                <th scope="col">{t("planning.budget.wizard.limits.col.category")}</th>
+                {spending ? <th scope="col">{t("planning.budget.wizard.limits.col.average")}</th> : null}
+                <th scope="col">{t("planning.budget.wizard.income.col.plan")}</th>
+                <th scope="col">
+                  <span className="ws-visually-hidden">{t("planning.budget.wizard.income.remove")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {incomes.map((r) => {
+                const name = names.get(r.id) ?? "";
+                const average = averages.get(r.id);
+                return (
+                  <tr key={r.id}>
+                    <th scope="row">{name}</th>
+                    {spending ? <td className="bud-num">{average ? money(average) : "—"}</td> : null}
+                    <td>
+                      <AmountField
+                        label={t("planning.budget.wizard.income.of", { category: name })}
+                        labelHidden
+                        currency={data.currency}
+                        value={r.amount}
+                        onChange={(v, problem) => {
+                          onIncomeProblem(r.id, problem !== null);
+                          if (problem === null)
+                            onIncomes(incomes.map((x) => (x.id === r.id ? { ...x, amount: v } : x)));
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <IconButton
+                        icon="close"
+                        label={t("planning.budget.wizard.income.removeOf", { name })}
+                        onClick={() => {
+                          onIncomeProblem(r.id, false);
+                          onIncomes(incomes.filter((x) => x.id !== r.id));
+                        }}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : null}
+        {adding !== null ? (
+          <div className="bud-wiz-income-add">
+            <Select
+              label={t("planning.budget.wizard.income.category")}
+              value={adding.category}
+              onChange={(v) => {
+                if (v === NEW_INCOME) {
+                  creating.current = "income";
+                  actions.addIncome();
+                } else setAdding({ ...adding, category: v });
+              }}
+              options={[
+                ...free.map((c) => ({ value: c.id, label: c.name })),
+                { value: NEW_INCOME, label: t("planning.budget.wizard.income.new") },
+              ]}
+            />
+            <AmountField
+              label={t("planning.budget.wizard.income.col.plan")}
+              currency={data.currency}
+              value={adding.amount}
+              onChange={(v, problem) => {
+                setAddProblem(problem !== null);
+                if (problem === null) setAdding({ ...adding, amount: v });
+              }}
+            />
+            <IconButton
+              icon="check"
+              label={t("planning.budget.wizard.income.confirm")}
+              onClick={confirmAdd}
+            />
+            <IconButton icon="close" label={t("planning.budget.wizard.cancel")} onClick={cancelAdd} />
+          </div>
+        ) : (
+          <div className="bud-wiz-income-new">
+            <Button
+              variant="secondary"
+              onClick={() => setAdding({ category: "", amount: null })}
+              label={t("planning.budget.wizard.income.add")}
+            />
+            <span className="ws-muted">{t("planning.budget.wizard.income.add.hint")}</span>
+          </div>
+        )}
       </div>
       <table className="bud-wiz-table">
         <thead>
@@ -557,34 +737,61 @@ function LimitsStep({
             <th scope="col">{t("planning.budget.wizard.limits.col.category")}</th>
             {spending ? <th scope="col">{t("planning.budget.wizard.limits.col.average")}</th> : null}
             <th scope="col">{t("planning.budget.wizard.limits.col.limit")}</th>
+            <th scope="col">
+              <span className="ws-visually-hidden">{t("categories.more")}</span>
+            </th>
           </tr>
         </thead>
-        {data.groups.map((g) => (
+        {groups.map((g) => (
           <tbody key={g.id}>
             <tr className="bud-group-row">
-              <th scope="rowgroup" colSpan={spending ? 3 : 2}>
+              <th scope="rowgroup" colSpan={spending ? 2 : 1}>
                 {g.name}
               </th>
+              <td className="bud-wiz-group-add" colSpan={2}>
+                <AddCategoryMenu
+                  group={g.name}
+                  onNew={() => {
+                    creating.current = "expense";
+                    actions.addTo(g.id);
+                  }}
+                />
+              </td>
             </tr>
-            {g.categories.map((c) => (
-              <tr key={c.id}>
-                <th scope="row">{c.name}</th>
-                {spending ? <td className="bud-num">{c.average ? money(c.average) : "—"}</td> : null}
-                <td>
-                  <AmountField
-                    label={t("planning.budget.wizard.limits.of", { category: c.name })}
-                    labelHidden
-                    currency={data.currency}
-                    value={limits.get(c.id) ?? null}
-                    onChange={(v, problem) => onLimit(c.id, v, problem !== null)}
-                  />
-                </td>
-              </tr>
-            ))}
+            {g.categories.map((c) => {
+              const category = tree.groups.flatMap((x) => x.categories).find((x) => x.id === c.id);
+              return (
+                <tr key={c.id}>
+                  <th scope="row">{c.name}</th>
+                  {spending ? <td className="bud-num">{c.average ? money(c.average) : "—"}</td> : null}
+                  <td>
+                    <AmountField
+                      label={t("planning.budget.wizard.limits.of", { category: c.name })}
+                      labelHidden
+                      currency={data.currency}
+                      value={limits.get(c.id) ?? null}
+                      onChange={(v, problem) => onLimit(c.id, v, problem !== null)}
+                    />
+                  </td>
+                  <td>
+                    {category ? (
+                      <RowMenu
+                        category={category}
+                        actions={actions}
+                        onChanged={() => void refresh()}
+                        // The wizard keeps the limits on screen: «Прибрати з бюджету» empties this one.
+                        removeFromBudget={() => onLimit(c.id, null, false)}
+                      />
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         ))}
       </table>
       <p className="ws-muted">{t("planning.budget.wizard.limits.outside")}</p>
+      {actions.dialogs}
     </section>
   );
 }

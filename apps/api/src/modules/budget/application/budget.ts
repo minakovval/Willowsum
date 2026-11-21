@@ -1,6 +1,8 @@
 import { Money } from "@willowsum/domain-kernel";
 import {
   firstPeriodChoices,
+  incomePlanIssue,
+  incomePlansTotal,
   includedByDefault,
   isPeriod,
   limitIssue,
@@ -54,6 +56,15 @@ export interface BudgetTx {
   limits(householdId: string, budgetId: string): Promise<StoredLimit[]>;
   /** Null removes the limit: the category goes to «Поза планом». */
   setLimit(householdId: string, budgetId: string, categoryId: string, amount: Money | null): Promise<void>;
+  /** FR 21: the income plan of each income category (migrations/0007_income_plans.sql). */
+  incomePlans(householdId: string, budgetId: string): Promise<StoredLimit[]>;
+  /** Null removes the category from «План доходу». */
+  setIncomePlan(
+    householdId: string,
+    budgetId: string,
+    categoryId: string,
+    amount: Money | null,
+  ): Promise<void>;
   /** FR 10: the accounts switched away from their default. */
   accountChoices(householdId: string): Promise<ReadonlyMap<string, boolean>>;
   /** Null — back to the account's default. */
@@ -271,6 +282,7 @@ export const BUDGET_AUDIT_ENTITIES = [
   "budget.limit",
   "budget.account",
   "budget.plan-cell",
+  "budget.income-plan",
 ] as const;
 
 /**
@@ -319,6 +331,78 @@ const limitChange = (categoryId: string, before: Money | null, after: Money | nu
 
 /** The most limits one request sets. */
 export const LIMITS_MAX = 300;
+
+/** The most income categories one request plans (FR 21). */
+export const INCOME_PLANS_MAX = 100;
+
+export interface IncomePlanInput {
+  readonly categoryId: string;
+  /** Null — «Прибрати» (✕): the category leaves «План доходу». */
+  readonly amount: { readonly amount: string; readonly currency: string } | null;
+}
+
+/** FR 21: each income plan of an active income category of the space, once, ≥ 0 in the budget's currency. */
+export function checkIncomePlans(
+  inputs: readonly IncomePlanInput[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+  currency: string,
+): { rows: { categoryId: string; amount: Money | null }[]; issues: BudgetIssue[] } {
+  const issues: BudgetIssue[] = [];
+  const rows: { categoryId: string; amount: Money | null }[] = [];
+  const seen = new Set<string>();
+  inputs.forEach((l, i) => {
+    const field = `incomePlans.${i}`;
+    const duplicate = seen.has(l.categoryId);
+    const problem = duplicate ? "duplicate" : incomePlanIssue(categories.get(l.categoryId));
+    seen.add(l.categoryId);
+    // A category twice is refused also when one of them removes it: the audit's «before» stays true.
+    if (problem && (duplicate || l.amount !== null))
+      return issues.push({ field: `${field}.categoryId`, issue: problem });
+    if (l.amount === null) return rows.push({ categoryId: l.categoryId, amount: null });
+    const amount = parseBudgetAmount(`${field}.amount`, l.amount, currency);
+    if (amount instanceof Money) rows.push({ categoryId: l.categoryId, amount });
+    else issues.push(amount);
+  });
+  return { rows, issues };
+}
+
+/**
+ * FR 3, FR 21: the income plan a new plan gives — by income category (`incomePlans`; the plan = their sum) or, without
+ * categories, one amount (`incomePlan`; 0 by default). Not both: 400 `incomePlan: with_income_plans`.
+ */
+export function checkIncome(
+  input: {
+    readonly incomePlan?: { readonly amount: string; readonly currency: string } | undefined;
+    readonly incomePlans?: readonly IncomePlanInput[] | undefined;
+  },
+  categories: ReadonlyMap<string, BudgetCategory>,
+  currency: string,
+): {
+  total: Money | null;
+  rows: { categoryId: string; amount: Money }[];
+  issues: BudgetIssue[];
+} {
+  if (input.incomePlans !== undefined) {
+    const checked = checkIncomePlans(input.incomePlans, categories, currency);
+    const issues = [...checked.issues];
+    if (input.incomePlan !== undefined) issues.push({ field: "incomePlan", issue: "with_income_plans" });
+    // A new plan has nothing to remove: «Прибрати» is leaving the row out.
+    checked.rows.forEach((r, i) => {
+      if (r.amount === null) issues.push({ field: `incomePlans.${i}.amount`, issue: "invalid" });
+    });
+    const rows = checked.rows.flatMap((r) => (r.amount === null ? [] : [{ ...r, amount: r.amount }]));
+    return { total: issues.length > 0 ? null : incomePlansTotal(rows, currency), rows, issues };
+  }
+  const income = input.incomePlan
+    ? parseBudgetAmount("incomePlan", input.incomePlan, currency)
+    : Money.zero(currency);
+  return income instanceof Money
+    ? { total: income, rows: [], issues: [] }
+    : { total: null, rows: [], issues: [income] };
+}
+
+const incomePlanChange = (categoryId: string, before: Money | null, after: Money | null) =>
+  limitChange(categoryId, before, after);
 
 export interface LimitInput {
   readonly categoryId: string;
@@ -371,7 +455,12 @@ export async function ensureSnapshots(
     new Set((await tx.snapshots(householdId, budget.id)).keys()),
   );
   if (missing.length === 0) return;
-  const plan = livePlan(budget, await tx.limits(householdId, budget.id), categories);
+  const plan = livePlan(
+    budget,
+    await tx.limits(householdId, budget.id),
+    categories,
+    await tx.incomePlans(householdId, budget.id),
+  );
   const cells = await planCellsInEffect(deps, tx, householdId, budget.id);
   for (const p of missing)
     await tx.insertSnapshot(
@@ -454,9 +543,12 @@ export function livePlan(
   budget: StoredBudget,
   limits: readonly StoredLimit[],
   categories: ReadonlyMap<string, BudgetCategory>,
+  /** FR 21: the income plan by category; the budget's `incomePlan` is their sum (written with them). */
+  incomePlans: readonly StoredLimit[] = [],
 ): PeriodPlan {
   return {
     incomePlan: budget.incomePlan,
+    incomePlans,
     plannedSavings: Money.zero(budget.currency),
     limits: limits.map((l) => ({ ...l, mandatory: categories.get(l.categoryId)?.essential ?? false })),
   };
@@ -479,6 +571,8 @@ export async function createBudget(
     /** FR 14: «Пропорційно на <сьогодні>–<останній день>» — the current month from today, not on its 1st. */
     readonly proportional?: boolean | undefined;
     readonly incomePlan?: { readonly amount: string; readonly currency: string } | undefined;
+    /** FR 21: «План доходу» by income category; the income plan is their sum. Not with `incomePlan`. */
+    readonly incomePlans?: readonly IncomePlanInput[] | undefined;
     readonly limits?: readonly LimitInput[] | undefined;
   },
   categories: ReadonlyMap<string, BudgetCategory>,
@@ -493,14 +587,12 @@ export async function createBudget(
   const proportional = startChoices(today).choices.find((c) => c.start === "proportional");
   if (input.proportional === true && proportional?.firstPeriod !== input.firstPeriod)
     issues.push({ field: "proportional", issue: "invalid" });
-  const income = input.incomePlan
-    ? parseBudgetAmount("incomePlan", input.incomePlan, currency)
-    : Money.zero(currency);
-  if (!(income instanceof Money)) issues.push(income);
+  const incomeChecked = checkIncome(input, categories, currency);
+  issues.push(...incomeChecked.issues);
+  const income = incomeChecked.total;
   const checked = checkLimits(input.limits ?? [], categories, currency);
   issues.push(...checked.issues);
-  if (issues.length > 0 || !(income instanceof Money))
-    return { result: { kind: "invalid", issues }, handOffs: [] };
+  if (issues.length > 0 || income === null) return { result: { kind: "invalid", issues }, handOffs: [] };
   const budget: StoredBudget = {
     id: deps.newId(),
     currency,
@@ -537,6 +629,20 @@ export async function createBudget(
         ),
       );
     }
+  // FR 21: «План доходу» by income category, in this transaction with the budget (its income plan is their sum).
+  for (const r of incomeChecked.rows) {
+    await tx.setIncomePlan(caller.householdId, budget.id, r.categoryId, r.amount);
+    handOffs.push(
+      handOff(
+        deps,
+        caller,
+        "budget.income-plan",
+        r.categoryId,
+        "create",
+        incomePlanChange(r.categoryId, null, r.amount),
+      ),
+    );
+  }
   // FR 15: «Розподіл» writes only the plan — the first period's cells of «План», in this transaction with the budget.
   for (const c of allocation) {
     const cell = { period: budget.firstPeriod, kind: c.kind, lineId: c.lineId };
@@ -548,8 +654,10 @@ export async function createBudget(
 }
 
 /**
- * FR 7, FR 8, AC4, AC16: set, change or remove limits and change the income plan, from the current period on; finished
- * periods keep their snapshots; nothing carries over between months. `version` — the budget as the page read it.
+ * FR 7, FR 8, FR 21, AC4, AC16: set, change or remove limits and the income plan of income categories (or the plan
+ * without categories), from the current period on; finished periods keep their snapshots; nothing carries over between
+ * months. With `incomePlans` the income plan becomes the sum of the categories' plans; a plan by category takes no
+ * `incomePlan` (400 `incomePlan: by_category`). `version` — the budget as the page read it.
  */
 export async function updatePlan(
   deps: BudgetDeps,
@@ -558,6 +666,7 @@ export async function updatePlan(
   version: number,
   patch: {
     readonly incomePlan?: { readonly amount: string; readonly currency: string } | undefined;
+    readonly incomePlans?: readonly IncomePlanInput[] | undefined;
     readonly limits?: readonly LimitInput[] | undefined;
   },
   categories: ReadonlyMap<string, BudgetCategory>,
@@ -567,10 +676,21 @@ export async function updatePlan(
   if (budget.version !== version)
     return { result: { kind: "conflict", version: budget.version }, handOffs: [] };
   const issues: BudgetIssue[] = [];
-  const income = patch.incomePlan
+  const storedIncome = new Map(
+    (await tx.incomePlans(caller.householdId, budget.id)).map((l) => [l.categoryId, l.amount]),
+  );
+  const byCategory = storedIncome.size > 0;
+  let income: Money | BudgetIssue = patch.incomePlan
     ? parseBudgetAmount("incomePlan", patch.incomePlan, budget.currency)
     : budget.incomePlan;
   if (!(income instanceof Money)) issues.push(income);
+  else if (patch.incomePlan && patch.incomePlans !== undefined)
+    issues.push({ field: "incomePlan", issue: "with_income_plans" });
+  // FR 21: a plan by category is the sum of its categories — it is changed through them.
+  else if (patch.incomePlan && storedIncome.size > 0)
+    issues.push({ field: "incomePlan", issue: "by_category" });
+  const incomeRows = checkIncomePlans(patch.incomePlans ?? [], categories, budget.currency);
+  issues.push(...incomeRows.issues);
   const checked = checkLimits(patch.limits ?? [], categories, budget.currency);
   issues.push(...checked.issues);
   if (issues.length > 0 || !(income instanceof Money))
@@ -604,6 +724,30 @@ export async function updatePlan(
       ),
     );
   }
+  for (const r of incomeRows.rows) {
+    const before = storedIncome.get(r.categoryId) ?? null;
+    if (before === null ? r.amount === null : r.amount !== null && before.equals(r.amount)) continue;
+    await tx.setIncomePlan(caller.householdId, budget.id, r.categoryId, r.amount);
+    if (r.amount === null) storedIncome.delete(r.categoryId);
+    else storedIncome.set(r.categoryId, r.amount);
+    handOffs.push(
+      handOff(
+        deps,
+        caller,
+        "budget.income-plan",
+        r.categoryId,
+        before === null ? "create" : r.amount === null ? "delete" : "update",
+        incomePlanChange(r.categoryId, before, r.amount),
+      ),
+    );
+  }
+  // FR 21: the income plan is the sum of the income categories' plans. A change that touches no category of a plan
+  // without categories (an empty list, «Прибрати» for a category that has no plan) leaves that plan as it is.
+  if (patch.incomePlans !== undefined && (byCategory || storedIncome.size > 0))
+    income = incomePlansTotal(
+      [...storedIncome].map(([categoryId, amount]) => ({ categoryId, amount })),
+      budget.currency,
+    );
   if (!income.equals(budget.incomePlan))
     handOffs.push(
       handOff(deps, caller, "budget.budget", budget.id, "update", [
@@ -694,6 +838,7 @@ export async function deleteBudget(
   const budget = await tx.budget(caller.householdId, true);
   if (!budget) return { result: { kind: "not-found" }, handOffs: [] };
   const limits = await tx.limits(caller.householdId, budget.id);
+  const incomePlans = await tx.incomePlans(caller.householdId, budget.id);
   await tx.deleteBudget(caller.householdId, budget.id);
   const handOffs = [
     handOff(
@@ -712,6 +857,16 @@ export async function deleteBudget(
         l.categoryId,
         "delete",
         limitChange(l.categoryId, l.amount, null),
+      ),
+    ),
+    ...incomePlans.map((l) =>
+      handOff(
+        deps,
+        caller,
+        "budget.income-plan",
+        l.categoryId,
+        "delete",
+        incomePlanChange(l.categoryId, l.amount, null),
       ),
     ),
   ];
@@ -737,7 +892,12 @@ export async function periodPlan(
     return monthPlan(
       budget,
       period,
-      livePlan(budget, await tx.limits(householdId, budget.id), categories),
+      livePlan(
+        budget,
+        await tx.limits(householdId, budget.id),
+        categories,
+        await tx.incomePlans(householdId, budget.id),
+      ),
       await planCellsInEffect(deps, tx, householdId, budget.id, period),
       categories,
       await planLines(deps, householdId, budget.currency)(period),
@@ -783,7 +943,12 @@ export async function periodPlans(
     if (locked) await ensureSnapshots(deps, tx, householdId, locked, today, categories, lines);
     snapshots = await tx.snapshots(householdId, budget.id);
   }
-  const live = livePlan(budget, await tx.limits(householdId, budget.id), categories);
+  const live = livePlan(
+    budget,
+    await tx.limits(householdId, budget.id),
+    categories,
+    limitsOnly ? [] : await tx.incomePlans(householdId, budget.id),
+  );
   const cells = await planCellsInEffect(deps, tx, householdId, budget.id, periodOf(today));
   const out = new Map<Period, PeriodPlan | null>();
   for (const p of periods)

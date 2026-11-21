@@ -9,6 +9,7 @@ import {
   deleteBudget,
   isIncluded,
   CHOSEN_MAX,
+  INCOME_PLANS_MAX,
   LIMITS_MAX,
   periodPlan,
   periodPlans,
@@ -25,6 +26,7 @@ import {
 import {
   categoriesSummary,
   expectedPayments,
+  incomeLines,
   isPeriod,
   periodFigures,
   periodMode,
@@ -87,7 +89,10 @@ const budgetSchema = z.object({
   firstPeriod: z.string(),
   /** FR 14: the proportional first period's share of days; null — the first period is whole. */
   proportional: shareSchema.nullable(),
+  /** FR 21: the sum of `incomePlans`; a budget without them — its plan without categories. */
   incomePlan: moneySchema,
+  /** FR 21: «План доходу» — the plan of each income category as it is now (from the current period on). */
+  incomePlans: z.array(z.object({ categoryId: z.uuid(), amount: moneySchema })),
   /** FR 7: the limits as they are now (from the current period on); a category without one is «Поза планом». */
   limits: z.array(z.object({ categoryId: z.uuid(), amount: moneySchema })),
   createdOn: z.string(),
@@ -99,13 +104,17 @@ const money = (m: Money) => m.toJSON();
 const orNull = (m: Money | null) => (m === null ? null : m.toJSON());
 
 async function present(ctx: ProtectedContext, b: StoredBudget): Promise<z.input<typeof budgetSchema>> {
-  const limits = await ctx.inHousehold((q) => budgetTx(q).limits(ctx.principal.householdId, b.id));
+  const [limits, incomePlans] = await ctx.inHousehold(async (q) => [
+    await budgetTx(q).limits(ctx.principal.householdId, b.id),
+    await budgetTx(q).incomePlans(ctx.principal.householdId, b.id),
+  ]);
   return {
     id: b.id,
     currency: b.currency,
     firstPeriod: b.firstPeriod,
     proportional: share(b, b.firstPeriod),
     incomePlan: money(b.incomePlan),
+    incomePlans: incomePlans.map((l) => ({ categoryId: l.categoryId, amount: money(l.amount) })),
     limits: limits.map((l) => ({ categoryId: l.categoryId, amount: money(l.amount) })),
     createdOn: b.createdOn,
     version: b.version,
@@ -162,6 +171,15 @@ async function stored(ctx: ProtectedContext): Promise<StoredBudget> {
 
 const limitInput = z.object({ categoryId: z.uuid(), amount: moneyInput }).strict();
 
+/** FR 21: «План доходу» of a new plan — income categories of the space, each once; the income plan is their sum. */
+const incomePlansInput = z
+  .array(z.object({ categoryId: z.uuid(), amount: moneyInput }).strict())
+  .max(INCOME_PLANS_MAX)
+  .meta({
+    description:
+      "«План доходу» by income category (FR 21): active income categories of the space, each once (400 `incomePlans.<i>.categoryId`: `not_found`, `not_income`, `hidden`, `duplicate`); the income plan is their sum. Not with `incomePlan` (400 `incomePlan: with_income_plans`)",
+  });
+
 /**
  * FR 15: a typed row of «Розподіл». A surplus: `goal` (the goal's contribution of the first period; a goal the wizard
  * shows left without a row is saved as 0 €, owner decision 2026-11-20, Q4 а), `debt` (the extra payment above the
@@ -186,7 +204,7 @@ const allocationRow = z.discriminatedUnion("kind", [
 ]);
 const allocationInput = z.array(allocationRow).max(ALLOCATION_ROWS_MAX).meta({
   description:
-    "The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved",
+    "The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N; a deficit may stay uncovered in part or in full («Лишити дефіцит»: no row) — the rest is the plan's deficit (AC17). N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved",
 });
 
 export const getBudgetRoute = defineRoute({
@@ -229,8 +247,9 @@ export const createBudgetRoute = defineRoute({
          * limits, income plan and planned savings × (days left, today included) ÷ (days in the period).
          */
         proportional: z.boolean().optional(),
-        /** 0 by default («Почати з нуля»). */
+        /** The income plan without categories; 0 by default («Почати з нуля»). Not with `incomePlans`. */
         incomePlan: moneyInput.optional(),
+        incomePlans: incomePlansInput.optional(),
         /** Expense categories of the space, each once; none — «Почати з нуля». */
         limits: z.array(limitInput).max(LIMITS_MAX).optional(),
         /** FR 15: «Розподіл», saved with the budget in one transaction; none — nothing allocated. */
@@ -266,7 +285,7 @@ export const updatePlanRoute = defineRoute({
   path: "/v1/budget/plan",
   operationId: "updateBudgetPlan",
   summary:
-    "Set, change or remove limits and change the income plan — from the current period on (FR 7, FR 8, AC4)",
+    "Set, change or remove limits and income categories' plans — from the current period on (FR 7, FR 8, FR 21, AC4)",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: BODY_LIMIT,
   problems: ["VERSION_CONFLICT"],
@@ -275,7 +294,18 @@ export const updatePlanRoute = defineRoute({
       .object({
         /** The budget's version as read; another change in between — 409 VERSION_CONFLICT. */
         version: z.number().int().min(1),
-        incomePlan: moneyInput.optional(),
+        incomePlan: moneyInput.optional().meta({
+          description:
+            "The income plan without categories. A budget with income categories (`incomePlans` not empty) takes none: 400 `incomePlan: by_category`; not with `incomePlans` (400 `incomePlan: with_income_plans`)",
+        }),
+        incomePlans: z
+          .array(z.object({ categoryId: z.uuid(), amount: moneyInput.nullable() }).strict())
+          .max(INCOME_PLANS_MAX)
+          .optional()
+          .meta({
+            description:
+              "FR 21: set, change or remove (`amount` null — «Прибрати») the plan of income categories; the income plan becomes the sum of the categories' plans",
+          }),
         /** `amount` null removes the limit: the category goes to «Поза планом». */
         limits: z
           .array(z.object({ categoryId: z.uuid(), amount: moneyInput.nullable() }).strict())
@@ -388,6 +418,12 @@ const periodSchema = z.object({
   incomePlan: moneySchema,
   /** FR 11: planned contributions to goals and «Заощадження без цілі». */
   plannedSavings: moneySchema,
+  incomeCategories: z
+    .array(z.object({ categoryId: z.uuid(), plan: moneySchema, actual: moneySchema.nullable() }))
+    .meta({
+      description:
+        "FR 9, AC18: the card «Дохід» — the plan and the fact of each income category of the period's plan (a finished period — its snapshot's; a snapshot written before the plan by category has none), then the income of a category without a plan with plan 0. First the categories whose fact is below the plan, then those that reached it; inside each, the larger plan first, then the larger fact. `actual` null — a future month. The month's own «План доходу» of «План» changes `incomePlan` only",
+    }),
   /** FR 14: a proportional first period — its plan is already × its share and it counts from `from`; else null. */
   proportional: shareSchema.nullable(),
   /** Null for a future month. */
@@ -534,6 +570,11 @@ export const getPeriodRoute = defineRoute({
       currency: budget.currency,
       incomePlan: money(plan.incomePlan),
       plannedSavings: money(plan.plannedSavings),
+      incomeCategories: incomeLines(plan, categories, counted?.amounts ?? null).map((l) => ({
+        categoryId: l.categoryId,
+        plan: money(l.plan),
+        actual: orNull(l.actual),
+      })),
       proportional: share(budget, params.period),
       incomeActual: orNull(t.incomeActual),
       groups: [...groups.entries()].map(([groupId, lines]) => ({ groupId, categories: lines })),
@@ -589,9 +630,23 @@ const wizardSchema = z.object({
     available: z.boolean(),
     /** Full months back from the last one with categorized transactions, without a gap (at most 6). */
     historyMonths: z.number().int(),
-    /** FR 3: the average income of the 3 months; edge case 1 — the lowest of 6 for an irregular income. */
+    /** FR 3, FR 21: the sum of the income categories' plans (`incomes`). */
     incomePlan: moneySchema.nullable(),
+    /** Edge case 1: at least one income category is irregular. */
     incomeIrregular: z.boolean(),
+    incomes: z
+      .array(
+        z.object({
+          categoryId: z.uuid(),
+          average: moneySchema,
+          plan: moneySchema,
+          irregular: z.boolean(),
+        }),
+      )
+      .meta({
+        description:
+          "FR 3, FR 21, EC1: «План доходу» — each income category with income in the 3 months, the largest plan first: its 3-month average (the field's hint; over the months it has when its history is shorter) and the plan — the average to tens (an exact half to even), or for an irregular category (under 6 full months of its history, a month without income since its first one; with 6, 2 of them off its 6-month average by more than 30 %) its lowest month of 6 to tens",
+      }),
     /** FR 3, FR 7: each active expense category with spending — its 3-month average and the limit (tens, half up). */
     categories: z.array(
       z.object({ categoryId: z.uuid(), average: moneySchema, limit: moneySchema.nullable() }),
@@ -628,6 +683,12 @@ export const getWizardRoute = defineRoute({
         historyMonths: p.historyMonths,
         incomePlan: p.incomePlan === null ? null : money(p.incomePlan),
         incomeIrregular: p.incomeIrregular,
+        incomes: p.incomes.map((i) => ({
+          categoryId: i.categoryId,
+          average: money(i.average),
+          plan: money(i.plan),
+          irregular: i.irregular,
+        })),
         categories: p.limits.map((l) => ({
           categoryId: l.categoryId,
           average: money(l.average),
@@ -669,16 +730,16 @@ const allocationSchema = z.object({
         "Null — the month's regular payments and loans' monthly payments, or a goal's planned contribution, are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead",
     }),
   /**
-   * FR 15, AC7: the chosen amounts against N — `exact`: a deficit is covered in full («Створити бюджет» active);
-   * `short`: a surplus's rest stays «Не розподілено», a deficit is not covered yet; `over`: more than N. Null without
-   * `chosen` in the request or without `balance`.
+   * FR 15, AC7, AC17: the chosen amounts against N — `exact`: a deficit is covered in full; `short`: a surplus's rest
+   * stays «Не розподілено», a deficit's rest stays the plan's deficit («Створити бюджет» is active either way); `over`:
+   * more than N. Null without `chosen` in the request or without `balance`.
    */
   choice: z
     .object({ chosen: moneySchema, rest: moneySchema, status: z.enum(["short", "exact", "over"]) })
     .nullable()
     .meta({
       description:
-        "Null — no `chosen` or `allocation` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`",
+        "Null — no `chosen` or `allocation` in the request, or `balance` is null. A deficit is covered in full only when status is `exact`; `short` leaves the rest as the plan's deficit, which the budget may be saved with (AC17)",
     }),
   /**
    * FR 3, AC6: «Можна витратити в <місяць> ≈ M» — BUD-03 FR 2 for the first period as the plan would start it (with
@@ -711,6 +772,8 @@ export const previewAllocationRoute = defineRoute({
         /** As POST /v1/budget: the proportional first period (the plan × the share of days). */
         proportional: z.boolean().optional(),
         incomePlan: moneyInput.optional(),
+        /** As POST /v1/budget: «План доходу» by income category, the income plan their sum. */
+        incomePlans: incomePlansInput.optional(),
         limits: z.array(limitInput).max(LIMITS_MAX).optional(),
         chosen: z.array(moneyInput).max(CHOSEN_MAX).optional().meta({
           description:
