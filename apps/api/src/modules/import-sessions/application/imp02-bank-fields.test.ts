@@ -115,6 +115,33 @@ describe("IMP-02@PoC FR 4: the statement row's own data, kept by the apply", () 
     ]);
   });
 
+  it("IMP-02@PoC FR 4: a value date the books do not take (before 1900, not a calendar day) is not kept — the row still is (#696)", () => {
+    const out = fileRows(
+      [
+        event(1, { valueDate: "1800-01-01" }),
+        event(2, { valueDate: "2026-02-30" }),
+        event(3, { valueDate: "1900-01-01" }),
+      ],
+      plan(),
+      review,
+    );
+    expect(out.issues).toEqual([]);
+    expect(out.rows.map((r) => r.valueDate)).toEqual([null, null, "1900-01-01"]);
+  });
+
+  it("IMP-04@PoC FR 1: the row carries the first description column's text, masked and clipped, as its legacy key when it differs (#696)", () => {
+    const out = fileRows(
+      [
+        event(1, { description: `Compra · Tarjeta ${CARD}`, legacyDescription: `Compra ${CARD}` }),
+        event(2, { description: "Compra", legacyDescription: "Compra" }),
+        event(3, { description: "Compra" }),
+      ],
+      plan(),
+      review,
+    );
+    expect(out.rows.map((r) => r.legacyDescription)).toEqual(["Compra …1234", undefined, undefined]);
+  });
+
   it("IMP-02@PoC FR 4: a reference with a control character is the row's issue «text», never written as it is", () => {
     const out = fileRows([event(1, { reference: "REF\u0007" })], plan(), review);
     expect(out.issues).toEqual([{ row: 1, issue: "text" }]);

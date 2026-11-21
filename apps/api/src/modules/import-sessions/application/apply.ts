@@ -13,6 +13,7 @@ import {
   ImportBusy,
   importedRate,
   importedText,
+  importedValueDate,
   ImportWriteRefused,
   ImportWriteVoided,
   type ImportCounts,
@@ -268,6 +269,9 @@ export function fileRows(
     const description = importedText(maskNumbers(e.description), "description");
     const counterparty = importedText(maskNumbers(e.counterparty), "counterparty");
     const reference = importedText(maskNumbers(e.reference), "reference");
+    // #696 (IMP-04 FR 1): the key of a statement imported before the joined text — masked and clipped the same way; a
+    // text the rule refuses is no key (the row is checked by its description).
+    const legacy = importedText(maskNumbers(e.legacyDescription ?? null), "description");
     if (description === undefined || counterparty === undefined || reference === undefined) {
       issues.push({ row: e.row, issue: "text" });
       continue;
@@ -280,9 +284,12 @@ export function fileRows(
       counterparty,
       balance,
       status: "posted",
+      ...(legacy !== undefined && legacy !== null && legacy !== description
+        ? { legacyDescription: legacy }
+        : {}),
       original: originalOf(e, money),
       rate: importedRate(e.rate),
-      valueDate: e.valueDate,
+      valueDate: importedValueDate(e.valueDate),
       reference,
     });
   }

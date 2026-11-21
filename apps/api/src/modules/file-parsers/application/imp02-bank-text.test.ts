@@ -40,6 +40,12 @@ describe("IMP-02@PoC FR 4: the bank's description as printed, from every descrip
       "Transferencia recibida · Transferencia",
       "Bizum enviado · Cena amigos",
     ]);
+    // #696 (IMP-04 FR 1): the first description column alone, as the description was before — the key of an earlier import.
+    expect(events.map((e) => e.legacyDescription)).toEqual([
+      "Pago con tarjeta en SUPERMERCADO SINTETICO",
+      "Transferencia recibida",
+      "Bizum enviado",
+    ]);
     expect(events.map((e) => e.legs[0]!.amount)).toEqual(["-25.40", "500.00", "-10.00"]);
     expect(events[0]).toMatchObject({ date: "2026-03-01", valueDate: "2026-03-02", balance: "974.60" });
     expect(events.every((e) => !e.flags.includes("text-cut"))).toBe(true);

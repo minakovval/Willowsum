@@ -287,6 +287,15 @@ export function importedRate(value: string | null): string | null {
   return rate.toFixed();
 }
 
+/**
+ * IMP-02 FR 4 (#696): the value date as an imported transaction keeps it — a calendar day the books take (from
+ * 1900-01-01, as every date of a transaction); null — none or one they do not take (it is no part of the money written,
+ * so it never refuses the row). Pure.
+ */
+export function importedValueDate(value: string | null): string | null {
+  return value !== null && isCalendarDay(value) ? value : null;
+}
+
 export async function writeImport(
   deps: ImportWriteDeps,
   tx: ImportWriteTx,

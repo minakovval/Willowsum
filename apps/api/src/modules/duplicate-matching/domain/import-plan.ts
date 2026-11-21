@@ -14,7 +14,8 @@ import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./m
  *    max(0, n − k) rows are imported and the first min(n, k) of them (in file order) are duplicates of those k. An
  *    existing «в обробці» (pending) one is a key match only for a pending row: a posted row replaces it (FR 6). A key
  *    match with a manual one not matched yet keeps the row merged into it as its link (`merge`, FR 5; #637 item 6); a
- *    transaction merged into another (`merged`) is a key match of its own row and nothing else.
+ *    transaction merged into another (`merged`) is a key match of its own row and nothing else. A row the key does not
+ *    match is then tried with its legacy description (`legacyDescription`, #696) by the same rules.
  * 3. FR 2 — rows with the same key in the file (the balance left out) are all kept; the second and later get «повтор у
  *    файлі» and their occurrence number (`occurrence`, from 1 in file order, the duplicates of step 2 counted).
  * 4. FR 6 — a posted row replaces a pending one of a previous import on the account: the same currency and sign,
@@ -64,6 +65,13 @@ export interface IncomingRow {
   /** Signed, in the account's currency (of its wallet). */
   readonly amount: Money;
   readonly description: string | null;
+  /**
+   * #696 (IMP-04 FR 1, IMP-02 FR 4): the description as the parse gave it before several description columns were
+   * joined — the first description column's text alone. A row the key with `description` does not match is matched by
+   * the key with this one too (a statement imported before the joined text keeps finding its transactions). Absent or
+   * null — none (the same as `description`).
+   */
+  readonly legacyDescription?: string | null;
   /** The balance after the operation as printed; null — the file has none. */
   readonly balance: Money | null;
   readonly status: "posted" | "pending";
@@ -256,9 +264,24 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   // FR 1, FR 4: each existing transaction is the duplicate of at most one row; an exact balance match first. A
   // pending transaction is a key match only for a pending row (FR 6 otherwise).
   const duplicateOf = new Map<number, string>();
-  for (const pass of input.creditCard ? (["value", "size", "none"] as const) : (["value", "none"] as const))
+  // #696: then, for the rows still without a match, the same passes with the legacy description's key.
+  const legacyKey = (r: IncomingRow) =>
+    r.legacyDescription === undefined ||
+    r.legacyDescription === null ||
+    normalizeDescription(r.legacyDescription) === normalizeDescription(r.description)
+      ? null
+      : duplicateKey(input.accountId, { ...r, description: r.legacyDescription });
+  const balancePasses = input.creditCard
+    ? (["value", "size", "none"] as const)
+    : (["value", "none"] as const);
+  for (const [keyFor, pass] of [
+    ...balancePasses.map((p) => [keyOf, p] as const),
+    ...balancePasses.map((p) => [legacyKey, p] as const),
+  ])
     for (const r of ordered) {
       if (duplicateOf.has(r.row)) continue;
+      const rowKey = keyFor(r);
+      if (rowKey === null) continue;
       if (pass !== "none" && r.balance === null) continue;
       const balance =
         pass === "value"
@@ -269,7 +292,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
               ? ANY
               : NONE;
       const match = (r.status === "pending" ? ["posted", "pending"] : ["posted"])
-        .map((status) => head(listKey(keyOf(r), status, balance)))
+        .map((status) => head(listKey(rowKey, status, balance)))
         .filter((t): t is KnownTransaction => t !== undefined)
         .sort(byDateThenId)[0];
       if (!match) continue;

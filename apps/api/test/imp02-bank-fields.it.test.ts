@@ -20,6 +20,7 @@ import {
 import { createLedger, type Ledger } from "../src/modules/ledger/index.ts";
 import { createImportedTransactions, createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -331,10 +332,10 @@ describe("IMP-02@PoC FR 4: an imported transaction keeps and shows its statement
     const other = await newSpace("EUR");
     const res = await call(other, "GET", `/v1/transactions/${id}`);
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain("SINTETICO");
+    expect(leakText(res.body)).not.toContain("SINTETICO");
     expect(await listed(other)).toEqual([]);
     const scoped = await call(owner, "GET", `/v1/transactions/${id}`, undefined, true);
     expect(scoped.statusCode).not.toBe(200);
-    expect(scoped.body).not.toContain("SINTETICO");
+    expect(leakText(scoped.body)).not.toContain("SINTETICO");
   });
 });
