@@ -360,6 +360,12 @@ export const uk = {
   "txDetail.hidden": "Приховано",
   "txDetail.merged": "Об’єднано",
   "txDetail.unmerge": "Роз’єднати",
+  "txDetail.oneOff.label": "Одноразова витрата",
+  "txDetail.oneOff.hint":
+    "Витрата лишається у своєму місяці, але не враховується в середніх за 3, 6 і 12 міс., у майстрі «Створити за моїми витратами» і в «Подушці безпеки».",
+  "txDetail.oneOff.error.notExpense": "Одноразовою можна позначити лише витрату.",
+  "txDetail.oneOff.error.transfer":
+    "Сторона переказу між власними рахунками не є витратою: позначити її не можна.",
   "txDetail.note": "Нотатка",
   "txDetail.note.add": "Додайте нотатку",
   "txDetail.note.edit": "Змінити нотатку",

@@ -48,6 +48,7 @@ import {
   type TransactionDetail,
 } from "./detail.ts";
 import { filteredTransactionsPath } from "./filters.ts";
+import { OneOffSwitch } from "./OneOffSwitch.tsx";
 import { SplitDialog } from "./SplitDialog.tsx";
 import "./transactionDetail.css";
 
@@ -211,6 +212,8 @@ export function Card({
   // A merged duplicate keeps its attributes; a side of a transfer is never split (BUD-13@PoC edge case 6).
   const attributesLocked = tx.mergedInto !== null;
   const canSplit = !attributesLocked && tx.transfer === null;
+  // BUD-06@PoC FR 8: only an expense that is no side of a transfer, and only while `transactions.one-off` is on.
+  const oneOffShown = data.oneOffOn && tx.type === "expense" && tx.transfer === null;
   const similar = tx.counterparty ? hrefFor(filteredTransactionsPath({ merchant: tx.counterparty })) : null;
 
   return (
@@ -298,6 +301,7 @@ export function Card({
           />
         ) : null}
       </dl>
+      {oneOffShown ? <OneOffSwitch transaction={tx} onSaved={replace} /> : null}
       {canSplit || similar ? (
         // BUD-13@PoC FR 1, FR 10: «Розділити» and «Схожі транзакції» (canvas PocMoneyTxDetail).
         <div className="txd-actions txd-attr-actions">

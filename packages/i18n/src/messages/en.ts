@@ -360,6 +360,12 @@ export const en: Messages = {
   "txDetail.hidden": "Hidden",
   "txDetail.merged": "Merged",
   "txDetail.unmerge": "Unmerge",
+  "txDetail.oneOff.label": "One-off expense",
+  "txDetail.oneOff.hint":
+    "The expense stays in its month but is left out of the 3-, 6- and 12-month averages, the “Create from my spending” wizard and the “Safety cushion”.",
+  "txDetail.oneOff.error.notExpense": "Only an expense can be marked as one-off.",
+  "txDetail.oneOff.error.transfer":
+    "A side of a transfer between your own accounts is not an expense, so it cannot be marked.",
   "txDetail.note": "Note",
   "txDetail.note.add": "Add a note",
   "txDetail.note.edit": "Edit note",

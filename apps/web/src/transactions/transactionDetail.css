@@ -275,3 +275,14 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ws-space-2);
 }
+
+/* BUD-06@PoC FR 8: «Одноразова витрата» — the switch, what it does, the saving state or the refusal. */
+.txd-oneoff {
+  display: grid;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
+}
+
+.txd-oneoff p {
+  overflow-wrap: anywhere;
+}
