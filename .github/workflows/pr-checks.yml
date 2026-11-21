@@ -206,8 +206,8 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     # Backend (ARC-01): module boundaries, the API contract (ARC-07) and integration tests on a real PostgreSQL 17 (ARC-03),
-    # in three parallel parts (owner, 2026-11-14: integration tests in 2 shards): `checks` (everything but the
-    # integration tests) and `integration 1/2`, `integration 2/2` (vitest --shard). Each part has its own PostgreSQL
+    # in four parallel parts (owner, 2026-11-21: integration tests in 3 shards, was 2 on 2026-11-14): `checks`
+    # (everything but the integration tests) and `integration 1/3`, `2/3`, `3/3` (vitest --shard). Each part has its own PostgreSQL
     # service, so the cluster-wide roles of the integration tests never meet another part's. The required check is
     # the job `api` below, which passes only when every part passed; the parts are not required checks by name
     # (tools/pr-rules/lib/workflows.mjs).
@@ -217,13 +217,17 @@ jobs:
       matrix:
         include:
           - part: checks
-          - part: integration 1/2
-            shard: 1/2
-          - part: integration 2/2
-            shard: 2/2
+          - part: integration 1/3
+            shard: 1/3
+          - part: integration 2/3
+            shard: 2/3
+          - part: integration 3/3
+            shard: 3/3
     runs-on: ubuntu-latest
     # 45: 30 (about 2x the p90 of the last 10 single api jobs, 2026-11-14) cancelled `integration 2/2` of #608 twice on
-    # 2026-11-19 (run 44577617439) while tests still passed; shards took 24-29.5 min under evening load.
+    # 2026-11-19 (run 44577617439) while tests still passed; shards took 24-29.5 min under evening load. On 2026-11-21
+    # two shards took 25-42 min and one was cancelled at 45 min twice (runs 44857461438, 44864666105): 3 shards, same
+    # limit (owner, 2026-11-21, docs/decisions/log/2026-11-21-ci-three-shards.md).
     timeout-minutes: 45
     services:
       postgres:
@@ -350,13 +354,13 @@ jobs:
     needs: [changes, api-parts]
     if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     # The required check `api` (AGENTS.md, branch rules, the daily check of main): passes only when every part of
-    # `api-parts` passed (checks and both integration shards). It is skipped, and counts as passed, only when the
+    # `api-parts` passed (checks and all three integration shards). It is skipped, and counts as passed, only when the
     # path filter says the PR does not need it; then the parts are skipped too. When `changes` fails, its outputs are
     # empty, the parts and this job run (fail closed).
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every part passed — checks, integration 1/2 and 2/2
+      - name: Every part passed — checks, integration 1/3, 2/3 and 3/3
         env:
           PARTS: ${{ needs.api-parts.result }}
         run: |
