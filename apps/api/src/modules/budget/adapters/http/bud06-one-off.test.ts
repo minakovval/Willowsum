@@ -4,7 +4,7 @@ import { budgetReads } from "./services.ts";
 
 /**
  * BUD-06@PoC FR 8 «Одноразова витрата» over fake ports: the budget's reads keep a marked expense in the fact (`amounts`,
- * `window` with `oneOff`) and leave it out only where an average asks (`withoutOneOffs`). The live routes: test/bud06-one-off.it.test.ts.
+ * `window` with `oneOff`) and leave it out only where an average drops the marked amounts. The live routes: test/bud06-one-off.it.test.ts.
  */
 const eur = (a: string) => Money.of(a, "EUR");
 
@@ -46,20 +46,20 @@ function reads(rows: { amount: string; oneOff?: boolean; split?: boolean }[]) {
 }
 
 describe("BUD-06@PoC FR 8: «Одноразова витрата» in the budget's reads", () => {
-  it("BUD-06@PoC FR 8: a marked expense stays in the period's fact; only `withoutOneOffs` (an average) leaves it out", async () => {
+  it("BUD-06@PoC FR 8: a marked expense stays in the period's fact; each amount carries its mark for an average to leave out", async () => {
     const r = reads([
       { amount: "-3500.00", oneOff: true },
       { amount: "-100.00", oneOff: false },
       { amount: "-5.00" },
     ]);
     const fact = await r.amounts("h", ["a"], "2026-08", "EUR");
-    expect(fact.amounts.map((a) => a.amount.toDecimalString())).toEqual(["-3500", "-100", "-5"]);
-    const average = await r.amounts("h", ["a"], "2026-08", "EUR", undefined, undefined, {
-      withoutOneOffs: true,
-    });
-    expect(average.amounts.map((a) => a.amount.toDecimalString())).toEqual(["-100", "-5"]);
-    // Left out on purpose — never counted as «Курс недоступний».
-    expect(average.unavailableCount).toBe(0);
+    expect(fact.amounts.map((a) => [a.amount.toDecimalString(), a.oneOff])).toEqual([
+      ["-3500", true],
+      ["-100", false],
+      ["-5", false],
+    ]);
+    // Nothing is left out here: never counted as «Курс недоступний».
+    expect(fact.unavailableCount).toBe(0);
   });
 
   it("BUD-06@PoC FR 8: the window keeps every amount with its mark — the compare's average drops the marked ones itself; a split one marks each part", async () => {

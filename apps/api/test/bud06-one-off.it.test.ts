@@ -11,25 +11,30 @@ import {
   createAccountDirectory,
   createAccountList,
   createAccountsServices,
+  createCreditAccounts,
 } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { createBudgetCategoryUsage, createBudgetServices } from "../src/modules/budget/index.ts";
+import { createCashflowServices } from "../src/modules/cashflow/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
   createCategorizationServices,
   createTransactionCategories,
 } from "../src/modules/categorization/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
-import { createGoalsServices } from "../src/modules/goals/index.ts";
+import { createGoalFlows, createGoalSpends, createGoalsServices } from "../src/modules/goals/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import {
   createBudgetTransactions,
+  createCashflowMovements,
   createGoalTransactions,
   createTransactionLookup,
   createTransactionsServices,
+  createTransferCandidates,
 } from "../src/modules/transactions/index.ts";
+import { createTransferProposalSides } from "../src/modules/transfer-matching/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
@@ -68,7 +73,7 @@ async function newSpace(): Promise<Space> {
 
 function call(
   space: Space,
-  method: "GET" | "POST" | "PUT",
+  method: "GET" | "POST" | "PUT" | "PATCH",
   url: string,
   body?: unknown,
   principal: { role?: string; scoped?: boolean } = {},
@@ -217,7 +222,8 @@ beforeAll(async () => {
           clock,
           newId: randomUUID,
           categories: directory,
-          flags: fakeFlags(),
+          // BUD-06 FR 8 (#685): the details and the list show the mark only while `transactions.one-off` is on.
+          flags: { ...fakeFlags(), isEnabled },
           rates: (requests) => rates.rates(requests),
         }),
         categories: createCategoriesServices({
@@ -251,6 +257,27 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
+        }),
+        // BUD-08: «Грошовий потік» reads the same transactions port with no switch — a marked expense stays in it.
+        cashflow: createCashflowServices({
+          categories: directory,
+          accounts: createAccountList(db.databases.for("accounts")),
+          transactions: createBudgetTransactions(db.databases.for("transactions")),
+          categorization: createTransactionCategories(db.databases.for("categorization")),
+          transfers: createTransferProposalSides({
+            candidates: createTransferCandidates(db.databases.for("transactions")),
+            rates: (requests) => rates.rates(requests),
+          }),
+          fx,
+          movements: createCashflowMovements(db.databases.for("transactions")),
+          goals: {
+            ...createGoalFlows(db.databases.for("goals")),
+            ...createGoalSpends(db.databases.for("goals")),
+          },
+          credit: createCreditAccounts(db.databases.for("accounts")),
+          liabilities: createLiabilities(db.databases.for("liabilities"), audit),
+          ledger,
+          clock,
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -399,12 +426,20 @@ describe("BUD-06@PoC FR 8: «Одноразова витрата»", () => {
     expect((await mark(owner, roof, true)).statusCode).toBe(200);
     flagsOff.add(ONE_OFF);
     expect((await mark(owner, roof, false)).statusCode).toBe(404);
+    // Off: the details and the list show no mark either (#685); on again — the stored mark is back.
+    expect((await call(owner, "GET", `/v1/transactions/${roof}`)).json().oneOff).toBe(false);
+    const listed = (await call(owner, "GET", "/v1/transactions")).json().items as {
+      id: string;
+      oneOff: boolean;
+    }[];
+    expect(listed.find((t) => t.id === roof)?.oneOff).toBe(false);
     // Off for the space: the stored mark leaves no average.
     expect(value((await compareRow(owner, "type=month&period=2026-11&base=avg6", home)).base)).toBe("683.33");
     expect(value((await wizardAverage(owner, home))?.average)).toBe("1266.67");
     expect(value((await cushion(owner)).average)).toBe("683.33");
     flagsOff.clear();
     expect(value((await cushion(owner)).average)).toBe("100.00");
+    expect((await call(owner, "GET", `/v1/transactions/${roof}`)).json().oneOff).toBe(true);
   });
 
   it("BUD-06@PoC FR 8: two simultaneous marks of one transaction — one change, one version, one audit entry", async () => {
@@ -433,5 +468,95 @@ describe("BUD-06@PoC FR 8: «Одноразова витрата»", () => {
     expect(log.length === 2 || log.length === 3).toBe(true);
     expect(final.oneOff).toBe(log.length % 2 === 1);
     expect(final.version).toBe(version + log.length);
+  });
+
+  it("BUD-06@PoC FR 8: an edit that makes a marked expense an income clears the mark, with its audit entry; back to an expense, it stays unmarked (#685)", async () => {
+    const space = await newSpace();
+    const { roof } = await roofRepair(space);
+    expect((await mark(space, roof, true)).statusCode).toBe(200);
+    const edited = await call(space, "PATCH", `/v1/transactions/${roof}`, { amount: eur("3500.00") });
+    expect(edited.statusCode, edited.body).toBe(200);
+    expect(edited.json()).toMatchObject({ amount: eur("3500"), oneOff: false });
+    expect((await call(space, "GET", `/v1/transactions/${roof}`)).json().oneOff).toBe(false);
+    const marks = (
+      await audit.entriesFor(space.householdId, { type: "transactions.transaction", id: roof })
+    ).filter((e) => e.changes.some((c) => c.field === "oneOff"));
+    expect(marks).toHaveLength(2);
+    const cleared = marks.find((e) => e.changes.some((c) => c.field === "amount"))!;
+    expect(cleared.changes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ field: "oneOff", before: "true", after: null })]),
+    );
+    // Back to an expense: no mark comes back by itself.
+    const back = await call(space, "PATCH", `/v1/transactions/${roof}`, { amount: eur("-3500.00") });
+    expect(back.json().oneOff).toBe(false);
+  });
+
+  it("BUD-06@PoC FR 8: a marked expense that becomes a side of a transfer between own accounts loses the mark (#685)", async () => {
+    const space = await newSpace();
+    const acc = await account(space);
+    const savings = await account(space, "savings");
+    const home = await category(space, "Дім");
+    const out = await spend(space, acc, "-300.00", "2026-10-02", home);
+    expect((await mark(space, out, true)).statusCode).toBe(200);
+    const inflow = await call(space, "POST", "/v1/transactions", {
+      accountId: savings,
+      amount: eur("300.00"),
+      date: "2026-10-02",
+      counterparty: "Синтетичний переказ",
+    });
+    expect(inflow.statusCode, inflow.body).toBe(201);
+    const linked = await call(space, "POST", `/v1/transactions/${out}/transfer`, {
+      counterpartId: inflow.json().id,
+    });
+    expect(linked.statusCode, linked.body).toBe(200);
+    expect(linked.json()).toMatchObject({ oneOff: false });
+    expect(linked.json().transfer).not.toBeNull();
+    const log = await audit.entriesFor(space.householdId, { type: "transactions.transaction", id: out });
+    expect(
+      log.some((e) => e.changes.some((c) => c.field === "oneOff" && c.before === "true" && c.after === null)),
+    ).toBe(true);
+  });
+
+  it("BUD-06@PoC FR 4, FR 8: a month whose only expense is the one-off stays a month of history — the cushion's «за N міс.» and the wizard's history keep it (#685)", async () => {
+    const space = await newSpace();
+    const acc = await account(space);
+    const home = await category(space, "Дім");
+    const roof = await spend(space, acc, "-3500.00", "2026-06-14", home);
+    for (const m of ["07", "08", "09", "10"]) await spend(space, acc, "-100.00", `2026-${m}-03`, home);
+    const wizard = async () => (await call(space, "GET", "/v1/budget/wizard")).json().fromSpending;
+    expect(await cushion(space)).toMatchObject({ average: eur("780"), months: 5 });
+    const before = await wizard();
+    expect(before).toMatchObject({ available: true, historyMonths: 5 });
+    expect((await mark(space, roof, true)).statusCode).toBe(200);
+    // 400 € over the same 5 months: June has data (the repair), its amount is out.
+    expect(await cushion(space)).toMatchObject({ average: eur("80"), months: 5 });
+    const after = await wizard();
+    expect(after).toMatchObject({ available: true, historyMonths: 5 });
+    // The 3-month average of «Дім» (August–October) is 100 € either way.
+    const homeLine = (after.categories as { categoryId: string; average: Money }[]).find(
+      (c) => c.categoryId === home,
+    );
+    expect(value(homeLine?.average)).toBe("100.00");
+  });
+
+  it("BUD-06@PoC FR 8: «Можна витратити», the period «Бюджет» and «Грошовий потік» keep a marked expense of the month", async () => {
+    const space = await newSpace();
+    const { acc, home } = await roofRepair(space);
+    const id = await spend(space, acc, "-700.00", "2026-11-05", home);
+    const read = async (url: string) => {
+      const res = await call(space, "GET", url);
+      expect(res.statusCode, `${url} ${res.body}`).toBe(200);
+      return res.body;
+    };
+    const urls = [
+      "/v1/budget/periods/2026-11/spendable",
+      "/v1/budget/periods/2026-11",
+      "/v1/cashflow?type=month&period=2026-11",
+      "/v1/cashflow?type=month&period=2026-08",
+    ];
+    const before = await Promise.all(urls.map(read));
+    expect(before[1]).toContain("700");
+    expect((await mark(space, id, true)).statusCode).toBe(200);
+    expect(await Promise.all(urls.map(read))).toEqual(before);
   });
 });

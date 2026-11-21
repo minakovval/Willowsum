@@ -34,19 +34,16 @@ export async function wizard(
   const currency = deps.reportingCurrency;
   const months = [];
   for (const period of historyPeriods(today)) {
-    // BUD-06@PoC FR 8: «Одноразова витрата» leaves the template «Створити за моїми витратами» (its averages).
-    const { amounts } = await deps.reads.amounts(
-      householdId,
-      accountIds,
+    const { amounts } = await deps.reads.amounts(householdId, accountIds, period, currency);
+    // BUD-06@PoC FR 8: «Одноразова витрата» leaves the template «Створити за моїми витратами» (its averages), but its
+    // month still has categorized history (FR 2: 3 months in a row) — #685.
+    const history = monthHistory(
       period,
       currency,
-      undefined,
-      undefined,
-      {
-        withoutOneOffs: true,
-      },
+      categories,
+      amounts.filter((a) => a.oneOff !== true),
     );
-    months.push(monthHistory(period, currency, categories, amounts));
+    months.push({ ...history, categorized: amounts.some((a) => a.categoryId !== null) });
   }
   const { midPeriod, choices } = startChoices(today);
   return { today, midPeriod, starts: choices, fromSpending: proposeFromSpending(currency, months) };

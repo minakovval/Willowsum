@@ -131,7 +131,13 @@ export function goalReads(ports: CushionPorts): GoalReads {
         // As the budget period counts them: a share «На кілька місяців» on its month's first day, a part of a split
         // by categories and a whole transaction on its date; only what falls in the window.
         // The rate is of the transaction's own date for every part, as the budget converts it (#592).
-        const counted: { categoryId: string | null; amount: Money; date: string; rateDate: string }[] = [];
+        const counted: {
+          categoryId: string | null;
+          amount: Money;
+          date: string;
+          rateDate: string;
+          oneOff: boolean;
+        }[] = [];
         for (const r of rows) {
           if (r.parts === null)
             counted.push({
@@ -139,6 +145,7 @@ export function goalReads(ports: CushionPorts): GoalReads {
               amount: r.amount,
               date: r.date,
               rateDate: r.date,
+              oneOff: r.oneOff === true,
             });
           else
             for (const p of r.parts)
@@ -147,14 +154,17 @@ export function goalReads(ports: CushionPorts): GoalReads {
                 amount: p.amount,
                 date: p.month ?? r.date,
                 rateDate: r.date,
+                oneOff: r.oneOff === true,
               });
         }
-        const inWindow = counted.filter(
+        const spending = counted.filter(
           (c) =>
             c.date >= window.from &&
             c.date <= window.to &&
             countsAsSpending(categories, c.categoryId, c.amount),
         );
+        // BUD-06@PoC FR 8: «Одноразова витрата» leaves the sum, but its month stays a month of history (#685).
+        const inWindow = spending.filter((c) => !c.oneOff);
         const reported = await fx.total(
           inWindow.map((c) => ({ amount: c.amount, date: c.rateDate })),
           currency,
@@ -165,7 +175,7 @@ export function goalReads(ports: CushionPorts): GoalReads {
             converted.push({ categoryId: inWindow[i]!.categoryId, amount: item.value });
         });
         const firstDate =
-          inWindow
+          spending
             .filter((c) => c.amount.isNegative())
             .map((c) => c.date)
             .sort()[0] ?? null;

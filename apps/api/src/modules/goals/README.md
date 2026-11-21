@@ -65,7 +65,7 @@ accountId }`: вихідна транзакція у валюті цілі з п
     categorization і categories; категорія витрат — зі знаком (повернення зменшує), службові й доходів — ні, без
     категорії — лише вихідні (`countsAsSpending`, `cushionSpending` у `domain/goals.ts`); кожна сума за курсом своєї
     дати (fx-rates); суми поза NUMERIC(38,18) — `average: null`. Транзакції з позначкою «Одноразова витрата»
-    (BUD-06@PoC п. 8) не рахуються, поки прапорець `transactions.one-off` увімкнено для простору (`countedInWindow`).
+    (BUD-06@PoC п. 8) не рахуються в сумі, поки прапорець `transactions.one-off` увімкнено для простору (`countedInWindow` дає `oneOff`); їхній місяць лишається місяцем історії («за N міс.», #685).
   - `GET /v1/goals/{goalId}/spendable` (`listGoalSpendable`, п. 8, #559) — `cursor`, `limit` (1–100, `pageQuery`),
     `search` (контрагент чи опис містить) → `items` (`id`, `accountId`, `counterparty`, `description`, `date`, `amount`
     без знака), `nextCursor`, `count` (усього, без курсора): вихідні «Проведена» показані транзакції у валюті цілі, не

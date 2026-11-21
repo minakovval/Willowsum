@@ -62,10 +62,7 @@ export function budgetReads(options: {
     async amounts(householdId, accountIds, period, currency, since, until, opts) {
       const { from, to } = periodDays(period);
       const last = until !== undefined && until < to ? until : to;
-      return counted(householdId, accountIds, from, last, currency, since, {
-        withoutGoalSpends: opts?.withoutGoalSpends === true,
-        withoutOneOffs: opts?.withoutOneOffs === true,
-      });
+      return counted(householdId, accountIds, from, last, currency, since, opts?.withoutGoalSpends === true);
     },
     window: (householdId, accountIds, from, to, currency) =>
       counted(householdId, accountIds, from, to, currency),
@@ -84,13 +81,10 @@ export function budgetReads(options: {
     to: string,
     currency: string,
     since?: string,
-    { withoutGoalSpends = false, withoutOneOffs = false } = {},
+    withoutGoalSpends = false,
   ) {
     let rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
-      (r) =>
-        (since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null)) &&
-        // BUD-06@PoC FR 8: «Одноразова витрата» leaves an average (the wizard's «Створити за моїми витратами»).
-        !(withoutOneOffs && r.oneOff === true),
+      (r) => since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null),
     );
     // BUD-03@PoC EC5 (BUD-05@PoC FR 8): a transaction written off from a goal no longer lowers «Можна витратити» —
     // the whole transaction leaves the sum, so the goal's money held back by its contribution is not taken a second

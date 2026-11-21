@@ -13,6 +13,7 @@ import { importCandidates } from "./import-candidates.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
 import { transactionImportMerged } from "../../events.ts";
 import { storedRow, STORED_COLUMNS, transactionsTx, type StoredRowShape } from "./store.ts";
+import { keepsOneOff } from "../../domain/index.ts";
 
 /**
  * How long an apply waits for the import lock of an account another apply holds (application/imported.ts step 1): a
@@ -111,7 +112,7 @@ export function importWriteTx(q: HouseholdQueryRunner): ImportWriteTx {
           t.balanceAfter?.toDecimalString() ?? null,
           t.note,
           [...t.tagIds],
-          t.oneOff,
+          keepsOneOff(t),
         ],
       );
       return rows[0] ? tx.find(householdId, rows[0].id) : null;

@@ -104,6 +104,19 @@ export function descriptionText(text: string): string | null | undefined {
   return value;
 }
 
+/**
+ * BUD-06@PoC FR 8 «Одноразова витрата» marks an expense only: a row keeps the mark while its amount is negative and it is
+ * no side of a transfer between own accounts. An edit that makes it an income or a transfer side clears the mark (its
+ * audit entry shows `oneOff` «true» → null); the edit itself is never refused for it (lead decision 2026-11-21, #685).
+ */
+export function keepsOneOff(t: {
+  readonly oneOff: boolean;
+  readonly amount: Money;
+  readonly transfer: unknown;
+}): boolean {
+  return t.oneOff && t.amount.isNegative() && t.transfer === null;
+}
+
 /** FR 3: the type of a signed amount. */
 export function typeOf(amount: Money): TransactionType {
   return amount.isNegative() ? "expense" : "income";

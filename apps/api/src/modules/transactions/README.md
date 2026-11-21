@@ -110,7 +110,7 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     Лише витрата (від'ємна сума; дохід — 400 `oneOff: not_expense`), не сторона переказу (409 `TRANSACTION_IN_TRANSFER`);
     зняти можна завжди; злитий дубль — 409 `TRANSACTION_MERGED`, закритий рахунок — 409 `ACCOUNT_CLOSED`; те саме значення
     — нічого. Запис аудиту — `update` з полем `oneOff` (`true` / null); журнал не змінюється. Кожна транзакція має
-    `oneOff` — і в списку. Позначена лишається у факті свого періоду, а середні (`BudgetTransactions`,
+    `oneOff` — і в списку (false, поки `transactions.one-off` вимкнено, #685). Зміна, після якої сума не від'ємна, або позначення стороною переказу знімає позначку із записом аудиту (`keepsOneOff`, #685). Позначена лишається у факті свого періоду, а середні (`BudgetTransactions`,
     `GoalTransactions`) її не рахують; злиття ручної в імпортовану переносить позначку.
   - `GET /v1/transaction-tags` (`listTransactionTags`) — теги простору за назвою з `count` (транзакцій із тегом, приховані
     теж: «Тег буде знято з N транзакцій»). `PATCH /v1/transaction-tags/{tagId}` (`renameTransactionTag`) — `{ name }`;
@@ -237,8 +237,8 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
 - `createGoalTransactions(db, { oneOffEnabled? })` → `GoalTransactions` для `goals` (BUD-05@PoC п. 8, 10; #553, #559), лише читання:
   `countedInWindow(householdId, from, to)` — транзакції простору, які рахує період бюджету, за вікно дат (як
   `budgetRows`, без фільтра рахунків): показані, «Очікує» теж, без злитих дублів і сторін переказу; сума зі знаком, у
-  розділених — частини (категорія, сума, місяць); без позначених «Одноразова витрата» (BUD-06@PoC п. 8), поки
-  `transactions.one-off` увімкнено (`createGoalTransactions(db, { oneOffEnabled })`); `spendCandidates(householdId,
+  розділених — частини (категорія, сума, місяць); `oneOff` — «Одноразова витрата» (BUD-06@PoC п. 8; false, поки
+  `transactions.one-off` вимкнено, `createGoalTransactions(db, { oneOffEnabled })`); `spendCandidates(householdId,
   { accountId, currency, excluded, search, after, limit })` — вихідні «Проведена» показані транзакції у валюті, не
   сторони переказу й не злиті, на рахунку (null — будь-якому), крім `excluded`, з пошуком (`%`, `_` — буквально);
   найновіші спершу (дата, час запису, id) після `after`, не більше `limit`, і `count` — усього без `after`.

@@ -111,14 +111,13 @@ export interface BudgetReads {
      */
     options?: {
       readonly withoutGoalSpends?: boolean;
-      /**
-       * BUD-06@PoC FR 8: leave out the transactions marked «Одноразова витрата» — an average asks it (BUD-02
-       * «Створити за моїми витратами»); the period's fact counts them.
-       */
-      readonly withoutOneOffs?: boolean;
     },
   ): Promise<{
-    readonly amounts: readonly CountedAmount[];
+    /**
+     * `oneOff` (BUD-06@PoC FR 8): the amount's transaction is marked «Одноразова витрата» — in the fact; an average
+     * (the wizard) leaves it out itself.
+     */
+    readonly amounts: readonly (CountedAmount & { readonly oneOff?: boolean })[];
     readonly nearestRateCount: number;
     readonly unavailableCount: number;
   }>;

@@ -209,6 +209,7 @@ function present(
   view: TransferView | undefined,
   duplicates: readonly string[],
   names: ReadonlyMap<string, string>,
+  oneOffOn: boolean,
 ): z.input<typeof transactionSchema> {
   return {
     id: t.id,
@@ -227,7 +228,8 @@ function present(
     mergedDuplicates: [...duplicates],
     note: t.note,
     tags: tagsOut(t.tagIds, names),
-    oneOff: t.oneOff,
+    // BUD-06 FR 8 (#685): with `transactions.one-off` off the stored mark is shown nowhere, as it acts nowhere.
+    oneOff: oneOffOn && t.oneOff,
     review: t.review,
     version: t.version,
     recordedAt: t.createdAt,
@@ -249,7 +251,8 @@ export async function shown(
     merged: t.mergedInto === null ? await mergedOf(q, householdId, [t.id]) : new Map<string, string[]>(),
     names: await tagsTx(q).names(householdId, t.tagIds),
   }));
-  return present(t, transferId ? views.get(transferId) : undefined, merged.get(t.id) ?? [], names);
+  const oneOffOn = await transactionsServices(ctx).oneOffEnabled(householdId);
+  return present(t, transferId ? views.get(transferId) : undefined, merged.get(t.id) ?? [], names, oneOffOn);
 }
 
 /** Where the form is wrong: the field and an issue code, never the value sent. */
@@ -500,6 +503,7 @@ function listItem(
   transfers: ReadonlyMap<string, TransferView>,
   merged: ReadonlyMap<string, string[]>,
   names: ReadonlyMap<string, string>,
+  oneOffOn: boolean,
 ): z.input<typeof transactionSchema> {
   const amount = Money.of(String(row["amount"]), String(row["currency"]));
   const recorded = row["createdAt"];
@@ -523,7 +527,7 @@ function listItem(
     mergedDuplicates: merged.get(String(row["id"])) ?? [],
     note: (row["note"] as string | null) ?? null,
     tags: tagsOut(rowTags(row), names),
-    oneOff: row["oneOff"] === true,
+    oneOff: oneOffOn && row["oneOff"] === true,
     review: (row["review"] as StoredTransaction["review"]) ?? null,
     version: Number(row["version"]),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
@@ -586,7 +590,8 @@ export const listTransactionsRoute = defineRoute({
   },
   handler: async ({ query }, ctx) => {
     refuseScoped(ctx);
-    const { totals, reportingCurrency } = transactionsServices(ctx);
+    const { totals, reportingCurrency, oneOffEnabled } = transactionsServices(ctx);
+    const oneOffOn = await oneOffEnabled(ctx.principal.householdId);
     const { page, parts, transfers, merged, names } = await ctx.inHousehold(async (q) => {
       const page = await transactionsList.run(q, {
         ...query,
@@ -616,7 +621,7 @@ export const listTransactionsRoute = defineRoute({
       totals.total(page.groups, reportingCurrency),
     ]);
     return {
-      items: page.items.map((row) => listItem(row, parts, transfers, merged, names)),
+      items: page.items.map((row) => listItem(row, parts, transfers, merged, names, oneOffOn)),
       page: page.page,
       pageSize: page.pageSize,
       count: page.count,

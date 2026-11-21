@@ -14,6 +14,7 @@ import {
   transferDate,
   transferFee,
   type TransferLink,
+  keepsOneOff,
 } from "../../domain/index.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
 import { transactionCreated } from "../../events.ts";
@@ -275,7 +276,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.review,
           // FIN-03 FR 1, FR 28: a side of a transfer created in one action, its pair written first (insertTransfer).
           t.transfer?.id ?? null,
-          t.oneOff,
+          // BUD-06 FR 8: an income or a transfer side keeps no «Одноразова витрата» (any write that makes it one).
+          keepsOneOff(t),
         ],
       );
       return row!;
@@ -320,7 +322,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.note,
           [...t.tagIds],
           t.review,
-          t.oneOff,
+          // BUD-06 FR 8: an income or a transfer side keeps no «Одноразова витрата» (any write that makes it one).
+          keepsOneOff(t),
         ],
       );
       return row!;

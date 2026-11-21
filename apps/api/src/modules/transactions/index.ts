@@ -511,8 +511,8 @@ async function oneOffOn(options: OneOffSwitch, householdId: string): Promise<boo
 export interface GoalTransactions {
   /**
    * FR 10 «Подушка безпеки»: the space's transactions from `from` to `to` as the budget period counts them — shown,
-   * «Очікує» too, no merged duplicate, no side of a transfer, any account; signed, with split parts; without the ones
-   * marked «Одноразова витрата» (BUD-06@PoC FR 8) while `transactions.one-off` is on.
+   * «Очікує» too, no merged duplicate, no side of a transfer, any account; signed, with split parts; `oneOff` — marked
+   * «Одноразова витрата» (BUD-06@PoC FR 8; false while `transactions.one-off` is off).
    */
   countedInWindow(householdId: string, from: string, to: string): Promise<readonly CountedTransaction[]>;
   /**
@@ -540,9 +540,9 @@ export type { CountedTransaction, SpendCandidate, SpendCandidatesAfter };
 export function createGoalTransactions(db: ModuleDatabase, options: OneOffSwitch = {}): GoalTransactions {
   return {
     async countedInWindow(householdId, from, to) {
-      // BUD-06@PoC FR 8: «Одноразова витрата» leaves the average expenses of «Подушка безпеки» (BUD-05 FR 10).
-      const withoutOneOffs = await oneOffOn(options, householdId);
-      return db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to, withoutOneOffs));
+      // BUD-06@PoC FR 8: «Одноразова витрата» leaves the sum of «Подушка безпеки» (BUD-05 FR 10), not its months.
+      const oneOffs = await oneOffOn(options, householdId);
+      return db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to, oneOffs));
     },
     spendCandidates: (householdId, query) =>
       db.inHousehold(householdId, (q) => spendCandidates(q, householdId, query)),
