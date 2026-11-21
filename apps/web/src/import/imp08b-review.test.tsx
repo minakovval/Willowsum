@@ -17,6 +17,7 @@ import {
 } from "../auth/testing.tsx";
 import { importPath, resolveRoute } from "../routing/routes.ts";
 import { resetNavigationSession } from "../routing/session.ts";
+import { takeApplyIntent } from "./applyIntent.ts";
 import { ReviewStep } from "./ReviewStep.tsx";
 import { POLLING } from "./useImportStep.ts";
 
@@ -758,7 +759,29 @@ describe("IMP-08@PoC FR 16 — states of the step", () => {
     expect(screen.getByText("Усі рядки розпізнано. Можна застосовувати.")).toBeTruthy();
     await waitFor(() => expect(isDisabled(applyButton())).toBe(false));
     expect(applyButton().getAttribute("href")).toBe(`#${importPath(BATCH, "result")}`);
+    // IMP-08@PoC c): the click is the one-shot intent the result step reads; nothing arms it before the click.
+    expect(takeApplyIntent(BATCH)).toBe(false);
+    fireEvent.click(applyButton());
+    expect(takeApplyIntent(BATCH)).toBe(true);
+    expect(takeApplyIntent(BATCH)).toBe(false);
   });
+
+  it.each([{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { button: 1 }])(
+    "IMP-08@PoC c): a modified or middle click of «Застосувати» (%o, a new tab or window) arms no intent in this tab",
+    async (init) => {
+      // A hash change left by the test before (its plain click followed the link) settles first.
+      await new Promise((r) => setTimeout(r, 0));
+      const { client } = api(new Server([row(1), row(2)]));
+      renderAt(at(), client);
+      expect(await screen.findByText("Питань немає")).toBeTruthy();
+      await waitFor(() => expect(isDisabled(applyButton())).toBe(false));
+      takeApplyIntent(BATCH);
+      // The browser would open another tab; here the link is not followed at all.
+      window.addEventListener("click", (e) => e.preventDefault(), { capture: true, once: true });
+      fireEvent.click(applyButton(), init);
+      expect(takeApplyIntent(BATCH)).toBe(false);
+    },
+  );
 
   it("IMP-08@PoC FR 16: an unknown or foreign batch is «Імпорт не знайдено» with a way to start again", async () => {
     const { client } = api(new Server([row(1)]), {

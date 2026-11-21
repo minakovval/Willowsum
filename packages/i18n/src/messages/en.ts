@@ -3225,6 +3225,11 @@ export const en: Messages = {
   "importResult.loading": "Loading the result…",
   "importResult.applying.title": "Applying the batch…",
   "importResult.applying.text": "Writing the transactions to your accounts. This may take a few seconds.",
+  "importResult.ready.title": "Apply the batch?",
+  "importResult.ready.text":
+    "The batch is reviewed but not applied yet. Nothing is written to your accounts until you apply it.",
+  "importResult.kept.title": "Kept changed transactions",
+  "importResult.kept.item": "Changed transaction {n}",
   "importResult.retry": "Try again",
   "importResult.error.apply": "The batch could not be applied.",
   "importResult.error.applyNetwork": "The batch could not be applied. Check your connection.",
