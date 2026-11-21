@@ -579,4 +579,21 @@ describe("sec697: «План доходу» by income category — isolation, ro
       incomePlans: [],
     });
   });
+
+  it("sec697: the first income category set on a plan without categories makes the income plan their sum", async () => {
+    const space = await newSpace();
+    const salary = await category(space, "Зарплата");
+    const created = await create(space, { firstPeriod: "2026-11", incomePlan: eur("3000") });
+    expect(created.statusCode, created.body).toBe(201);
+    const first = await patch(space, {
+      version: created.json().version,
+      incomePlans: [{ categoryId: salary, amount: eur("500.05") }],
+    });
+    expect(first.statusCode, first.body).toBe(200);
+    expect((await call(space, "GET", "/v1/budget")).json().budget).toMatchObject({
+      incomePlan: eur("500.05"),
+      incomePlans: [{ categoryId: salary, amount: eur("500.05") }],
+    });
+    expect(await sumInvariant(space.householdId)).toBe(true);
+  });
 });

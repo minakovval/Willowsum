@@ -722,6 +722,25 @@ export async function categoriesInParts(
 }
 
 /**
+ * BUD-02@PoC FR 23, AC 19: how many split transactions of the space (hidden ones too, not rolled back) have a part with
+ * the category — one transaction once, however many of its parts have it. Read only; one aggregate in the space.
+ */
+export async function transactionsWithPartIn(
+  q: ModuleQueryRunner,
+  householdId: string,
+  categoryId: string,
+): Promise<number> {
+  const { rows } = await q.query<{ n: number }>(
+    `SELECT count(DISTINCT p.transaction_id)::int AS n
+       FROM transaction_parts p
+       JOIN transactions t ON t.household_id = p.household_id AND t.id = p.transaction_id
+      WHERE p.household_id = $1 AND p.category_id = $2 AND t.rolled_back_at IS NULL`,
+    [householdId, categoryId],
+  );
+  return rows[0]?.n ?? 0;
+}
+
+/**
  * What module budget counts of the space's transactions in a period (BUD-02@PoC FR 12): the transactions of these
  * accounts dated in [from, to] — pending ones too; not hidden, not a merged duplicate, not a side of a transfer between
  * own accounts — with the parts of a split one; a split «На кілька місяців» by the months of its parts, whatever its
