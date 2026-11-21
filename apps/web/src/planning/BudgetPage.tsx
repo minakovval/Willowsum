@@ -216,6 +216,7 @@ function DeficitBanner({ period, version }: { period: string; version: number })
   // The deficit moves with the plan: a new budget version (a row action) reads it again.
   const load = useCallback(
     (api: Parameters<typeof loadDeficit>[0]) => loadDeficit(api, period),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` only triggers the new read
     [period, version],
   );
   const { result } = useLoad(load);
