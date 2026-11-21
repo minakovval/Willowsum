@@ -2,7 +2,7 @@ import { useId } from "react";
 import { useI18n } from "@willowsum/i18n";
 import { Icon } from "@willowsum/ui";
 import { failureOf } from "../../auth/failure.ts";
-import { budgetFailureKey } from "./failure.ts";
+import { budgetFailureKey } from "./model.ts";
 
 /**
  * The error card of the budget pages (П-13): «✕ Не вдалося завантажити бюджет», what failed in the budget's words (never
