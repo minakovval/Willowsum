@@ -88,7 +88,7 @@ function Delta({ amount, worse }: { amount: Money; worse: "up" | "down" }) {
  */
 export function PeriodSummary({ period }: { period: string }) {
   const { t } = useI18n();
-  const { result, reload } = useLoad((api) => loadSummary(api, period));
+  const { result, reload } = useLoad((api) => loadSummary(api, period), period);
   if (result.state === "error")
     return (
       <PlanRegion name="summary" span={12}>
@@ -188,7 +188,7 @@ function Figures({ summary }: { summary: Summary }) {
 /** «Порівняно з середнім за 3 міс.» (FLW-38 FR 3, AC1): the three largest changes of the month's categories. */
 function Largest({ period }: { period: string }) {
   const { t, locale } = useI18n();
-  const { result, reload } = useLoad((api) => loadLargest(api, period));
+  const { result, reload } = useLoad((api) => loadLargest(api, period), period);
   const title = (
     <h2 className="ws-text-heading-3 per-title" id="per-largest-title">
       {t("planning.period.compare.title")}
