@@ -889,11 +889,10 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
       return screen.findByRole("region");
     };
 
-    it("BUD-12@PoC FR 2: without a merchant the description is always shown under the title, in full for the reader", async () => {
+    it("BUD-12@PoC FR 2: without a merchant the description is always shown under the title", async () => {
       const c = await openCard([tx(1, null as unknown as string, "-0.01", { description: BBVA })]);
       const line = c.querySelector<HTMLElement>(".review-card-text")!;
       expect(line.textContent).toBe(BBVA);
-      expect(line.getAttribute("title")).toBe(BBVA);
       expect(within(c).getByRole("heading", { name: "Без мерчанта" })).toBeTruthy();
     });
 

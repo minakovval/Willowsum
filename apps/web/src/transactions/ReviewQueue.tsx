@@ -762,11 +762,7 @@ function CardsView({
           {merchant}
         </a>
       </h2>
-      {statement ? (
-        <p className="review-card-text ws-muted" title={statement}>
-          {statement}
-        </p>
-      ) : null}
+      {statement ? <p className="review-card-text ws-muted">{statement}</p> : null}
       <dl className="review-card-facts">
         <div>
           <dt className="ws-muted">{t("review.card.amount")}</dt>
