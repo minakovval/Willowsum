@@ -25,7 +25,7 @@ import {
 } from "../src/modules/transactions/index.ts";
 
 /**
- * BUD-02@PoC FR 23, AC 19 and BUD-01@PoC FR 13: the count «N транзакцій» of the dialog «Видалити категорію…», through
+ * BUD-02@PoC FR 23, AC 19 (the same dialog as BUD-01 «Налаштування → Категорії»): the count «N транзакцій» of the dialog «Видалити категорію…», through
  * the real API on a real PostgreSQL. Module categories asks the modules that keep transactions' categories through
  * their public port (`CategoryUsage.transactions`): categorization (the transaction's own category) and transactions
  * (split parts) — no SQL across modules. Every name and amount is synthetic; the clock is fixed.

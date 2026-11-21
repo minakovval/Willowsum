@@ -580,6 +580,7 @@
 .bud-limit-edit {
   inline-size: 32px;
   block-size: 32px;
+  margin-block: -6px;
   color: var(--ws-ink-muted);
 }
 .bud-limit-form {
@@ -614,10 +615,7 @@
   white-space: nowrap;
 }
 .bud-add-limit {
-  display: inline-block;
-  inline-size: 160px;
-  margin-inline-end: var(--ws-space-2);
-  vertical-align: middle;
+  min-inline-size: 150px;
 }
 
 /* BUD-02@PoC AC 19: «12 транзакцій» in the explanation of «Видалити категорію…». */

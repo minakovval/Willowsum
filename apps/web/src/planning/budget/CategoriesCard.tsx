@@ -379,7 +379,7 @@ export function CategoriesCard({
               <AddRow
                 view={view}
                 groupId={s.id}
-                columns={columns.length}
+                columns={columns.slice(1).map((c) => c.key)}
                 created={created}
                 onNew={(groupId) => actions.addTo(groupId)}
                 onCancel={() => setAdding(null)}

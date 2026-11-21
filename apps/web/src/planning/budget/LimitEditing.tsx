@@ -165,8 +165,8 @@ export function AddRow({
 }: {
   view: BudgetView;
   groupId: string;
-  /** How many cells the row spans after its first one. */
-  columns: number;
+  /** The columns after «Категорія» (the limit field goes under «Ліміт»); then the menu column takes ✓ and ✕. */
+  columns: readonly string[];
   /** Categories «Нова категорія…» made while the row is open (the newest last: it is the one chosen). */
   created: readonly Category[];
   onNew: (groupId: string) => void;
@@ -269,22 +269,28 @@ export function AddRow({
           <span>{t("planning.budget.cat.add.mandatory")}</span>
         </label>
       </th>
-      <td colSpan={columns} className="bud-add-cells">
-        <span className="bud-add-limit">
-          <AmountField
-            label={t("planning.budget.limit.field")}
-            labelHidden
-            currency={currency}
-            value={value}
-            placeholder={
-              average ? t("planning.budget.cat.add.average", { amount: money(average) }) : undefined
-            }
-            onChange={(v, p) => {
-              setValue(v);
-              setProblem(p !== null);
-            }}
-          />
-        </span>
+      {columns.map((key) =>
+        key === "limit" ? (
+          <td key={key} className="bud-add-limit">
+            <AmountField
+              label={t("planning.budget.limit.field")}
+              labelHidden
+              currency={currency}
+              value={value}
+              placeholder={
+                average ? t("planning.budget.cat.add.average", { amount: money(average) }) : undefined
+              }
+              onChange={(v, p) => {
+                setValue(v);
+                setProblem(p !== null);
+              }}
+            />
+          </td>
+        ) : (
+          <td key={key} />
+        ),
+      )}
+      <td className="bud-add-cells">
         <button
           type="button"
           className="ws-icon-button"
