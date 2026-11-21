@@ -38,6 +38,7 @@ const categories = new Map(
     cat("hidden", "expense", { state: "hidden" }),
     cat("old", "expense", { state: "retired", mergedInto: "cafes" }),
     cat("salary", "income"),
+    cat("hidden-income", "income", { state: "hidden" }),
     cat("transfer", "service"),
   ].map((c) => [c.id, c]),
 );
@@ -277,9 +278,12 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       { categoryId: "transfer", amount: eur("-500") },
       { categoryId: null, amount: eur("-15") },
       { categoryId: "salary", amount: eur("2500") },
+      // A hidden income category gets no line of «План доходу»: the wizard would propose a plan POST refuses (hidden).
+      { categoryId: "hidden-income", amount: eur("300") },
     ]);
     expect(m.categorized).toBe(true);
-    expect(m.income).toEqual(eur("2500"));
+    // The month's income counts it, as a period does; its line by category does not.
+    expect(m.income).toEqual(eur("2800"));
     expect([...m.incomeByCategory]).toEqual([["salary", eur("2500")]]);
     expect([...m.spent]).toEqual([
       ["groceries", eur("80")],

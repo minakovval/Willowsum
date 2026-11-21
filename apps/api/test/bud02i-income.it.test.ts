@@ -553,23 +553,29 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
     expect(dec.incomeCategories.map((l) => [l.categoryId, l.plan])).toEqual([[salary, eur("3100")]]);
   });
 
-  it("BUD-02@PoC EC1: the irregular rule acts per income category — the salary keeps its 3-month average, the irregular freelance its lowest month of 6", async () => {
+  it("BUD-02@PoC EC1: the irregular rule acts per income category — the salary keeps its 3-month average, the irregular freelance its lowest month of 6, a category with a shorter history the average of its months", async () => {
     const space = await newSpace();
     const acc = await account(space);
     const salary = await category(space, "Зарплата");
     const freelance = await category(space, "Фриланс");
     const months = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"];
-    const fees = ["600.00", "600.00", "1000.00", "600.00", "200.00", "600.00"];
+    const side = await category(space, "Підприємництво");
+    // The low month (200) is older than the newest 3, whose average and lowest month are 600: the lowest of 6.
+    const fees = ["600.00", "200.00", "1000.00", "600.00", "600.00", "600.00"];
     for (const [i, p] of months.entries()) {
       await transaction(space, acc, "3000.00", `${p}-25`, "Зарплата");
       await transaction(space, acc, fees[i]!, `${p}-15`, "Фриланс");
     }
+    // Lead decision 2026-11-21: 2 months of its own history — not irregular, (300 + 100) / 2 = 200.
+    await transaction(space, acc, "300.00", "2026-09-10", "Підприємництво");
+    await transaction(space, acc, "100.00", "2026-10-10", "Підприємництво");
     const w = await wizard(space);
     expect(w.incomes).toEqual([
       { categoryId: salary, average: eur("3000"), plan: eur("3000"), irregular: false },
-      { categoryId: freelance, average: eur("466.67"), plan: eur("200"), irregular: true },
+      { categoryId: freelance, average: eur("600"), plan: eur("200"), irregular: true },
+      { categoryId: side, average: eur("200"), plan: eur("200"), irregular: false },
     ]);
-    expect(w).toMatchObject({ incomeIrregular: true, incomePlan: eur("3200") });
+    expect(w).toMatchObject({ incomeIrregular: true, incomePlan: eur("3400") });
   });
 });
 

@@ -2,6 +2,7 @@ import { Money } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
 import {
   incomeIrregular,
+  incomeMonths,
   incomeLines,
   proposeFromSpending,
   scalePlan,
@@ -85,23 +86,25 @@ describe("BUD-02@PoC FR 21: «План доходу» proposed by income categor
   });
 
   it("BUD-02@PoC EC1: the irregular rule acts per income category — the salary keeps its 3-month average, an irregular freelance takes its lowest month of 6", () => {
-    // Freelance: average 600 over 6 months; 200 and 1 000 are 67 % off — irregular, its plan the lowest month, 200.
+    // Freelance: average 600 over 6 months; 1 000 and 200 are 67 % off — irregular, its plan the lowest month, 200.
+    // The low month is older than the newest 3 (their average and lowest month are 600): the lowest of 6, not of 3.
     // The salary is the same every month — regular, its plan the 3-month average, not lowered by the freelance.
-    const freelance = ["600", "200", "600", "1000", "600", "600"];
+    const freelance = ["600", "600", "600", "1000", "200", "600"];
     const months = periods.map((p, i) => month(p, { salary: "3000", freelance: freelance[i]! }));
     expect(incomeIrregular(months, "freelance")).toBe(true);
     expect(incomeIrregular(months, "salary")).toBe(false);
     const p = proposeFromSpending("EUR", months);
     expect(p.incomes).toEqual([
       { categoryId: "salary", average: eur("3000"), plan: eur("3000"), irregular: false },
-      { categoryId: "freelance", average: eur("466.67"), plan: eur("200"), irregular: true },
+      { categoryId: "freelance", average: eur("600"), plan: eur("200"), irregular: true },
     ]);
     expect(p.incomePlan).toEqual(eur("3200"));
     expect(p.incomeIrregular).toBe(true);
   });
 
   it("BUD-02@PoC EC1: a category that comes not every month (bonuses) is irregular and gets plan 0; the lowest month is rounded to tens too", () => {
-    const bonuses = ["500", "0", "0", "500", "0", "0"];
+    // Its oldest income is 6 months back, so it has 6 full months of history.
+    const bonuses = ["500", "0", "0", "500", "0", "500"];
     const rent = ["404", "404", "404", "404", "404", "404"];
     const months = periods.map((p, i) =>
       month(p, { rent: rent[i]!, ...(bonuses[i] === "0" ? {} : { bonuses: bonuses[i]! }) }),
@@ -113,11 +116,53 @@ describe("BUD-02@PoC FR 21: «План доходу» proposed by income categor
     ]);
   });
 
+  it("BUD-02@PoC EC1: a category with fewer than 6 full months of history is not irregular; its plan is the average of the months it has, up to 3 (lead decision 2026-11-21)", () => {
+    // A new salary of 5 000 € for 3 months, nothing before: 6 months of the space's history, 3 of the category's.
+    const salary = ["5000", "5000", "5000", "0", "0", "0"];
+    // A side job of 2 months: (300 + 100) / 2 = 200, not / 3; 100 is 50 % off — still not irregular.
+    const side = ["300", "100", "0", "0", "0", "0"];
+    // 5 months of history with a low month older than the newest 3: regular, the 3-month average.
+    const rent = ["400", "400", "400", "100", "400", "0"];
+    const months = periods.map((p, i) =>
+      month(
+        p,
+        Object.fromEntries(
+          [
+            ["salary", salary[i]!],
+            ["freelance", side[i]!],
+            ["rent", rent[i]!],
+          ].filter(([, a]) => a !== "0"),
+        ),
+      ),
+    );
+    expect(["salary", "freelance", "rent"].map((id) => incomeMonths(months, id))).toEqual([3, 2, 5]);
+    expect(["salary", "freelance", "rent"].map((id) => incomeIrregular(months, id))).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    const p = proposeFromSpending("EUR", months);
+    expect(p.incomes).toEqual([
+      { categoryId: "salary", average: eur("5000"), plan: eur("5000"), irregular: false },
+      { categoryId: "rent", average: eur("400"), plan: eur("400"), irregular: false },
+      { categoryId: "freelance", average: eur("200"), plan: eur("200"), irregular: false },
+    ]);
+    expect(p.incomePlan).toEqual(eur("5600"));
+    expect(p.incomeIrregular).toBe(false);
+    // The same salary once it has 6 months: 2 000 € for 3 months, then 5 000 € — irregular, the lowest month of 6.
+    const raised = periods.map((p, i) => month(p, { salary: i < 3 ? "5000" : "2000" }));
+    expect(incomeMonths(raised, "salary")).toBe(6);
+    expect(proposeFromSpending("EUR", raised).incomes).toEqual([
+      { categoryId: "salary", average: eur("5000"), plan: eur("2000"), irregular: true },
+    ]);
+  });
+
   it("BUD-02@PoC FR 21: the list holds the income categories with income in the 3 months, the largest plan first", () => {
     const p = proposeFromSpending("EUR", [
-      month("2026-10", { rent: "100", salary: "1000" }),
+      month("2026-10", { salary: "1000" }),
       month("2026-09", { salary: "1000" }),
-      month("2026-08", { salary: "1000" }),
+      // Its oldest month with income is the third: 3 months of its history.
+      month("2026-08", { rent: "100", salary: "1000" }),
       // Older than the 3 months: not listed.
       month("2026-07", { freelance: "900" }),
     ]);
@@ -178,5 +223,10 @@ describe("BUD-02@PoC FR 21: the income plan is the sum of the categories' plans"
       { categoryId: "rent", amount: eur("216.69") },
     ]);
     expect(scaled.incomePlan).toEqual(eur("650.02"));
+    // 13/30 of 30.15 = 13.065 → 13.06 (an exact half to even, not 13.07); the sum 26.12 — the total scaled, 13/30 of
+    // 60.30 = 26.13, and half up, 26.14, both differ.
+    const halves = scalePlan(plan({ salary: "30.15", rent: "30.15" }), shareFrom("2026-11-18"));
+    expect(halves.incomePlans?.map((l) => l.amount)).toEqual([eur("13.06"), eur("13.06")]);
+    expect(halves.incomePlan).toEqual(eur("26.12"));
   });
 });

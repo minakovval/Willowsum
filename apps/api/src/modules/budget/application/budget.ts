@@ -679,6 +679,7 @@ export async function updatePlan(
   const storedIncome = new Map(
     (await tx.incomePlans(caller.householdId, budget.id)).map((l) => [l.categoryId, l.amount]),
   );
+  const byCategory = storedIncome.size > 0;
   let income: Money | BudgetIssue = patch.incomePlan
     ? parseBudgetAmount("incomePlan", patch.incomePlan, budget.currency)
     : budget.incomePlan;
@@ -740,8 +741,9 @@ export async function updatePlan(
       ),
     );
   }
-  // FR 21: the income plan is the sum of the income categories' plans.
-  if (patch.incomePlans !== undefined)
+  // FR 21: the income plan is the sum of the income categories' plans. A change that touches no category of a plan
+  // without categories (an empty list, «Прибрати» for a category that has no plan) leaves that plan as it is.
+  if (patch.incomePlans !== undefined && (byCategory || storedIncome.size > 0))
     income = incomePlansTotal(
       [...storedIncome].map(([categoryId, amount]) => ({ categoryId, amount })),
       budget.currency,

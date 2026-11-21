@@ -103,7 +103,7 @@ export function startChoices(today: string): {
 
 /**
  * FR 14: in a proportional first period the limits, the income plan and the planned savings are multiplied by (days
- * left, today included) ÷ (days in the period); each amount half up to the currency's minor units (lead decision).
+ * left, today included) ÷ (days in the period); each amount to the currency's minor units, an exact half to even.
  */
 export function scalePlan(plan: PeriodPlan, share: PeriodShare): PeriodPlan {
   const scale = (m: Money) => roundToMinor(m.amount.times(share.days).div(share.daysInPeriod), m.currency);
@@ -195,7 +195,7 @@ export interface ProposedLimit {
  */
 export interface ProposedIncome {
   readonly categoryId: string;
-  /** The average income of the 3 full months, to minor units. */
+  /** The average income of the 3 full months (of the months it has, for a shorter history — EC1), to minor units. */
   readonly average: Money;
   readonly plan: Money;
   /** EC1: the category's income is irregular (2 of 6 months off its 6-month average by more than 30 %). */
@@ -218,12 +218,22 @@ const incomeOf = (m: MonthHistory, categoryId: string): Decimal =>
   m.incomeByCategory.get(categoryId)?.amount ?? new Decimal("0");
 
 /**
+ * Edge case 1 (lead decision 2026-11-21): the full months of an income category's history — from the newest back to
+ * its oldest month with income, within the categorized history without a gap (FR 2); 0 without income there.
+ */
+export function incomeMonths(months: readonly MonthHistory[], categoryId: string): number {
+  for (let i = historyMonths(months) - 1; i >= 0; i--)
+    if (!incomeOf(months[i]!, categoryId).isZero()) return i + 1;
+  return 0;
+}
+
+/**
  * Edge case 1, per income category (lead decision 2026-11-21): the category's income is irregular when at least 2 of
- * the last 6 full months differ from its 6-month average by more than 30 %. Needs 6 months of history; with fewer it
- * counts as regular (lead decision 2026-11-16).
+ * the last 6 full months differ from its 6-month average by more than 30 %. Needs 6 full months of the category's
+ * history (`incomeMonths`); with fewer it is not irregular (lead decisions 2026-11-16 and 2026-11-21).
  */
 export function incomeIrregular(months: readonly MonthHistory[], categoryId: string): boolean {
-  if (months.length < HISTORY_MONTHS || historyMonths(months) < HISTORY_MONTHS) return false;
+  if (incomeMonths(months, categoryId) < HISTORY_MONTHS) return false;
   const six = months.slice(0, HISTORY_MONTHS).map((m) => incomeOf(m, categoryId));
   const average = six.reduce((t, x) => t.plus(x), new Decimal("0")).div(HISTORY_MONTHS);
   const band = average.times("0.3");
@@ -233,8 +243,9 @@ export function incomeIrregular(months: readonly MonthHistory[], categoryId: str
 /**
  * FR 2, FR 3, FR 21, AC1, AC18, edge cases 1–2: «Створити за моїми витратами» — with at least 3 full months of
  * categorized history, a limit for each active expense category = its average spending over the last 3 full months, to
- * tens (an exact half to even); a plan for each income category with income in those months = its average to tens, or
- * for an irregular category its lowest month of 6 to tens; the income plan = the sum of the categories' plans. Without
+ * tens (an exact half to even); a plan for each income category with income in those months = its average to tens
+ * (over the months of its history, at most 3 — edge case 1, lead decision 2026-11-21), or for an irregular category its
+ * lowest month of 6 to tens; the income plan = the sum of the categories' plans. Without
  * the history only «Почати з нуля». `months` — the 6 full months before the current one, newest first.
  */
 export function proposeFromSpending(currency: string, months: readonly MonthHistory[]): Proposal {
@@ -266,9 +277,10 @@ export function proposeFromSpending(currency: string, months: readonly MonthHist
   const incomeIds = [...new Set(three.flatMap((m) => [...m.incomeByCategory.keys()]))];
   const incomes: ProposedIncome[] = [];
   for (const categoryId of incomeIds) {
-    const exact = three
-      .reduce((t, m) => t.plus(incomeOf(m, categoryId)), new Decimal("0"))
-      .div(MIN_HISTORY_MONTHS);
+    // Edge case 1 (lead decision 2026-11-21): a category with a shorter history averages the months it has.
+    const own = Math.min(MIN_HISTORY_MONTHS, incomeMonths(months, categoryId));
+    if (own === 0) continue;
+    const exact = three.reduce((t, m) => t.plus(incomeOf(m, categoryId)), new Decimal("0")).div(own);
     // FR 21: the categories that had income in the 3 months.
     if (!exact.greaterThan(0)) continue;
     const irregular = incomeIrregular(months, categoryId);
