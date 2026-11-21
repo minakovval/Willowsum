@@ -1,16 +1,19 @@
 import "./budget.css";
 import { useMemo, useState } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { useAuthApi } from "../../auth/api.ts";
+import { outcome, useAuthApi } from "../../auth/api.ts";
+import type { Category } from "../../categories/api.ts";
 import {
   CardFilter,
   CardFilterChips,
+  Icon,
   StatusMark,
   UsageStatus,
   type CardFilterSection,
   type FilterChipItem,
 } from "@willowsum/ui";
 import { RowMenu, useCategoryActions } from "./CategoryActions.tsx";
+import { AddRow, LimitButton } from "./LimitEditing.tsx";
 import {
   filterCount,
   hasScale,
@@ -89,7 +92,23 @@ export function CategoriesCard({
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const [failed, setFailed] = useState(false);
-  const actions = useCategoryActions({ tree: view.tree, onChanged, onCreated: () => onChanged() });
+  /** FR 7: the group whose «Додати категорію» row is open, and the categories «Нова категорія…» made meanwhile. */
+  const [adding, setAdding] = useState<string | null>(null);
+  const [created, setCreated] = useState<readonly Category[]>([]);
+  const actions = useCategoryActions({
+    tree: view.tree,
+    onChanged,
+    // FR 23: «Нова категорія…» of the add row is chosen in it at once; its limit is saved with «✓».
+    onCreated: (id) => {
+      if (adding === null) return onChanged();
+      void outcome(api.GET("/v1/categories/{categoryId}", { params: { path: { categoryId: id } } })).then(
+        (o) => (o.ok ? setCreated((c) => [...c, o.data]) : onChanged()),
+      );
+    },
+  });
+  /** FR 7, FR 16: limits change in place in the current and a future month, not in a past one (its plan is a snapshot). */
+  const editable = view.period.mode !== "past";
+  const currency = view.period.totals.limits.currency;
   const treeCategories = useMemo(
     () => new Map(view.tree.groups.flatMap((g) => g.categories).map((c) => [c.id, c])),
     [view],
@@ -222,7 +241,18 @@ export function CategoriesCard({
   const columns = plan ? COLUMNS.filter((c) => c.key === "category" || c.key === "limit") : COLUMNS;
   const cell = (row: Row, key: SortKey) => {
     if (key === "spent") return row.spent ? money(row.spent) : "";
-    if (key === "limit") return row.limit ? money(row.limit) : "";
+    if (key === "limit") {
+      const button =
+        editable && treeCategories.has(row.id) ? (
+          <LimitButton row={row} version={view.version} currency={currency} onSaved={onChanged} />
+        ) : null;
+      return (
+        <span className="bud-limit-cell">
+          {row.limit ? money(row.limit) : null}
+          {button}
+        </span>
+      );
+    }
     return row.remaining ? money(row.remaining) : "";
   };
   const label = (row: Row) => row.name || t("planning.budget.uncategorized");
@@ -293,9 +323,31 @@ export function CategoriesCard({
         {sections.map((s) => (
           <tbody key={s.id} data-group={s.id}>
             <tr className="bud-group">
-              <th scope="colgroup" colSpan={columns.length + 1}>
+              <th
+                scope="colgroup"
+                colSpan={editable && s.id !== "none" ? columns.length : columns.length + 1}
+              >
                 {s.name}
               </th>
+              {editable && s.id !== "none" ? (
+                <td className="bud-group-add">
+                  <button
+                    type="button"
+                    className="ws-button ws-button-with-icon"
+                    aria-label={t("planning.budget.cat.add.menu", { group: s.name })}
+                    aria-expanded={adding === s.id}
+                    onClick={() => {
+                      setCreated([]);
+                      setAdding(s.id);
+                    }}
+                  >
+                    <span className="ws-button-slot" aria-hidden="true">
+                      <Icon name="plus" size={16} inButton />
+                    </span>
+                    <span className="ws-button-label">{t("planning.budget.cat.add")}</span>
+                  </button>
+                </td>
+              ) : null}
             </tr>
             {s.rows.map((row) => (
               <tr key={row.id} data-state={row.state ?? undefined}>
@@ -323,6 +375,20 @@ export function CategoriesCard({
                 <td className="bud-menu">{menuOf(row)}</td>
               </tr>
             ))}
+            {adding === s.id ? (
+              <AddRow
+                view={view}
+                groupId={s.id}
+                columns={columns.length}
+                created={created}
+                onNew={(groupId) => actions.addTo(groupId)}
+                onCancel={() => setAdding(null)}
+                onSaved={() => {
+                  setAdding(null);
+                  onChanged();
+                }}
+              />
+            ) : null}
           </tbody>
         ))}
         {outside.length > 0 ? (

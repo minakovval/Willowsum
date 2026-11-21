@@ -569,3 +569,58 @@
 .bud-wiz-group-add {
   text-align: end;
 }
+
+/* BUD-02@PoC FR 7: the limit is changed in place — the pencil beside the amount opens the popover from the row. */
+.bud-limit-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ws-space-1);
+}
+.bud-limit-edit {
+  inline-size: 32px;
+  block-size: 32px;
+  color: var(--ws-ink-muted);
+}
+.bud-limit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  min-width: 240px;
+  text-align: start;
+}
+.bud-group-add {
+  text-align: end;
+  vertical-align: bottom;
+}
+
+/* BUD-02@PoC FR 7: the editable row «Додати категорію» at the bottom of a group (board PocPlanBudgetAddCat). */
+.bud-add-row th,
+.bud-add-row td {
+  background: var(--ws-surface-100);
+  vertical-align: middle;
+}
+.bud-add-row th {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+.bud-add-category {
+  min-inline-size: 220px;
+  max-inline-size: 100%;
+}
+.bud-add-cells {
+  white-space: nowrap;
+}
+.bud-add-limit {
+  display: inline-block;
+  inline-size: 160px;
+  margin-inline-end: var(--ws-space-2);
+  vertical-align: middle;
+}
+
+/* BUD-02@PoC AC 19: «12 транзакцій» in the explanation of «Видалити категорію…». */
+.bud-keep-count {
+  font-weight: 600;
+}
