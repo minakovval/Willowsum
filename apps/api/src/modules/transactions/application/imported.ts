@@ -1,4 +1,4 @@
-import { currencyInfo, type Money } from "@willowsum/domain-kernel";
+import { currencyInfo, Decimal, type Money } from "@willowsum/domain-kernel";
 import {
   counterpartyText,
   descriptionText,
@@ -55,6 +55,14 @@ export interface ImportedRowInput {
   readonly counterparty: string | null;
   /** The balance after the operation as printed; null — none. */
   readonly balanceAfter: Money | null;
+  /** IMP-02 FR 4: the original amount and currency before the bank's rate (signed as `amount`); null — none. */
+  readonly original?: Money | null;
+  /** IMP-02 FR 4: the bank's rate as printed, a positive decimal (`IMPORTED_RATE`); null — none. */
+  readonly rate?: string | null;
+  /** IMP-02 FR 4: the value date (YYYY-MM-DD); null — none. */
+  readonly valueDate?: string | null;
+  /** IMP-02 FR 4: the bank's reference of the operation (masked by the caller); null — none. */
+  readonly reference?: string | null;
   /**
    * IMP-04 FR 5 (#637 item 6, #658): this manual transaction is merged into the row. The row is the record that stays
    * (the bank's identifier, text, posting date and its journal event) and takes the manual one's note, tags and
@@ -197,6 +205,11 @@ export interface ImportedRow extends NewStoredTransaction {
   readonly importRow: number;
   readonly bankDescription: string | null;
   readonly balanceAfter: Money | null;
+  /** IMP-02 FR 4 (0014_bank_fields.sql): what the statement row printed besides the amount. */
+  readonly original: Money | null;
+  readonly rate: string | null;
+  readonly valueDate: string | null;
+  readonly reference: string | null;
 }
 
 export interface ImportWriteTx {
@@ -250,15 +263,37 @@ export interface ImportWriteDeps {
 
 /**
  * The bank's text as an imported transaction keeps it: NFC, the column's length (1 000 code points for the description,
- * 200 for the counterparty) and then the form's rule; null — none; undefined — a text the rule refuses (a control or a
- * direction mark). Pure: the caller's plan compares the same text the row stores (#654: a long description is clipped
- * the same way in both, so an overlapping statement finds its rows).
+ * 200 for the counterparty and the reference) and then the form's rule (the reference's — the counterparty's); null —
+ * none; undefined — a text the rule refuses (a control or a direction mark). Pure: the caller's plan compares the same
+ * text the row stores (#654: a long description is clipped the same way in both, so an overlapping statement finds its
+ * rows).
  */
-export function importedText(value: string | null, field: "description" | "counterparty") {
+export function importedText(value: string | null, field: "description" | "counterparty" | "reference") {
   if (value === null) return null;
   const max = field === "description" ? 1000 : 200;
   const clipped = [...value.normalize("NFC")].slice(0, max).join("");
   return field === "description" ? descriptionText(clipped) : counterpartyText(clipped);
+}
+
+/**
+ * IMP-02 FR 4: the bank's rate as an imported transaction keeps it (`exchange_rate numeric(38, 18)`): a positive decimal
+ * with at most 18 decimals and 20 integer digits, as plain text; null — none or one the column cannot hold (the rate is
+ * no part of the money written). Pure.
+ */
+export function importedRate(value: string | null): string | null {
+  if (value === null || !/^\d+(\.\d+)?$/.test(value)) return null;
+  const rate = new Decimal(value);
+  if (rate.isZero() || rate.decimalPlaces() > 18 || rate.gte("1e20")) return null;
+  return rate.toFixed();
+}
+
+/**
+ * IMP-02 FR 4 (#696): the value date as an imported transaction keeps it — a calendar day the books take (from
+ * 1900-01-01, as every date of a transaction); null — none or one they do not take (it is no part of the money written,
+ * so it never refuses the row). Pure.
+ */
+export function importedValueDate(value: string | null): string | null {
+  return value !== null && isCalendarDay(value) ? value : null;
 }
 
 export async function writeImport(
@@ -349,6 +384,12 @@ export async function writeImport(
       if (r.balanceAfter && r.balanceAfter.currency !== r.amount.currency)
         throw new ImportWriteRefused("amount", at);
       if (!isCalendarDay(r.date)) throw new ImportWriteRefused("date", at);
+      // IMP-02 FR 4: the statement's other figures as the caller read them, never a part of the money moved.
+      const original = r.original ?? null;
+      const rate = r.rate ?? null;
+      const valueDate = r.valueDate ?? null;
+      if (rate !== null && importedRate(rate) !== rate) throw new ImportWriteRefused("amount", at);
+      if (valueDate !== null && !isCalendarDay(valueDate)) throw new ImportWriteRefused("date", at);
       wallets.set(`${account.accountId}/${r.amount.currency}`, {
         accountId: account.accountId.toLowerCase(),
         currency: r.amount.currency,
@@ -356,7 +397,9 @@ export async function writeImport(
       });
       const description = importedText(r.description, "description");
       const counterparty = importedText(r.counterparty, "counterparty");
-      if (description === undefined || counterparty === undefined) throw new ImportWriteRefused("text", at);
+      const reference = importedText(r.reference ?? null, "reference");
+      if (description === undefined || counterparty === undefined || reference === undefined)
+        throw new ImportWriteRefused("text", at);
       // IMP-04 FR 5, FR 6: the other side of the link, locked above and checked as it is now (a change since the plan
       // read it, or a row another transaction holds out of order — no link: the row is written on its own, or not at
       // all, as the caller asked).
@@ -415,6 +458,10 @@ export async function writeImport(
         importRow: r.row,
         bankDescription: description,
         balanceAfter: r.balanceAfter,
+        original,
+        rate,
+        valueDate,
+        reference,
       });
       // Written already by this batch (the unique key): never twice.
       if (!row) continue;

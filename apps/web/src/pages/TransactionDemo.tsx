@@ -35,6 +35,13 @@ const SAMPLE: Transaction = {
   review: null,
   version: 1,
   recordedAt: "2026-11-01T10:00:00Z",
+  bankDescription: null,
+  balanceAfter: null,
+  importedFrom: null,
+  originalAmount: null,
+  exchangeRate: null,
+  valueDate: null,
+  bankReference: null,
 };
 
 export function TransactionDemo() {
