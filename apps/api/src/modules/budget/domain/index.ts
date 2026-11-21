@@ -7,3 +7,4 @@ export * from "./spendable.ts";
 export * from "./trend.ts";
 export * from "./compare.ts";
 export * from "./plan-grid.ts";
+export * from "./summary.ts";

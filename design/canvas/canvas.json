@@ -1705,6 +1705,14 @@
       "x": 12240,
       "y": 31860
     },
+    "PocMoneyImport3Texts.dc.html": {
+      "h": 3060,
+      "page": "poc",
+      "title": "S-174 Імпорт · результат · Тексти",
+      "w": 2640,
+      "x": 14960,
+      "y": 31860
+    },
     "PocMoneyImport2.dc.html": {
       "h": 1100,
       "is_interactive": true,
@@ -4469,6 +4477,7 @@
     "PocMoneyImportRules.dc.html",
     "PocMoneyImportMismatch.dc.html",
     "PocMoneyImport3.dc.html",
+    "PocMoneyImport3Texts.dc.html",
     "PocImportHistory.dc.html",
     "PocMoneyConnections.dc.html",
     "PocMoneySource.dc.html",

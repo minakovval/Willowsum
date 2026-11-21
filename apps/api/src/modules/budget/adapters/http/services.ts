@@ -14,6 +14,7 @@ import type { BudgetTransactions } from "../../../transactions/index.ts";
 import {
   applyHandOff,
   type BudgetAudit,
+  type BudgetChargeHistory,
   type BudgetDeps,
   type BudgetHandOff,
   type BudgetObligations,
@@ -219,6 +220,8 @@ export function createBudgetServices(options: {
   readonly planSources?: BudgetPlanSources;
   /** BUD-03@PoC EC5: «Витратити з цілі» (`createGoalSpends`); left out (a test's server) — no spends left out. */
   readonly goalSpends?: GoalSpends;
+  /** FLW-38 (S-135): a finished month's regular charges (`createRecurringHistory`); left out — `regularPayments` null. */
+  readonly chargeHistory?: BudgetChargeHistory;
   /**
    * BUD-17 (owner decision 2026-11-20, batch 2, item 2): whether «План» (`budget.plan`) is on for the space; while it is
    * off the months' own values act nowhere. Required: a server without it does not build (#652 security review).
@@ -235,6 +238,7 @@ export function createBudgetServices(options: {
       reads: budgetReads(options),
       obligations: options.obligations ?? null,
       planSources: options.planSources ?? null,
+      chargeHistory: options.chargeHistory ?? null,
       planEnabled: options.planEnabled,
     },
     audit: budgetAudit(options.audit),
