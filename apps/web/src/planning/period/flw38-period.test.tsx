@@ -626,3 +626,23 @@ describe("FLW-38@PoC BUD-02 FR 16: the page «Бюджет» shows the summary f
     expect(document.querySelector("[data-plan-region='summary']")).toBeNull();
   });
 });
+
+describe("FLW-38@PoC «Стани інтерфейсу»: requests", () => {
+  it("FLW-38@PoC UI requests: each endpoint of the screen is asked once, and not again after the answers arrive (no request loop)", async () => {
+    const fake = api();
+    open(fake);
+    await waitFor(() => expect(screen.getByText("Кафе і ресторани", { exact: false })).toBeTruthy());
+    await waitFor(() => expect(payments().textContent).toContain("Оренда"));
+    const asked = () => fake.calls.map((c) => `${c.method} ${c.path}`).sort();
+    const first = asked();
+    expect(first).toEqual([
+      "GET /v1/budget/compare",
+      "GET /v1/budget/periods/2026-10/summary",
+      "GET /v1/categories",
+      "GET /v1/recurring/payments",
+    ]);
+    // Time for any further round to start (a loop asks again after every render).
+    await new Promise((r) => setTimeout(r, 300));
+    expect(asked()).toEqual(first);
+  });
+});
