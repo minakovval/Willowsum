@@ -31,6 +31,7 @@ import {
   createTransactionsServices,
 } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -389,7 +390,7 @@ describe("BUD-06@PoC FR 8: «Одноразова витрата»", () => {
     const stranger = await newSpace();
     const foreign = await mark(stranger, roof, true);
     expect(foreign.statusCode).toBe(404);
-    expect(foreign.body).not.toContain(roof);
+    expect(leakText(foreign.body)).not.toContain(roof);
     expect((await call(owner, "GET", `/v1/transactions/${roof}`)).json().oneOff).toBe(false);
     // A scoped member: «Транзакції» are closed — a write is refused before the row is read (as BUD-13's).
     expect((await mark(owner, roof, true, { role: "editor", scoped: true })).statusCode).toBe(403);
@@ -428,7 +429,8 @@ describe("BUD-06@PoC FR 8: «Одноразова витрата»", () => {
     const log = (await audit.entriesFor(space.householdId, { type: "transactions.transaction", id })).filter(
       (e) => e.changes.some((c) => c.field === "oneOff"),
     );
-    expect(log.length === 1 || log.length === 3).toBe(true);
+    // The first entry is the mark above; «off» then «on» adds two, «on» (no change) then «off» adds one.
+    expect(log.length === 2 || log.length === 3).toBe(true);
     expect(final.oneOff).toBe(log.length % 2 === 1);
     expect(final.version).toBe(version + log.length);
   });
