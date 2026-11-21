@@ -1,4 +1,4 @@
-import { Money } from "@willowsum/domain-kernel";
+import { Decimal, Money } from "@willowsum/domain-kernel";
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
@@ -44,6 +44,8 @@ import {
   type Split,
 } from "../../domain/index.ts";
 import {
+  bankFieldsOf,
+  type BankFields,
   listedSplit,
   mergedOf,
   partsOf,
@@ -168,7 +170,75 @@ export const transactionSchema = z.object({
   version: z.number().int(),
   /** «Дата і час»: when it was recorded (ISO 8601 UTC); the form has a date only. */
   recordedAt: z.string(),
+  /**
+   * IMP-02@PoC FR 4 (S-047): the bank's description as the statement printed it (every description column joined,
+   * numbers masked to their last 4) — kept apart from `description`, never changed by an edit; the merchant comes from
+   * it. Null — entered by hand.
+   */
+  bankDescription: z.string().nullable(),
+  /** IMP-02 FR 4: the balance after the operation as the statement printed it; null — none or entered by hand. */
+  balanceAfter: moneySchema.nullable(),
+  /** IMP-02 FR 4: the import batch, its file and the row of the file (from 1) it came from; null — entered by hand. */
+  importedFrom: z.object({ batchId: z.uuid(), fileId: z.uuid(), row: z.number().int() }).nullable(),
+  /**
+   * IMP-02 FR 4: «початкова сума» — the amount and currency of the operation before the bank's rate, signed as `amount`;
+   * null — the statement has none (or the transaction was imported before it was kept).
+   */
+  originalAmount: moneySchema.nullable(),
+  /** IMP-02 FR 4: «курс» — the bank's rate as the statement printed it (decimal text); null — none. */
+  exchangeRate: z.string().nullable(),
+  /** IMP-02 FR 4: «дата валютування» (YYYY-MM-DD); null — none. */
+  valueDate: z.string().nullable(),
+  /** IMP-02 FR 4: the bank's reference of the operation (masked as the description); null — none. */
+  bankReference: z.string().nullable(),
 });
+
+type BankOut = Pick<
+  z.input<typeof transactionSchema>,
+  | "bankDescription"
+  | "balanceAfter"
+  | "importedFrom"
+  | "originalAmount"
+  | "exchangeRate"
+  | "valueDate"
+  | "bankReference"
+>;
+
+const NO_BANK_FIELDS: BankOut = {
+  bankDescription: null,
+  balanceAfter: null,
+  importedFrom: null,
+  originalAmount: null,
+  exchangeRate: null,
+  valueDate: null,
+  bankReference: null,
+};
+
+/** IMP-02 FR 4: the bank's fields of a transaction as read (`BANK_FIELDS`, by row or by `bankFieldsOf`). */
+function bankOut(f: BankFields | undefined): BankOut {
+  if (!f) return NO_BANK_FIELDS;
+  const text = (v: unknown) => (v === null || v === undefined ? null : String(v));
+  const balance = text(f.balanceAfter);
+  const original = text(f.originalAmount);
+  const rate = text(f.exchangeRate);
+  const batchId = text(f.importBatchId);
+  const fileId = text(f.importFileId);
+  return {
+    bankDescription: text(f.bankDescription),
+    balanceAfter: balance === null ? null : Money.of(balance, String(f.currency)).toJSON(),
+    importedFrom:
+      batchId !== null && fileId !== null && f.importRow !== null && f.importRow !== undefined
+        ? { batchId, fileId, row: Number(f.importRow) }
+        : null,
+    originalAmount:
+      original === null || f.originalCurrency === null
+        ? null
+        : Money.of(original, String(f.originalCurrency)).toJSON(),
+    exchangeRate: rate === null ? null : new Decimal(rate).toFixed(),
+    valueDate: f.valueDate === null || f.valueDate === undefined ? null : dateText(f.valueDate),
+    bankReference: text(f.bankReference),
+  };
+}
 
 function splitOut(split: Split | null): z.input<typeof splitSchema> | null {
   if (split === null) return null;
@@ -210,6 +280,7 @@ function present(
   duplicates: readonly string[],
   names: ReadonlyMap<string, string>,
   oneOffOn: boolean,
+  bank: BankFields | undefined,
 ): z.input<typeof transactionSchema> {
   return {
     id: t.id,
@@ -233,6 +304,7 @@ function present(
     review: t.review,
     version: t.version,
     recordedAt: t.createdAt,
+    ...bankOut(bank),
   };
 }
 
@@ -246,13 +318,23 @@ export async function shown(
 ): Promise<z.input<typeof transactionSchema>> {
   const householdId = ctx.principal.householdId;
   const transferId = t.transfer?.id;
-  const { views, merged, names } = await ctx.inHousehold(async (q) => ({
+  const { views, merged, names, bank } = await ctx.inHousehold(async (q) => ({
     views: transferId ? await transfersOf(q, householdId, [transferId]) : new Map<string, TransferView>(),
     merged: t.mergedInto === null ? await mergedOf(q, householdId, [t.id]) : new Map<string, string[]>(),
     names: await tagsTx(q).names(householdId, t.tagIds),
+    // IMP-02 FR 4: only an imported one has them (one read by the key, in the space).
+    bank:
+      t.source === "imported" ? await bankFieldsOf(q, householdId, [t.id]) : new Map<string, BankFields>(),
   }));
   const oneOffOn = await transactionsServices(ctx).oneOffEnabled(householdId);
-  return present(t, transferId ? views.get(transferId) : undefined, merged.get(t.id) ?? [], names, oneOffOn);
+  return present(
+    t,
+    transferId ? views.get(transferId) : undefined,
+    merged.get(t.id) ?? [],
+    names,
+    oneOffOn,
+    bank.get(t.id),
+  );
 }
 
 /** Where the form is wrong: the field and an issue code, never the value sent. */
@@ -531,6 +613,7 @@ function listItem(
     review: (row["review"] as StoredTransaction["review"]) ?? null,
     version: Number(row["version"]),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
+    ...bankOut(row as BankFields),
   };
 }
 

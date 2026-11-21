@@ -27,7 +27,14 @@ import {
   type PeriodObligations,
   type PeriodPlan,
 } from "../domain/index.ts";
-import { checkLimits, type BudgetDeps, type LimitInput, type Result } from "./budget.ts";
+import {
+  checkIncome,
+  checkLimits,
+  type BudgetDeps,
+  type IncomePlanInput,
+  type LimitInput,
+  type Result,
+} from "./budget.ts";
 
 type MoneyInput = { readonly amount: string; readonly currency: string };
 
@@ -38,6 +45,8 @@ export interface AllocationInput {
   readonly firstPeriod: string;
   readonly proportional?: boolean | undefined;
   readonly incomePlan?: MoneyInput | undefined;
+  /** FR 21: «План доходу» by income category — the income plan is their sum; not with `incomePlan`. */
+  readonly incomePlans?: readonly IncomePlanInput[] | undefined;
   readonly limits?: readonly LimitInput[] | undefined;
   /** The amounts chosen on the step, untyped (the calculation only). */
   readonly chosen?: readonly MoneyInput[] | undefined;
@@ -111,10 +120,9 @@ export async function planAllocation(
   const proportional = startChoices(today).choices.find((c) => c.start === "proportional");
   if (input.proportional === true && proportional?.firstPeriod !== input.firstPeriod)
     issues.push({ field: "proportional", issue: "invalid" });
-  const income = input.incomePlan
-    ? parseBudgetAmount("incomePlan", input.incomePlan, currency)
-    : Money.zero(currency);
-  if (!(income instanceof Money)) issues.push(income);
+  const incomeChecked = checkIncome(input, categories, currency);
+  issues.push(...incomeChecked.issues);
+  const income = incomeChecked.total;
   const checked = checkLimits(input.limits ?? [], categories, currency);
   issues.push(...checked.issues);
   const chosen: Money[] = [];
@@ -125,12 +133,13 @@ export async function planAllocation(
   });
   if (input.chosen !== undefined && input.allocation !== undefined)
     issues.push({ field: "chosen", issue: "with_allocation" });
-  if (issues.length > 0 || !(income instanceof Money)) return { kind: "invalid", issues };
+  if (issues.length > 0 || income === null) return { kind: "invalid", issues };
   const limits = checked.limits.flatMap((l) => (l.amount === null ? [] : [{ ...l, amount: l.amount }]));
   // FR 14: a proportional first period — the plan × (days left, today included) ÷ (days in the period).
   const share = input.proportional === true ? shareFrom(today) : null;
   const whole: PeriodPlan = {
     incomePlan: income,
+    incomePlans: incomeChecked.rows,
     plannedSavings: Money.zero(currency),
     limits: limits.map((l) => ({ ...l, mandatory: categories.get(l.categoryId)?.essential ?? false })),
   };

@@ -1,6 +1,8 @@
 import { currencyInfo, Decimal, Money } from "@willowsum/domain-kernel";
 import {
   addMonths,
+  categoryTotals,
+  incomePlansTotal,
   limitIssue,
   periodDays,
   periodFigures,
@@ -17,14 +19,23 @@ import {
  * 1–2). No I/O.
  */
 
-/** FR 3: half up to whole tens of the currency's units (assumption of the requirement: any reporting currency). */
+/**
+ * FR 3: to whole tens of the currency's units, an exact half to the even number of tens — 405 → 400, 415 → 420 (owner
+ * decision 2026-11-16; assumption of the requirement: any reporting currency). Wave 2 row 179.
+ */
 export function roundToTen(amount: Decimal, currency: string): Money {
-  return Money.of(amount.div(10).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).times(10), currency);
+  return Money.of(amount.div(10).toDecimalPlaces(0, Decimal.ROUND_HALF_EVEN).times(10), currency);
 }
 
-/** Half up to the currency's minor units: a plan the wizard proposes or scales is a storable amount (lead decision). */
+/**
+ * To the currency's minor units, an exact half to the even one (owner decision 2026-11-16, wave 2 row 179): a plan the
+ * wizard proposes or scales is a storable amount (lead decision).
+ */
 export function roundToMinor(amount: Decimal, currency: string): Money {
-  return Money.of(amount.toDecimalPlaces(currencyInfo(currency).minorUnits, Decimal.ROUND_HALF_UP), currency);
+  return Money.of(
+    amount.toDecimalPlaces(currencyInfo(currency).minorUnits, Decimal.ROUND_HALF_EVEN),
+    currency,
+  );
 }
 
 /** FR 14: the part of the first period the budget covers — from `from` to the period's last day, both included. */
@@ -92,23 +103,31 @@ export function startChoices(today: string): {
 
 /**
  * FR 14: in a proportional first period the limits, the income plan and the planned savings are multiplied by (days
- * left, today included) ÷ (days in the period); each amount half up to the currency's minor units (lead decision).
+ * left, today included) ÷ (days in the period); each amount to the currency's minor units, an exact half to even.
  */
 export function scalePlan(plan: PeriodPlan, share: PeriodShare): PeriodPlan {
   const scale = (m: Money) => roundToMinor(m.amount.times(share.days).div(share.daysInPeriod), m.currency);
+  // FR 21: by category — each category's plan scaled, and the income plan their sum (it stays the sum of the lines).
+  const incomePlans = plan.incomePlans?.map((l) => ({ ...l, amount: scale(l.amount) }));
   return {
-    incomePlan: scale(plan.incomePlan),
+    incomePlan:
+      incomePlans && incomePlans.length > 0
+        ? incomePlansTotal(incomePlans, plan.incomePlan.currency)
+        : scale(plan.incomePlan),
+    ...(incomePlans ? { incomePlans } : {}),
     plannedSavings: scale(plan.plannedSavings),
     limits: plan.limits.map((l) => ({ ...l, amount: scale(l.amount) })),
   };
 }
 
-/** One full month of history as the wizard reads it: income and spending by active expense category. */
+/** One full month of history as the wizard reads it: income by income category, spending by active expense category. */
 export interface MonthHistory {
   readonly period: Period;
   /** At least one counted transaction with a category. */
   readonly categorized: boolean;
   readonly income: Money;
+  /** FR 3, FR 21, EC1: the income of each active income category (a merged one in its target). */
+  readonly incomeByCategory: ReadonlyMap<string, Money>;
   readonly spent: ReadonlyMap<string, Money>;
 }
 
@@ -137,10 +156,14 @@ export function monthHistory(
   for (const o of figures.outsidePlan)
     if (o.categoryId !== null && limitIssue(categories.get(o.categoryId)) === null)
       spent.set(o.categoryId, o.spent);
+  const incomeByCategory = new Map<string, Money>();
+  for (const [id, t] of categoryTotals(categories, amounts, currency).income)
+    if (categories.get(id)?.state === "active") incomeByCategory.set(id, t.amount);
   return {
     period,
     categorized: amounts.some((a) => a.categoryId !== null),
     income: figures.totals.incomeActual ?? Money.zero(currency),
+    incomeByCategory,
     spent,
   };
 }
@@ -166,37 +189,76 @@ export interface ProposedLimit {
   readonly limit: Money | null;
 }
 
+/**
+ * FR 3, FR 21, EC1: an income category's line of «План доходу» — its 3-month average (the hint of the field) and the
+ * plan proposed: the average to tens, or for an irregular category its lowest month of 6 to tens.
+ */
+export interface ProposedIncome {
+  readonly categoryId: string;
+  /** The average income of the 3 full months (of the months it has, for a shorter history — EC1), to minor units. */
+  readonly average: Money;
+  readonly plan: Money;
+  /** EC1: the category's income is irregular (2 of 6 months off its 6-month average by more than 30 %). */
+  readonly irregular: boolean;
+}
+
 export interface Proposal {
   readonly available: boolean;
   readonly historyMonths: number;
-  /** FR 3: the average income of the 3 months; edge case 1 — the lowest month of 6 for an irregular income. */
+  /** FR 3, FR 21: the sum of the income categories' plans. */
   readonly incomePlan: Money | null;
+  /** EC1: at least one income category is irregular. */
   readonly incomeIrregular: boolean;
+  /** FR 21: the income categories with income in the 3 months, the largest plan first. */
+  readonly incomes: readonly ProposedIncome[];
   readonly limits: readonly ProposedLimit[];
 }
 
+const incomeOf = (m: MonthHistory, categoryId: string): Decimal =>
+  m.incomeByCategory.get(categoryId)?.amount ?? new Decimal("0");
+
 /**
- * Edge case 1: the income is irregular when at least 2 of the last 6 full months differ from their 6-month average by
- * more than 30 %. Needs 6 months of history; with fewer the income counts as regular (lead decision).
+ * Edge case 1 (lead decision 2026-11-21): the full months of an income category's history — from the newest back to
+ * its oldest month with income, within the categorized history without a gap (FR 2); 0 without income there.
  */
-export function incomeIrregular(months: readonly MonthHistory[]): boolean {
-  if (months.length < HISTORY_MONTHS || historyMonths(months) < HISTORY_MONTHS) return false;
-  const six = months.slice(0, HISTORY_MONTHS).map((m) => m.income.amount);
+export function incomeMonths(months: readonly MonthHistory[], categoryId: string): number {
+  for (let i = historyMonths(months) - 1; i >= 0; i--)
+    if (!incomeOf(months[i]!, categoryId).isZero()) return i + 1;
+  return 0;
+}
+
+/**
+ * Edge case 1, per income category (lead decision 2026-11-21): the category's income is irregular when at least 2 of
+ * the last 6 full months differ from its 6-month average by more than 30 %. Needs 6 full months of the category's
+ * history (`incomeMonths`); with fewer it is not irregular (lead decisions 2026-11-16 and 2026-11-21).
+ */
+export function incomeIrregular(months: readonly MonthHistory[], categoryId: string): boolean {
+  if (incomeMonths(months, categoryId) < HISTORY_MONTHS) return false;
+  const six = months.slice(0, HISTORY_MONTHS).map((m) => incomeOf(m, categoryId));
   const average = six.reduce((t, x) => t.plus(x), new Decimal("0")).div(HISTORY_MONTHS);
   const band = average.times("0.3");
   return six.filter((x) => x.minus(average).abs().greaterThan(band)).length >= 2;
 }
 
 /**
- * FR 2, FR 3, AC1, edge cases 1–2: «Створити за моїми витратами» — with at least 3 full months of categorized history,
- * a limit for each active expense category = its average spending over the last 3 full months, half up to tens; the
- * income plan = the average income of those months (irregular — the lowest month of 6). Without the history only
- * «Почати з нуля». `months` — the 6 full months before the current one, newest first.
+ * FR 2, FR 3, FR 21, AC1, AC18, edge cases 1–2: «Створити за моїми витратами» — with at least 3 full months of
+ * categorized history, a limit for each active expense category = its average spending over the last 3 full months, to
+ * tens (an exact half to even); a plan for each income category with income in those months = its average to tens
+ * (over the months of its history, at most 3 — edge case 1, lead decision 2026-11-21), or for an irregular category its
+ * lowest month of 6 to tens; the income plan = the sum of the categories' plans. Without
+ * the history only «Почати з нуля». `months` — the 6 full months before the current one, newest first.
  */
 export function proposeFromSpending(currency: string, months: readonly MonthHistory[]): Proposal {
   const history = historyMonths(months);
   if (history < MIN_HISTORY_MONTHS)
-    return { available: false, historyMonths: history, incomePlan: null, incomeIrregular: false, limits: [] };
+    return {
+      available: false,
+      historyMonths: history,
+      incomePlan: null,
+      incomeIrregular: false,
+      incomes: [],
+      limits: [],
+    };
   const three = months.slice(0, MIN_HISTORY_MONTHS);
   const totals = new Map<string, Decimal>();
   for (const m of three)
@@ -212,15 +274,40 @@ export function proposeFromSpending(currency: string, months: readonly MonthHist
       limit: limit.isZero() ? null : limit,
     });
   }
-  const irregular = incomeIrregular(months);
-  const income = irregular
-    ? Decimal.min(...months.slice(0, HISTORY_MONTHS).map((m) => m.income.amount))
-    : three.reduce((t, m) => t.plus(m.income.amount), new Decimal("0")).div(MIN_HISTORY_MONTHS);
+  const incomeIds = [...new Set(three.flatMap((m) => [...m.incomeByCategory.keys()]))];
+  const incomes: ProposedIncome[] = [];
+  for (const categoryId of incomeIds) {
+    // Edge case 1 (lead decision 2026-11-21): a category with a shorter history averages the months it has.
+    const own = Math.min(MIN_HISTORY_MONTHS, incomeMonths(months, categoryId));
+    if (own === 0) continue;
+    const exact = three.reduce((t, m) => t.plus(incomeOf(m, categoryId)), new Decimal("0")).div(own);
+    // FR 21: the categories that had income in the 3 months.
+    if (!exact.greaterThan(0)) continue;
+    const irregular = incomeIrregular(months, categoryId);
+    const base = irregular
+      ? Decimal.max(Decimal.min(...months.slice(0, HISTORY_MONTHS).map((m) => incomeOf(m, categoryId))), "0")
+      : exact;
+    incomes.push({
+      categoryId,
+      average: roundToMinor(exact, currency),
+      plan: roundToTen(base, currency),
+      irregular,
+    });
+  }
+  // The largest plan first, then the larger average; the category's id last — one order on every read.
+  incomes.sort(
+    (a, b) =>
+      b.plan.compare(a.plan) || b.average.compare(a.average) || (a.categoryId < b.categoryId ? -1 : 1),
+  );
   return {
     available: true,
     historyMonths: history,
-    incomePlan: roundToMinor(Decimal.max(income, "0"), currency),
-    incomeIrregular: irregular,
+    incomePlan: incomePlansTotal(
+      incomes.map((i) => ({ categoryId: i.categoryId, amount: i.plan })),
+      currency,
+    ),
+    incomeIrregular: incomes.some((i) => i.irregular),
+    incomes,
     limits,
   };
 }

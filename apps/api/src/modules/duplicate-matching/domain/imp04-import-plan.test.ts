@@ -258,6 +258,24 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
       of: hidden.transactionId,
     });
   });
+  it("IMP-04@PoC FR 1 (#696): a row of a statement imported before the joined description still finds its transaction", () => {
+    for (const over of [{}, { transfer: true }, { hidden: true }]) {
+      const e = tx({ amount: EUR("-25.00"), date: "2026-05-04", description: "Compra Mercadona", ...over });
+      const out = plan(
+        [
+          row({
+            amount: EUR("-25.00"),
+            date: "2026-05-04",
+            description: "Compra Mercadona · Tarjeta 1234",
+            legacyDescription: "Compra Mercadona",
+          }),
+        ],
+        [e],
+      );
+      expect(kinds(out)).toEqual(["duplicate"]);
+      expect(created(out)).toBe(0);
+    }
+  });
 });
 
 describe("IMP-04@PoC FR 2: «повтор у файлі»", () => {

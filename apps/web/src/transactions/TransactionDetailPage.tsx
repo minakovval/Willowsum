@@ -48,6 +48,7 @@ import {
   type TransactionDetail,
 } from "./detail.ts";
 import { filteredTransactionsPath } from "./filters.ts";
+import { BankDescriptionRow, StatementFacts } from "./StatementFacts.tsx";
 import { OneOffSwitch } from "./OneOffSwitch.tsx";
 import { SplitDialog } from "./SplitDialog.tsx";
 import "./transactionDetail.css";
@@ -283,6 +284,7 @@ export function Card({
             <dd>{tx.description}</dd>
           </div>
         ) : null}
+        <BankDescriptionRow transaction={tx} />
         <AttributeRows transaction={tx} locked={attributesLocked} onSaved={replace} />
         {tx.split ? (
           <SplitRow
@@ -301,6 +303,7 @@ export function Card({
           />
         ) : null}
       </dl>
+      <StatementFacts transaction={tx} />
       {oneOffShown ? <OneOffSwitch transaction={tx} onSaved={replace} /> : null}
       {canSplit || similar ? (
         // BUD-13@PoC FR 1, FR 10: «Розділити» and «Схожі транзакції» (canvas PocMoneyTxDetail).

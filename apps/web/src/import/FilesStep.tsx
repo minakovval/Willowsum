@@ -340,7 +340,16 @@ function FileLine(p: LineProps) {
             {row.refusal && row.refusal.reasons.length > 0 ? (
               <span className="imp-note imp-note-warn">
                 {t("import.account.other", {
-                  reasons: row.refusal.reasons.map((r) => t(REASON_WORD[r.kind])).join(", "),
+                  // IMP-05 FR 4: each reason with what the file and the account show (masked by the server).
+                  reasons: row.refusal.reasons
+                    .map((r) =>
+                      t("import.account.reasonDetail", {
+                        reason: t(REASON_WORD[r.kind]),
+                        file: r.file,
+                        account: r.account,
+                      }),
+                    )
+                    .join("; "),
                 })}
               </span>
             ) : suggested ? (

@@ -573,3 +573,118 @@ describe("#624: the technical ceilings of the parse step", () => {
     expect((await view(space, batch.batchId)).json().batch.state).toBe("parsed");
   });
 });
+
+describe("IMP-05@PoC EC3: a card statement's purchases abroad through the parse step", () => {
+  /** A monobank-shaped card statement (synthetic rows): the card's currency in the amount header, «Валюта» the operation's. */
+  const card = (code: string) =>
+    Buffer.from(
+      "﻿" +
+        [
+          [
+            "Дата i час операції",
+            "Деталі операції",
+            "MCC",
+            `Сума в валюті картки (${code})`,
+            "Сума в валюті операції",
+            "Валюта",
+            "Курс",
+            `Сума комісій (${code})`,
+            `Сума кешбеку (${code})`,
+            "Залишок після операції",
+          ],
+          [
+            "20.11.2026 18:05:11",
+            "Кав'ярня Тест",
+            "5814",
+            "-85.00",
+            "-85.00",
+            "UAH",
+            "—",
+            "—",
+            "—",
+            "9330.00",
+          ],
+          [
+            "18.11.2026 09:15:42",
+            "SYNTH SHOP ONLINE",
+            "5732",
+            "-415.00",
+            "-10.00",
+            "USD",
+            "41.5000",
+            "—",
+            "—",
+            "9415.00",
+          ],
+          [
+            "15.11.2026 14:45:10",
+            "SYNTH STORE EU",
+            "5999",
+            "-900.00",
+            "-20.00",
+            "EUR",
+            "45.0000",
+            "—",
+            "—",
+            "9830.00",
+          ],
+          [
+            "11.11.2026 07:30:00",
+            "Таксі Тест",
+            "4121",
+            "-150.00",
+            "-150.00",
+            "UAH",
+            "—",
+            "—",
+            "—",
+            "10730.00",
+          ],
+        ]
+          .map((r) => r.map((c) => `"${c}"`).join(","))
+          .join("\r\n") +
+        "\r\n",
+      "utf8",
+    );
+
+  it("IMP-05@PoC EC3, IMP-02@PoC FR 4: a UAH card file with USD and EUR purchases on the UAH account — no «чужий рахунок»; a USD card file still is one, «валюта» USD against UAH", async () => {
+    const space = await newSpace();
+    const uah = randomUUID();
+    accountsOf.set(`${space.householdId}/${uah}`, {
+      accountId: uah,
+      kind: "current",
+      status: "active",
+      subaccounts: [{ subaccountId: randomUUID(), currency: "UAH", ledgerAccountId: randomUUID() }],
+    });
+    const batch = await batchWith(space, [
+      { name: "card-uah.csv", bytes: card("UAH") },
+      { name: "card-usd.csv", bytes: card("USD") },
+    ]);
+    const started = await parse(space, batch.batchId, {
+      files: batch.fileIds.map((fileId) => ({ fileId, accountId: uah })),
+    });
+    expect(started.statusCode, started.body).toBe(200);
+    await work(space.householdId);
+    const body = (await view(space, batch.batchId)).json();
+    const [own, foreign] = body.files;
+    expect(own.checks.account.reasons).toEqual([]);
+    expect(own.checks.flags.map((f: { code: string }) => f.code)).not.toContain("foreign-account");
+    expect(foreign.checks.account).toEqual({
+      status: "mismatch",
+      reasons: [{ kind: "currency", file: "USD", account: "UAH" }],
+    });
+    const rows = await call(
+      space,
+      "GET",
+      `/v1/import/batches/${batch.batchId}/files/${batch.fileIds[0]}/rows`,
+    );
+    expect(rows.json().items[1]).toMatchObject({
+      legs: [{ amount: "-415.00", currency: "UAH" }],
+      original: { amount: "-10.00", currency: "USD" },
+    });
+    // The readiness asks to confirm the USD file's account only.
+    const ready = (await call(space, "GET", `/v1/import/batches/${batch.batchId}/readiness`)).json();
+    const confirm = ready.refusals.find((r: { code: string }) => r.code === "confirm-account");
+    expect(confirm.files.map((f: { fileId: string }) => f.fileId)).toEqual([batch.fileIds[1]]);
+  });
+});

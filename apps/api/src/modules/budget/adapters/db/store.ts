@@ -92,6 +92,27 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
           [householdId, budgetId, categoryId, amount.toDecimalString(), amount.currency],
         );
     },
+    async incomePlans(householdId, budgetId) {
+      const { rows } = await q.query<{ category_id: string; amount: string; currency: string }>(
+        `SELECT category_id, amount::text AS amount, currency FROM income_plans
+          WHERE household_id = $1 AND budget_id = $2 ORDER BY category_id`,
+        [householdId, budgetId],
+      );
+      return rows.map((r) => ({ categoryId: r.category_id, amount: Money.of(r.amount, r.currency) }));
+    },
+    async setIncomePlan(householdId, budgetId, categoryId, amount) {
+      if (amount === null)
+        await q.query(
+          `DELETE FROM income_plans WHERE household_id = $1 AND budget_id = $2 AND category_id = $3`,
+          [householdId, budgetId, categoryId],
+        );
+      else
+        await q.query(
+          `INSERT INTO income_plans (household_id, budget_id, category_id, amount, currency) VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (household_id, budget_id, category_id) DO UPDATE SET amount = EXCLUDED.amount`,
+          [householdId, budgetId, categoryId, amount.toDecimalString(), amount.currency],
+        );
+    },
     async accountChoices(householdId) {
       const { rows } = await q.query<{ account_id: string; included: boolean }>(
         `SELECT account_id, included FROM budget_accounts WHERE household_id = $1`,
@@ -119,9 +140,10 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
         income_plan: string;
         planned_savings: string;
         limits: { categoryId: string; amount: string; mandatory: boolean }[];
+        income_plans: { categoryId: string; amount: string }[] | null;
       }>(
         `SELECT to_char(period, 'YYYY-MM') AS period, currency, income_plan::text AS income_plan,
-                planned_savings::text AS planned_savings, limits
+                planned_savings::text AS planned_savings, limits, income_plans
            FROM period_snapshots WHERE household_id = $1 AND budget_id = $2`,
         [householdId, budgetId],
       );
@@ -132,14 +154,24 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
             incomePlan: Money.of(r.income_plan, r.currency),
             plannedSavings: Money.of(r.planned_savings, r.currency),
             limits: r.limits.map((l) => ({ ...l, amount: Money.of(l.amount, r.currency) })),
+            // FR 11: a snapshot written before 0007 has no income plan by category.
+            ...(r.income_plans === null
+              ? {}
+              : {
+                  incomePlans: r.income_plans.map((l) => ({
+                    categoryId: l.categoryId,
+                    amount: Money.of(l.amount, r.currency),
+                  })),
+                }),
           },
         ]),
       );
     },
     async insertSnapshot(householdId, budgetId, period, plan) {
       await q.query(
-        `INSERT INTO period_snapshots (household_id, budget_id, period, currency, income_plan, planned_savings, limits)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`,
+        `INSERT INTO period_snapshots
+           (household_id, budget_id, period, currency, income_plan, planned_savings, limits, income_plans)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
         [
           householdId,
           budgetId,
@@ -152,6 +184,12 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
               categoryId: l.categoryId,
               amount: l.amount.toDecimalString(),
               mandatory: l.mandatory,
+            })),
+          ),
+          JSON.stringify(
+            (plan.incomePlans ?? []).map((l) => ({
+              categoryId: l.categoryId,
+              amount: l.amount.toDecimalString(),
             })),
           ),
         ],
