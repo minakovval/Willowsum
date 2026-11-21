@@ -76,13 +76,15 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** How long a request of the step may take before the screen says the connection failed (#698). */
 export const REQUEST_LIMIT = { ms: 20_000 };
 
-/** The request's outcome, or «no connection» once it has taken longer than {@link REQUEST_LIMIT}. */
+/** The request's outcome, or «no connection» once it has thrown or taken longer than {@link REQUEST_LIMIT}. */
 function bounded<T>(request: Promise<Outcome<T>>): Promise<Outcome<T>> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const late = new Promise<Outcome<T>>((resolve) => {
     timer = setTimeout(() => resolve({ ok: false, kind: "network" }), REQUEST_LIMIT.ms);
   });
-  return Promise.race([request, late]).finally(() => clearTimeout(timer));
+  // A request that throws is a lost connection too (#698): no step waits on a rejected promise.
+  const settled = request.catch((): Outcome<T> => ({ ok: false, kind: "network" }));
+  return Promise.race([settled, late]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -122,7 +124,7 @@ export function useReviewStep(batchId: string) {
     let live = true;
     void (async () => {
       for (;;) {
-        const b = await loadBatch(api, batchId);
+        const b = await bounded(loadBatch(api, batchId));
         if (!live) return;
         if (!b.ok) {
           setBase(
@@ -136,7 +138,7 @@ export function useReviewStep(batchId: string) {
           setBase({ kind: "closed", state: b.data.state });
           return;
         }
-        const p = await loadParse(api, batchId);
+        const p = await bounded(loadParse(api, batchId));
         if (!live) return;
         if (!p.ok) {
           setBase({ kind: "error", failure: failureOf(p) });
@@ -147,7 +149,7 @@ export function useReviewStep(batchId: string) {
           if (!live) return;
           continue;
         }
-        const r = await loadReadiness(api, batchId);
+        const r = await bounded(loadReadiness(api, batchId));
         if (!live) return;
         if (!r.ok) {
           setBase({ kind: "error", failure: failureOf(r) });
@@ -170,8 +172,8 @@ export function useReviewStep(batchId: string) {
     let live = true;
     void (async () => {
       const [r, d] = await Promise.all([
-        loadReview(api, batchId, fileId),
-        loadDuplicates(api, batchId, fileId),
+        bounded(loadReview(api, batchId, fileId)),
+        bounded(loadDuplicates(api, batchId, fileId)),
       ]);
       if (!live) return;
       setReview(r.ok ? { kind: "ready", data: r.data } : { kind: "error", failure: failureOf(r) });
@@ -190,7 +192,7 @@ export function useReviewStep(batchId: string) {
     if (!fileKey) return;
     let live = true;
     void (async () => {
-      const all = await Promise.all(fileKey.split(",").map((id) => loadReview(api, batchId, id)));
+      const all = await Promise.all(fileKey.split(",").map((id) => bounded(loadReview(api, batchId, id))));
       if (!live) return;
       // A file whose summary cannot be read keeps the button waiting: the batch is not known to be free of errors.
       setErrorRows(

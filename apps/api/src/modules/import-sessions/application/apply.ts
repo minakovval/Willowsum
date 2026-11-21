@@ -91,6 +91,12 @@ export class ApplyNotReady extends Error {
 
 export const ROW_ISSUES = ["unreadable", "currency", "too-precise", "fee", "account", "text"] as const;
 export type RowIssue = (typeof ROW_ISSUES)[number];
+/**
+ * What more an issue says (#703 round 1), a field of its own beside the closed `issue` codes: `fee-basis` — «fee», the
+ * statement's balances do not tell whether the amount includes the fee (the fee itself reads).
+ */
+export const ROW_ISSUE_DETAILS = ["fee-basis"] as const;
+export type RowIssueDetail = (typeof ROW_ISSUE_DETAILS)[number];
 
 /** At most this many rows are named in a refusal. */
 export const ROWS_NAMED = 20;
@@ -201,13 +207,17 @@ export function fileRows(
   readonly rows: readonly ApplyRow[];
   readonly excluded: number;
   readonly zero: number;
-  readonly issues: readonly { readonly row: number; readonly issue: RowIssue }[];
+  readonly issues: readonly {
+    readonly row: number;
+    readonly issue: RowIssue;
+    readonly detail?: RowIssueDetail;
+  }[];
 } {
   const excluded = new Set(plan.excluded);
   const flipped = new Set(plan.flipped);
   const readings = new Map(plan.readings.map((r) => [r.row, r.value]));
   const rows: ApplyRow[] = [];
-  const issues: { row: number; issue: RowIssue }[] = [];
+  const issues: { row: number; issue: RowIssue; detail?: RowIssueDetail }[] = [];
   let zero = 0;
   let skipped = 0;
   for (const e of events) {
@@ -229,6 +239,11 @@ export function fileRows(
     // read, or the parse did not tell whether the amount includes it (a parse sealed before that was read).
     if (e.flags.includes("fee-unreadable")) {
       issues.push({ row: e.row, issue: "fee" });
+      continue;
+    }
+    // #703: the statement's balances do not tell whether the amount includes the fee — shown, never guessed.
+    if (e.flags.includes("fee-basis-unknown")) {
+      issues.push({ row: e.row, issue: "fee", detail: "fee-basis" });
       continue;
     }
     const feeCharged = e.fee && !new Decimal(e.fee.amount).isZero() ? new Decimal(e.fee.amount).abs() : null;
@@ -497,7 +512,7 @@ export async function applyBatch(
     if (file.plan.dateOrder !== null && file.plan.dateOrder !== engineOrder)
       throw new ApplyUnsupported("date-order");
     const out = fileRows(sealed.events.events, file.plan, file.review);
-    for (const i of out.issues) issues.push({ fileId: file.review.batchFileId, ...i });
+    for (const i of out.issues) issues.push({ fileId: file.review.batchFileId, row: i.row, issue: i.issue });
     total += out.rows.length;
     // #654: one apply writes at most APPLY_ROWS_MAX rows (checked before anything is stored).
     if (total > APPLY_ROWS_MAX) throw new ApplyTooLarge();

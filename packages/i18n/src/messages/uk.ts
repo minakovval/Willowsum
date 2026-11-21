@@ -3163,6 +3163,7 @@ export const uk = {
   "importReview.issue.currency": "У рядка немає валюти.",
   "importReview.issue.too-precise": "У сумі більше знаків після коми, ніж дозволяє валюта.",
   "importReview.issue.fee": "Комісію не вдалося прочитати.",
+  "importReview.issue.fee-basis": "Залишки виписки не показують, чи сума вже містить комісію.",
   "importReview.issue.account": "Рядок належить іншому рахунку.",
   "importReview.issue.text": "Текст рядка задовгий.",
   "importReview.issue.other": "Причину названо в коді рушія.",

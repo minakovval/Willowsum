@@ -167,11 +167,11 @@ describe("IMP-02@PoC FR 5: a monobank row with a commission is read with its fee
 });
 
 describe("IMP-02@PoC FR 5: whether the amount includes the fee is read from the file", () => {
-  /** A generic bank: the amount without its fee, the balance after both (opening 1 000,00). */
+  /** A generic bank: the amount without its fee, the balance after both (opening 1 000,00); the fee row on a link. */
   const GENERIC = [
     ["Дата", "Опис", "Сума", "Комісія", "Залишок"],
-    ["01.03.2026", "Переказ Тест", "-100.00", "1.50", "898.50"],
-    ["02.03.2026", "Кава Тест", "-4.00", "", "894.50"],
+    ["01.03.2026", "Кава Тест", "-4.00", "", "996.00"],
+    ["02.03.2026", "Переказ Тест", "-100.00", "1.50", "894.50"],
     ["03.03.2026", "Надходження Тест", "200.00", "", "1094.50"],
   ];
 
@@ -193,5 +193,54 @@ describe("IMP-02@PoC FR 5: whether the amount includes the fee is read from the 
   it("IMP-02@PoC FR 5: without balances an amount header that names the card's currency includes the fee", () => {
     const p = parse(printed().map((r) => r.slice(0, 9)));
     expect(byDetails(p, "Переказ на картку").feeIncluded).toBe(true);
+  });
+
+  /** Amounts with the fee in them (opening 1 000,00), one real break at 03.03 that has no fee. */
+  const BROKEN = [
+    ["Дата", "Опис", "Сума", "Комісія", "Залишок"],
+    ["01.03.2026", "Переказ Тест", "-100.00", "1.50", "900.00"],
+    ["02.03.2026", "Кава Тест", "-4.00", "", "896.00"],
+    ["03.03.2026", "Надходження Тест", "200.00", "", "1090.00"],
+    ["04.03.2026", "Платіж Тест", "-50.00", "2.00", "1040.00"],
+  ];
+
+  it("IMP-02@PoC FR 5: a real break elsewhere — the unbroken links of the fee rows decide the basis (#703)", () => {
+    const p = parse(BROKEN);
+    expect(status(p, "balance-chain")).toBe("mismatch");
+    expect(byDetails(p, "Платіж Тест").feeIncluded).toBe(true);
+    expect(byDetails(p, "Переказ Тест").feeIncluded).toBe(true);
+    expect(p.events.events.flatMap((e) => e.flags)).toEqual([]);
+  });
+
+  it("IMP-02@PoC FR 5: balances that do not tell (the break at the only linked fee row) — the fee rows are flagged, never guessed (#703)", () => {
+    const p = parse(BROKEN.map((r) => (r[1] === "Платіж Тест" ? [...r.slice(0, 4), "1030.00"] : r)));
+    for (const details of ["Платіж Тест", "Переказ Тест"]) {
+      const e = byDetails(p, details);
+      expect(e.feeIncluded).toBeUndefined();
+      expect(e.flags).toContain("fee-basis-unknown");
+    }
+    expect(byDetails(p, "Кава Тест").flags).toEqual([]);
+  });
+
+  it("IMP-02@PoC FR 5: balances that verify either way (the fee row first, on no link) — the card-currency header tells", () => {
+    const rows = [
+      HEADER,
+      ["05.11.2026 10:00:00", "Кав'ярня Тест", "5814", "-50.00", "-50.00", "UAH", "—", "—", "—", "62944.00"],
+      [
+        "04.11.2026 18:00:00",
+        "Банкомат Синтетик",
+        "6011",
+        "-2020.00",
+        "-2000.00",
+        "UAH",
+        "—",
+        "20.00",
+        "—",
+        "62994.00",
+      ],
+    ];
+    const atm = byDetails(parse(rows), "Банкомат Синтетик");
+    expect(atm.feeIncluded).toBe(true);
+    expect(atm.flags).toEqual([]);
   });
 });

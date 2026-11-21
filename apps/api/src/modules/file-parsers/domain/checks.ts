@@ -113,6 +113,8 @@ interface Link {
  */
 function chainOrder(links: readonly Link[]): Link[] {
   const ordered: Link[] = [];
+  const key = (d: Decimal) => d.toFixed();
+  const before = (l: Link) => l.balance.minus(l.amount);
   let i = 0;
   while (i < links.length) {
     const day = links[i]!.event.date;
@@ -120,24 +122,39 @@ function chainOrder(links: readonly Link[]): Link[] {
     while (day !== null && j < links.length && links[j]!.event.date === day) j += 1;
     const rest = links.slice(i, j);
     i = j;
-    const before = (l: Link) => l.balance.minus(l.amount);
+    // Linear per day (#703 round 1): the rows by the balance before them, each list in printed order.
+    const byBefore = new Map<string, number[]>();
+    rest.forEach((l, k) => {
+      const at = key(before(l));
+      const list = byBefore.get(at);
+      if (list) list.push(k);
+      else byBefore.set(at, [k]);
+    });
+    const used = new Array<boolean>(rest.length).fill(false);
+    const take = (k: number) => {
+      used[k] = true;
+      ordered.push(rest[k]!);
+      return rest[k]!.balance;
+    };
     let reached = ordered.at(-1)?.balance ?? null;
     if (reached === null) {
       // The first day: it starts at the row no other row of the day leads to (else as printed).
-      const start = rest.find((l) => !rest.some((o) => o !== l && o.balance.eq(before(l)))) ?? rest[0]!;
-      rest.splice(rest.indexOf(start), 1);
-      ordered.push(start);
-      reached = start.balance;
+      const balances = new Map<string, number>();
+      for (const l of rest) balances.set(key(l.balance), (balances.get(key(l.balance)) ?? 0) + 1);
+      const ledTo = (l: Link) => (balances.get(key(before(l))) ?? 0) - (l.balance.eq(before(l)) ? 1 : 0) > 0;
+      const start = rest.findIndex((l) => !ledTo(l));
+      reached = take(start < 0 ? 0 : start);
     }
-    while (rest.length > 0) {
-      const at = rest.findIndex((l) => before(l).eq(reached!));
-      if (at < 0) {
-        ordered.push(...rest);
+    for (let left = rest.length - used.filter(Boolean).length; left > 0; left -= 1) {
+      const list = byBefore.get(key(reached!));
+      while (list && list.length > 0 && used[list[0]!]) list.shift();
+      if (!list || list.length === 0) {
+        rest.forEach((l, k) => {
+          if (!used[k]) ordered.push(l);
+        });
         break;
       }
-      const [next] = rest.splice(at, 1);
-      ordered.push(next!);
-      reached = next!.balance;
+      reached = take(list.shift()!);
     }
   }
   return ordered;

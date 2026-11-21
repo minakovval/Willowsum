@@ -37301,6 +37301,20 @@
                             ],
                             "x-extensible-enum": true
                           },
+                          "issueDetail": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "fee-basis"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "x-extensible-enum": true
+                          },
                           "bankStatus": {
                             "anyOf": [
                               {
@@ -37325,6 +37339,7 @@
                           "sign",
                           "reading",
                           "issue",
+                          "issueDetail",
                           "bankStatus"
                         ],
                         "additionalProperties": false

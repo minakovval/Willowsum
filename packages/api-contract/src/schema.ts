@@ -16643,6 +16643,7 @@ export interface operations {
                                 from: "row" | "group";
                             } | null;
                             issue: ("unreadable" | "currency" | "too-precise" | "fee" | "account" | "text") | null;
+                            issueDetail: "fee-basis" | null;
                             reading: {
                                 cell: string;
                                 chosen: string | null;

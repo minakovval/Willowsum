@@ -60,6 +60,8 @@ export type EventFlag =
   | "amount-unreadable"
   /** FR 5: the fee cell holds something that is not a number (and not the bank's «—» for none): never dropped silently. */
   | "fee-unreadable"
+  /** FR 5 (#703): the balances break and their unbroken links do not tell whether the amounts include the fees. */
+  | "fee-basis-unknown"
   | "date-unreadable"
   /** A text over `EVENT_LIMITS.textChars` came out cut. */
   | "text-cut";

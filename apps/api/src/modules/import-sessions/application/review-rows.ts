@@ -10,7 +10,13 @@ import type {
   StatementEvent,
 } from "../../file-parsers/index.ts";
 import { maskNumbers, type BatchState } from "../domain/index.ts";
-import { fileRows, type ApplyPorts, type ApplyBatchesTx, type RowIssue } from "./apply.ts";
+import {
+  fileRows,
+  type ApplyPorts,
+  type ApplyBatchesTx,
+  type RowIssue,
+  type RowIssueDetail,
+} from "./apply.ts";
 import { BatchNotFoundError, BatchStateErrorFor } from "./batches.ts";
 import type { ReviewBatchesTx } from "./decisions.ts";
 import { parsePurpose, type FileParse, type ParseTx, type SealedParse } from "./parse.ts";
@@ -70,6 +76,8 @@ export interface ReviewRow {
   } | null;
   /** Why the row cannot be written as it is («помилка»); null — it can. */
   readonly issue: RowIssue | null;
+  /** #703: what more the issue says (`fee-basis`); null — nothing more. */
+  readonly issueDetail: RowIssueDetail | null;
   /** FR 10: null until the parser reads the bank's status (IMP-01 FR 16, a follow-up). */
   readonly bankStatus: BankStatus | null;
 }
@@ -113,7 +121,9 @@ export function reviewRows(
   );
   const chosen = new Map(plan.readings.map((r) => [r.row, r.value]));
   const flipped = new Set(plan.flipped);
-  const issues = new Map(fileRows(events, plan, review).issues.map((i) => [i.row, i.issue]));
+  const found = fileRows(events, plan, review).issues;
+  const issues = new Map(found.map((i) => [i.row, i.issue]));
+  const details = new Map(found.flatMap((i) => (i.detail ? [[i.row, i.detail] as const] : [])));
   const evidence = analysis.numbers?.evidence ?? [];
   return events.map((e): ReviewRow => {
     const action = d.disposition(e.row);
@@ -147,6 +157,7 @@ export function reviewRows(
           }
         : null,
       issue: issues.get(e.row) ?? null,
+      issueDetail: details.get(e.row) ?? null,
       bankStatus: null,
     };
   });

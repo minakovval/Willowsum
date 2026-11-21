@@ -7,6 +7,13 @@
 --
 -- Expand only: one nullable column and one check that every row of the previous code passes (it writes no fee). No
 -- index: it is read only with its row.
+--
+-- The fee keeps its own currency (`bank_fee_currency`, the currency of the row as imported): the row's currency can
+-- change later (an edit to another wallet of the account), and the fee is never read in a currency it was not charged
+-- in (AGENTS.md «Money»: the original currency is stored).
 ALTER TABLE transactions ADD COLUMN bank_fee numeric(38, 18);
+ALTER TABLE transactions ADD COLUMN bank_fee_currency text;
 ALTER TABLE transactions ADD CONSTRAINT transactions_bank_fee_check
-  CHECK (bank_fee IS NULL OR (bank_fee > 0 AND import_file_id IS NOT NULL));
+  CHECK ((bank_fee IS NULL) = (bank_fee_currency IS NULL)
+         AND (bank_fee IS NULL OR (bank_fee > 0 AND import_file_id IS NOT NULL
+                                   AND bank_fee_currency ~ '^[A-Z][A-Z0-9]{2,9}$')));

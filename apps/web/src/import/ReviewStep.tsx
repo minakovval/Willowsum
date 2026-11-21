@@ -886,7 +886,14 @@ function RowDetail({ view, step }: { view: RowView; step: Step }) {
       {row.issue ? (
         <p>
           <b>{t("importReview.issue.title")}</b>{" "}
-          {t(row.issue in ISSUE ? ISSUE[row.issue as keyof typeof ISSUE] : "importReview.issue.other")}
+          {t(
+            // #703: «fee» whose fee reads but whose place in the amount the balances do not tell.
+            row.issueDetail === "fee-basis"
+              ? "importReview.issue.fee-basis"
+              : row.issue in ISSUE
+                ? ISSUE[row.issue as keyof typeof ISSUE]
+                : "importReview.issue.other",
+          )}
         </p>
       ) : null}
       {row.state === "excluded" ? <p>{t("importReview.excluded.text")}</p> : null}

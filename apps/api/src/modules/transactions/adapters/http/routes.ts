@@ -244,7 +244,10 @@ function bankOut(f: BankFields | undefined): BankOut {
     exchangeRate: rate === null ? null : new Decimal(rate).toFixed(),
     valueDate: f.valueDate === null || f.valueDate === undefined ? null : dateText(f.valueDate),
     bankReference: text(f.bankReference),
-    bankFee: text(f.bankFee) === null ? null : Money.of(String(f.bankFee), String(f.currency)).toJSON(),
+    bankFee:
+      text(f.bankFee) === null || text(f.bankFeeCurrency) === null
+        ? null
+        : Money.of(String(f.bankFee), String(f.bankFeeCurrency)).toJSON(),
   };
 }
 

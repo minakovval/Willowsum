@@ -118,4 +118,14 @@ describe("IMP-02@PoC FR 5: rows with the bank's fee are written with it", () => 
     ]);
     expect(written(out)).toEqual([[5, "-10", "1"]]);
   });
+
+  it("IMP-02@PoC FR 5: a fee the balances do not place in or out of the amount is «fee» with the detail «fee-basis» — the row is shown, never written by a guess (#703)", () => {
+    const out = fileRows(
+      [event(1, "-50.00", { ...fee("2.00"), flags: ["fee-basis-unknown"] }), event(2, "-4.00")],
+      plan(),
+      review,
+    );
+    expect(out.issues).toEqual([{ row: 1, issue: "fee", detail: "fee-basis" }]);
+    expect(written(out)).toEqual([[2, "-4", null]]);
+  });
 });
