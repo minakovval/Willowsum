@@ -2973,6 +2973,7 @@ export const en: Messages = {
   "import.account.reason.iban": "IBAN",
   "import.account.reason.card": "card number",
   "import.account.reason.currency": "currency",
+  "import.account.reasonDetail": "{reason} {file} in the file, {account} in the account",
   "import.account.saveFailed": "Could not save the account choice.",
   "import.template.match": "Template applied",
   "import.template.changed": "The format changed — review it",

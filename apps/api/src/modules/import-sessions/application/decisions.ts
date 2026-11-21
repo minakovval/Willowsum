@@ -123,13 +123,15 @@ export async function recordChecks(
 
 /**
  * IMP-05 FR 4 and its business rule, #637 item 3: the account evidence is kept masked whatever the parse step gave —
- * an IBAN or a card as «…» and at most its last 4 characters, a currency only as a code. The boundary checks it again
+ * an IBAN or a card as «…» and at most its last 4 characters, a currency only as a code (or a list of codes). The boundary checks it again
  * instead of trusting the parse.
  */
 export function maskedChecks(checks: StatementChecks): StatementChecks {
   const masked = (value: string) =>
     /^…[^…]{0,4}$/u.test(value) ? value : `…${[...value.replace(/^…+/u, "")].slice(-4).join("")}`;
-  const code = (value: string) => (/^[A-Z0-9]{3,10}$/.test(value) ? value : masked(value));
+  // EC3: a file in several currencies the account does not hold names them all («EUR, USD»), up to 8 codes.
+  const code = (value: string) =>
+    /^[A-Z0-9]{3,10}(?:, [A-Z0-9]{3,10}){0,7}$/.test(value) ? value : masked(value);
   return {
     ...checks,
     account: {

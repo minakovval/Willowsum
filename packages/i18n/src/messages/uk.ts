@@ -2960,6 +2960,7 @@ export const uk = {
   "import.account.reason.iban": "IBAN",
   "import.account.reason.card": "номер картки",
   "import.account.reason.currency": "валюта",
+  "import.account.reasonDetail": "{reason} {file} у файлі, {account} у рахунку",
   "import.account.saveFailed": "Не вдалося зберегти вибір рахунку.",
   "import.template.match": "Застосовано шаблон",
   "import.template.changed": "Формат змінився — перегляньте",

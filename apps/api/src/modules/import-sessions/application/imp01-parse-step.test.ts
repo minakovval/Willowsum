@@ -66,6 +66,26 @@ describe("IMP-05@PoC FR 4: the account evidence is masked at the boundary (#637 
   });
 });
 
+describe("IMP-05@PoC EC3: the file's currencies are shown as codes", () => {
+  const checks = (reasons: StatementChecks["account"]["reasons"]) =>
+    ({ account: { status: "mismatch", reasons }, flags: [] }) as unknown as StatementChecks;
+
+  it("IMP-05@PoC EC3: a file in two currencies other than the account's keeps both codes, not «… USD»", () => {
+    const out = maskedChecks(
+      checks([
+        { kind: "currency", file: "EUR, USD", account: "UAH" },
+        { kind: "currency", file: "EUR, USD; 4111 1111", account: "UAH" },
+        { kind: "currency", file: Array.from({ length: 9 }, () => "USD").join(", "), account: "UAH" },
+      ]),
+    );
+    expect(out.account.reasons).toEqual([
+      { kind: "currency", file: "EUR, USD", account: "UAH" },
+      { kind: "currency", file: "…1111", account: "UAH" },
+      { kind: "currency", file: "… USD", account: "UAH" },
+    ]);
+  });
+});
+
 describe("IMP-05@PoC «Бізнес-правила»: numbers in a bank's text are masked in the rows' answer", () => {
   it("IMP-05@PoC «Бізнес-правила»: an IBAN or a card number in a description shows only its last 4 characters", () => {
     const iban = ["UA", "21", "3223130000026007233566001"].join("");
