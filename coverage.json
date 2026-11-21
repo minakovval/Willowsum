@@ -1,17 +1,17 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-21T05:35:05.012Z",
-  "sha": "c0fe1e46edc9f4ace4c43a12021da2d8081158da",
+  "generatedAt": "2026-11-21T05:53:29.384Z",
+  "sha": "45a9ada392b10978729758f124253b95ecce6027",
   "releases": [
     {
       "release": "PoC",
       "slices": 152,
       "FR": {
-        "covered": 822,
+        "covered": 827,
         "total": 1392
       },
       "AC": {
-        "covered": 643,
+        "covered": 645,
         "total": 1075
       },
       "EC": {
@@ -19,7 +19,7 @@
         "total": 201
       },
       "items": {
-        "covered": 1589,
+        "covered": 1596,
         "total": 2668
       }
     },
@@ -27,11 +27,11 @@
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 398,
+        "covered": 403,
         "total": 1197
       },
       "AC": {
-        "covered": 354,
+        "covered": 356,
         "total": 1014
       },
       "EC": {
@@ -39,7 +39,7 @@
         "total": 245
       },
       "items": {
-        "covered": 836,
+        "covered": 843,
         "total": 2456
       }
     },
@@ -47,11 +47,11 @@
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 488,
+        "covered": 491,
         "total": 3390
       },
       "AC": {
-        "covered": 446,
+        "covered": 447,
         "total": 2980
       },
       "EC": {
@@ -59,7 +59,7 @@
         "total": 723
       },
       "items": {
-        "covered": 1029,
+        "covered": 1033,
         "total": 7093
       }
     },
