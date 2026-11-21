@@ -339,6 +339,21 @@
   gap: var(--ws-space-2);
 }
 
+.review-card-link {
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+
+/* The bank's text: wraps (a word without spaces too), at most 2 lines, the full text in `title`. */
+.review-card-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin: calc(-1 * var(--ws-space-2)) 0 0;
+}
+
 .review-card-facts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

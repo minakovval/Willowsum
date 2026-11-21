@@ -23,7 +23,7 @@ import {
   type ToastTone,
 } from "@willowsum/ui";
 import { useAuthApi, type Outcome } from "../auth/api.ts";
-import { TRANSACTIONS } from "../routing/routes.ts";
+import { TRANSACTIONS, transactionPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import type { Loaded, TransactionItem } from "./list.ts";
 import { QuickCategory } from "./NewTransactionDialog.tsx";
@@ -743,6 +743,13 @@ function CardsView({
 
   const category = card.categoryId ? (categories.byId.get(card.categoryId) ?? null) : null;
   const merchant = card.item.counterparty ?? t("review.group.noMerchant");
+  // The statement's own text under the title: always without a merchant; with one, only when it says more.
+  const text = card.item.description?.trim() ?? "";
+  const statement =
+    text !== "" &&
+    (card.item.counterparty === null || text.toLowerCase() !== card.item.counterparty.trim().toLowerCase())
+      ? text
+      : null;
   return (
     <section
       className="ws-card review-card"
@@ -751,8 +758,15 @@ function CardsView({
     >
       <p className="ws-visually-hidden">{t("review.card.label")}</p>
       <h2 id="review-card-title" className="ws-text-heading-3">
-        {merchant}
+        <a className="review-card-link" href={hrefFor(transactionPath(card.item.id))}>
+          {merchant}
+        </a>
       </h2>
+      {statement ? (
+        <p className="review-card-text ws-muted" title={statement}>
+          {statement}
+        </p>
+      ) : null}
       <dl className="review-card-facts">
         <div>
           <dt className="ws-muted">{t("review.card.amount")}</dt>
