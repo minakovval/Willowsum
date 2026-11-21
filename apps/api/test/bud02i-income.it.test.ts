@@ -327,7 +327,7 @@ async function transaction(
   expect(set.statusCode, set.body).toBe(200);
 }
 
-/** «Нова категорія доходу…»: a custom income category in the group of that name (BUD-01 FR 2, FR 13). */
+/** «Нова категорія доходу…»: a custom income category in the group of that name (made as in «Налаштування → Категорії»). */
 async function newIncomeCategory(space: Space, group: string, name: string): Promise<string> {
   const tree = await call(space, "GET", "/v1/categories");
   const groupId = (tree.json().groups as { id: string; name: string }[]).find((g) => g.name === group)!.id;
@@ -403,10 +403,11 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
     await transaction(space, acc, "150.00", "2026-11-03", "Дохід від оренди");
     const nov = await period(space, "2026-11");
     expect(nov.incomePlan).toEqual(eur("5700"));
-    // FR 9: first the categories still below the plan (tree order), then those that reached it.
+    // FR 9: first the categories still below the plan (in the order the space's tree lists them; a new custom category
+    // comes after the catalogue's), then those that reached it.
     expect(nov.incomeCategories).toEqual([
-      { categoryId: tutoring, plan: eur("300"), actual: eur("0") },
       { categoryId: rent, plan: eur("400"), actual: eur("150") },
+      { categoryId: tutoring, plan: eur("300"), actual: eur("0") },
       { categoryId: salary, plan: eur("5000"), actual: eur("5000") },
     ]);
   });

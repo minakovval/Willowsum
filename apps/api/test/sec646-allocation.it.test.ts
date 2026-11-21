@@ -546,13 +546,11 @@ describe("sec646: integrity", () => {
     ]);
   });
 
-  it("sec646: a deficit cannot be saved with an empty «Розподіл», surplus rows or two goals covering it inexactly; a balanced plan takes no row", async () => {
+  it("sec646: a deficit cannot be saved with surplus rows, over N or one goal twice; a balanced plan takes no row; «Лишити дефіцит» is saved (BUD-02@PoC AC17)", async () => {
     const { space, goalId, plan } = await deficitSpace();
     for (const allocation of [
-      [],
       [{ kind: "savings", amount: eur("200") }],
       [{ kind: "goal", goalId, amount: eur("200") }],
-      [{ kind: "from-goal", goalId, amount: eur("0") }],
       [{ kind: "from-goal", goalId, amount: eur("200.01") }],
       [
         { kind: "from-goal", goalId, amount: eur("100") },
@@ -573,6 +571,13 @@ describe("sec646: integrity", () => {
     }
     expect(await budgets(space.householdId)).toBe(0);
     expect(await cells(space.householdId)).toBe(0);
+    // Owner decision 2026-11-21: an empty «Розподіл» (or «З цілі» 0 €) leaves the whole deficit — the budget is saved.
+    const left = await create(space, {
+      ...plan,
+      allocation: [{ kind: "from-goal", goalId, amount: eur("0") }],
+    });
+    expect(left.statusCode, left.body).toBe(201);
+    expect(await budgets(space.householdId)).toBe(1);
   });
 
   it("sec646: «З цілі …» from a goal with no contribution this month is refused", async () => {

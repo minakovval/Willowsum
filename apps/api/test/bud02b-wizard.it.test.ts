@@ -357,6 +357,7 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       available: false,
       historyMonths: 2,
       incomePlan: null,
+      incomes: [],
       incomeIrregular: false,
       categories: [],
     });
