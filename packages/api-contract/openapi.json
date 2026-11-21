@@ -51062,6 +51062,29 @@
                               "string",
                               "null"
                             ]
+                          },
+                          "bankFee": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
@@ -51091,7 +51114,8 @@
                           "originalAmount",
                           "exchangeRate",
                           "valueDate",
-                          "bankReference"
+                          "bankReference",
+                          "bankFee"
                         ],
                         "additionalProperties": false
                       }
@@ -51935,6 +51959,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -51964,7 +52011,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -52825,6 +52873,29 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "bankFee": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -52854,7 +52925,8 @@
                         "originalAmount",
                         "exchangeRate",
                         "valueDate",
-                        "bankReference"
+                        "bankReference",
+                        "bankFee"
                       ],
                       "additionalProperties": false
                     },
@@ -53263,6 +53335,29 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "bankFee": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -53292,7 +53387,8 @@
                         "originalAmount",
                         "exchangeRate",
                         "valueDate",
-                        "bankReference"
+                        "bankReference",
+                        "bankFee"
                       ],
                       "additionalProperties": false
                     }
@@ -53991,6 +54087,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -54020,7 +54139,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -54625,6 +54745,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -54654,7 +54797,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -55231,6 +55375,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -55260,7 +55427,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -56257,6 +56425,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -56286,7 +56477,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -57296,6 +57488,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -57325,7 +57540,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -57889,6 +58105,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -57918,7 +58157,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -58484,6 +58724,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -58513,7 +58776,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -59077,6 +59341,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -59106,7 +59393,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -59684,6 +59972,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -59713,7 +60024,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -60291,6 +60603,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -60320,7 +60655,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -60865,6 +61201,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -60894,7 +61253,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -61439,6 +61799,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -61468,7 +61851,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -62090,6 +62474,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -62119,7 +62526,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -62664,6 +63072,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -62693,7 +63124,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }
@@ -63257,6 +63689,29 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -63286,7 +63741,8 @@
                     "originalAmount",
                     "exchangeRate",
                     "valueDate",
-                    "bankReference"
+                    "bankReference",
+                    "bankFee"
                   ],
                   "additionalProperties": false
                 }

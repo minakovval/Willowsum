@@ -224,6 +224,8 @@ async function ledgerAccountOf(
 interface OwnEvent {
   readonly amount: Money;
   readonly date: string;
+  /** IMP-02 FR 5: the bank's fee in the amount — the event's separate fee leg; absent — none. */
+  readonly fee?: Money;
 }
 
 /**
@@ -253,7 +255,8 @@ async function desiredJournal(
     (row.hidden && row.source === "manual")
   )
     return { own: null, transfer: null };
-  if (row.transfer === null) return { own: { amount: row.amount, date: row.date }, transfer: null };
+  if (row.transfer === null)
+    return { own: { amount: row.amount, date: row.date, ...bankFeeLeg(row) }, transfer: null };
   if (row.transfer.inflowId === row.id) return { own: null, transfer: null };
   const inflow = await find(row.transfer.inflowId);
   // The pair is written in one transaction with both rows, so the other side is there; should it not be, retried.
@@ -269,6 +272,17 @@ async function desiredJournal(
       ? { type: "transfer", from, to, amount: inflow.amount }
       : { type: "fx-transfer", from, to, sent: row.amount.negated(), received: inflow.amount, rate };
   return { own: fee === null ? null : { amount: fee, date }, transfer: { link: row.transfer, input, date } };
+}
+
+/**
+ * IMP-02 FR 5 (#698): the bank's fee of an imported row is the event's fee leg while it still fits the row — the same
+ * currency and not all of the amount. After an edit that breaks that (another currency, or the amount set to the fee)
+ * the event is the amount alone; the account moves by the amount either way.
+ */
+function bankFeeLeg(row: StoredTransaction): { readonly fee?: Money } {
+  const fee = row.bankFee ?? null;
+  if (fee === null || fee.currency !== row.amount.currency || row.amount.plus(fee).isZero()) return {};
+  return { fee };
 }
 
 const TRANSFER_EVENTS = ["transfer", "fx-transfer"] as const;
@@ -323,7 +337,12 @@ async function matchOwnEvent(
   const replacement = {
     source: source(transactionId),
     operationDate: own.date,
-    event: { type: EVENT, account: ledgerAccountId, amount: own.amount },
+    event: {
+      type: EVENT,
+      account: ledgerAccountId,
+      amount: own.amount,
+      ...(own.fee ? { fee: own.fee } : {}),
+    },
   } as const;
   if (!inEffect) {
     // The first event of a transaction posted from the start keeps the key of its create; a later one (posted after
@@ -344,9 +363,12 @@ async function matchOwnEvent(
       throw new Error("the transaction's journal event is reversed and was not posted again");
     return;
   }
+  // IMP-02 FR 5: the fee leg in effect is the row's fee (none — none).
+  const feeInEffect = inEffect.legs.find((l) => l.kind === "fee")?.amount ?? null;
   const matches =
     inEffect.operationDate === own.date &&
-    signedOn(inEffect, ledgerAccountId, own.amount.currency).equals(own.amount);
+    signedOn(inEffect, ledgerAccountId, own.amount.currency).equals(own.amount) &&
+    (own.fee ? feeInEffect !== null && feeInEffect.equals(own.fee) : feeInEffect === null);
   // Each entry in effect is corrected at most once, so its id makes the key.
   if (!matches)
     await deps.ledger.correct(householdId, inEffect.id, {

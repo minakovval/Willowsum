@@ -42,6 +42,7 @@ const SAMPLE: Transaction = {
   exchangeRate: null,
   valueDate: null,
   bankReference: null,
+  bankFee: null,
 };
 
 export function TransactionDemo() {

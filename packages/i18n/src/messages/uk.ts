@@ -383,6 +383,7 @@ export const uk = {
   "txDetail.statement.valueDate": "Дата валютування",
   "txDetail.statement.balance": "Залишок після операції",
   "txDetail.statement.reference": "Референс банку",
+  "txDetail.statement.fee": "Комісія банку",
   "txDetail.statement.origin": "Імпорт",
   "txDetail.statement.row": "Рядок {row} виписки",
   "txDetail.split": "Розділення",

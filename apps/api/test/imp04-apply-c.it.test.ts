@@ -628,7 +628,7 @@ describe("IMP-04@PoC AC10: the apply's audit entry", () => {
     );
     expect(entries.flatMap((r) => r.changes)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ field: "engine", after: "1" }),
+        expect.objectContaining({ field: "engine", after: "2" }),
         expect.objectContaining({ field: "rows.merge", after: "1" }),
         expect.objectContaining({ field: "rows.replace", after: "0" }),
         expect.objectContaining({ field: "rows.import", after: "1" }),

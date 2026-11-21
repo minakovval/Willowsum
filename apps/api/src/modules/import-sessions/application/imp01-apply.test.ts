@@ -65,7 +65,7 @@ describe("IMP-01@PoC FR 11: the rows the apply writes", () => {
     expect(out.rows.map((r) => r.row)).toEqual([6]);
   });
 
-  it("IMP-01@PoC FR 11: rows without a date, a single amount or a currency, and rows with a fee, are named — never guessed or dropped", () => {
+  it("IMP-01@PoC FR 11: rows without a date, a single amount or a currency, and rows with a fee of a parse that did not read whether the amount includes it, are named — never guessed or dropped", () => {
     const out = fileRows(
       [
         event(1, "-1.00", { date: null }),

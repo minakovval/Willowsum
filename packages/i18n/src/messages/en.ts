@@ -383,6 +383,7 @@ export const en: Messages = {
   "txDetail.statement.valueDate": "Value date",
   "txDetail.statement.balance": "Balance after the transaction",
   "txDetail.statement.reference": "Bank reference",
+  "txDetail.statement.fee": "Bank fee",
   "txDetail.statement.origin": "Import",
   "txDetail.statement.row": "Statement row {row}",
   "txDetail.split": "Split",

@@ -105,43 +105,81 @@ interface Link {
 }
 
 /**
+ * The order of the chain through rows given oldest first (FR 1, AC «ланцюжок залишків у будь-якому порядку рядків»):
+ * rows of one day may be printed in any order — a bank prints operations of the same moment as it likes (#698 owner
+ * report). Within each run of rows of the same date the next row is the first one, in the printed order, whose balance
+ * before it (balance − amount) is the balance reached so far; where none is, the rest of the run keeps its printed
+ * order (the chain breaks there, as printed). The printed order is kept wherever its links hold.
+ */
+function chainOrder(links: readonly Link[]): Link[] {
+  const ordered: Link[] = [];
+  let i = 0;
+  while (i < links.length) {
+    const day = links[i]!.event.date;
+    let j = i + 1;
+    while (day !== null && j < links.length && links[j]!.event.date === day) j += 1;
+    const rest = links.slice(i, j);
+    i = j;
+    const before = (l: Link) => l.balance.minus(l.amount);
+    let reached = ordered.at(-1)?.balance ?? null;
+    if (reached === null) {
+      // The first day: it starts at the row no other row of the day leads to (else as printed).
+      const start = rest.find((l) => !rest.some((o) => o !== l && o.balance.eq(before(l)))) ?? rest[0]!;
+      rest.splice(rest.indexOf(start), 1);
+      ordered.push(start);
+      reached = start.balance;
+    }
+    while (rest.length > 0) {
+      const at = rest.findIndex((l) => before(l).eq(reached!));
+      if (at < 0) {
+        ordered.push(...rest);
+        break;
+      }
+      const [next] = rest.splice(at, 1);
+      ordered.push(next!);
+      reached = next!.balance;
+    }
+  }
+  return ordered;
+}
+
+/**
  * The balance chain (FR 1): every row's balance is the previous one plus its amount. Statements print the newest row
- * first or last: the direction with fewer breaks is taken (ties by the dates). The opening and the closing balance
- * follow from the chain's ends.
+ * first or last: the direction with fewer breaks is taken (ties by the dates); rows of one day follow the chain
+ * (`chainOrder`). The opening and the closing balance follow from the chain's ends.
  */
 function chainOf(links: readonly Link[], declaredOpening: Decimal | null) {
-  const forward = links.map((l, i) => i === 0 || links[i - 1]!.balance.plus(l.amount).eq(l.balance));
-  const reverse = links.map(
-    (l, i) => i === links.length - 1 || links[i + 1]!.balance.plus(l.amount).eq(l.balance),
-  );
-  const breaks = (ok: readonly boolean[]) => ok.filter((x) => !x).length;
+  const walk = (oldestFirst: readonly Link[]) => {
+    const order = chainOrder(oldestFirst);
+    const ok = order.map((l, k) => k === 0 || order[k - 1]!.balance.plus(l.amount).eq(l.balance));
+    return { order, ok, breaks: ok.filter((x) => !x).length };
+  };
+  const forward = walk(links);
+  const reverse = walk([...links].reverse());
   const first = links[0]?.event.date;
   const last = links[links.length - 1]?.event.date;
   const reversed =
-    breaks(reverse) < breaks(forward) ||
-    (breaks(reverse) === breaks(forward) && !!first && !!last && first > last);
-  const ok = reversed ? reverse : forward;
-  const oldest = reversed ? links[links.length - 1] : links[0];
-  const newest = reversed ? links[0] : links[links.length - 1];
+    reverse.breaks < forward.breaks ||
+    (reverse.breaks === forward.breaks && !!first && !!last && first > last);
+  const { order, ok, breaks } = reversed ? reverse : forward;
+  const oldest = order[0];
+  const newest = order[order.length - 1];
   const opening = oldest ? oldest.balance.minus(oldest.amount) : null;
   const confirmed = new Set<number>();
-  links.forEach((l, i) => {
+  order.forEach((l, k) => {
     // The oldest row's link is to the opening balance: only a declared one confirms it.
-    const end = reversed ? i === links.length - 1 : i === 0;
-    if (end ? declaredOpening !== null && opening !== null && declaredOpening.eq(opening) : ok[i])
+    if (k === 0 ? declaredOpening !== null && opening !== null && declaredOpening.eq(opening) : ok[k])
       confirmed.add(l.event.row);
   });
-  const broken = links.findIndex((_, i) => !ok[i]);
-  const brokenLink = broken < 0 ? null : links[broken]!;
-  const previous = brokenLink ? links[reversed ? broken + 1 : broken - 1]! : null;
+  const broken = ok.findIndex((x) => !x);
   return {
     opening,
     closing: newest ? newest.balance : null,
     confirmed,
-    breaks: breaks(ok),
+    breaks,
     broken:
-      brokenLink && previous
-        ? { link: brokenLink, expected: previous.balance.plus(brokenLink.amount) }
+      broken > 0
+        ? { link: order[broken]!, expected: order[broken - 1]!.balance.plus(order[broken]!.amount) }
         : null,
   };
 }

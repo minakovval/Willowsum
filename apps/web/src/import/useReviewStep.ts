@@ -73,6 +73,18 @@ const EMPTY: Listing = {
 };
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** How long a request of the step may take before the screen says the connection failed (#698). */
+export const REQUEST_LIMIT = { ms: 20_000 };
+
+/** The request's outcome, or «no connection» once it has taken longer than {@link REQUEST_LIMIT}. */
+function bounded<T>(request: Promise<Outcome<T>>): Promise<Outcome<T>> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<Outcome<T>>((resolve) => {
+    timer = setTimeout(() => resolve({ ok: false, kind: "network" }), REQUEST_LIMIT.ms);
+  });
+  return Promise.race([request, late]).finally(() => clearTimeout(timer));
+}
+
 /**
  * IMP-08@PoC b) (wave 2, row 137): the state of the step «Перевірка розпізнавання». The batch, its parse and its readiness
  * (the banners, what still blocks «Застосувати») are read first; then, for the chosen file, its review (counts, sign group),
@@ -217,57 +229,49 @@ export function useReviewStep(batchId: string) {
       if (!fileId) return;
       const items = [...from];
       const listId = keyRef.current;
-      const key = `${batchId}/${fileId}/${roundRef.current}`;
+      // The file's rows are its parse, which no answer changes: read once per file, not again after each decision.
+      const key = `${batchId}/${fileId}`;
       if (cache.current.key !== key)
         cache.current = { rows: new Map(), cursor: null, done: false, max: 0, key };
       const s = stream.current;
       const current = () => alive.current && s.gen === gen;
-      while (items.length < target && !s.done) {
-        const page = await loadReviewRows(api, batchId, fileId, filtersRef.current[s.index], s.cursor);
-        if (!current()) return;
-        if (!page.ok) {
-          setListing({
-            status: "error",
-            items,
-            more: false,
-            failure: failureOf(page),
-            loadingMore: false,
-            key: listId,
-          });
-          return;
-        }
-        items.push(...page.data.items);
-        s.cursor = page.data.nextCursor;
-        if (s.cursor === null) {
-          s.index += 1;
-          if (s.index >= filtersRef.current.length) s.done = true;
-        }
-        // The values of the listed rows: the file's rows are read in order up to the last listed row.
-        const last = items.at(-1)?.row ?? 0;
-        while (!cache.current.done && cache.current.max < last) {
-          const v = await loadFileRows(api, batchId, fileId, cache.current.cursor);
+      const failed = (failure: Failure) =>
+        setListing({ status: "error", items, more: false, failure, loadingMore: false, key: listId });
+      // #698: whatever happens to a request — an error, no answer, a throw — the list leaves its skeleton.
+      try {
+        while (items.length < target && !s.done) {
+          const page = await bounded(
+            loadReviewRows(api, batchId, fileId, filtersRef.current[s.index], s.cursor),
+          );
           if (!current()) return;
-          if (!v.ok) {
-            setListing({
-              status: "error",
-              items,
-              more: false,
-              failure: failureOf(v),
-              loadingMore: false,
-              key: listId,
-            });
-            return;
+          if (!page.ok) return failed(failureOf(page));
+          items.push(...page.data.items);
+          s.cursor = page.data.nextCursor;
+          if (s.cursor === null) {
+            s.index += 1;
+            if (s.index >= filtersRef.current.length) s.done = true;
           }
+        }
+        setValues(new Map(cache.current.rows));
+        setListing({ status: "ready", items, more: !s.done, failure: null, loadingMore: false, key: listId });
+        // The values of the listed rows (date, text, amount), shown as their pages arrive: the file's rows are read in
+        // order up to the last listed row.
+        const last = items.reduce((m, r) => Math.max(m, r.row), 0);
+        while (!cache.current.done && cache.current.max < last) {
+          const v = await bounded(loadFileRows(api, batchId, fileId, cache.current.cursor));
+          if (!current() || cache.current.key !== key) return;
+          if (!v.ok) return failed(failureOf(v));
           for (const r of v.data.items) {
             cache.current.rows.set(r.row, r);
             cache.current.max = Math.max(cache.current.max, r.row);
           }
           cache.current.cursor = v.data.nextCursor;
           if (cache.current.cursor === null) cache.current.done = true;
+          setValues(new Map(cache.current.rows));
         }
+      } catch {
+        if (current()) failed({ code: null, supportId: undefined, network: true });
       }
-      setValues(new Map(cache.current.rows));
-      setListing({ status: "ready", items, more: !s.done, failure: null, loadingMore: false, key: listId });
     },
     [api, batchId, fileId],
   );
@@ -302,24 +306,37 @@ export function useReviewStep(batchId: string) {
     setRound((n) => n + 1);
   }, []);
 
-  /** An answer of the person; afterwards everything that depends on it is read again. */
+  /**
+   * An answer of the person; afterwards everything that depends on it is read again. «Зберігаємо відповідь…» lasts as
+   * long as the answer itself (#698): never past an error, a throw or a request with no answer in time.
+   */
   const answer = useCallback(
     async (decisions: readonly DecisionInput[]) => {
       setDeciding(true);
       setDecisionFailure(null);
-      const o = await decide(api, batchId, decisions);
-      if (!alive.current) return;
-      if (!o.ok) {
-        setDecisionFailure(failureOf(o));
-        setDeciding(false);
-        return;
+      let saved = false;
+      try {
+        const o = await bounded(decide(api, batchId, decisions));
+        if (!alive.current) return;
+        if (!o.ok) {
+          setDecisionFailure(failureOf(o));
+          return;
+        }
+        saved = true;
+      } catch {
+        if (alive.current) setDecisionFailure({ code: null, supportId: undefined, network: true });
+      } finally {
+        if (alive.current) setDeciding(false);
       }
-      const r = await loadReadiness(api, batchId);
-      if (!alive.current) return;
-      if (r.ok) setBase((b) => (b.kind === "ready" ? { ...b, readiness: r.data } : b));
+      if (!saved) return;
       stream.current = { gen: stream.current.gen + 1, index: 0, cursor: null, done: false };
       setRound((n) => n + 1);
-      setDeciding(false);
+      try {
+        const r = await bounded(loadReadiness(api, batchId));
+        if (alive.current && r.ok) setBase((b) => (b.kind === "ready" ? { ...b, readiness: r.data } : b));
+      } catch {
+        // The readiness stays as it was; the next answer or a reload reads it again.
+      }
     },
     [api, batchId],
   );

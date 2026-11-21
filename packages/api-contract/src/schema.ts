@@ -23300,6 +23300,10 @@ export interface operations {
                                 currency: string;
                             } | null;
                             bankDescription: string | null;
+                            bankFee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             bankReference: string | null;
                             counterparty: string | null;
                             date: string;
@@ -23540,6 +23544,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -23727,6 +23735,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -24032,6 +24044,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -24226,6 +24242,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -24652,6 +24672,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -25077,6 +25101,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -25264,6 +25292,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -25458,6 +25490,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -25651,6 +25687,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -25845,6 +25885,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -26039,6 +26083,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -26226,6 +26274,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -26433,6 +26485,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -26620,6 +26676,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -26814,6 +26874,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -27001,6 +27065,10 @@ export interface operations {
                             currency: string;
                         } | null;
                         bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
                         bankReference: string | null;
                         counterparty: string | null;
                         date: string;
@@ -27328,6 +27396,10 @@ export interface operations {
                                 currency: string;
                             } | null;
                             bankDescription: string | null;
+                            bankFee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             bankReference: string | null;
                             counterparty: string | null;
                             date: string;
@@ -27411,6 +27483,10 @@ export interface operations {
                                 currency: string;
                             } | null;
                             bankDescription: string | null;
+                            bankFee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             bankReference: string | null;
                             counterparty: string | null;
                             date: string;

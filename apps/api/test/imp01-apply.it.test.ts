@@ -317,7 +317,7 @@ describe("IMP-01@PoC FR 11: «Застосувати» writes the batch's rows o
     expect(rows.flatMap((r) => r.changes)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "state", before: "parsed", after: "applied" }),
-        expect.objectContaining({ field: "engine", after: "1" }),
+        expect.objectContaining({ field: "engine", after: "2" }),
         expect.objectContaining({ field: "rows.import", after: "2" }),
         expect.objectContaining({ field: "rows.duplicate", after: "0" }),
       ]),

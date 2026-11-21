@@ -26,8 +26,17 @@ export const RULES_VERSION = 1;
 
 /** The events the rules know. Signed amounts: positive increases the account, negative decreases it. */
 export type LedgerEvent =
-  /** Income (positive) or spending (negative) on an account; the other side is «Зовнішні кошти». */
-  | { readonly type: "transaction"; readonly account: string; readonly amount: Money }
+  /**
+   * Income (positive) or spending (negative) on an account; the other side is «Зовнішні кошти». `fee` (IMP-02@PoC
+   * FR 5; #698): the bank's fee in the amount — the fee charged (positive, the amount's currency). The entry then has
+   * the operation's main leg (`amount` + `fee`) and a separate fee leg, and still moves the account by `amount`.
+   */
+  | {
+      readonly type: "transaction";
+      readonly account: string;
+      readonly amount: Money;
+      readonly fee?: Money | null;
+    }
   /** A transfer between two accounts of the space: debit B, credit A. */
   | { readonly type: "transfer"; readonly from: string; readonly to: string; readonly amount: Money }
   /**
@@ -132,7 +141,20 @@ function positive(amount: Money): Money {
 }
 
 const RULES: { readonly [T in LedgerEventType]: (event: Extract<LedgerEvent, { type: T }>) => Posting[] } = {
-  transaction: (e) => signed(acc(e.account), EXTERNAL, e.amount),
+  transaction: (e) => {
+    const fee = e.fee ?? null;
+    if (fee === null) return signed(acc(e.account), EXTERNAL, e.amount);
+    if (fee.currency !== e.amount.currency)
+      throw new LedgerError("INVALID_EVENT", "A fee is in the currency of its transaction");
+    if (fee.isZero() || fee.isNegative())
+      throw new LedgerError("INVALID_EVENT", "A fee is a positive amount charged");
+    const main = e.amount.plus(fee);
+    if (main.isZero()) throw new LedgerError("INVALID_EVENT", "A leg moves an amount");
+    return [
+      { ...signed(acc(e.account), EXTERNAL, main)[0]!, leg: "main" },
+      { debit: EXTERNAL, credit: acc(e.account), amount: fee, leg: "fee" },
+    ];
+  },
   transfer: (e) => signed(acc(e.to), acc(e.from), positive(e.amount)),
   "opening-balance": (e) => signed(acc(e.account), EXTERNAL, e.amount),
   "balance-adjustment": (e) => signed(acc(e.account), ADJUSTMENT, e.amount),

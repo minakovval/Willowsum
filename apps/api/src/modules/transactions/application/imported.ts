@@ -64,6 +64,11 @@ export interface ImportedRowInput {
   /** IMP-02 FR 4: the bank's reference of the operation (masked by the caller); null — none. */
   readonly reference?: string | null;
   /**
+   * IMP-02 FR 5 (#698): the bank's fee included in `amount` — the fee charged, positive, in the amount's currency; the
+   * journal event gets a separate fee leg (`bankFee`). Null or absent — none.
+   */
+  readonly fee?: Money | null;
+  /**
    * IMP-04 FR 5 (#637 item 6, #658): this manual transaction is merged into the row. The row is the record that stays
    * (the bank's identifier, text, posting date and its journal event) and takes the manual one's note, tags and
    * «До розбору» state; the manual one is hidden with `mergedInto`, its event reversed («Роз'єднати» gives it back).
@@ -389,6 +394,17 @@ export async function writeImport(
       const rate = r.rate ?? null;
       const valueDate = r.valueDate ?? null;
       if (rate !== null && importedRate(rate) !== rate) throw new ImportWriteRefused("amount", at);
+      // IMP-02 FR 5: a fee in the amount's currency, charged (positive), exact, and not all of the amount.
+      const fee = r.fee ?? null;
+      if (
+        fee !== null &&
+        (fee.currency !== r.amount.currency ||
+          fee.isZero() ||
+          fee.isNegative() ||
+          fee.amount.decimalPlaces() > currencyInfo(fee.currency).minorUnits ||
+          r.amount.plus(fee).isZero())
+      )
+        throw new ImportWriteRefused("amount", at);
       if (valueDate !== null && !isCalendarDay(valueDate)) throw new ImportWriteRefused("date", at);
       wallets.set(`${account.accountId}/${r.amount.currency}`, {
         accountId: account.accountId.toLowerCase(),
@@ -462,6 +478,7 @@ export async function writeImport(
         rate,
         valueDate,
         reference,
+        ...(fee !== null ? { bankFee: fee } : {}),
       });
       // Written already by this batch (the unique key): never twice.
       if (!row) continue;

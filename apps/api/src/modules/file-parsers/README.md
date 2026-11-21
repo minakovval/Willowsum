@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (IMP-02 п. 4, S-047: кілька колонок опису й приміток разом в описі банку; слова заголовків іспанської виписки); 2026-11-20 (IMP-05 FR 6: борг кредитної картки, рішення власника 2026-11-20, п. 6; крок розбору: не більше 2 воркерів розбору водночас, лінивий відкривач прив'язки, `PARSE_ENGINE_VERSION`; IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (IMP-02 п. 5, 12, IMP-05 п. 1, #698: `StatementEvent.feeIncluded` — чи сума містить комісію, з даних файлу (`readFeeBasis`), позначка `fee-unreadable`, «—» — немає комісії, перевірка курсу з комісією, ланцюжок залишків у порядку рядків одного дня, версія рушія «2»); 2026-11-21 (IMP-02 п. 4, S-047: кілька колонок опису й приміток разом в описі банку; слова заголовків іспанської виписки); 2026-11-20 (IMP-05 FR 6: борг кредитної картки, рішення власника 2026-11-20, п. 6; крок розбору: не більше 2 воркерів розбору водночас, лінивий відкривач прив'язки, `PARSE_ENGINE_VERSION`; IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -75,7 +75,7 @@
 - `isolatedStatementParser(options?)` → `StatementParser.parse(bytes, readOptions?, statement?, binding?)` → `StatementParse`: у свіжому воркері
   (`platform/process/isolated.ts`, 512 МіБ, 60 с — `PARSE_LIMITS`, як у file-storage) читання файлу (`reading`: кодування
   з альтернативами й причиною `bom` / `content` / `recipe`, роздільник, `unclosedQuote`, `replacementChars`, `format` з
-  `fingerprint` «fp1:…»), `events` (`StatementEvents`: `events[]` — `StatementEvent` з `legs`, `fee`, `original`, `rate`,
+  `fingerprint` «fp1:…»), `events` (`StatementEvents`: `events[]` — `StatementEvent` з `legs`, `fee`, `feeIncluded` (є лише з комісією: `true` — сума рядка містить комісію, як у monobank; `false` — сума без неї), `original`, `rate`,
   `valueDate`, `description`, `currencyMark`, `flags` (`EventFlag`); `currencies` — гаманці партії; `country`) і `analysis` (`StatementAnalysis`: `table`, `columns[].role`, `dates`, `numbers`, `sign` —
   кожне `Decision` з `chosen`, `alternatives`, `evidence`, `flags`; `currency`). Рядки й колонки аналізу — з 1. Відмова —
   `StatementParseError` (`FILE_TOO_LARGE`, `TABLE_LIMIT` з `ceiling`, `PARSE_MEMORY`, `PARSE_TIMEOUT`, `CORRUPTED`,
