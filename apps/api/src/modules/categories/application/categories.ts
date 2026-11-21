@@ -110,6 +110,12 @@ export interface CategoryUsage {
   /** The answering module, for the reader of the wiring. */
   readonly module: string;
   used(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
+  /**
+   * BUD-02@PoC FR 23, AC 19; BUD-01@PoC FR 13: how many transactions of the space this module's records put in the
+   * category — only the modules that keep transactions' categories (the transaction's own category, split parts)
+   * answer; one transaction is counted by one module only.
+   */
+  transactions?(householdId: string, categoryId: string): Promise<number>;
 }
 
 export type AuditedEntity = "categories.tree" | "categories.group" | "categories.category";
@@ -513,6 +519,21 @@ export async function categoriesInUse(
     ...usage.map((u) => u.used(householdId, ids)),
   ]);
   return new Set(answers.flatMap((a) => [...a]));
+}
+
+/**
+ * BUD-02@PoC FR 23, AC 19; BUD-01@PoC FR 13: the count «N транзакцій» of the dialog «Видалити категорію…» — the sum of
+ * the answers of the modules that keep transactions' categories.
+ */
+export async function transactionCount(
+  usage: readonly CategoryUsage[],
+  householdId: string,
+  categoryId: string,
+): Promise<number> {
+  const counts = await Promise.all(
+    usage.map((u) => (u.transactions ? u.transactions(householdId, categoryId) : Promise.resolve(0))),
+  );
+  return counts.reduce((t, n) => t + n, 0);
 }
 
 /** FR 12: which of `categories` the menu offers «Видалити» for — custom, in the tree and empty. */

@@ -12,6 +12,7 @@ import {
   budgetFirstDate,
   budgetRows,
   categoriesInParts,
+  transactionsWithPartIn,
   categorizableFacts,
   counterpartiesOf,
   counterpartyCounts,
@@ -419,6 +420,9 @@ export function createTransactionCategoryUsage(db: ModuleDatabase): CategoryUsag
   return {
     module: "transactions",
     used: (householdId, ids) => db.inHousehold(householdId, (q) => categoriesInParts(q, householdId, ids)),
+    // BUD-02@PoC FR 23: the split transactions with a part in the category, for «N транзакцій».
+    transactions: (householdId, categoryId) =>
+      db.inHousehold(householdId, (q) => transactionsWithPartIn(q, householdId, categoryId)),
   };
 }
 

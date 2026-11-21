@@ -51,6 +51,16 @@ export interface CategorizationTx {
   update(householdId: string, transactionId: string, next: NextCategory, version: number): Promise<void>;
   /** The rows that have any of `categoryIds`: transaction id → category id. */
   withCategories(householdId: string, categoryIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
+  /**
+   * BUD-02@PoC FR 23: up to `limit` transaction ids of the rows with `categoryId`, after `after` in id order (keyset
+   * paging on the index of the category).
+   */
+  transactionsOf(
+    householdId: string,
+    categoryId: string,
+    after: string | null,
+    limit: number,
+  ): Promise<readonly string[]>;
   /** FR 8: every row of `sourceId` takes `targetId`; returns how many. */
   move(householdId: string, sourceId: string, targetId: string): Promise<number>;
   enqueueHandOff(householdId: string, handOff: CategoryHandOff): Promise<void>;
@@ -251,6 +261,32 @@ export async function categoriesInUse(
   const used = new Set<string>();
   for (const [transactionId, categoryId] of rows) if (existing.has(transactionId)) used.add(categoryId);
   return used;
+}
+
+/** One page of `countWithCategory`: bounded reads of the category's rows and of the transactions' facts. */
+export const COUNT_PAGE = 1000;
+
+/**
+ * BUD-02@PoC FR 23, AC 19; BUD-01@PoC FR 13: how many existing transactions of the space (hidden ones too, not rolled
+ * back) have `categoryId` as their own category. A split transaction is counted by its parts (module transactions),
+ * so it is left out here: one transaction is never counted twice. Read in pages of `COUNT_PAGE`.
+ */
+export async function countWithCategory(
+  tx: CategorizationTx,
+  transactions: TransactionFactsPort,
+  householdId: string,
+  categoryId: string,
+): Promise<number> {
+  let count = 0;
+  let after: string | null = null;
+  for (;;) {
+    const ids = await tx.transactionsOf(householdId, categoryId, after, COUNT_PAGE);
+    if (ids.length === 0) return count;
+    const facts = await transactions.facts(householdId, ids);
+    for (const id of ids) if (facts.get(id)?.split === false) count++;
+    if (ids.length < COUNT_PAGE) return count;
+    after = ids[ids.length - 1]!;
+  }
 }
 
 export type { CategorySource };

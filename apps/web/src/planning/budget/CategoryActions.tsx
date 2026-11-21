@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode, type RefObject } from "react";
-import { useT } from "@willowsum/i18n";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useI18n, useT, type MessageKey } from "@willowsum/i18n";
 import { Button, Dialog, Icon, MenuButton, Popover, type MenuItem } from "@willowsum/ui";
 import { outcome, useAuthApi } from "../../auth/api.ts";
 import { failureOf, type ActionFailure, type Category, type Tree } from "../../categories/api.ts";
@@ -10,8 +10,8 @@ import { DeleteDialog, MergeDialog, NameDialog, type NameTarget } from "../../ca
  * step «Ліміти» and the page «Бюджет» — in one place: «Перейменувати», «Прибрати з бюджету», «Видалити категорію…», and
  * «Додати категорію» with «Нова категорія…». The dialogs are the ones of «Налаштування → Категорії» (BUD-01 FR 8, 12):
  * rename (a taken name — «Така назва вже існує»), delete of an empty custom category after the confirmation, merge. A
- * category that cannot be deleted gets the choice «Приховати» or «Об'єднати з іншою…» (BUD-01 FR 13). The count of its
- * transactions is not shown: the server does not give it yet (follow-up in the PR body). «Прибрати з бюджету» is the
+ * category that cannot be deleted gets the choice «Приховати» or «Об'єднати з іншою…» and, in its explanation, the count
+ * of its transactions «N транзакцій» (BUD-01 FR 13, BUD-02 AC 19; `GET /v1/categories/{id}/usage`). «Прибрати з бюджету» is the
  * screen's own (the wizard clears the limit, the page sends it to the server), so it comes in as `onRemove`.
  */
 type Open =
@@ -104,11 +104,27 @@ function KeepDialog({
   onHidden: () => void;
   onMerge: (category: Category) => void;
 }) {
-  const t = useT();
+  const { t, locale } = useI18n();
   const api = useAuthApi();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ActionFailure | null>(null);
+  const [count, setCount] = useState<{ readonly id: string; readonly transactions: number } | null>(null);
+  const id = category?.id ?? null;
+  useEffect(() => {
+    if (id === null) return;
+    let live = true;
+    // The count is part of the explanation; without it (a failed read) the dialog still offers both ways out.
+    void outcome(api.GET("/v1/categories/{categoryId}/usage", { params: { path: { categoryId: id } } })).then(
+      (o) => {
+        if (live && o.ok) setCount({ id, transactions: o.data.transactions });
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [api, id]);
   if (!category) return null;
+  const transactions = count?.id === category.id && count.transactions > 0 ? count.transactions : null;
   const hide = async () => {
     if (busy) return;
     setBusy(true);
@@ -123,12 +139,21 @@ function KeepDialog({
     if (o.ok) onHidden();
     else setFailure(failureOf(o));
   };
+  const keep = t("planning.budget.cat.delete.keep");
   return (
     <Dialog
       open
       onClose={onClose}
       title={t("categories.delete.title", { name: category.name })}
-      text={t("planning.budget.cat.delete.keep")}
+      text={
+        transactions === null ? (
+          keep
+        ) : (
+          <>
+            <strong className="bud-keep-count">{transactionsText(t, locale, transactions)}</strong>. {keep}
+          </>
+        )
+      }
       icon="trash"
       tone="warning"
       align="start"
@@ -146,6 +171,15 @@ function KeepDialog({
       ]}
     />
   );
+}
+
+const COUNT_FORMS = ["one", "few", "many", "other"] as const;
+
+/** «12 транзакцій», «1 транзакція», «3 транзакції» — the noun in the form the language needs. */
+function transactionsText(t: ReturnType<typeof useT>, locale: string, count: number): string {
+  const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(count);
+  const form = (COUNT_FORMS as readonly string[]).includes(rule) ? rule : "other";
+  return t(`planning.budget.cat.delete.count.${form}` as MessageKey, { count });
 }
 
 /** The items of the «…» of a category row; «Прибрати з бюджету» only when the row has something to remove. */
