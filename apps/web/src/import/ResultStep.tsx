@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { formatNumber, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
 import { Button, Dialog, EmptyState, ErrorState, Icon, Segmented, Skeleton, Stepper } from "@willowsum/ui";
 import type { IconName } from "@willowsum/ui";
-import { importPath, TRANSACTIONS } from "../routing/routes.ts";
+import { importPath, transactionPath, TRANSACTIONS } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { canRollback, plural, tilesOf, whenText, type RefusedRow } from "./resultModel.ts";
 import type { BatchResult, RollbackMode, RolledBack } from "./resultApi.ts";
@@ -86,6 +86,18 @@ export function ResultStep({ batchId }: { batchId: string }) {
           <Skeleton variant="row" lines={4} />
         </>,
         true,
+      );
+    case "ready":
+      return shell(
+        <>
+          {title(t("importResult.ready.title"))}
+          <p className="imp-intro">{t("importResult.ready.text")}</p>
+          <footer className="imp-footer">
+            <Button label={t("importResult.toReview")} href={hrefFor(importPath(batchId, "review"))} />
+            <span className="imp-spacer" />
+            <Button label={t("importReview.apply")} variant="primary" onClick={step.apply} />
+          </footer>
+        </>,
       );
     case "missing":
       return shell(
@@ -432,6 +444,18 @@ function RolledBackNote({ rolledBack }: { rolledBack: RolledBack["rollback"] | n
             <span className="imp-result-text">{t(key, { count: num(n) })}</span>
           </div>
         ))}
+      {rolledBack && rolledBack.kept.length > 0 ? (
+        <div className="imp-result-kept">
+          <h3 className="imp-result-heading">{t("importResult.kept.title")}</h3>
+          <ul aria-label={t("importResult.kept.title")}>
+            {rolledBack.kept.map((id, i) => (
+              <li key={id} className="imp-result-line">
+                <a href={hrefFor(transactionPath(id))}>{t("importResult.kept.item", { n: num(i + 1) })}</a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -3192,6 +3192,11 @@ export const uk = {
   "importResult.loading": "Завантажуємо результат…",
   "importResult.applying.title": "Застосовуємо партію…",
   "importResult.applying.text": "Записуємо транзакції в облік. Це може тривати кілька секунд.",
+  "importResult.ready.title": "Застосувати партію?",
+  "importResult.ready.text":
+    "Партію перевірено, але ще не застосовано. Поки ви її не застосуєте, до обліку нічого не записується.",
+  "importResult.kept.title": "Залишені змінені транзакції",
+  "importResult.kept.item": "Змінена транзакція {n}",
   "importResult.retry": "Спробувати ще раз",
   "importResult.error.apply": "Не вдалося застосувати партію.",
   "importResult.error.applyNetwork": "Не вдалося застосувати партію. Перевірте з'єднання.",

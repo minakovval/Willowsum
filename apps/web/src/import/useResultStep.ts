@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuthApi, type Outcome } from "../auth/api.ts";
+import { armApply, takeApplyIntent } from "./applyIntent.ts";
 import { loadBatch, type BatchDetail } from "./api.ts";
 import {
   applyBatch,
@@ -19,6 +20,8 @@ type Failed = Exclude<Outcome<unknown>, { ok: true }>;
 export type ResultView =
   | { readonly kind: "loading" }
   | { readonly kind: "applying" }
+  /** A reviewed batch, not applied yet, opened without a click on «Застосувати»: nothing is written until the button is pressed. */
+  | { readonly kind: "ready" }
   | { readonly kind: "missing" }
   | { readonly kind: "cancelled" }
   | { readonly kind: "not-parsed" }
@@ -44,7 +47,12 @@ const problemOf = (o: Failed) => (o.kind === "problem" ? o.problem : null);
  */
 const running = new Map<string, Promise<ResultView>>();
 
-async function run(api: Api, batchId: string, setView: (v: ResultView) => void): Promise<ResultView> {
+async function run(
+  api: Api,
+  batchId: string,
+  intent: boolean,
+  setView: (v: ResultView) => void,
+): Promise<ResultView> {
   const b = await loadBatch(api, batchId);
   if (!b.ok) {
     const p = problemOf(b);
@@ -57,7 +65,13 @@ async function run(api: Api, batchId: string, setView: (v: ResultView) => void):
   const finished = state === "applied" || state === "rolled-back";
   if (!finished && state !== "parsed" && state !== "needs-review") return { kind: "not-parsed" };
   let already = finished;
+  if (finished && b.data.applying) {
+    // Applied but still reported as applying: the idempotent apply (IMP-04 FR 7) settles it and returns the stored result.
+    const a = await applyBatch(api, batchId);
+    if (!a.ok) return refusal(a, b.data);
+  }
   if (!finished) {
+    if (!intent) return { kind: "ready" };
     setView({ kind: "applying" });
     const a = await applyBatch(api, batchId);
     if (!a.ok) return refusal(a, b.data);
@@ -83,8 +97,9 @@ function refusal(o: Failed, batch: BatchDetail): ResultView {
 }
 
 /**
- * IMP-08@PoC c) (wave 2, row 138): the state of the step «Результат». Arriving here runs the apply of the reviewed batch
- * (the click of «Застосувати» on the review step is this address): the batch is read; a batch not applied yet is applied (all
+ * IMP-08@PoC c) (wave 2, row 138): the state of the step «Результат». The apply runs only after a click of «Застосувати»
+ * (the review step arms a one-shot intent, or the step shows the button itself for a batch opened by address): the batch is
+ * read; a batch not applied yet and with an intent is applied (all
  * rows or none, IMP-05 FR 11; the call is idempotent, IMP-04 FR 7, so a retry or a reload never writes twice); a batch applied
  * before is not applied again. Then the result is read — the stored counts and what is left to do after the apply (#673).
  * «Відкотити» sends the rollback and reads the result again.
@@ -105,10 +120,13 @@ export function useResultStep(batchId: string) {
   }, []);
 
   useEffect(() => {
-    const key = `${batchId}/${round}`;
+    // One run per batch, whatever the round: a new round joins the run in flight instead of starting a second apply.
+    const key = batchId;
+    // The intent is spent by every visit, also one that joins a run in flight, so none is left for a later visit by address.
+    const intent = takeApplyIntent(batchId);
     let p = running.get(key);
     if (!p) {
-      p = run(api, batchId, (v) => {
+      p = run(api, batchId, intent, (v) => {
         if (alive.current) setView(v);
       }).finally(() => running.delete(key));
       running.set(key, p);
@@ -123,9 +141,19 @@ export function useResultStep(batchId: string) {
   }, [api, batchId, round]);
 
   const retry = useCallback(() => {
+    // «Спробувати ще раз» after a failed or refused apply is a new click on the apply; after a failed read it only reads.
+    if (view.kind === "refused" || (view.kind === "error" && view.where === "apply")) armApply(batchId);
     setView({ kind: "loading" });
     setRound((n) => n + 1);
-  }, []);
+  }, [batchId, view]);
+
+  /** «Застосувати» on this step: the click is the intent. */
+  const apply = useCallback(() => {
+    if (running.has(batchId)) return;
+    armApply(batchId);
+    setView({ kind: "applying" });
+    setRound((n) => n + 1);
+  }, [batchId]);
 
   const rollback = useCallback(
     async (mode: RollbackMode): Promise<boolean> => {
@@ -151,5 +179,5 @@ export function useResultStep(batchId: string) {
 
   const clearRollbackFailure = useCallback(() => setRollbackFailure(null), []);
 
-  return { view, retry, rollback, clearRollbackFailure, rolling, rollbackFailure, rolledBack };
+  return { view, retry, apply, rollback, clearRollbackFailure, rolling, rollbackFailure, rolledBack };
 }
