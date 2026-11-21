@@ -67,6 +67,7 @@ const TRANSPORT: Cat = { id: id(2), name: "Транспорт", kind: "expense",
 const SALARY: Cat = { id: id(3), name: "Зарплата", kind: "income", deletable: false };
 const FREELANCE: Cat = { id: id(4), name: "Фриланс", kind: "income", deletable: true };
 const CATS = [PRODUCTS, TRANSPORT, SALARY, FREELANCE];
+const CAT_BASE = { kind: "income" as const, deletable: true };
 
 const wizard = (over: { available?: boolean } = {}) => ({
   today: "2026-11-01",
@@ -173,7 +174,7 @@ const postBody = (calls: readonly Call[], path = "/v1/budget") =>
     allocation?: unknown;
   };
 const openMenu = (name: string) => {
-  fireEvent.click(within(rowOf(name)).getByRole("button", { name: "Ще дії" }));
+  fireEvent.click(within(rowOf(name)).getByRole("button", { name: `Ще дії: ${name}` }));
   return screen.getByRole("menu", { name: `Дії категорії «${name}»` });
 };
 const menuItems = (menu: HTMLElement) =>
@@ -211,7 +212,7 @@ describe("BUD-02@PoC i) wizard «Ліміти»: «План доходу» by in
   it("BUD-02@PoC FR 21: «Прибрати» (✕) takes a row out of the list and out of the plan", async () => {
     const { calls } = mount();
     await toLimits();
-    fireEvent.click(within(rowOf("Фриланс")).getByRole("button", { name: "Прибрати" }));
+    fireEvent.click(within(rowOf("Фриланс")).getByRole("button", { name: "Прибрати: Фриланс" }));
     expect(screen.queryByRole("rowheader", { name: "Фриланс" })).toBeNull();
     expect(incomeSum()).toBe("сума категорій доходу 5 000,00 €");
     await waitFor(() => {
@@ -237,7 +238,7 @@ describe("BUD-02@PoC i) wizard «Ліміти»: «План доходу» by in
   it("BUD-02@PoC FR 21: «Додати категорію доходу» adds an editable row — a list of income categories without a plan, then «Нова категорія доходу…», a sum, ✓ and ✕", async () => {
     mount();
     await toLimits();
-    fireEvent.click(within(rowOf("Фриланс")).getByRole("button", { name: "Прибрати" }));
+    fireEvent.click(within(rowOf("Фриланс")).getByRole("button", { name: "Прибрати: Фриланс" }));
     fireEvent.click(screen.getByRole("button", { name: "Додати категорію доходу" }));
     const select = screen.getByRole("combobox", { name: "Категорія доходу" }) as HTMLSelectElement;
     expect([...select.options].filter((o) => o.value !== "").map((o) => o.textContent)).toEqual([
@@ -309,6 +310,7 @@ describe("BUD-02@PoC i) the actions of a category in the wizard", () => {
     const { calls } = mount();
     await toLimits();
     expect(menuItems(openMenu("Продукти"))).toEqual([
+      "Обов’язкова",
       "Перейменувати",
       "Прибрати з бюджету",
       "Видалити категорію…",
@@ -323,6 +325,50 @@ describe("BUD-02@PoC i) the actions of a category in the wizard", () => {
     fireEvent.click(create);
     await waitFor(() => expect(postBody(calls)).toBeTruthy());
     expect(postBody(calls).limits.map((l) => l.categoryId)).toEqual([TRANSPORT.id]);
+  });
+
+  it("BUD-02@PoC FR 22: «Обов’язкова» of the menu opens a popover from the row (no modal dialog) and saves the attribute on the category", async () => {
+    const { calls } = mount({
+      "PATCH /v1/categories/c0000000-0000-4000-8000-000000000001": { status: 200, body: {} },
+    });
+    await toLimits();
+    fireEvent.click(within(openMenu("Продукти")).getByRole("menuitem", { name: "Обов’язкова" }));
+    const popover = await screen.findByRole("dialog", { name: "Обов’язкова: Продукти" });
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    const box = within(popover).getByRole("checkbox", { name: "Обов’язкова" }) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ essential: true });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Обов’язкова: Продукти" })).toBeNull());
+  });
+
+  it("BUD-02@PoC FR 22: «Скасувати» of the «Обов’язкова» popover saves nothing; a refused save says so and keeps the popover", async () => {
+    const { calls } = mount({
+      "PATCH /v1/categories/c0000000-0000-4000-8000-000000000001": problem(503, "MODULE_UNAVAILABLE"),
+    });
+    await toLimits();
+    fireEvent.click(within(openMenu("Продукти")).getByRole("menuitem", { name: "Обов’язкова" }));
+    let popover = await screen.findByRole("dialog", { name: "Обов’язкова: Продукти" });
+    fireEvent.click(within(popover).getByRole("button", { name: "Скасувати" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Обов’язкова: Продукти" })).toBeNull());
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+    fireEvent.click(within(openMenu("Продукти")).getByRole("menuitem", { name: "Обов’язкова" }));
+    popover = await screen.findByRole("dialog", { name: "Обов’язкова: Продукти" });
+    fireEvent.click(within(popover).getByRole("checkbox", { name: "Обов’язкова" }));
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    expect(await within(popover).findByRole("alert")).toBeTruthy();
+  });
+
+  it("BUD-02@PoC FR 22: the buttons of a row say whose they are — «Ще дії: {name}», «Прибрати: {name}» — and the group's «Додати категорію» is not part of its heading cell", async () => {
+    mount();
+    await toLimits();
+    expect(screen.getByRole("button", { name: "Ще дії: Транспорт" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Прибрати: Зарплата" })).toBeTruthy();
+    const heading = screen.getByRole("rowheader", { name: "Щоденне" });
+    expect(heading.querySelector("button")).toBeNull();
+    expect(within(heading.closest("tr")!).getByRole("button", { name: "Додати категорію" })).toBeTruthy();
   });
 
   it("BUD-02@PoC FR 22: «Додати категорію» in the group heading offers «Нова категорія…»; the new category gets its row with the limit typed (AC20)", async () => {
@@ -414,7 +460,7 @@ describe("BUD-02@PoC i) the actions of a category in the wizard", () => {
     expect(postBody(calls).limits.map((l) => l.categoryId)).toEqual([TRANSPORT.id]);
   });
 
-  it("BUD-02@PoC AC19: «Видалити категорію…» of a category with transactions offers «Приховати» and «Об’єднати з іншою…» (BUD-01 FR 13); hiding takes it out of the step", async () => {
+  it("BUD-02@PoC AC19: «Видалити категорію…» of a category with transactions offers «Приховати» and «Об’єднати з іншою…»; hiding takes it out of the step", async () => {
     const { calls, state } = mount({
       [`PATCH /v1/categories/${TRANSPORT.id}`]: () => {
         state.cats = state.cats.map((c) => (c.id === TRANSPORT.id ? { ...c, hidden: true } : c));
@@ -635,15 +681,17 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
       [...document.querySelectorAll<HTMLElement>(".bud-table tbody tr")].find(
         (r) => r.querySelector(".bud-name")?.firstChild?.textContent === name,
       )!;
-    fireEvent.click(within(rowFor("Продукти")).getByRole("button", { name: "Ще дії" }));
+    fireEvent.click(within(rowFor("Продукти")).getByRole("button", { name: "Ще дії: Продукти" }));
     expect(menuItems(screen.getByRole("menu", { name: "Дії категорії «Продукти»" }))).toEqual([
+      "Обов’язкова",
       "Перейменувати",
       "Прибрати з бюджету",
       "Видалити категорію…",
     ]);
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
-    fireEvent.click(within(rowFor("Подорожі")).getByRole("button", { name: "Ще дії" }));
+    fireEvent.click(within(rowFor("Подорожі")).getByRole("button", { name: "Ще дії: Подорожі" }));
     expect(menuItems(screen.getByRole("menu", { name: "Дії категорії «Подорожі»" }))).toEqual([
+      "Обов’язкова",
       "Перейменувати",
       "Видалити категорію…",
     ]);
@@ -657,7 +705,7 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     const row = [...document.querySelectorAll<HTMLElement>(".bud-table tbody tr")].find(
       (r) => r.querySelector(".bud-name")?.firstChild?.textContent === "Продукти",
     )!;
-    fireEvent.click(within(row).getByRole("button", { name: "Ще дії" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Ще дії: Продукти" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Прибрати з бюджету" }));
     await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
     expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({
@@ -671,13 +719,77 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     );
   });
 
+  it("BUD-02@PoC FR 7: «Обов’язкова» of a limited row opens a popover from the row, saves the attribute on the category and reads the page again", async () => {
+    const api = open({ [`PATCH /v1/categories/${PRODUCTS.id}`]: { status: 200, body: {} } });
+    await screen.findByRole("table");
+    const row = [...document.querySelectorAll<HTMLElement>(".bud-table tbody tr")].find(
+      (r) => r.querySelector(".bud-name")?.firstChild?.textContent === "Продукти",
+    )!;
+    fireEvent.click(within(row).getByRole("button", { name: "Ще дії: Продукти" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Обов’язкова" }));
+    const popover = await screen.findByRole("dialog", { name: "Обов’язкова: Продукти" });
+    fireEvent.click(within(popover).getByRole("checkbox", { name: "Обов’язкова" }));
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() => expect(api.calls.some((c) => c.method === "PATCH")).toBe(true));
+    expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({ essential: true });
+    await waitFor(() =>
+      expect(
+        api.calls.filter((c) => c.method === "GET" && c.path === "/v1/budget/periods/2026-11"),
+      ).toHaveLength(2),
+    );
+  });
+
+  it("BUD-02@PoC FR 9: the banner is above the top row of cards, not in the card «Категорії»", async () => {
+    open({ "GET /v1/budget/plan-grid": { status: 200, body: grid("deficit") } });
+    const banner = (await screen.findByText("План з дефіцитом 200,00 €")).closest(".bud-banner")!;
+    const cards = document.querySelector<HTMLElement>("[data-plan-region='income']")!;
+    expect(banner.compareDocumentPosition(cards) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(banner.closest(".bud-card")).toBeNull();
+  });
+
+  it("BUD-02@PoC FR 9: when the income categories do not fit the card, the last row is «Інші · N» and the tooltip lists them", async () => {
+    const many = ["Зарплата", "Фриланс", "Оренда", "Відсотки", "Подарунки", "Кешбек"].map((name, i) => ({
+      categoryId: i < 2 ? (i === 0 ? SALARY.id : FREELANCE.id) : id(30 + i),
+      plan: money(`${(6 - i) * 100}.00`),
+      actual: money("0.00"),
+      name,
+    }));
+    const extra = many.slice(2).map((m) => ({ ...CAT_BASE, id: m.categoryId, name: m.name }));
+    open({
+      "GET /v1/categories": {
+        status: 200,
+        body: tree([...CATS, TRAVEL, ...extra]),
+      },
+      "GET /v1/budget/periods/2026-11": {
+        status: 200,
+        body: period({
+          incomeCategories: many.map((m) => ({ categoryId: m.categoryId, plan: m.plan, actual: m.actual })),
+        }),
+      },
+    });
+    await screen.findByRole("table");
+    const card = document.querySelector<HTMLElement>("[data-plan-region='income']")!;
+    expect(card.querySelectorAll("li:not(.bud-income-others)")).toHaveLength(3);
+    const others = within(card).getByRole("button", { name: "Інші · 3" });
+    fireEvent.focus(others);
+    const tip = await screen.findByRole("tooltip");
+    for (const name of ["Відсотки", "Подарунки", "Кешбек"]) expect(plain(tip.textContent)).toContain(name);
+    expect(plain(tip.textContent)).not.toContain("Оренда");
+  });
+
+  it("BUD-02@PoC FR 9: up to four income categories are all shown, with no «Інші»", async () => {
+    open();
+    await screen.findByRole("table");
+    expect(screen.queryByRole("button", { name: /Інші/ })).toBeNull();
+  });
+
   it("BUD-02@PoC AC19: a refused removal says so and changes nothing on the screen", async () => {
     open({ "PATCH /v1/budget/plan": problem(503, "MODULE_UNAVAILABLE") });
     await screen.findByRole("table");
     const row = [...document.querySelectorAll<HTMLElement>(".bud-table tbody tr")].find(
       (r) => r.querySelector(".bud-name")?.firstChild?.textContent === "Продукти",
     )!;
-    fireEvent.click(within(row).getByRole("button", { name: "Ще дії" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Ще дії: Продукти" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Прибрати з бюджету" }));
     expect(await screen.findByText("Не вдалося змінити бюджет. Спробуйте ще раз")).toBeTruthy();
   });

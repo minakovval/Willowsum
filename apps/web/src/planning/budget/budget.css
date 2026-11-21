@@ -537,3 +537,35 @@
 .bud-income-mark {
   margin-inline-start: var(--ws-space-2);
 }
+
+/* BUD-02@PoC FR 9: «Інші · N» — the last row of the card «Дохід» when its categories do not fit. */
+.bud-others {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ws-ink-muted);
+  font: inherit;
+  text-decoration: underline dotted;
+  cursor: help;
+}
+
+/* BUD-02@PoC FR 7: the popover «Обов'язкова» of a row. */
+.bud-mandatory {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  min-width: 200px;
+}
+.bud-mandatory-field {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+.bud-mandatory-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ws-space-2);
+}
+.bud-wiz-group-add {
+  text-align: end;
+}

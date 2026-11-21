@@ -10,7 +10,7 @@ import {
   type CardFilterSection,
   type FilterChipItem,
 } from "@willowsum/ui";
-import { categoryMenu, RowMenu, useCategoryActions } from "./CategoryActions.tsx";
+import { RowMenu, useCategoryActions } from "./CategoryActions.tsx";
 import {
   filterCount,
   hasScale,
@@ -100,22 +100,21 @@ export function CategoriesCard({
     if (!category) return null;
     return (
       <RowMenu
-        name={row.name}
-        items={categoryMenu(t, {
-          rename: () => actions.rename(category),
-          removeFromBudget:
-            row.limit === null
-              ? null
-              : () => {
-                  setFailed(false);
-                  void removeLimit(api, view.version, row.id).then((o) => {
-                    // A conflict of versions (the budget changed in another window) is answered by reading it again.
-                    if (o.ok || (o.kind === "problem" && o.problem.code === "VERSION_CONFLICT")) onChanged();
-                    else setFailed(true);
-                  });
-                },
-          remove: () => actions.remove(category),
-        })}
+        category={category}
+        actions={actions}
+        onChanged={onChanged}
+        removeFromBudget={
+          row.limit === null
+            ? null
+            : () => {
+                setFailed(false);
+                void removeLimit(api, view.version, row.id).then((o) => {
+                  // A conflict of versions (the budget changed in another window) is answered by reading it again.
+                  if (o.ok || (o.kind === "problem" && o.problem.code === "VERSION_CONFLICT")) onChanged();
+                  else setFailed(true);
+                });
+              }
+        }
       />
     );
   };

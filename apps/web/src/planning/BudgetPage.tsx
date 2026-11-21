@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { Button, Icon, IconButton, PageTabs, Skeleton, StatusMark } from "@willowsum/ui";
+import { Button, Icon, IconButton, PageTabs, Skeleton, StatusMark, Tooltip } from "@willowsum/ui";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { PlanEmpty } from "./PlanEmpty.tsx";
@@ -100,6 +100,9 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
       </div>
       <PageTabs label={tabs.label} panelId="budget-panel" selected="budget" tabs={tabs.tabs}>
         <PlanGrid page="budget">
+          {data?.kind === "ready" && settled && data.period.mode !== "past" ? (
+            <DeficitBanner period={data.period.period} version={data.version} />
+          ) : null}
           {data?.kind === "ready" && settled && data.period.mode === "past" ? (
             <PeriodSummary key={data.period.period} period={data.period.period} />
           ) : (
@@ -148,7 +151,6 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
             ) : (
               <>
                 <PeriodNotes view={data} month={monthYear(t, data.period.period)} />
-                <DeficitBanner period={data.period.period} version={data.version} />
                 <CategoriesCard
                   key={data.period.period}
                   view={data}
@@ -222,7 +224,7 @@ function DeficitBanner({ period, version }: { period: string; version: number })
   const { result } = useLoad(load);
   if (result.state !== "ready" || result.data === null) return null;
   return (
-    <div className="bud-banner" role="status" data-kind="deficit">
+    <div className="plan-region plan-span-12 bud-banner" role="status" data-kind="deficit">
       <p>
         <span aria-hidden="true">!</span>{" "}
         <strong>
@@ -244,6 +246,9 @@ function DeficitBanner({ period, version }: { period: string; version: number })
   );
 }
 
+/** Rows of the card «Дохід» that fit the height of the top row of cards, the row «Інші · N» included. */
+const INCOME_ROWS = 4;
+
 /**
  * «Дохід» (BUD-02 FR 9, AC18): the plan and the fact of the month as the API gives them, and under them the plan and the
  * fact of each income category (`incomeCategories`: the ones below their plan first, the server's order). «План
@@ -258,6 +263,10 @@ function IncomeCard({ view }: { view: BudgetView }) {
   const reached = (c: (typeof incomeCategories)[number]) =>
     c.actual !== null && new Decimal(c.actual.amount).gte(c.plan.amount);
   const done = planned.filter(reached).length;
+  // The card has the height of its row of cards: when the categories do not fit, the last row is «Інші · N» (FR 9).
+  const fits = incomeCategories.length <= INCOME_ROWS;
+  const shown = fits ? incomeCategories : incomeCategories.slice(0, INCOME_ROWS - 1);
+  const others = fits ? [] : incomeCategories.slice(INCOME_ROWS - 1);
   const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(planned.length);
   return (
     <section className="bud-card" aria-labelledby="bud-income-title">
@@ -286,7 +295,7 @@ function IncomeCard({ view }: { view: BudgetView }) {
       ) : null}
       {incomeCategories.length > 0 ? (
         <ul className="bud-income-list">
-          {incomeCategories.map((c) => {
+          {shown.map((c) => {
             const mark = c.actual === null ? null : reached(c) ? "reached" : "expected";
             const label =
               mark === "reached" ? t("planning.budget.income.reached") : t("planning.budget.income.expected");
@@ -307,6 +316,22 @@ function IncomeCard({ view }: { view: BudgetView }) {
               </li>
             );
           })}
+          {others.length > 0 ? (
+            <li className="bud-income-others">
+              <Tooltip
+                text={others
+                  .map(
+                    (c) =>
+                      `${names.get(c.categoryId) ?? ""}: ${c.actual ? money(c.actual) : "—"} ${t("planning.budget.income.of", { amount: money(c.plan) })}`,
+                  )
+                  .join("; ")}
+              >
+                <button type="button" className="bud-others">
+                  {t("status.e1.others", { count: others.length })}
+                </button>
+              </Tooltip>
+            </li>
+          ) : null}
         </ul>
       ) : null}
     </section>

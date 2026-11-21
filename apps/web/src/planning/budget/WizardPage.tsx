@@ -42,7 +42,7 @@ import {
   type WizardData,
   type WizardGroup,
 } from "./wizard.ts";
-import { AddCategoryMenu, categoryMenu, RowMenu, useCategoryActions } from "./CategoryActions.tsx";
+import { AddCategoryMenu, RowMenu, useCategoryActions } from "./CategoryActions.tsx";
 
 type Method = "spending" | "zero";
 /** The key of a problem field of a «План доходу» row (the rows of the limits are keyed by the category). */
@@ -675,7 +675,7 @@ function LimitsStep({
                     <td>
                       <IconButton
                         icon="close"
-                        label={t("planning.budget.wizard.income.remove")}
+                        label={t("planning.budget.wizard.income.removeOf", { name })}
                         onClick={() => {
                           onIncomeProblem(r.id, false);
                           onIncomes(incomes.filter((x) => x.id !== r.id));
@@ -745,18 +745,18 @@ function LimitsStep({
         {groups.map((g) => (
           <tbody key={g.id}>
             <tr className="bud-group-row">
-              <th scope="rowgroup" colSpan={spending ? 4 : 3}>
-                <span className="bud-wiz-group-head">
-                  <span>{g.name}</span>
-                  <AddCategoryMenu
-                    group={g.name}
-                    onNew={() => {
-                      creating.current = "expense";
-                      actions.addTo(g.id);
-                    }}
-                  />
-                </span>
+              <th scope="rowgroup" colSpan={spending ? 2 : 1}>
+                {g.name}
               </th>
+              <td className="bud-wiz-group-add" colSpan={2}>
+                <AddCategoryMenu
+                  group={g.name}
+                  onNew={() => {
+                    creating.current = "expense";
+                    actions.addTo(g.id);
+                  }}
+                />
+              </td>
             </tr>
             {g.categories.map((c) => {
               const category = tree.groups.flatMap((x) => x.categories).find((x) => x.id === c.id);
@@ -776,13 +776,11 @@ function LimitsStep({
                   <td>
                     {category ? (
                       <RowMenu
-                        name={c.name}
-                        items={categoryMenu(t, {
-                          rename: () => actions.rename(category),
-                          // The wizard keeps the limits on screen: «Прибрати з бюджету» empties this one.
-                          removeFromBudget: () => onLimit(c.id, null, false),
-                          remove: () => actions.remove(category),
-                        })}
+                        category={category}
+                        actions={actions}
+                        onChanged={() => void refresh()}
+                        // The wizard keeps the limits on screen: «Прибрати з бюджету» empties this one.
+                        removeFromBudget={() => onLimit(c.id, null, false)}
                       />
                     ) : null}
                   </td>

@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import { useT } from "@willowsum/i18n";
-import { Dialog, Icon, MenuButton, type MenuItem } from "@willowsum/ui";
+import { Button, Dialog, Icon, MenuButton, Popover, type MenuItem } from "@willowsum/ui";
 import { outcome, useAuthApi } from "../../auth/api.ts";
 import { failureOf, type ActionFailure, type Category, type Tree } from "../../categories/api.ts";
 import { DeleteDialog, MergeDialog, NameDialog, type NameTarget } from "../../categories/dialogs.tsx";
@@ -149,15 +149,17 @@ function KeepDialog({
 }
 
 /** The items of the «…» of a category row; «Прибрати з бюджету» only when the row has something to remove. */
-export function categoryMenu(
+function categoryMenu(
   t: ReturnType<typeof useT>,
   act: {
+    readonly mandatory: () => void;
     readonly rename: () => void;
     readonly removeFromBudget: (() => void) | null;
     readonly remove: () => void;
   },
 ): MenuItem[] {
   const items: MenuItem[] = [
+    { id: "mandatory", label: t("categories.action.essential"), icon: "check", onSelect: act.mandatory },
     { id: "rename", label: t("planning.budget.cat.rename"), icon: "edit", onSelect: act.rename },
   ];
   if (act.removeFromBudget)
@@ -177,21 +179,121 @@ export function categoryMenu(
   return items;
 }
 
-/** The «…» («Ще дії») at the end of a category row. */
-export function RowMenu({ name, items }: { name: string; items: MenuItem[] }) {
+/**
+ * The «…» («Ще дії: {name}») at the end of a category row (BUD-02@PoC FR 7, FR 22): «Обов'язкова · Перейменувати ·
+ * Прибрати з бюджету · Видалити категорію…». «Обов'язкова» opens a small popover from the row (no modal dialog): the
+ * attribute belongs to the category of the space (BUD-01), so it is saved on the category.
+ */
+export function RowMenu({
+  category,
+  actions,
+  removeFromBudget,
+  onChanged,
+}: {
+  category: Category;
+  actions: CategoryActions;
+  removeFromBudget: (() => void) | null;
+  onChanged: () => void;
+}) {
   const t = useT();
+  const host = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
   return (
-    <MenuButton
-      menuLabel={t("categories.menu.category", { name })}
-      ariaLabel={t("categories.more")}
-      title={t("categories.more")}
-      placement="down"
-      align="end"
-      className="ws-icon-button"
-      items={items}
+    <span className="ws-popover-host" ref={host}>
+      <MenuButton
+        menuLabel={t("categories.menu.category", { name: category.name })}
+        ariaLabel={t("planning.budget.cat.more", { name: category.name })}
+        title={t("categories.more")}
+        placement="down"
+        align="end"
+        className="ws-icon-button"
+        items={categoryMenu(t, {
+          mandatory: () => setOpen(true),
+          rename: () => actions.rename(category),
+          removeFromBudget,
+          remove: () => actions.remove(category),
+        })}
+      >
+        <Icon name="more" size={20} inButton />
+      </MenuButton>
+      <MandatoryPopover
+        category={open ? category : null}
+        anchor={host}
+        onClose={() => setOpen(false)}
+        onSaved={() => {
+          setOpen(false);
+          onChanged();
+        }}
+      />
+    </span>
+  );
+}
+
+/** «Обов'язкова» of a category (BUD-02@PoC FR 7): one checkbox, saved on the category with «Зберегти». */
+function MandatoryPopover({
+  category,
+  anchor,
+  onClose,
+  onSaved,
+}: {
+  category: Category | null;
+  anchor: RefObject<HTMLElement | null>;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const t = useT();
+  const api = useAuthApi();
+  const [value, setValue] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const current = value ?? category?.essential === true;
+  const close = () => {
+    setValue(null);
+    setFailed(false);
+    onClose();
+  };
+  const save = async () => {
+    if (!category || busy) return;
+    setBusy(true);
+    setFailed(false);
+    const o = await outcome(
+      api.PATCH("/v1/categories/{categoryId}", {
+        params: { path: { categoryId: category.id } },
+        body: { essential: current },
+      }),
+    );
+    setBusy(false);
+    if (o.ok) {
+      setValue(null);
+      onSaved();
+    } else setFailed(true);
+  };
+  return (
+    <Popover
+      open={category !== null}
+      onClose={close}
+      label={t("planning.budget.cat.mandatory.title", { name: category?.name ?? "" })}
+      anchor={anchor}
     >
-      <Icon name="more" size={20} inButton />
-    </MenuButton>
+      <form
+        className="bud-mandatory"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <label className="bud-mandatory-field">
+          <input type="checkbox" checked={current} onChange={(e) => setValue(e.target.checked)} />
+          <span>{t("categories.action.essential")}</span>
+        </label>
+        {failed ? <p role="alert">{t("categories.error.action")}</p> : null}
+        <div className="bud-mandatory-actions">
+          <Button label={t("categories.form.cancel")} onClick={close} />
+          <Button label={t("categories.form.save")} variant="primary" type="submit" loading={busy} />
+        </div>
+      </form>
+    </Popover>
   );
 }
 
