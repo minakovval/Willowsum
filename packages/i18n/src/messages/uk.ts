@@ -826,10 +826,14 @@ export const uk = {
   "planning.budget.cat.delete.keep":
     "Цю категорію не можна видалити: у ній є транзакції, правила або ліміти. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
   "planning.budget.cat.error": "Не вдалося змінити бюджет. Спробуйте ще раз",
-  "planning.budget.cat.delete.count.one": "{count} транзакція",
-  "planning.budget.cat.delete.count.few": "{count} транзакції",
-  "planning.budget.cat.delete.count.many": "{count} транзакцій",
-  "planning.budget.cat.delete.count.other": "{count} транзакції",
+  "planning.budget.cat.delete.has.one":
+    "Категорія має {count} транзакцію — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
+  "planning.budget.cat.delete.has.few":
+    "Категорія має {count} транзакції — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
+  "planning.budget.cat.delete.has.many":
+    "Категорія має {count} транзакцій — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
+  "planning.budget.cat.delete.has.other":
+    "Категорія має {count} транзакції — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
   "planning.budget.limit.edit": "Змінити ліміт",
   "planning.budget.limit.editOf": "Змінити ліміт «{name}»",
   "planning.budget.limit.set": "Задати ліміт",
@@ -844,7 +848,6 @@ export const uk = {
   "planning.budget.cat.add.mandatory": "обов’язкова",
   "planning.budget.cat.add.confirm": "Додати",
   "planning.budget.cat.add.cancel": "Скасувати",
-  "planning.budget.cat.add.pick": "Оберіть категорію і ліміт",
   "planning.budget.wizard.error.create": "Не вдалося створити бюджет. Спробуйте ще раз",
   "planning.budget.wizard.step.distribute": "Розподіл",
   "planning.budget.wizard.strip.unallocated": "Не розподілено {amount}",

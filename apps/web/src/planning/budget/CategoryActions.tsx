@@ -72,12 +72,15 @@ export function useCategoryActions({
           onClose={close}
           onDone={done}
         />
-        <KeepDialog
-          category={open.kind === "keep" ? open.category : null}
-          onClose={close}
-          onHidden={done}
-          onMerge={(c) => setOpen({ kind: "merge", category: c })}
-        />
+        {/* Mounted only while open: each opening reads the count afresh, never shows the last one. */}
+        {open.kind === "keep" ? (
+          <KeepDialog
+            category={open.category}
+            onClose={close}
+            onHidden={done}
+            onMerge={(c) => setOpen({ kind: "merge", category: c })}
+          />
+        ) : null}
         <MergeDialog
           category={open.kind === "merge" ? open.category : null}
           tree={tree}
@@ -145,15 +148,7 @@ function KeepDialog({
       open
       onClose={onClose}
       title={t("categories.delete.title", { name: category.name })}
-      text={
-        transactions === null ? (
-          keep
-        ) : (
-          <>
-            <strong className="bud-keep-count">{transactionsText(t, locale, transactions)}</strong>. {keep}
-          </>
-        )
-      }
+      text={transactions === null ? keep : transactionsText(t, locale, transactions)}
       icon="trash"
       tone="warning"
       align="start"
@@ -175,11 +170,14 @@ function KeepDialog({
 
 const COUNT_FORMS = ["one", "few", "many", "other"] as const;
 
-/** «12 транзакцій», «1 транзакція», «3 транзакції» — the noun in the form the language needs. */
+/**
+ * The explanation with the count (board PocPlanBudgetTexts, BUD-02 FR 23): «Категорія має 12 транзакцій — її не можна
+ * видалити. …» — the noun in the form the language needs.
+ */
 function transactionsText(t: ReturnType<typeof useT>, locale: string, count: number): string {
   const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(count);
   const form = (COUNT_FORMS as readonly string[]).includes(rule) ? rule : "other";
-  return t(`planning.budget.cat.delete.count.${form}` as MessageKey, { count });
+  return t(`planning.budget.cat.delete.has.${form}` as MessageKey, { count });
 }
 
 /** The items of the «…» of a category row; «Прибрати з бюджету» only when the row has something to remove. */

@@ -200,6 +200,20 @@ describe("BUD-02@PoC FR 21: «План доходу» proposed by income categor
     ]);
   });
 
+  it("BUD-02@PoC EC1: with 6 full months one month without income is only 1 of 6 off by more than 30 % — not irregular, plan the 3-month average", () => {
+    const v = ["1000", "1000", "0", "1000", "1000", "1000"];
+    const months = periods.map((p, i) =>
+      month(p, v[i] === "0" ? { salary: "1" } : { freelance: v[i]!, salary: "1" }),
+    );
+    expect(incomeIrregular(months, "freelance")).toBe(false);
+    expect(proposeFromSpending("EUR", months).incomes.find((i) => i.categoryId === "freelance")).toEqual({
+      categoryId: "freelance",
+      average: eur("666.67"),
+      plan: eur("670"),
+      irregular: false,
+    });
+  });
+
   it("BUD-02@PoC FR 21: the list holds the income categories with income in the 3 months, the largest plan first", () => {
     const p = proposeFromSpending("EUR", [
       month("2026-10", { salary: "1000" }),
@@ -271,5 +285,14 @@ describe("BUD-02@PoC FR 21: the income plan is the sum of the categories' plans"
     const halves = scalePlan(plan({ salary: "30.15", rent: "30.15" }), shareFrom("2026-11-18"));
     expect(halves.incomePlans?.map((l) => l.amount)).toEqual([eur("13.06"), eur("13.06")]);
     expect(halves.incomePlan).toEqual(eur("26.12"));
+  });
+});
+
+describe("sec702: EC 1 gaps — the newest month counts too (security review of #702)", () => {
+  it("sec702: an income with no income in the newest full month only (0, 300, 300, 300) has a gap — irregular, plan 0", () => {
+    const amounts = ["0", "300", "300", "300", "0", "0"];
+    const months = periods.map((p, i) => month(p, amounts[i] === "0" ? {} : { freelance: amounts[i]! }));
+    expect(incomeMonths(months, "freelance")).toBe(4);
+    expect(incomeIrregular(months, "freelance")).toBe(true);
   });
 });

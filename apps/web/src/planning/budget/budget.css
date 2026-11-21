@@ -617,8 +617,3 @@
 .bud-add-limit {
   min-inline-size: 150px;
 }
-
-/* BUD-02@PoC AC 19: «12 транзакцій» in the explanation of «Видалити категорію…». */
-.bud-keep-count {
-  font-weight: 600;
-}

@@ -824,15 +824,18 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     fireEvent.click(within(rowFor("Транспорт")).getByRole("button", { name: "Ще дії: Транспорт" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Видалити категорію…" }));
     const dialog = await screen.findByRole("dialog", { name: "Видалити категорію «Транспорт»?" });
-    await waitFor(() => expect(plain(dialog.textContent)).toContain("12 транзакцій"));
-    expect(plain(dialog.textContent)).toContain("Цю категорію не можна видалити");
+    await waitFor(() =>
+      expect(plain(dialog.textContent)).toContain(
+        "Категорія має 12 транзакцій — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
+      ),
+    );
     expect(within(dialog).getByRole("button", { name: "Приховати" })).toBeTruthy();
     expect(within(dialog).getByRole("button", { name: "Об’єднати з іншою…" })).toBeTruthy();
     expect(within(dialog).queryByRole("button", { name: "Видалити" })).toBeNull();
     expect(api.calls.some((c) => c.path === `/v1/categories/${TRANSPORT.id}/usage`)).toBe(true);
   });
 
-  it("BUD-02@PoC FR 23: the count takes the form of the language — «1 транзакція», «3 транзакції»; a failed count leaves the dialog with both ways out", async () => {
+  it("BUD-02@PoC FR 23: the count takes the form of the language — «має 1 транзакцію», «має 3 транзакції»; a failed count leaves the explanation without a number and both ways out", async () => {
     let count: number | null = 1;
     open({
       [`GET /v1/categories/${TRANSPORT.id}/usage`]: () =>
@@ -845,16 +848,21 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
       return screen.findByRole("dialog", { name: "Видалити категорію «Транспорт»?" });
     };
     let dialog = await ask();
-    await waitFor(() => expect(plain(dialog.textContent)).toContain("1 транзакція."));
+    await waitFor(() =>
+      expect(plain(dialog.textContent)).toContain("Категорія має 1 транзакцію — її не можна видалити."),
+    );
     fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
     count = 3;
     dialog = await ask();
-    await waitFor(() => expect(plain(dialog.textContent)).toContain("3 транзакції."));
+    await waitFor(() =>
+      expect(plain(dialog.textContent)).toContain("Категорія має 3 транзакції — її не можна видалити."),
+    );
     fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
     count = null;
     dialog = await ask();
     expect(within(dialog).getByRole("button", { name: "Приховати" })).toBeTruthy();
-    expect(plain(dialog.textContent)).not.toContain("транзакц".concat("ій."));
+    expect(plain(dialog.textContent)).toContain("Цю категорію не можна видалити");
+    expect(plain(dialog.textContent)).not.toContain("Категорія має");
   });
 
   it("BUD-02@PoC AC12: the pencil «Змінити ліміт» of «Продукти» opens the limit popover from the row, with no modal dialog; the new limit is saved with the budget's version and the page is read again", async () => {

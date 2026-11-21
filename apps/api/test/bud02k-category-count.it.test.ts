@@ -313,3 +313,52 @@ describe("BUD-02@PoC FR 23 «Права доступу»: the count of a categor
     expect((await usage(space, snacks.id)).statusCode).toBe(404);
   });
 });
+
+describe("sec702: the count of a category — paging and isolation (security review of #702)", () => {
+  it("sec702: real transactions after the first page of the count (1 000) are counted — the page boundary is crossed", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const coffee = await addCategory(space, "Кава");
+    // 1 000 rows for transactions that do not exist, with ids that sort before any real id: the first page is all of
+    // them, so the real transactions are only on the second page.
+    const ids = Array.from(
+      { length: 1000 },
+      (_, i) => `00000000-0000-4000-8000-${i.toString(16).padStart(12, "0")}`,
+    );
+    await db.owner.query(
+      `INSERT INTO categorization.transaction_categories (household_id, transaction_id, category_id, source)
+       SELECT $1, unnest($2::uuid[]), $3, 'manual'`,
+      [space.householdId, ids, coffee.id],
+    );
+    for (let i = 0; i < 2; i++)
+      expect(
+        (await setCategory(space, await purchase(space, account, "Синтетична кава"), coffee.id)).statusCode,
+      ).toBe(200);
+    expect((await usage(space, coffee.id)).json()).toEqual({ transactions: 2 });
+  });
+
+  it("sec702: rows of another space that carry this space's category id are not counted (row-level security, defence in depth)", async () => {
+    const a = await newSpace();
+    const b = await newSpace();
+    const accountA = await createAccount(a);
+    const accountB = await createAccount(b);
+    const secret = await addCategory(a, "Синтетична таємниця");
+    const groceriesB = await category(b, "Продукти");
+    expect(
+      (await setCategory(a, await purchase(a, accountA, "Синтетичний кіоск"), secret.id)).statusCode,
+    ).toBe(200);
+    // Space B: an own-category row and a split part that point at A's category (seeded as the owner, past every check).
+    const ownB = await purchase(b, accountB, "Синтетичний кіоск");
+    await db.owner.query(
+      `INSERT INTO categorization.transaction_categories (household_id, transaction_id, category_id, source)
+       VALUES ($1, $2, $3, 'manual')`,
+      [b.householdId, ownB, secret.id],
+    );
+    const splitB = await split(b, accountB, groceriesB.id, groceriesB.id);
+    await db.owner.query(
+      `UPDATE transactions.transaction_parts SET category_id = $3 WHERE household_id = $1 AND transaction_id = $2`,
+      [b.householdId, splitB, secret.id],
+    );
+    expect((await usage(a, secret.id)).json()).toEqual({ transactions: 1 });
+  });
+});

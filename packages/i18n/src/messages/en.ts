@@ -829,10 +829,14 @@ export const en: Messages = {
   "planning.budget.cat.delete.keep":
     "This category cannot be deleted: it has transactions, rules or limits. Hide it or merge it into another: the transactions move to the chosen category.",
   "planning.budget.cat.error": "Could not change the budget. Try again",
-  "planning.budget.cat.delete.count.one": "{count} transaction",
-  "planning.budget.cat.delete.count.few": "{count} transactions",
-  "planning.budget.cat.delete.count.many": "{count} transactions",
-  "planning.budget.cat.delete.count.other": "{count} transactions",
+  "planning.budget.cat.delete.has.one":
+    "The category has {count} transaction — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
+  "planning.budget.cat.delete.has.few":
+    "The category has {count} transactions — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
+  "planning.budget.cat.delete.has.many":
+    "The category has {count} transactions — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
+  "planning.budget.cat.delete.has.other":
+    "The category has {count} transactions — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
   "planning.budget.limit.edit": "Change the limit",
   "planning.budget.limit.editOf": "Change the limit of «{name}»",
   "planning.budget.limit.set": "Set a limit",
@@ -847,7 +851,6 @@ export const en: Messages = {
   "planning.budget.cat.add.mandatory": "mandatory",
   "planning.budget.cat.add.confirm": "Add",
   "planning.budget.cat.add.cancel": "Cancel",
-  "planning.budget.cat.add.pick": "Choose a category and a limit",
   "planning.budget.wizard.error.create": "Could not create the budget. Try again",
   "planning.budget.wizard.step.distribute": "Allocation",
   "planning.budget.wizard.strip.unallocated": "Unallocated {amount}",

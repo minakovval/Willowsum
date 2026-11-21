@@ -198,7 +198,7 @@ export interface ProposedIncome {
   /** The average income of the 3 full months (of the months it has, for a shorter history — EC1), to minor units. */
   readonly average: Money;
   readonly plan: Money;
-  /** EC1: the category's income is irregular (a gap since its first income, or 2 of 6 months off by more than 30 %). */
+  /** EC1: irregular — under 6 months of history a gap since its first income; with 6, 2 of 6 months off by > 30 %. */
   readonly irregular: boolean;
 }
 
@@ -238,14 +238,14 @@ export function incomeGaps(months: readonly MonthHistory[], categoryId: string):
 }
 
 /**
- * Edge case 1, per income category (lead decisions 2026-11-16 and 2026-11-21): the category's income is irregular when
- * it has a gap since its first income (`incomeGaps`: 500, 0, 0, 500, 0, 0 € is irregular), or when, with 6 full
- * months of its history (`incomeMonths`), at least 2 of the last 6 full months differ from its 6-month average by more
- * than 30 %. A category with fewer than 6 months and income in every one of them is «new», not irregular.
+ * Edge case 1, per income category (lead decisions 2026-11-16 and 2026-11-21): with fewer than 6 full months of its
+ * history (`incomeMonths`) the category is irregular only when it has a gap since its first income (`incomeGaps`:
+ * 500, 0, 0, 500, 0, 0 € is irregular); with income in every one of those months it is «new», not irregular. With 6
+ * full months the 30 % rule alone decides: irregular when at least 2 of the last 6 full months differ from its 6-month
+ * average by more than 30 % (1 000, 1 000, 0, 1 000, 1 000, 1 000 € — only 1 month off — is not).
  */
 export function incomeIrregular(months: readonly MonthHistory[], categoryId: string): boolean {
-  if (incomeGaps(months, categoryId)) return true;
-  if (incomeMonths(months, categoryId) < HISTORY_MONTHS) return false;
+  if (incomeMonths(months, categoryId) < HISTORY_MONTHS) return incomeGaps(months, categoryId);
   const six = months.slice(0, HISTORY_MONTHS).map((m) => incomeOf(m, categoryId));
   const average = six.reduce((t, x) => t.plus(x), new Decimal("0")).div(HISTORY_MONTHS);
   const band = average.times("0.3");
