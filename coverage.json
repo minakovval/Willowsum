@@ -1,25 +1,25 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-21T07:55:46.010Z",
-  "sha": "22cd8ed8ff187317ee2a4e33bed25b848530940c",
+  "generatedAt": "2026-11-21T08:09:59.865Z",
+  "sha": "6a33468a1170ca0eb9993d3dba8e98983de52027",
   "releases": [
     {
       "release": "PoC",
       "slices": 152,
       "FR": {
-        "covered": 827,
+        "covered": 836,
         "total": 1392
       },
       "AC": {
-        "covered": 645,
+        "covered": 654,
         "total": 1075
       },
       "EC": {
-        "covered": 124,
+        "covered": 125,
         "total": 201
       },
       "items": {
-        "covered": 1596,
+        "covered": 1615,
         "total": 2668
       }
     },
@@ -27,19 +27,19 @@
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 403,
+        "covered": 410,
         "total": 1197
       },
       "AC": {
-        "covered": 356,
+        "covered": 365,
         "total": 1014
       },
       "EC": {
-        "covered": 84,
+        "covered": 85,
         "total": 245
       },
       "items": {
-        "covered": 843,
+        "covered": 860,
         "total": 2456
       }
     },
@@ -47,19 +47,19 @@
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 491,
+        "covered": 496,
         "total": 3390
       },
       "AC": {
-        "covered": 447,
+        "covered": 455,
         "total": 2980
       },
       "EC": {
-        "covered": 95,
+        "covered": 96,
         "total": 723
       },
       "items": {
-        "covered": 1033,
+        "covered": 1047,
         "total": 7093
       }
     },
@@ -107,11 +107,11 @@
       "release": "v2",
       "slices": 60,
       "FR": {
-        "covered": 24,
+        "covered": 28,
         "total": 569
       },
       "AC": {
-        "covered": 21,
+        "covered": 27,
         "total": 462
       },
       "EC": {
@@ -119,7 +119,7 @@
         "total": 175
       },
       "items": {
-        "covered": 53,
+        "covered": 63,
         "total": 1206
       }
     }
