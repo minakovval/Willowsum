@@ -1,66 +1,66 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-21T12:10:47.924Z",
-  "sha": "8ab90d53b34af706fd5bf75c810aafa1c772d55b",
+  "generatedAt": "2026-11-21T14:33:13.442Z",
+  "sha": "a29872b199c12d65c3095eea70ed45d6c7b410d4",
   "releases": [
     {
       "release": "PoC",
       "slices": 152,
       "FR": {
-        "covered": 839,
-        "total": 1392
+        "covered": 842,
+        "total": 1396
       },
       "AC": {
-        "covered": 654,
-        "total": 1075
+        "covered": 658,
+        "total": 1081
       },
       "EC": {
         "covered": 125,
         "total": 201
       },
       "items": {
-        "covered": 1618,
-        "total": 2668
+        "covered": 1625,
+        "total": 2678
       }
     },
     {
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 413,
-        "total": 1197
+        "covered": 416,
+        "total": 1201
       },
       "AC": {
-        "covered": 365,
-        "total": 1014
+        "covered": 369,
+        "total": 1020
       },
       "EC": {
         "covered": 85,
         "total": 245
       },
       "items": {
-        "covered": 863,
-        "total": 2456
+        "covered": 870,
+        "total": 2466
       }
     },
     {
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 498,
-        "total": 3390
+        "covered": 501,
+        "total": 3394
       },
       "AC": {
-        "covered": 455,
-        "total": 2980
+        "covered": 459,
+        "total": 2986
       },
       "EC": {
         "covered": 96,
         "total": 723
       },
       "items": {
-        "covered": 1049,
-        "total": 7093
+        "covered": 1056,
+        "total": 7103
       }
     },
     {
@@ -87,20 +87,20 @@
       "release": "v1",
       "slices": 169,
       "FR": {
-        "covered": 123,
-        "total": 1762
+        "covered": 126,
+        "total": 1765
       },
       "AC": {
-        "covered": 120,
-        "total": 1645
+        "covered": 124,
+        "total": 1649
       },
       "EC": {
         "covered": 44,
         "total": 486
       },
       "items": {
-        "covered": 287,
-        "total": 3893
+        "covered": 294,
+        "total": 3900
       }
     },
     {
