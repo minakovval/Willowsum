@@ -1,0 +1,140 @@
+/* FLW-38@PoC, S-135 «Підсумок періоду»: the figures, the largest changes and the regular payments. Tokens only. */
+.per-stack {
+  display: grid;
+  gap: var(--ws-gutter);
+  min-inline-size: 0;
+}
+
+.per-subtitle {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.per-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  padding: 0;
+  overflow: hidden;
+}
+
+.per-figure {
+  display: grid;
+  gap: var(--ws-space-1);
+  align-content: start;
+  min-inline-size: 0;
+  padding: var(--ws-space-4) var(--ws-space-5);
+  border-inline-end: 1px solid var(--ws-line);
+}
+
+.per-figure:last-child {
+  border-inline-end: 0;
+}
+
+.per-value {
+  font-family: var(--ws-text-amount-l-family);
+  font-size: var(--ws-text-amount-l-size);
+  line-height: var(--ws-text-amount-l-line);
+  font-weight: var(--ws-text-amount-l-weight);
+  letter-spacing: var(--ws-text-amount-l-tracking);
+  overflow-wrap: anywhere;
+}
+
+.per-hint {
+  font-size: var(--ws-text-body-sm-size);
+  overflow-wrap: anywhere;
+}
+
+.per-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-gutter);
+  align-items: start;
+}
+
+.per-card {
+  display: grid;
+  gap: var(--ws-space-3);
+  align-content: start;
+  min-inline-size: 0;
+  padding: var(--ws-space-5);
+}
+
+.per-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.per-title {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ws-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.per-sub {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.per-list {
+  display: grid;
+  gap: var(--ws-space-3);
+  margin: 0;
+  padding-inline-start: var(--ws-space-5);
+  overflow-wrap: anywhere;
+}
+
+.per-tone {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.per-tone--gain {
+  color: var(--ws-gain);
+}
+
+.per-tone--loss {
+  color: var(--ws-loss);
+}
+
+.per-tone--none {
+  color: var(--ws-link);
+}
+
+.per-payments {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.per-payment {
+  display: grid;
+  grid-template-columns: minmax(4rem, auto) minmax(0, 1fr) auto;
+  gap: var(--ws-space-1) var(--ws-space-3);
+  padding-block: var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.per-name {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.per-amount {
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.per-status {
+  grid-column: 2 / -1;
+  font-size: var(--ws-text-body-sm-size);
+  overflow-wrap: anywhere;
+}
+
+.per-more {
+  justify-self: start;
+}

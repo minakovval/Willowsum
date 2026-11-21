@@ -646,7 +646,9 @@ describe("BUD-03@PoC b) states", () => {
       renderAt(`${PAGE}?period=${month}`, fake.client);
       await screen.findByRole("table");
       expect(fake.calls.some((c) => c.path.endsWith("/spendable"))).toBe(false);
-      expect(region().getAttribute("data-empty")).toBe("true");
+      // A past month is S-135 «Підсумок періоду» (FLW-38, row 149): it has no slot for the sum; a future one keeps its empty slot.
+      if (month === "2026-10") expect(document.querySelector('[data-plan-region="spendable"]')).toBeNull();
+      else expect(region().getAttribute("data-empty")).toBe("true");
     }
   });
 

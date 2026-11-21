@@ -19,8 +19,11 @@ import {
   isPortFree,
   lockHolderMessage,
   parsePidsFile,
+  releaseFlagKeys,
+  requiredOperationalFlagKeys,
   type PidEntry,
 } from "../scripts/lib/local-dev.ts";
+import { FLAGS } from "../src/modules/feature-flags/index.ts";
 
 const apiDir = fileURLToPath(new URL("..", import.meta.url));
 const adminUrl = process.env["DATABASE_URL"]!;
@@ -170,6 +173,79 @@ describe("#363: pnpm local:dev on a machine where other programs hold ports", ()
     }
   }, 180_000);
 
+  it("bug of 2026-11-20: an uploaded file is parsed by the worker (one storage for every role) and GET /v1/space answers", async () => {
+    const web = `http://localhost:${webPort}`;
+    const cookies = new Map<string, string>();
+    const send = async (method: string, url: string, body?: unknown, form?: FormData) => {
+      const response = await fetch(`${web}${url}`, {
+        method,
+        headers: {
+          origin: web,
+          cookie: [...cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+          ...(body !== undefined ? { "content-type": "application/json" } : {}),
+        },
+        ...(form ? { body: form } : body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+      for (const c of response.headers.getSetCookie()) {
+        const [pair] = c.split(";");
+        const at = pair!.indexOf("=");
+        cookies.set(pair!.slice(0, at), pair!.slice(at + 1));
+      }
+      return {
+        status: response.status,
+        json: (await response.json().catch(() => null)) as Record<string, unknown>,
+      };
+    };
+    const email = `synthetic.${randomBytes(4).toString("hex")}@example.com`;
+    const password = `Synthetic-${randomBytes(8).toString("hex")}!`;
+    const signUp = await send("POST", "/v1/registrations", {
+      name: "Синтетичний Тест",
+      email,
+      password,
+      captchaToken: "synthetic-captcha-pass",
+    });
+    expect(signUp.status).toBe(200);
+    // The prompt prints the confirmation link of the email typed there.
+    const before = first.output().length;
+    first.child.stdin!.write(`${email}\n`);
+    let token: string | undefined;
+    for (let waited = 0; !token && waited < 10_000; waited += 100) {
+      token = /#\/verify\?token=([\w%-]+)/.exec(first.output().slice(before))?.[1];
+      if (!token) await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(token).toBeDefined();
+    expect(
+      (await send("POST", "/v1/email-confirmations", { token: decodeURIComponent(token!) })).status,
+    ).toBe(200);
+    expect((await send("POST", "/v1/sessions", { email, password })).status).toBe(200);
+    // household.space-settings requires the operational household.core: on, so «Новий бюджет» reads the space.
+    let space = await send("GET", "/v1/space");
+    // The API reloads the flag state at most every 15 s.
+    for (let waited = 0; space.status !== 200 && waited < 20_000; waited += 500) {
+      await new Promise((r) => setTimeout(r, 500));
+      space = await send("GET", "/v1/space");
+    }
+    expect(space.status).toBe(200);
+    // IMP-01: the API stores the original, the worker parses it — never FILE_MISSING.
+    const batch = await send("POST", "/v1/import/batches", {});
+    expect(batch.status).toBe(201);
+    const id = batch.json["id"] as string;
+    const form = new FormData();
+    const csv =
+      "date,amount,description\n2026-11-01,-12.50,Synthetic Shop\n2026-11-02,-3.20,Synthetic Cafe\n";
+    form.append("file", new Blob([csv], { type: "text/csv" }), "synthetic.csv");
+    expect((await send("POST", `/v1/import/batches/${id}/files`, undefined, form)).status).toBe(201);
+    expect((await send("POST", `/v1/import/batches/${id}/parse`, {})).status).toBe(200);
+    let progress = await send("GET", `/v1/import/batches/${id}/parse`);
+    for (let waited = 0; waited < 30_000; waited += 500) {
+      if ((progress.json["progress"] as { pending: number }).pending === 0) break;
+      await new Promise((r) => setTimeout(r, 500));
+      progress = await send("GET", `/v1/import/batches/${id}/parse`);
+    }
+    const files = progress.json["files"] as { state: string; refusal: { code: string } | null }[];
+    expect(files.map((f) => [f.state, f.refusal?.code ?? null])).toEqual([["parsed", null]]);
+  }, 120_000);
+
   let second: Run;
   it("a second start stops the leftovers of the first (same pid, start time and command line) and runs", async () => {
     const old = parsePidsFile(readFileSync(pidsFile, "utf8")).map((e) => e.pid);
@@ -186,7 +262,11 @@ describe("#363: pnpm local:dev on a machine where other programs hold ports", ()
     ).rows;
     await flagDb.end();
     expect(flags.length).toBeGreaterThan(0);
-    for (const f of flags) expect(f.changed_at.getTime(), f.key).toBeGreaterThanOrEqual(before.getTime());
+    const release = new Set(releaseFlagKeys(FLAGS));
+    for (const f of flags.filter((f) => release.has(f.key)))
+      expect(f.changed_at.getTime(), f.key).toBeGreaterThanOrEqual(before.getTime());
+    // The operational flags the release flags require are on and keep the state of the first start.
+    for (const key of requiredOperationalFlagKeys(FLAGS)) expect(flags.map((f) => f.key)).toContain(key);
     expect(second.output()).toMatch(/Зупиняю те, що лишилося від попереднього `pnpm local:dev`/);
     expect(await allGone(old, 5_000)).toEqual([]);
     expect(first.child.exitCode ?? first.child.signalCode).not.toBeNull();

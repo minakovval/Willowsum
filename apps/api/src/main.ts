@@ -93,6 +93,7 @@ import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
 import {
+  directoryObjectStorage,
   ensureBucket,
   memoryObjectStorage,
   s3ObjectStorage,
@@ -205,6 +206,8 @@ const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 // Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01 b): the S3-compatible storage and the key of signed links from the
 // configuration (required in staging and production); locally and in CI without them, the process's memory and a key
 // drawn at start (links then end with the process). Locally the bucket is made if missing (the `pnpm local:up` storage).
+// `pnpm local:dev` gives every role the same storage and link key: the S3 of `pnpm local:up`, or without Docker a
+// directory of this machine (`WS_FILES_DIR`, which the configuration refuses in staging and production).
 const s3 = config.files.s3;
 // The scheduler too: its daily cleanup removes unapplied import batches with their originals (IMP-01 FR 20); and the
 // worker: the parse step reads each statement's original (IMP-01 FR 5).
@@ -220,7 +223,11 @@ const files =
         db: databases.for("file-storage"),
         audit,
         keys: createSpaceKeys(databases.for("household"), audit, kms),
-        objects: s3 ? s3ObjectStorage(s3) : memoryObjectStorage(),
+        objects: s3
+          ? s3ObjectStorage(s3)
+          : config.files.dir && !config.deployed
+            ? directoryObjectStorage(config.files.dir)
+            : memoryObjectStorage(),
         linkKey: linkKey(config.files.linkKey ?? randomBytes(32)),
       })
     : undefined;
@@ -612,8 +619,8 @@ if (config.role === "worker") {
     ...workerQueues(
       databases,
       flags,
-      // IMP-01 FR 5: the parse of import batches' files. Locally without S3 the worker's storage is its own memory, so
-      // it finds no original the API process stored (the file is refused as FILE_MISSING); `pnpm local:up` has S3.
+      // IMP-01 FR 5: the parse of import batches' files: the originals the API process stored, so the worker needs the
+      // same storage (`pnpm local:dev` passes it; with neither S3 nor WS_FILES_DIR a file is refused as FILE_MISSING).
       files ? { files, keys: createSpaceKeys(databases.for("household"), audit, kms) } : undefined,
     ),
     households: () => spaces.spaceIds(),
