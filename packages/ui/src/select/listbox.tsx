@@ -227,7 +227,8 @@ export function SelectFrame({
   const describedBy = [note && ids.note, reason && ids.reason].filter(Boolean).join(" ") || undefined;
   return (
     <div className={["ws-select", className].filter(Boolean).join(" ")}>
-      <label id={ids.label} htmlFor={ids.control} className="ws-select-label">
+      {/* While loading there is no control yet: a `for` without its field is an error of the page (#698). */}
+      <label id={ids.label} htmlFor={loading ? undefined : ids.control} className="ws-select-label">
         {label}
         {required ? (
           <>

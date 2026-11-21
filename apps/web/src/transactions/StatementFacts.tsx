@@ -42,6 +42,8 @@ export function StatementFacts({ transaction: tx }: { transaction: TransactionDe
     // The settlement amount is the transaction's own amount: shown next to the original one it converts.
     rows.push({ key: "settled", label: t("txDetail.statement.settled"), value: money(tx.amount) });
   }
+  // IMP-02 FR 5 (#698): the bank's fee, inside the amount — shown beside it, never subtracted on screen.
+  if (tx.bankFee) rows.push({ key: "fee", label: t("txDetail.statement.fee"), value: money(tx.bankFee) });
   if (tx.valueDate)
     rows.push({
       key: "value",

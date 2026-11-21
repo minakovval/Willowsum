@@ -191,6 +191,11 @@ export const transactionSchema = z.object({
   valueDate: z.string().nullable(),
   /** IMP-02 FR 4: the bank's reference of the operation (masked as the description); null — none. */
   bankReference: z.string().nullable(),
+  /**
+   * IMP-02 FR 5 (#698): the bank's fee included in `amount` — the fee charged, positive, in the amount's currency (the
+   * journal keeps it as the operation's separate fee leg); null — none or entered by hand.
+   */
+  bankFee: moneySchema.nullable(),
 });
 
 type BankOut = Pick<
@@ -202,6 +207,7 @@ type BankOut = Pick<
   | "exchangeRate"
   | "valueDate"
   | "bankReference"
+  | "bankFee"
 >;
 
 const NO_BANK_FIELDS: BankOut = {
@@ -212,6 +218,7 @@ const NO_BANK_FIELDS: BankOut = {
   exchangeRate: null,
   valueDate: null,
   bankReference: null,
+  bankFee: null,
 };
 
 /** IMP-02 FR 4: the bank's fields of a transaction as read (`BANK_FIELDS`, by row or by `bankFieldsOf`). */
@@ -237,6 +244,10 @@ function bankOut(f: BankFields | undefined): BankOut {
     exchangeRate: rate === null ? null : new Decimal(rate).toFixed(),
     valueDate: f.valueDate === null || f.valueDate === undefined ? null : dateText(f.valueDate),
     bankReference: text(f.bankReference),
+    bankFee:
+      text(f.bankFee) === null || text(f.bankFeeCurrency) === null
+        ? null
+        : Money.of(String(f.bankFee), String(f.bankFeeCurrency)).toJSON(),
   };
 }
 

@@ -20,7 +20,7 @@ export const PARSE_LIMITS = { memoryMb: 512, timeoutMs: 60_000, concurrent: 2 } 
  * The engine's version, kept with each parsed file (IMP-01@PoC FR 9: the versions applied to each file). A change of
  * the engine's output raises it.
  */
-export const PARSE_ENGINE_VERSION = "1";
+export const PARSE_ENGINE_VERSION = "2";
 
 export type StatementParseRefusal =
   "FILE_TOO_LARGE" | "TABLE_LIMIT" | "PARSE_MEMORY" | "PARSE_TIMEOUT" | "CORRUPTED" | "ACCOUNT_BINDING";

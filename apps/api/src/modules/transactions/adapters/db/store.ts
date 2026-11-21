@@ -45,6 +45,10 @@ interface Row {
   review: ReviewState | null;
   version: number;
   created_at: Date;
+  /** IMP-02 FR 5 (0015_bank_fee.sql): the bank's fee in the amount; null — none. */
+  bank_fee: string | null;
+  /** The currency the fee was charged in (the row's as imported); set with `bank_fee`. */
+  bank_fee_currency: string | null;
 }
 
 interface TransferRow {
@@ -80,7 +84,8 @@ interface PartRow {
 // The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
   counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, note,
-  tag_ids::text[] AS tag_ids, one_off, review, version, created_at`;
+  tag_ids::text[] AS tag_ids, one_off, review, version, created_at, bank_fee::text AS bank_fee,
+  bank_fee_currency`;
 
 /** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
 export async function transfersOf(
@@ -192,6 +197,11 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
     version: r.version,
     // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
     createdAt: r.created_at.toISOString(),
+    // IMP-02 FR 5: only an imported row with a fee has one (its journal event has a fee leg, hand-off.ts).
+    // In its own currency, never the row's current one: a row moved to another currency keeps the fee as charged.
+    ...(r.bank_fee === null || r.bank_fee === undefined || !r.bank_fee_currency
+      ? {}
+      : { bankFee: Money.of(r.bank_fee, r.bank_fee_currency) }),
   };
 }
 
@@ -446,6 +456,8 @@ export const BANK_FIELDS = {
   exchangeRate: "exchange_rate",
   valueDate: "value_date",
   bankReference: "bank_reference",
+  bankFee: "bank_fee",
+  bankFeeCurrency: "bank_fee_currency",
 } as const;
 export type BankFields = { readonly [K in keyof typeof BANK_FIELDS]: unknown } & {
   readonly currency: unknown;

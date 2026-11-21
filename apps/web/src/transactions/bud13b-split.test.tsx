@@ -60,6 +60,7 @@ function tx(over: Partial<Transaction> = {}): Transaction {
     exchangeRate: null,
     valueDate: null,
     bankReference: null,
+    bankFee: null,
     ...over,
   };
 }

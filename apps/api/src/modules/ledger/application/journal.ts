@@ -72,7 +72,7 @@ export interface Entry {
    * for an entry in one currency; a reversal keeps the rates of the entry it reverses.
    */
   readonly conversions: readonly EntryConversion[];
-  /** The legs of an entry made by the event `legs`, in order, the fee last (IMP-02@PoC FR 5); empty for the others. */
+  /** The legs of an entry made by the event `legs` or a `transaction` with a fee, in order, the fee last (IMP-02@PoC FR 5); empty for the others. */
   readonly legs: readonly EntryLeg[];
 }
 

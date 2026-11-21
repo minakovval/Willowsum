@@ -40,6 +40,12 @@ export interface StoredTransaction {
   readonly version: number;
   /** ISO 8601 UTC; set by the database. */
   readonly createdAt: string;
+  /**
+   * IMP-02@PoC FR 5 (#698): the bank's fee included in `amount` (the fee charged, positive, the amount's currency): the
+   * journal event has the operation's main leg (`amount` + fee) and a separate fee leg. Absent — none (only an imported
+   * row has one; it never changes).
+   */
+  readonly bankFee?: Money | null;
 }
 
 export type NewStoredTransaction = Omit<StoredTransaction, "createdAt">;

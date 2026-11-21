@@ -271,7 +271,7 @@ describe("IMP-01@PoC FR 5, FR 10: «Розібрати» parses each file in the
       state: "parsed",
       refusal: null,
       accountId: space.eur,
-      engineVersion: "1",
+      engineVersion: "2",
       rowCount: 2,
       checks: { currency: "EUR", flags: [] },
       history: { status: "unknown" },

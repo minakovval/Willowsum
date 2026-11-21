@@ -58,6 +58,10 @@ export type EventFlag =
   /** IMP-06 FR 8: the row's sign is not told — an indicator the engine does not know, a minus where the sign comes from elsewhere. */
   | "sign-unclear"
   | "amount-unreadable"
+  /** FR 5: the fee cell holds something that is not a number (and not the bank's «—» for none): never dropped silently. */
+  | "fee-unreadable"
+  /** FR 5 (#703): the balances break and their unbroken links do not tell whether the amounts include the fees. */
+  | "fee-basis-unknown"
   | "date-unreadable"
   /** A text over `EVENT_LIMITS.textChars` came out cut. */
   | "text-cut";
@@ -79,6 +83,12 @@ export interface StatementEvent {
   /** The main legs: one per row in a statement (FR 5). */
   readonly legs: readonly EventLeg[];
   readonly fee: EventLeg | null;
+  /**
+   * FR 5 (#698 owner report): with a fee, whether the main leg already includes it — the account moved by the main leg
+   * (monobank's «Сума в валюті картки»), or by the main leg less the fee. Set for the file by `readFeeBasis`; absent
+   * without a fee, and in a parse sealed before it was read.
+   */
+  readonly feeIncluded?: boolean;
   /** The balance after the row as printed (IMP-05@PoC FR 1 «ланцюжок залишків»), decimal text; null — no balance. */
   readonly balance: string | null;
   /** The original amount and currency (FR 4), before the bank's rate; null — the row has none. */
@@ -121,6 +131,9 @@ export interface StatementEvents {
   /** The country an ambiguous symbol was read by, and where it came from. Never the IBAN itself. */
   readonly country: { readonly code: string; readonly from: "options" | "file" } | null;
 }
+
+/** What a fee cell prints for «no fee» (monobank, #694). */
+const FEE_NONE: ReadonlySet<string> = new Set(["—", "–", "-"]);
 
 const filled = (row: readonly string[]): number => row.filter((c) => c.trim() !== "").length;
 
@@ -327,7 +340,10 @@ export function readEvents(
     };
     precise(main, currency);
 
-    const feeAmount = amountOf(at(r, "fee"));
+    // «—» and «–» print «no fee» (#694); anything else that does not read is flagged, never taken as no fee.
+    const feeCell = at(r, "fee").trim();
+    const feeAmount = FEE_NONE.has(feeCell) ? null : amountOf(feeCell);
+    if (feeAmount === null && feeCell !== "" && !FEE_NONE.has(feeCell)) flags.add("fee-unreadable");
     precise(feeAmount, currency);
     const fee =
       feeAmount && !feeAmount.value.isZero()
@@ -351,7 +367,8 @@ export function readEvents(
     precise(originalAmount, originalCode);
     const rate = amountOf(at(r, "exchange-rate"));
 
-    // FR 12: original × rate against the settled amount, 0.5 % or one minor unit of the settled currency.
+    // FR 12: original × rate against the settled amount, 0.5 % or one minor unit of the settled currency. With a fee the
+    // settled amount may include it (monobank: card amount = original × rate + fee, #698): either reading agrees.
     if (
       main &&
       originalAmount &&
@@ -360,10 +377,17 @@ export function readEvents(
       originalCode !== null &&
       originalCode !== currency
     ) {
-      const settled = main.value.abs();
       const unit = new Decimal("10").pow(-currencyInfo(currency).minorUnits);
-      const tolerance = Decimal.max(settled.times(EVENT_LIMITS.rateTolerance), unit);
-      const within = (expected: Decimal) => expected.minus(settled).abs().lte(tolerance);
+      const settledAmounts = [main.value.abs()];
+      // The operation before the fee: the account's movement plus the fee charged (−21 840 + 840 = −21 000).
+      if (fee) settledAmounts.push(main.value.plus(fee.amount).abs());
+      const within = (expected: Decimal) =>
+        settledAmounts.some((settled) =>
+          expected
+            .minus(settled)
+            .abs()
+            .lte(Decimal.max(settled.times(EVENT_LIMITS.rateTolerance), unit)),
+        );
       const r0 = rate.value.abs();
       if (!within(originalAmount.value.abs().times(r0)))
         flags.add(

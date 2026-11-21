@@ -14,6 +14,7 @@ import {
   reviewRowsOf,
   ROW_ACTIONS,
   ROW_ISSUES,
+  ROW_ISSUE_DETAILS,
   type DuplicatePreview,
   type ReviewRow,
 } from "../../application/index.ts";
@@ -86,6 +87,8 @@ const reviewRowSchema = z.object({
     .nullable(),
   /** «помилка»: why the apply cannot write the row as it is (the apply's `IMPORT_ROWS_REFUSED` issue). */
   issue: z.enum(ROW_ISSUES).nullable().meta(extensible),
+  /** #703: what more the issue says — `fee-basis`: the balances do not tell whether the amount includes the fee. */
+  issueDetail: z.enum(ROW_ISSUE_DETAILS).nullable().meta(extensible),
   /** FR 10, AC10: «В обробці» / «Невдала»; null until the parser reads the bank's status (IMP-01 FR 16). */
   bankStatus: z.enum(BANK_STATUSES).nullable(),
 });
@@ -107,6 +110,7 @@ function presentRow(r: ReviewRow): z.input<typeof reviewRowSchema> {
         }
       : null,
     issue: r.issue,
+    issueDetail: r.issueDetail,
     bankStatus: r.bankStatus,
   };
 }

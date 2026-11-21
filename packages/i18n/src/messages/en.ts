@@ -383,6 +383,7 @@ export const en: Messages = {
   "txDetail.statement.valueDate": "Value date",
   "txDetail.statement.balance": "Balance after the transaction",
   "txDetail.statement.reference": "Bank reference",
+  "txDetail.statement.fee": "Bank fee",
   "txDetail.statement.origin": "Import",
   "txDetail.statement.row": "Statement row {row}",
   "txDetail.split": "Split",
@@ -3176,6 +3177,8 @@ export const en: Messages = {
   "importReview.issue.currency": "The row has no currency.",
   "importReview.issue.too-precise": "The amount has more decimals than the currency allows.",
   "importReview.issue.fee": "The fee could not be read.",
+  "importReview.issue.fee-basis":
+    "The statement's balances do not show whether the amount already includes the fee.",
   "importReview.issue.account": "The row belongs to another account.",
   "importReview.issue.text": "The text of the row is too long.",
   "importReview.issue.other": "The reason is named by the engine's code.",

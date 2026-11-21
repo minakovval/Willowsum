@@ -137,6 +137,23 @@ describe("CMP-03@PoC Select — native", () => {
     expect(select.getAttribute("aria-describedby")).toBe(reason.id);
   });
 
+  it("CMP-03@PoC loading: the label points at no field while there is none — no `for` without its target (#698)", () => {
+    const { container, rerender } = render(
+      <Select label="Валюта" options={[]} value="" onChange={() => undefined} loading />,
+    );
+    expect(container.querySelector("label")!.hasAttribute("for")).toBe(false);
+    rerender(
+      <Select
+        label="Валюта"
+        options={[{ value: "UAH", label: "UAH" }]}
+        value=""
+        onChange={() => undefined}
+      />,
+    );
+    const label = container.querySelector("label")!;
+    expect(document.getElementById(label.getAttribute("for")!)?.tagName).toBe("SELECT");
+  });
+
   it("CMP-03@PoC loading: a skeleton in the shape of the field under the label, no control yet", () => {
     render(<Select label="Валюта" options={[]} value="" onChange={() => undefined} loading />);
     expect(screen.queryByRole("combobox")).toBeNull();

@@ -20,6 +20,7 @@ import { resetNavigationSession } from "../routing/session.ts";
 import { takeApplyIntent } from "./applyIntent.ts";
 import { ReviewStep } from "./ReviewStep.tsx";
 import { POLLING } from "./useImportStep.ts";
+import { REQUEST_LIMIT } from "./useReviewStep.ts";
 
 /**
  * IMP-08@PoC b) (wave 2, row 137) — the step «Перевірка розпізнавання» of the import wizard, S-171 (canvas PocMoneyImport2,
@@ -46,6 +47,7 @@ interface Row {
   decision: { action: string; from: "row" | "group" } | null;
   reading: null | { cell: string; readings: { decimal: "," | "."; value: string }[]; chosen: string | null };
   issue: string | null;
+  issueDetail?: string | null;
   text: string;
   amount: string;
 }
@@ -156,6 +158,7 @@ class Server {
           sign: r.signUnconfirmed ? { basis: "card", confidence: 0.6, confirmed: false } : null,
           reading: r.reading ? { ...r.reading, evidence: EVIDENCE } : null,
           issue: r.issue,
+          issueDetail: r.issueDetail ?? null,
           bankStatus: null,
         })),
         nextCursor: more ? String(page.at(-1)!.row) : null,
@@ -965,5 +968,115 @@ describe("IMP-08@PoC FR 14, FR 15 — keyboard, names, long texts", () => {
     expect(screen.getByText("The amount «1.234» can be read in two ways.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "It is 1,234" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back" })).toBeTruthy();
+  });
+});
+
+describe("IMP-08@PoC FR 16 — a request that fails or never answers is an error, never a lasting wait (#698)", () => {
+  const limit = REQUEST_LIMIT.ms;
+  beforeEach(() => {
+    REQUEST_LIMIT.ms = 60;
+  });
+  afterEach(() => {
+    REQUEST_LIMIT.ms = limit;
+  });
+  const never = () => new Promise<Reply>(() => undefined);
+
+  it("IMP-08@PoC FR 16: an answer the server never confirms ends «Зберігаємо відповідь…» with the error, and the buttons work again", async () => {
+    const { client } = api(new Server([ambiguous(1)]), {
+      over: { [`POST /v1/import/batches/${BATCH}/decisions`]: never },
+    });
+    renderAt(at(), client);
+    fireEvent.click(await screen.findByRole("button", { name: (n) => plain(n) === "Це 1 234" }));
+    expect(
+      await screen.findByText("Не вдалося зберегти відповідь. Перевірте з'єднання.", { exact: false }),
+    ).toBeTruthy();
+    expect(screen.queryAllByText("Зберігаємо відповідь…")).toHaveLength(0);
+    expect(isDisabled(named("Це 1 234"))).toBe(false);
+  });
+
+  it("IMP-08@PoC FR 16: a saved answer is no longer «Зберігаємо…» while the readiness is still being read", async () => {
+    REQUEST_LIMIT.ms = 60_000;
+    const server = new Server([ambiguous(1), ambiguous(2)]);
+    let reads = 0;
+    const { client, calls } = api(server, {
+      // The first read opens the step; the one after the answer never answers.
+      over: {
+        [`GET /v1/import/batches/${BATCH}/readiness`]: () => (reads++ === 0 ? server.readiness() : never()),
+      },
+    });
+    renderAt(at(), client);
+    fireEvent.click((await screen.findAllByRole("button", { name: (n) => plain(n) === "Це 1 234" }))[0]!);
+    await waitFor(() => expect(decisionsOf(calls)).toHaveLength(1));
+    await waitFor(() => expect(reads).toBe(2));
+    await waitFor(() => expect(screen.queryAllByText("Зберігаємо відповідь…")).toHaveLength(0));
+  });
+
+  it("IMP-02@PoC FR 5: a fee row whose basis the balances do not tell says so, and is excluded like any row error (#703)", async () => {
+    const { client } = api(
+      new Server([row(1, { state: "error", issue: "fee", issueDetail: "fee-basis" }), row(2)]),
+    );
+    renderAt(at(), client);
+    expect(
+      await screen.findByText("Залишки виписки не показують, чи сума вже містить комісію."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Комісію не вдалося прочитати.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Виключити" })).toBeTruthy();
+  });
+
+  for (const [what, path, text] of [
+    ["the batch", ``, "Не вдалося завантажити перевірку."],
+    ["the parse", `/parse`, "Не вдалося завантажити перевірку."],
+    ["the readiness", `/readiness`, "Не вдалося завантажити перевірку."],
+    ["the file's summary", `/files/${F1}/review`, "Не вдалося завантажити підсумок файлу."],
+    ["the duplicates", `/files/${F1}/duplicates`, "Не вдалося перевірити дублі."],
+  ] as const)
+    it(`IMP-08@PoC FR 16: ${what} never answering on the first load ends its skeleton with «${text}»`, async () => {
+      const { client } = api(longServer(), { over: { [`GET /v1/import/batches/${BATCH}${path}`]: never } });
+      renderAt(at(), client);
+      expect(await screen.findByText(text)).toBeTruthy();
+    });
+
+  it("IMP-08@PoC FR 16: a request that throws on the first load is an error, never a lasting skeleton", async () => {
+    const { client } = api(longServer(), {
+      over: { [`GET /v1/import/batches/${BATCH}/readiness`]: () => Promise.reject(new Error("synthetic")) },
+    });
+    renderAt(at(), client);
+    expect(await screen.findByText("Не вдалося завантажити перевірку.")).toBeTruthy();
+  });
+
+  it("IMP-08@PoC FR 16: rows of «Питання» that never arrive end the skeleton with «Не вдалося завантажити рядки.» and «Спробувати ще раз»", async () => {
+    const { client } = api(longServer(), {
+      over: { [`GET /v1/import/batches/${BATCH}/files/${F1}/review/rows`]: never },
+    });
+    renderAt(at(), client);
+    expect(await screen.findByText("Не вдалося завантажити рядки.")).toBeTruthy();
+    expect(document.querySelector(".imp-panel [aria-busy='true']")).toBeNull();
+  });
+
+  it("IMP-08@PoC FR 16: the rows are listed before their dates and texts arrive; values that never arrive are the list's error, not a skeleton", async () => {
+    const { client } = api(longServer(), {
+      over: { [`GET /v1/import/batches/${BATCH}/files/${F1}/rows`]: never },
+    });
+    renderAt(at(), client);
+    expect(await screen.findByText("Не вдалося завантажити рядки.")).toBeTruthy();
+    expect(document.querySelectorAll(".imp-r").length).toBeGreaterThan(0);
+  });
+
+  it("IMP-08@PoC FR 16: the file's values are read once — an answer reads the review rows again, not the whole file", async () => {
+    const { client, calls } = api(longServer());
+    renderAt(at(), client);
+    await screen.findByText("SILPO 3");
+    const fileRows = () =>
+      calls.filter((c) => c.method === "GET" && /\/files\/[^/]+\/rows/.test(c.path)).length;
+    const before = fileRows();
+    fireEvent.click((await screen.findAllByRole("button", { name: (n) => plain(n) === "Це 1 234" }))[0]!);
+    await waitFor(() => expect(decisionsOf(calls)).toHaveLength(1));
+    await waitFor(() => expect(screen.queryAllByText("Зберігаємо відповідь…")).toHaveLength(0));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.method === "GET" && c.path.endsWith("/review/rows")).length,
+      ).toBeGreaterThan(1),
+    );
+    expect(fileRows()).toBe(before);
   });
 });

@@ -91,6 +91,12 @@ export class ApplyNotReady extends Error {
 
 export const ROW_ISSUES = ["unreadable", "currency", "too-precise", "fee", "account", "text"] as const;
 export type RowIssue = (typeof ROW_ISSUES)[number];
+/**
+ * What more an issue says (#703 round 1), a field of its own beside the closed `issue` codes: `fee-basis` — «fee», the
+ * statement's balances do not tell whether the amount includes the fee (the fee itself reads).
+ */
+export const ROW_ISSUE_DETAILS = ["fee-basis"] as const;
+export type RowIssueDetail = (typeof ROW_ISSUE_DETAILS)[number];
 
 /** At most this many rows are named in a refusal. */
 export const ROWS_NAMED = 20;
@@ -173,6 +179,8 @@ export interface ApplyRow extends IncomingRow {
   readonly valueDate: string | null;
   /** IMP-02 FR 4: the bank's reference, masked as the description is. */
   readonly reference: string | null;
+  /** IMP-02 FR 5: the bank's fee in `amount` (the fee charged, positive); null — none. */
+  readonly fee: Money | null;
 }
 
 /**
@@ -199,13 +207,17 @@ export function fileRows(
   readonly rows: readonly ApplyRow[];
   readonly excluded: number;
   readonly zero: number;
-  readonly issues: readonly { readonly row: number; readonly issue: RowIssue }[];
+  readonly issues: readonly {
+    readonly row: number;
+    readonly issue: RowIssue;
+    readonly detail?: RowIssueDetail;
+  }[];
 } {
   const excluded = new Set(plan.excluded);
   const flipped = new Set(plan.flipped);
   const readings = new Map(plan.readings.map((r) => [r.row, r.value]));
   const rows: ApplyRow[] = [];
-  const issues: { row: number; issue: RowIssue }[] = [];
+  const issues: { row: number; issue: RowIssue; detail?: RowIssueDetail }[] = [];
   let zero = 0;
   let skipped = 0;
   for (const e of events) {
@@ -223,8 +235,19 @@ export function fileRows(
       issues.push({ row: e.row, issue: "currency" });
       continue;
     }
-    // A fee is a leg of its own (IMP-02 FR 5): written by a later part, never dropped.
-    if (e.fee && !new Decimal(e.fee.amount).isZero()) {
+    // IMP-02 FR 5 (#698): a fee is written as the event's own leg, never dropped. Refused only when its cell does not
+    // read, or the parse did not tell whether the amount includes it (a parse sealed before that was read).
+    if (e.flags.includes("fee-unreadable")) {
+      issues.push({ row: e.row, issue: "fee" });
+      continue;
+    }
+    // #703: the statement's balances do not tell whether the amount includes the fee — shown, never guessed.
+    if (e.flags.includes("fee-basis-unknown")) {
+      issues.push({ row: e.row, issue: "fee", detail: "fee-basis" });
+      continue;
+    }
+    const feeCharged = e.fee && !new Decimal(e.fee.amount).isZero() ? new Decimal(e.fee.amount).abs() : null;
+    if (feeCharged !== null && (e.feeIncluded === undefined || (e.fee!.currency ?? currency) !== currency)) {
       issues.push({ row: e.row, issue: "fee" });
       continue;
     }
@@ -235,6 +258,8 @@ export function fileRows(
       const chosen = readings.get(e.row);
       amount = chosen === undefined ? read : new Decimal(chosen).abs().times(read.isNegative() ? -1 : 1);
       if (flipped.has(e.row)) amount = amount.negated();
+      // The account's movement: the amount with its fee in it (monobank), or the amount less the fee.
+      if (feeCharged !== null && e.feeIncluded === false) amount = amount.minus(feeCharged);
     } catch {
       issues.push({ row: e.row, issue: "unreadable" });
       continue;
@@ -258,10 +283,20 @@ export function fileRows(
     }
     // An amount past what the books hold (20 integer digits) is the row's refusal, never a server error.
     let money: Money;
+    let fee: Money | null;
     try {
       money = Money.of(amount, currency);
+      fee = feeCharged === null ? null : Money.of(feeCharged, currency);
     } catch {
       issues.push({ row: e.row, issue: "unreadable" });
+      continue;
+    }
+    // A fee the books cannot hold apart (more decimals than the currency, or all of the amount) is the row's refusal.
+    if (
+      fee !== null &&
+      (feeCharged!.decimalPlaces() > currencyInfo(currency).minorUnits || money.plus(fee).isZero())
+    ) {
+      issues.push({ row: e.row, issue: "fee" });
       continue;
     }
     // IMP-05 business rule: an IBAN or a card number in the bank's text keeps its last 4 characters, in the books too.
@@ -287,6 +322,7 @@ export function fileRows(
       ...(legacy !== undefined && legacy !== null && legacy !== description
         ? { legacyDescription: legacy }
         : {}),
+      fee,
       original: originalOf(e, money),
       rate: importedRate(e.rate),
       valueDate: importedValueDate(e.valueDate),
@@ -476,7 +512,7 @@ export async function applyBatch(
     if (file.plan.dateOrder !== null && file.plan.dateOrder !== engineOrder)
       throw new ApplyUnsupported("date-order");
     const out = fileRows(sealed.events.events, file.plan, file.review);
-    for (const i of out.issues) issues.push({ fileId: file.review.batchFileId, ...i });
+    for (const i of out.issues) issues.push({ fileId: file.review.batchFileId, row: i.row, issue: i.issue });
     total += out.rows.length;
     // #654: one apply writes at most APPLY_ROWS_MAX rows (checked before anything is stored).
     if (total > APPLY_ROWS_MAX) throw new ApplyTooLarge();
@@ -586,6 +622,7 @@ export async function applyBatch(
                 rate: r.rate,
                 valueDate: r.valueDate,
                 reference: r.reference,
+                ...(r.fee !== null ? { fee: r.fee } : {}),
                 ...link,
               });
             }

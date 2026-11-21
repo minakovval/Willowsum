@@ -46,6 +46,7 @@ function tx(over: Record<string, unknown> = {}) {
     exchangeRate: null,
     valueDate: null,
     bankReference: null,
+    bankFee: null,
     ...over,
   };
 }
@@ -148,6 +149,11 @@ describe("IMP-02@PoC FR 4: the statement's data in S-047", () => {
     expect(row(b, "Референс банку").textContent).toContain("REF-0001234");
   });
 
+  it("IMP-02@PoC FR 5: the bank's fee is shown beside the amount it is in, when there is one (#698)", async () => {
+    await open(tx({ ...FULL, bankFee: { amount: "1.50", currency: "EUR" } }));
+    expect(val(block()!, "Комісія банку")).toBe("1,50 €");
+  });
+
   it("IMP-02@PoC FR 4: the import origin links to the import batch", async () => {
     await open(tx(FULL));
     const link = within(block()!).getByRole("link", { name: /7/ });
@@ -166,7 +172,14 @@ describe("IMP-02@PoC FR 4: the statement's data in S-047", () => {
     const b = block()!;
     expect(row(document.body, "Опис у банку").textContent).toContain("SILPO 0457 KYIV");
     expect(row(b, "Дата валютування")).toBeTruthy();
-    for (const label of ["Початкова сума", "Курс", "Залишок після операції", "Референс банку", "Імпорт"])
+    for (const label of [
+      "Початкова сума",
+      "Курс",
+      "Залишок після операції",
+      "Референс банку",
+      "Комісія банку",
+      "Імпорт",
+    ])
       expect(within(b).queryByText(label)).toBeNull();
     // The settlement amount is shown with the original amount, not alone.
     expect(within(b).queryByText("Сума розрахунку")).toBeNull();

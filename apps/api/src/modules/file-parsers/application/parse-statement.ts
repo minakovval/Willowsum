@@ -1,5 +1,6 @@
 import {
   analyzeTable,
+  feesTaken,
   hasCardMask,
   maskedMismatch,
   matchAccount,
@@ -10,6 +11,8 @@ import {
   type AccountBindingKind,
   type AccountMatch,
   readEvents,
+  readFeeBasis,
+  withFeeBasis,
   type StatementAnalysis,
   type StatementEvents,
   type StatementOptions,
@@ -59,14 +62,18 @@ export function parseStatement(
   const read = readEvents(rows, headerRow, firstRow, analysis, statement, new Set([...labelled, ...exclude]));
   // IMP-05 FR 6 (Рішення власника (2026-11-20), п. 6): a credit card's positive balance is debt; the reading is
   // inverted only when the balance chain confirms it.
-  const { events, figures, debt } = readCardDebt(read, printed, statement.account?.kind);
+  const card = readCardDebt(read, printed, statement.account?.kind);
+  const { figures, debt } = card;
+  // IMP-02 FR 5 (#698): whether the amounts include their fees; the checks count what the account moved.
+  const feeReading = readFeeBasis(card.events, figures, analysis);
+  const events = withFeeBasis(card.events, feeReading);
   const preamble = rows.slice(firstRow, headerRow ?? firstRow);
   const account = binding ? matchAccount(preamble, binding.by, binding.value) : null;
   const checks = reviewStatement({
     rows,
     firstRow,
     analysis,
-    events,
+    events: feeReading?.basis === "excluded" ? feesTaken(events) : events,
     figures,
     ...(statement.account ? { account: statement.account } : {}),
     match: account,
