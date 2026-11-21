@@ -807,6 +807,28 @@ export const en: Messages = {
   "planning.budget.wizard.limits.of": "Limit: {category}",
   "planning.budget.wizard.limits.outside":
     "Categories without a limit go to the group «Outside the plan»; their spending also reduces «Safe to spend».",
+  "planning.budget.wizard.income.title": "Income plan",
+  "planning.budget.wizard.income.sum": "sum of the income categories",
+  "planning.budget.wizard.income.col.plan": "Plan per month",
+  "planning.budget.wizard.income.of": "Income plan: {category}",
+  "planning.budget.wizard.income.remove": "Remove",
+  "planning.budget.wizard.income.removeOf": "Remove: {name}",
+  "planning.budget.wizard.income.add": "Add an income category",
+  "planning.budget.wizard.income.add.hint": "an income category without a plan or «New income category…»",
+  "planning.budget.wizard.income.new": "New income category…",
+  "planning.budget.wizard.income.category": "Income category",
+  "planning.budget.wizard.income.confirm": "Add",
+  "planning.budget.cat.add": "Add a category",
+  "planning.budget.cat.add.menu": "Add a category: {group}",
+  "planning.budget.cat.new": "New category…",
+  "planning.budget.cat.more": "More actions: {name}",
+  "planning.budget.cat.mandatory.title": "Mandatory: {name}",
+  "planning.budget.cat.rename": "Rename",
+  "planning.budget.cat.unbudget": "Remove from the budget",
+  "planning.budget.cat.delete": "Delete category…",
+  "planning.budget.cat.delete.keep":
+    "This category cannot be deleted: it has transactions, rules or limits. Hide it or merge it into another: the transactions move to the chosen category.",
+  "planning.budget.cat.error": "Could not change the budget. Try again",
   "planning.budget.wizard.error.create": "Could not create the budget. Try again",
   "planning.budget.wizard.step.distribute": "Allocation",
   "planning.budget.wizard.strip.unallocated": "Unallocated {amount}",
@@ -817,7 +839,7 @@ export const en: Messages = {
     "The income plan exceeds the limits by {amount}. Decide where the difference goes.",
   "planning.budget.wizard.dist.deficit.title": "Where will {amount} come from?",
   "planning.budget.wizard.dist.deficit.lead":
-    "The limits exceed the income plan. Choose how to cover the difference — you can combine several sources.",
+    "The limits exceed the income plan. You can cover the difference from several sources or leave the deficit — the budget is created either way.",
   "planning.budget.wizard.dist.balanced":
     "Nothing to allocate: the income plan covers the limits and the minimum payments.",
   "planning.budget.wizard.dist.unknown":
@@ -858,13 +880,16 @@ export const en: Messages = {
   "planning.budget.wizard.dist.planOnly.surplus":
     "This is a plan: no money is transferred. The amounts will appear in «Budget → Plan» in the sections «Goals and savings» and «Debt payoff».",
   "planning.budget.wizard.dist.planOnly.deficit":
-    "This is a plan: no money is transferred. The cover will appear in «Budget → Plan» in the row «Unallocated / Deficit».",
+    "This is a plan: no money is transferred. The cover and the uncovered deficit will appear in «Budget → Plan» in the row «Unallocated / Deficit»; with a deficit the «Budget» page shows the banner «Plan with a deficit of {amount}».",
   "planning.budget.wizard.dist.planOff.surplus":
     "This is a plan: no money is transferred. The chosen amounts will be saved with the budget.",
   "planning.budget.wizard.dist.planOff.deficit":
     "This is a plan: no money is transferred. The cover will be saved with the budget.",
+  "planning.budget.wizard.dist.leaveDeficit": "Leave the deficit",
+  "planning.budget.wizard.dist.leaveDeficit.hint":
+    "the uncovered part stays in the plan; «Safe to spend» can become negative",
+  "planning.budget.wizard.dist.leaveDeficit.rest": "the rest",
   "planning.budget.wizard.dist.amountOf": "Amount: {name}",
-  "planning.budget.wizard.dist.reason.deficit": "Cover the deficit in full",
   "planning.budget.wizard.dist.reason.over": "More is chosen than there is to allocate",
   "planning.budget.wizard.dist.reason.wait": "Calculating the allocation",
   "planning.budget.wizard.dist.error": "Could not calculate the allocation. Try again",
@@ -992,6 +1017,15 @@ export const en: Messages = {
   "planning.spend.source.incomes": "regular incomes",
   "planning.spend.source.goals": "goal contributions",
   "planning.spend.source.plannedExpenses": "planned expenses",
+  "planning.budget.deficit.title": "Plan with a deficit of {amount}",
+  "planning.budget.deficit.body":
+    "the limits and planned contributions exceed the income plan; «Safe to spend» can become negative",
+  "planning.budget.deficit.open": "Open «Plan»",
+  "planning.budget.income.done.one": "plan met in {done} of {count} category",
+  "planning.budget.income.done.other": "plan met in {done} of {count} categories",
+  "planning.budget.income.of": "of {amount}",
+  "planning.budget.income.reached": "Plan reached",
+  "planning.budget.income.expected": "Expected",
   "planning.budget.income.title": "Income",
   "planning.budget.income.plan": "Income plan",
   "planning.budget.income.actual": "Received",

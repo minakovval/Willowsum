@@ -381,7 +381,7 @@ const UNSAVED: ReadonlySet<AllocationRowKind> = new Set(UNSAVED_ROW_KINDS);
 /**
  * FR 15, AC6, AC7: the rows of «Розподіл» checked against the balance with the rules of the calculation
  * (`allocationChoice`): each row of the balance's kind, on a goal or debt of the space, once, ≥ 0 exactly in the
- * budget's currency; the sum never over N (`over`); a deficit covered exactly (`short` refused). The balance already
+ * budget's currency; the sum never over N (`over`); a deficit may stay uncovered (FR 15, AC17). The balance already
  * holds the goals' default contributions (Q5 а), so a `goal` row counts as its change against that default, and a goal
  * the wizard shows (budget currency, a contribution planned) left without a row is saved as 0 € (Q4 а). So the grid's
  * «Не розподілено» after the save is the rest. Returns the cells the first period stores, or the issues.
@@ -457,7 +457,7 @@ export function checkAllocation(
     }
   const choice = allocationChoice(balance, amounts);
   if (choice.status === "over") return { kind: "invalid", issues: [{ field: "allocation", issue: "over" }] };
-  if (balance.kind === "deficit" && choice.status !== "exact")
-    return { kind: "invalid", issues: [{ field: "allocation", issue: "short" }] };
+  // FR 15, AC7, AC17 (owner decision 2026-11-21, 1 а): a deficit may stay uncovered in part or in full («Лишити
+  // дефіцит») — the rest is the plan's deficit, shown by «План» and the period's banner.
   return { kind: "ok", value: { cells, choice } };
 }

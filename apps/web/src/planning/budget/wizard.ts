@@ -13,7 +13,7 @@ type Json<T> = T extends { responses: { 200: { content: { "application/json": in
  */
 export type Wizard = Json<operations["getBudgetWizard"]>;
 export type Start = Wizard["starts"][number];
-type Tree = Json<operations["listCategories"]>;
+type TreeJson = Json<operations["listCategories"]>;
 export type Money = { amount: string; currency: string };
 
 export interface WizardCategory {
@@ -36,8 +36,16 @@ export type WizardData =
       readonly kind: "ready";
       readonly wizard: Wizard;
       readonly currency: string;
-      readonly groups: readonly WizardGroup[];
+      /** The category tree as `GET /v1/categories` gave it; the screen reads it again after a category action. */
+      readonly tree: Tree;
     };
+
+/** A row of «План доходу» (BUD-02@PoC FR 21): an income category and the plan typed for it (null — not typed yet). */
+export interface IncomeRow {
+  readonly id: string;
+  readonly amount: string | null;
+}
+export type Tree = TreeJson;
 
 export async function loadWizard(api: ApiClient): Promise<Load<WizardData>> {
   const budget = await outcome(api.GET("/v1/budget"));
@@ -57,12 +65,13 @@ export async function loadWizard(api: ApiClient): Promise<Load<WizardData>> {
       kind: "ready",
       wizard: wizard.data,
       currency: space.data.reportingCurrency,
-      groups: groupsOf(tree.data, wizard.data),
+      tree: tree.data,
     },
   };
 }
 
-function groupsOf(tree: Tree, wizard: Wizard): WizardGroup[] {
+/** The expense groups of the limits step: active categories only, each with the server's average and suggestion. */
+export function groupsOf(tree: Tree, wizard: Wizard): WizardGroup[] {
   const spending = new Map(wizard.fromSpending.categories.map((c) => [c.categoryId, c]));
   return tree.groups
     .filter((g) => g.kind === "expense")
@@ -81,6 +90,14 @@ function groupsOf(tree: Tree, wizard: Wizard): WizardGroup[] {
     .filter((g) => g.categories.length > 0);
 }
 
+/** The income categories a plan can be added for (BUD-02@PoC FR 21): active ones, in the order of the tree. */
+export function incomeCategories(tree: Tree): readonly { readonly id: string; readonly name: string }[] {
+  return tree.groups
+    .filter((g) => g.kind === "income")
+    .flatMap((g) => g.categories.filter((c) => c.kind === "income" && !c.hidden))
+    .map((c) => ({ id: c.id, name: c.name }));
+}
+
 type Amount = { amount: string; currency: string };
 /** A row of «Розподіл» as the contract has it; «Із заощаджень» and «У борг» are not saved in PoC and not sent. */
 export type AllocationRow =
@@ -92,7 +109,8 @@ export type AllocationRow =
 export function createBody(args: {
   readonly start: Start;
   readonly currency: string;
-  readonly income: string | null;
+  /** The rows of «План доходу» (FR 21); a row without an amount is not sent. The income plan is their sum (the server's). */
+  readonly incomes: readonly IncomeRow[];
   readonly limits: ReadonlyMap<string, string | null>;
   /** The typed rows of «Розподіл» (BUD-02@PoC FR 15); none — the key is left out. */
   readonly rows?: readonly AllocationRow[];
@@ -100,12 +118,15 @@ export function createBody(args: {
   const limits = [...args.limits]
     .filter((e): e is [string, string] => e[1] !== null)
     .map(([categoryId, amount]) => ({ categoryId, amount: { amount, currency: args.currency } }));
+  const incomePlans = args.incomes
+    .filter((r): r is { id: string; amount: string } => r.amount !== null)
+    .map((r) => ({ categoryId: r.id, amount: { amount: r.amount, currency: args.currency } }));
   return {
     // A first of the month has the one start; `period-start` is the current month, `next-period` the next one.
     firstPeriod: args.start.firstPeriod,
     proportional: args.start.start === "proportional",
-    // An empty income plan is left out: the server's default is 0 (BUD-02 POST), not a figure of the client.
-    ...(args.income !== null ? { incomePlan: { amount: args.income, currency: args.currency } } : {}),
+    // No income category — the key is left out: the server's default is 0 (BUD-02 POST), not a figure of the client.
+    ...(incomePlans.length > 0 ? { incomePlans } : {}),
     limits,
     ...(args.rows && args.rows.length > 0 ? { allocation: [...args.rows] } : {}),
   };

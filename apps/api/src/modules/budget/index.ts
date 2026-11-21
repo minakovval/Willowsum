@@ -57,8 +57,9 @@ export function createBudgetHandOffRecovery(
 }
 
 /**
- * BUD-01@PoC FR 12: the categories that have a limit in the space's budget, for module categories («порожня»
- * категорія). Read only; `db` is the budget module's own database (`ModuleDatabases.for("budget")`).
+ * BUD-01@PoC FR 12: the categories that have a limit or an income plan (BUD-02@PoC FR 21) in the space's budget, for
+ * module categories («порожня» категорія). Read only; `db` is the budget module's own database
+ * (`ModuleDatabases.for("budget")`).
  */
 export function createBudgetCategoryUsage(db: ModuleDatabase): CategoryUsage {
   return {
@@ -67,7 +68,8 @@ export function createBudgetCategoryUsage(db: ModuleDatabase): CategoryUsage {
       db.inHousehold(householdId, async (q) => {
         if (ids.length === 0) return new Set<string>();
         const { rows } = await q.query<{ id: string }>(
-          `SELECT DISTINCT category_id AS id FROM limits WHERE household_id = $1 AND category_id = ANY($2::uuid[])`,
+          `SELECT category_id AS id FROM limits WHERE household_id = $1 AND category_id = ANY($2::uuid[])
+           UNION SELECT category_id FROM income_plans WHERE household_id = $1 AND category_id = ANY($2::uuid[])`,
           [householdId, ids],
         );
         return new Set(rows.map((r) => r.id));

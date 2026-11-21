@@ -42,6 +42,7 @@ const period = (p: string, mode: "past" | "current" | "future") => ({
   approximate: { nearestRateCount: 0, unavailableCount: 0 },
   groups: [],
   incomeActual: mode === "future" ? null : money("6000.00"),
+  incomeCategories: [],
   incomePlan: money("6000.00"),
   outsidePlan: { categories: [], total: mode === "future" ? null : money("0.00") },
   plannedSavings: money("0.00"),
@@ -477,7 +478,8 @@ describe("BUD-03@PoC b) overspend", () => {
     const fake = await open({ [SPENDABLE]: { status: 200, body: overBody } });
     fireEvent.click(card().getByRole("button", { name: "Переглянути категорії" }));
     expect(fake.calls.filter((c) => c.method !== "GET")).toEqual([]);
-    expect(fake.calls.filter((c) => c.path === "/v1/budget/plan-grid")).toEqual([]);
+    // The banner «План з дефіцитом» reads the grid on load (BUD-02 AC17); the action itself writes nothing to it.
+    expect(fake.calls.filter((c) => c.path === "/v1/budget/plan-grid" && c.method !== "GET")).toEqual([]);
   });
 
   it("BUD-03@PoC FR 10: with «План» on «Зменшити внесок у ціль цього місяця» opens the plan grid", async () => {

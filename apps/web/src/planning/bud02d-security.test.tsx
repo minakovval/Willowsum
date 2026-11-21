@@ -69,6 +69,7 @@ const PERIOD = {
     },
   ],
   incomeActual: eur("100.00"),
+  incomeCategories: [],
   incomePlan: eur("100.00"),
   outsidePlan: { categories: [], total: eur("0.00") },
   plannedSavings: eur("0.00"),
@@ -126,6 +127,7 @@ describe("BUD-02@PoC d) security probes PR545", () => {
       "/v1/budget",
       "/v1/budget/periods/2026-11",
       "/v1/budget/periods/2026-11/spendable",
+      "/v1/budget/plan-grid",
       "/v1/categories",
       "/v1/me/features",
     ]);

@@ -275,7 +275,7 @@ async function history(
 }
 
 describe("BUD-02@PoC: «Створити за моїми витратами»", () => {
-  it("BUD-02@PoC AC1: with 3 months of history the wizard proposes limits = the 3-month average rounded to 10 € and the average income; the edited plan is saved for the current month", async () => {
+  it("BUD-02@PoC AC1: with 3 months of history the wizard proposes limits = the 3-month average rounded to 10 € and each income category's average income rounded to 10 €; the edited plan is saved for the current month", async () => {
     const space = await newSpace();
     const acc = await account(space);
     const groceries = await category(space, "Продукти");
@@ -290,7 +290,16 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       available: true,
       historyMonths: 3,
       incomeIrregular: false,
-      incomePlan: eur("3016.67"),
+      // (2 950 + 3 100 + 3 000) / 3 = 3 016.67 → 3 020; the plan is the sum of the income categories' plans.
+      incomePlan: eur("3020"),
+      incomes: [
+        {
+          categoryId: await category(space, "Зарплата"),
+          average: eur("3016.67"),
+          plan: eur("3020"),
+          irregular: false,
+        },
+      ],
     });
     const proposed = new Map(
       (w.fromSpending.categories as { categoryId: string; average: unknown; limit: unknown }[]).map((c) => [
@@ -348,6 +357,7 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       available: false,
       historyMonths: 2,
       incomePlan: null,
+      incomes: [],
       incomeIrregular: false,
       categories: [],
     });

@@ -45,6 +45,21 @@ export const synthetic = [
     },
   }),
   defineSyntheticTable({
+    table: "budget.income_plans",
+    perHousehold: 2,
+    // BUD-02 FR 21: «План доходу» by income category — 2 500 + 500, the budget's income plan of 3 000.
+    *rows({ household, rng, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          budget_id: budgetOf(household.id),
+          category_id: rng.uuid(),
+          amount: i === 0 ? "2500" : "500",
+          currency: "EUR",
+        };
+    },
+  }),
+  defineSyntheticTable({
     table: "budget.budget_accounts",
     perHousehold: 1,
     *rows({ household, rng, count }) {
