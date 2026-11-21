@@ -164,6 +164,8 @@ export function withCells(
     .map((c) => c.amount!);
   return {
     incomePlan: incomeOf(base.incomePlan, set, lines.incomes),
+    // BUD-02 FR 21: the categories' plans stay the budget's; a month's own «План доходу» changes the total only.
+    ...(base.incomePlans ? { incomePlans: base.incomePlans } : {}),
     plannedSavings: base.plannedSavings.plus(sum(savings, base.plannedSavings.currency)),
     limits: [...limits.values()],
   };

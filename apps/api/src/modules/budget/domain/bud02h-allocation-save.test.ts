@@ -52,18 +52,26 @@ describe("BUD-02@PoC FR 15: the rows of «Розподіл» saved with the budg
     expect(r.value.choice.rest.equals(eur("439.75"))).toBe(true);
   });
 
-  it("BUD-02@PoC AC7: «З цілі …» lowers the month's contribution; the deficit must be covered exactly", () => {
+  it("BUD-02@PoC AC7: «З цілі …» lowers the month's contribution; a deficit covered in part or not at all («Лишити дефіцит») is saved with its rest", () => {
     // Q5 а: 3 300 − 3 200 − g1's 300 = a deficit of 200.
     const deficit = balance("3300", "3200");
     const ok = check(deficit, [{ kind: "from-goal", goalId: "g1", amount: money("200") }]);
     expect(ok.kind === "ok" && ok.value.cells[0]!.amount.equals(eur("100"))).toBe(true);
-    expect(check(deficit, [{ kind: "from-goal", goalId: "g1", amount: money("199.99") }])).toEqual({
+    expect(ok.kind === "ok" && ok.value.choice.status).toBe("exact");
+    // FR 15, AC17 (owner decision 2026-11-21): «Створити бюджет» is active always — the uncovered part stays the deficit.
+    const part = check(deficit, [{ kind: "from-goal", goalId: "g1", amount: money("199.99") }]);
+    expect(part.kind).toBe("ok");
+    if (part.kind === "ok") {
+      expect(part.value.cells.map((c) => c.amount.toDecimalString())).toEqual(["100.01"]);
+      expect(part.value.choice).toMatchObject({ status: "short", rest: eur("0.01") });
+    }
+    const left = check(deficit, []);
+    expect(left.kind === "ok" && left.value.cells).toEqual([]);
+    expect(left.kind === "ok" && left.value.choice.rest.equals(eur("200"))).toBe(true);
+    // Over N is still refused.
+    expect(check(deficit, [{ kind: "from-goal", goalId: "g1", amount: money("200.01") }])).toEqual({
       kind: "invalid",
-      issues: [{ field: "allocation", issue: "short" }],
-    });
-    expect(check(deficit, [])).toEqual({
-      kind: "invalid",
-      issues: [{ field: "allocation", issue: "short" }],
+      issues: [{ field: "allocation", issue: "over" }],
     });
     // A goal without a contribution this month (no date, or past it) has nothing to lower.
     for (const goalId of ["g2", "g3"])

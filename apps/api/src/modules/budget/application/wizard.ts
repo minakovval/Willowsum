@@ -46,5 +46,10 @@ export async function wizard(
     months.push({ ...history, categorized: amounts.some((a) => a.categoryId !== null) });
   }
   const { midPeriod, choices } = startChoices(today);
-  return { today, midPeriod, starts: choices, fromSpending: proposeFromSpending(currency, months) };
+  return {
+    today,
+    midPeriod,
+    starts: choices,
+    fromSpending: proposeFromSpending(currency, months, [...categories.keys()]),
+  };
 }
