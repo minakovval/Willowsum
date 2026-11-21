@@ -152,7 +152,8 @@ export function createTransactionsErasure(db: ModuleDatabase): TransactionsErasu
 
 /**
  * The candidate pairs of transfers between own accounts (FIN-03@PoC FR 5) for module transfer-matching, which decides
- * by its rule which are proposals: a debit and a credit on two accounts of the space within `windowDays`, both posted,
+ * by its rule which are proposals: a debit and a credit on two accounts of the space (or on two wallets of one account
+ * in two currencies — an exchange, IMP-03 FR 2) within `windowDays`, both posted,
  * shown, not split and in no transfer; in one currency the credit at most the debit and at least `sameCurrencyMinShare`
  * of it. Newest first, at most `limit`. Read only.
  */

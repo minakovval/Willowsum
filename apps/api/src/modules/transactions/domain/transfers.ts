@@ -58,7 +58,11 @@ export function orderPair<T extends PairSide>(
     if (side.split !== null) issues.push({ field, issue: "split" });
     if (side.transfer !== null) issues.push({ field, issue: "in_transfer" });
   }
-  if (transaction.accountId === counterpart.accountId)
+  // IMP-03@PoC FR 2: two wallets of one account in two currencies are an exchange; one wallet is no pair.
+  if (
+    transaction.accountId === counterpart.accountId &&
+    transaction.amount.currency === counterpart.amount.currency
+  )
     issues.push({ field: "counterpartId", issue: "same_account" });
   if (transaction.amount.isNegative() === counterpart.amount.isNegative())
     issues.push({ field: "counterpartId", issue: "same_direction" });
