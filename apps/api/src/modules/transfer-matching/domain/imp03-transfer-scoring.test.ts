@@ -51,17 +51,17 @@ describe("IMP-03@PoC FR 3: the score 0–100 is the sum of the evidence; a propo
 
   it("IMP-03@PoC AC1: −500,00 EUR on the current account on 2 March and +500,00 EUR on savings on 3 March — a transfer with high confidence", () => {
     const p = score(pair(["-500.00", "EUR", "2026-03-02"], ["500.00", "EUR", "2026-03-03"]));
-    expect(p).toMatchObject({ pairKind: "transfer", confidence: "high", score: 80 });
+    expect(p).toMatchObject({ pairKind: "transfer", confidence: "high", score: 85 });
     expect(p?.evidence).toEqual([
       { code: "exact-amount", points: 50 },
-      { code: "days-apart", points: 30, days: 1 },
+      { code: "days-apart", points: 35, days: 1 },
     ]);
   });
 
   it("IMP-03@PoC AC3: −100,00 EUR and +99,99 EUR is the exact amount within ±0,01 — proposed", () => {
     const p = score(pair(["-100.00", "EUR", "2026-03-02"], ["99.99", "EUR", "2026-03-02"]));
     expect(p?.evidence[0]).toEqual({ code: "exact-amount", points: 50 });
-    expect(p).toMatchObject({ score: 85, confidence: "high" });
+    expect(p).toMatchObject({ score: 90, confidence: "high" });
     // ±1 minor unit of the currency: 0,01 EUR, 1 JPY, 0,001 KWD.
     expect([minorUnit("EUR"), minorUnit("JPY"), minorUnit("KWD")].map((d) => d.toFixed())).toEqual([
       "0.01",
@@ -75,24 +75,88 @@ describe("IMP-03@PoC FR 3: the score 0–100 is the sum of the evidence; a propo
   });
 
   it("IMP-03@PoC AC14: two own accounts without an identifier or marker words whose evidence is below 55 — no proposal", () => {
-    // A fee of 2 % (25) two days apart (20): 45.
-    expect(score(pair(["-500.00", "EUR", "2026-03-02"], ["490.00", "EUR", "2026-03-04"]))).toBeNull();
-    // The same fee on the same day (35): 60 — a low-confidence proposal.
+    // The exact amount (50) four days apart (no days evidence, no account identifier for the longer window): 50.
+    const far = pair(["-500.00", "EUR", "2026-03-02"], ["500.00", "EUR", "2026-03-06"]);
+    expect(
+      scored({
+        ...far,
+        date: "2026-03-02",
+        pairKind: "transfer",
+        kind: "same-currency",
+        fee: Money.zero("EUR"),
+      }),
+    ).toBeNull();
+    expect(score(far)).toBeNull();
+    // A fee of 2 % (35) on the same day (40): 75 — a medium-confidence proposal.
     expect(score(pair(["-500.00", "EUR", "2026-03-02"], ["490.00", "EUR", "2026-03-02"]))).toMatchObject({
-      score: 60,
-      confidence: "low",
+      score: 75,
+      confidence: "medium",
     });
   });
 
-  it("IMP-03@PoC FR 4: a fee up to 0,5 % scores more than one up to 2 %; the days score 35, 30, 20, 10", () => {
+  it("FIN-03@PoC FR 6: every pair the rule of FR 5 admits scores at least 55 and stays a proposal — its corners included", () => {
+    const eurUah = exchangeRate({
+      base: "EUR",
+      quote: "UAH",
+      rate: "43.5",
+      date: "2026-03-02",
+      source: "NBU",
+    });
+    const corners: [string, PairCandidate, Parameters<typeof proposalOf>[1], number][] = [
+      ["1 % fee, 2 days", pair(["-500.00", "EUR", "2026-03-02"], ["495.00", "EUR", "2026-03-04"]), null, 60],
+      [
+        "0,4 % fee, 3 days",
+        pair(["-500.00", "EUR", "2026-03-02"], ["498.00", "EUR", "2026-03-05"]),
+        null,
+        60,
+      ],
+      ["2 % fee, 3 days", pair(["-500.00", "EUR", "2026-03-02"], ["490.00", "EUR", "2026-03-05"]), null, 55],
+      [
+        "2 % fee, 3 days, credit first",
+        pair(["-500.00", "EUR", "2026-03-05"], ["490.00", "EUR", "2026-03-02"]),
+        null,
+        55,
+      ],
+      [
+        "1,38 % at the rate, 2 days",
+        pair(["-1000.00", "EUR", "2026-03-02"], ["42900.00", "UAH", "2026-03-04"]),
+        eurUah,
+        60,
+      ],
+      [
+        "−3 % at the rate, 3 days",
+        pair(["-1000.00", "EUR", "2026-03-02"], ["42195.00", "UAH", "2026-03-05"]),
+        eurUah,
+        55,
+      ],
+      [
+        "+3 % at the rate, 3 days",
+        pair(["-1000.00", "EUR", "2026-03-02"], ["44805.00", "UAH", "2026-03-05"]),
+        eurUah,
+        55,
+      ],
+    ];
+    for (const [name, candidate, rate, points] of corners) {
+      expect(proposalOf(candidate, rate), name).not.toBeNull();
+      expect(score(candidate, rate)?.score, name).toBe(points);
+    }
+    // Just beyond the rule: no pair, whatever the points.
+    expect(score(pair(["-500.00", "EUR", "2026-03-02"], ["489.99", "EUR", "2026-03-02"]))).toBeNull();
+    expect(score(pair(["-500.00", "EUR", "2026-03-02"], ["500.00", "EUR", "2026-03-06"]))).toBeNull();
+    expect(
+      score(pair(["-1000.00", "EUR", "2026-03-02"], ["42194.99", "UAH", "2026-03-02"]), eurUah),
+    ).toBeNull();
+  });
+
+  it("IMP-03@PoC FR 4: a fee up to 0,5 % scores more than one up to 2 %; the days score 40, 35, 25, 20", () => {
     const fee = (into: string) =>
       score(pair(["-1000.00", "EUR", "2026-03-02"], [into, "EUR", "2026-03-02"]))?.evidence[0];
     expect(fee("995.00")).toEqual({ code: "amount-less-fee", points: 40 });
-    expect(fee("994.99")).toEqual({ code: "amount-less-fee", points: 25 });
+    expect(fee("994.99")).toEqual({ code: "amount-less-fee", points: 35 });
     const days = (date: string) =>
       score(pair(["-100.00", "EUR", "2026-03-02"], ["100.00", "EUR", date]))?.score;
     expect([days("2026-03-02"), days("2026-03-03"), days("2026-03-04"), days("2026-03-05")]).toEqual([
-      85, 80, 70, 60,
+      90, 85, 75, 70,
     ]);
   });
 
@@ -108,7 +172,7 @@ describe("IMP-03@PoC FR 3: the score 0–100 is the sum of the evidence; a propo
       pair(["-1000.00", "UAH", "2026-03-02"], ["22.50", "EUR", "2026-03-02"], [CARD, CARD]),
       rate,
     );
-    expect(p).toMatchObject({ pairKind: "exchange", score: 90, confidence: "high" });
+    expect(p).toMatchObject({ pairKind: "exchange", score: 85, confidence: "high" });
     expect(p?.evidence.map((e) => e.code)).toEqual(["rate-within-1", "same-day", "same-wallet-group"]);
   });
 });
@@ -125,7 +189,7 @@ describe("IMP-03@PoC FR 12: open proposals are one-to-one; FR 7: candidates with
     )!;
     const chosen = chooseProposals([b, a]);
     expect(chosen.map((p) => p.inflow.transactionId)).toEqual([near]);
-    // 85 against 60: beyond 5 points, not ambiguous.
+    // 90 against 70: beyond 5 points, not ambiguous.
     expect(chosen[0]!.ambiguousWith).toEqual([]);
   });
 
@@ -138,11 +202,11 @@ describe("IMP-03@PoC FR 12: open proposals are one-to-one; FR 7: candidates with
     const b = score(
       pair(["-50.00", "EUR", "2026-03-02"], ["50.00", "EUR", "2026-03-03"], undefined, [out, nextDay]),
     )!;
-    expect([a.score, b.score]).toEqual([85, 80]);
+    expect([a.score, b.score]).toEqual([90, 85]);
     const [chosen, ...rest] = chooseProposals([a, b]);
     expect(rest).toEqual([]);
     expect(chosen!.inflow.transactionId).toBe(sameDay);
-    expect(chosen!.ambiguousWith).toEqual([{ transactionId: nextDay, score: 80 }]);
+    expect(chosen!.ambiguousWith).toEqual([{ transactionId: nextDay, score: 85 }]);
   });
 
   it("IMP-03@PoC FR 7: at an equal score the kind, then fewer days, then the smaller difference wins", () => {
@@ -181,5 +245,89 @@ describe("IMP-03@PoC FR 12: open proposals are one-to-one; FR 7: candidates with
     ]);
     const sides = chosen.flatMap((p) => [p.outflow.transactionId, p.inflow.transactionId]);
     expect(new Set(sides).size).toBe(sides.length);
+  });
+  it("IMP-03@PoC FR 12: two debits for one credit — only the better pair is a proposal; the other debit is «неоднозначно з…»", () => {
+    const into = id();
+    const [sameDay, nextDay] = [id(), id()];
+    const a = score(
+      pair(
+        ["-50.00", "EUR", "2026-03-03"],
+        ["50.00", "EUR", "2026-03-03"],
+        [CURRENT, SAVINGS],
+        [sameDay, into],
+      ),
+    )!;
+    const b = score(
+      pair(["-50.00", "EUR", "2026-03-02"], ["50.00", "EUR", "2026-03-03"], [CARD, SAVINGS], [nextDay, into]),
+    )!;
+    const chosen = chooseProposals([b, a]);
+    expect(chosen.map((p) => p.outflow.transactionId)).toEqual([sameDay]);
+    expect(chosen[0]!.ambiguousWith).toEqual([{ transactionId: nextDay, score: 85 }]);
+  });
+
+  it("IMP-03@PoC FR 7: at an equal score the transfer beats the exchange, then fewer days, then the smaller difference — whatever the ids", () => {
+    const rate = exchangeRate({
+      base: "UAH",
+      quote: "EUR",
+      rate: "0.0224719",
+      date: "2026-03-02",
+      source: "NBU",
+    });
+    const out = id();
+    const [first, second] = [id(), id()];
+    // 80 each: an exchange on the card's EUR wallet within 3 % (35 + 40 + 5) and a transfer to savings within 1 % (40 + 40).
+    const exchange = score(
+      pair(["-1000.00", "UAH", "2026-03-02"], ["22.00", "EUR", "2026-03-02"], [CARD, CARD], [out, first]),
+      rate,
+    )!;
+    const transfer = score(
+      pair(["-1000.00", "UAH", "2026-03-02"], ["22.50", "EUR", "2026-03-02"], [CARD, SAVINGS], [out, second]),
+      rate,
+    )!;
+    expect([exchange.pairKind, exchange.score, transfer.pairKind, transfer.score]).toEqual([
+      "exchange",
+      80,
+      "transfer",
+      80,
+    ]);
+    expect(chooseProposals([exchange, transfer])[0]!.inflow.transactionId).toBe(second);
+
+    const out2 = id();
+    const [early, late] = [id(), id()];
+    // 75 each: the exact amount two days apart (50 + 25) and a 0,1 % fee a day apart (40 + 35).
+    const twoDays = score(
+      pair(
+        ["-1000.00", "EUR", "2026-03-02"],
+        ["1000.00", "EUR", "2026-03-04"],
+        [CURRENT, SAVINGS],
+        [out2, early],
+      ),
+    )!;
+    const oneDay = score(
+      pair(["-1000.00", "EUR", "2026-03-02"], ["999.00", "EUR", "2026-03-03"], [CURRENT, CARD], [out2, late]),
+    )!;
+    expect(twoDays.score).toBe(oneDay.score);
+    expect(chooseProposals([twoDays, oneDay])[0]!.inflow.transactionId).toBe(late);
+
+    const out3 = id();
+    const [largeFee, smallFee] = [id(), id()];
+    // 80 each on the same day: the 1,00 EUR fee beats the 2,00 EUR fee though its id is the larger.
+    const large = score(
+      pair(
+        ["-1000.00", "EUR", "2026-03-02"],
+        ["998.00", "EUR", "2026-03-02"],
+        [CURRENT, SAVINGS],
+        [out3, largeFee],
+      ),
+    )!;
+    const small = score(
+      pair(
+        ["-1000.00", "EUR", "2026-03-02"],
+        ["999.00", "EUR", "2026-03-02"],
+        [CURRENT, CARD],
+        [out3, smallFee],
+      ),
+    )!;
+    expect(chooseProposals([large, small])[0]!.inflow.transactionId).toBe(smallFee);
   });
 });

@@ -232,11 +232,11 @@ describe("IMP-03@PoC FR 3: each proposal has a score 0–100, a confidence and i
       outflow: { transactionId: out.id },
       inflow: { transactionId: into.id },
       pairKind: "transfer",
-      score: 80,
+      score: 85,
       confidence: "high",
       evidence: [
         { code: "exact-amount", points: 50, days: null },
-        { code: "days-apart", points: 30, days: 1 },
+        { code: "days-apart", points: 35, days: 1 },
       ],
       ambiguousWith: [],
     });
@@ -249,7 +249,7 @@ describe("IMP-03@PoC FR 3: each proposal has a score 0–100, a confidence and i
     await add(space, current, "-100.00", "2026-03-02");
     await add(space, savings, "99.99", "2026-03-02");
     const { items } = await proposals(space);
-    expect(items).toMatchObject([{ score: 85, confidence: "high", fee: { amount: "-0.01" } }]);
+    expect(items).toMatchObject([{ score: 90, confidence: "high", fee: { amount: "-0.01" } }]);
     expect(items[0]!.evidence[0]).toMatchObject({ code: "exact-amount" });
   });
 
@@ -257,10 +257,26 @@ describe("IMP-03@PoC FR 3: each proposal has a score 0–100, a confidence and i
     const space = await newSpace();
     const current = await createAccount(space, "1000.00");
     const savings = await createAccount(space, "0.00");
-    // A fee of 2 % two days apart: 25 + 20 = 45.
+    // The exact amount four days apart, with no account identifier for the longer window: 50 — none.
     await add(space, current, "-500.00", "2026-03-02");
-    await add(space, savings, "490.00", "2026-03-04");
+    await add(space, savings, "500.00", "2026-03-06");
     expect(await proposals(space)).toEqual({ items: [], count: 0, more: false });
+  });
+
+  it("FIN-03@PoC FR 6: the weakest pair the rule of FR 5 admits — a 2 % fee three days apart — is still a proposal (55, low)", async () => {
+    const space = await newSpace();
+    const current = await createAccount(space, "1000.00");
+    const savings = await createAccount(space, "0.00");
+    const out = await add(space, current, "-500.00", "2026-03-02");
+    const into = await add(space, savings, "490.00", "2026-03-05");
+    expect((await proposals(space)).items).toMatchObject([
+      {
+        outflow: { transactionId: out.id },
+        inflow: { transactionId: into.id },
+        score: 55,
+        confidence: "low",
+      },
+    ]);
   });
 
   it("IMP-03@PoC EC1: sides in different days are paired within 3 days; 4 days apart — none", async () => {
@@ -299,8 +315,8 @@ describe("IMP-03@PoC FR 12: open proposals are one-to-one; FR 7: «неодно�
       {
         outflow: { transactionId: out.id },
         inflow: { transactionId: sameDay.id },
-        score: 85,
-        ambiguousWith: [{ transactionId: nextDay.id, score: 80 }],
+        score: 90,
+        ambiguousWith: [{ transactionId: nextDay.id, score: 85 }],
       },
     ]);
   });

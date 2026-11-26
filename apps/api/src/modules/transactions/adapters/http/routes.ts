@@ -898,7 +898,8 @@ export const markTransferRoute = defineRoute({
 
 /**
  * IMP-03@PoC FR 12 «Не пара» (wave 2 row 48): a proposed pair of «Пари · N» is never proposed again, even after
- * «Роз'єднати»; nothing else changes. The same rights, flag and checks as «Підтвердити»; a scoped member: not found.
+ * «Роз'єднати»; nothing else changes. The same rights, flag and checks as «Підтвердити» (a viewer, an advisor and a
+ * scoped member: 403).
  */
 export const dismissTransferRoute = defineRoute({
   module: MODULE,

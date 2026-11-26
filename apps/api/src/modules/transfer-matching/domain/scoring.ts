@@ -44,19 +44,24 @@ export interface Evidence {
 
 export type Confidence = "high" | "medium" | "low";
 
-/** The points of each piece of evidence (the lead's decision, row 48; the requirement gives none). */
+/**
+ * The points of each piece of evidence (the lead's decision, row 48; the requirement gives none). They are set so that
+ * every pair the rule of FIN-03@PoC FR 5 admits — a fee up to 2 % in one currency or up to 3 % from the reference rate in
+ * two, at most 3 days apart — scores at least 55 and stays a proposal (FIN-03 FR 6): the weakest such pair, a 2 % fee
+ * or a 3 % rate 3 days apart, scores exactly 55 (35 + 20).
+ */
 export const EVIDENCE_POINTS = {
   "exact-amount": 50,
   /** A fee of at most 0,5 % of the debit. */
   "amount-less-fee": 40,
   /** A fee above 0,5 % and up to 2 % (FR 5) of the debit. */
-  "amount-less-large-fee": 25,
+  "amount-less-large-fee": 35,
   "rate-within-1": 40,
-  "rate-within-3": 25,
-  "same-day": 35,
+  "rate-within-3": 35,
+  "same-day": 40,
   /** By the days between the sides: 1, 2, 3; beyond 3 none. */
-  "days-apart": [30, 20, 10] as readonly number[],
-  "same-wallet-group": 15,
+  "days-apart": [35, 25, 20] as readonly number[],
+  "same-wallet-group": 5,
 } as const;
 
 /** A fee at most this share of the debit scores as `amount-less-fee` with its higher points. */
@@ -131,7 +136,7 @@ const KIND_ORDER: readonly PairKind[] = ["transfer", "exchange"];
 /** The difference of the amounts as a share of the debit (one currency) or of the converted debit (two). */
 function differenceShare(p: TransferProposal): Decimal {
   if (p.kind === "same-currency") return p.fee.amount.abs().dividedBy(p.outflow.amount.amount.abs());
-  return p.difference.amount.abs().dividedBy(p.converted.amount);
+  return p.difference.amount.abs().dividedBy(p.converted.amount.abs());
 }
 
 /** FR 7: better first — the higher score, then the kind, fewer days, the smaller difference; then by the ids. */
