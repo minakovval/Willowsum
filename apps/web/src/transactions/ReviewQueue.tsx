@@ -677,9 +677,8 @@ function CardsView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  /** FR 14: the merchant the bank's text names, by transaction (null — the API names none), and the accepted ones. */
+  /** FR 14: the merchant the bank's text names, by transaction (null — the API names none). */
   const [named, setNamed] = useState<ReadonlyMap<string, string | null>>(new Map());
-  const [accepted, setAccepted] = useState<ReadonlySet<string>>(new Set());
   const groupId = source?.groupId;
   const groupCount = useRef(source?.count ?? 0);
   useEffect(() => {
@@ -818,10 +817,9 @@ function CardsView({
   };
 
   const category = card.categoryId ? (categories.byId.get(card.categoryId) ?? null) : null;
-  // FR 14: a card without a merchant offers the merchant its bank description names; accepted, it is the card's merchant.
+  // FR 14: a card without a merchant shows the merchant its bank description names as a hint (nothing is saved).
   const suggested = card.item.counterparty === null ? (named.get(card.item.id) ?? null) : null;
-  const takenIn = suggested !== null && accepted.has(card.item.id);
-  const merchant = card.item.counterparty ?? (takenIn ? suggested : t("review.group.noMerchant"));
+  const merchant = card.item.counterparty ?? t("review.group.noMerchant");
   // The statement's own text under the title: always without a merchant; with one, only when it says more.
   const text = card.item.description?.trim() ?? "";
   const statement =
@@ -842,13 +840,9 @@ function CardsView({
         </a>
       </h2>
       {statement ? <p className="review-card-text ws-muted">{statement}</p> : null}
-      {suggested !== null && !takenIn ? (
+      {suggested !== null ? (
         <p className="review-card-suggest">
-          <span className="ws-muted">{t("review.card.suggested")}</span> <strong>{suggested}</strong>{" "}
-          <Button
-            label={t("review.card.accept")}
-            onClick={() => setAccepted((prev) => new Set(prev).add(card.item.id))}
-          />
+          <span className="ws-muted">{t("review.card.suggested")}</span> <strong>{suggested}</strong>
         </p>
       ) : null}
       <dl className="review-card-facts">
@@ -896,8 +890,8 @@ function CardsView({
       </div>
       {editing ? (
         <CategoryDialog
-          merchant={card.item.counterparty === null && !takenIn ? "" : merchant}
-          counterparty={card.item.counterparty ?? (takenIn ? statement : null)}
+          merchant={card.item.counterparty === null ? (suggested ?? "") : merchant}
+          counterparty={card.item.counterparty ?? (suggested !== null ? statement : null)}
           kind={card.item.type === "income" ? "income" : "expense"}
           categories={categories}
           reloadCategories={reloadCategories}

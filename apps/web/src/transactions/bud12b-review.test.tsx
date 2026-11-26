@@ -584,28 +584,13 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
       expect(within(next).queryByText("Мерчант з опису банку:")).toBeNull();
     });
 
-    it("BUD-12@PoC FR 16: until the suggested merchant is accepted the picker starts with «Нещодавні»; accepted — with «Часто для <мерчанта>»", async () => {
+    it("BUD-12@PoC FR 16: the picker of a card with a suggested merchant starts with «Часто для <мерчанта>», without one — «Нещодавні»; no «Прийняти»", async () => {
       const { api } = shellAndFive();
       open(api);
       const one = await screen.findByRole("region", { name: "Без мерчанта" });
-      await waitFor(() => expect(within(one).getByText("Steamgames")).toBeTruthy());
-      const pick = async () => {
-        act(() => within(one).getByRole("button", { name: "Змінити категорію" }).click());
-        const dialog = await screen.findByRole("dialog", { name: "Змінити категорію" });
-        act(() =>
-          within(dialog)
-            .getByRole("button", { name: /^Категорія/ })
-            .click(),
-        );
-        return within(dialog).getAllByRole("group")[0]!.textContent;
-      };
-      expect(await pick()).toContain("Нещодавні");
-      act(() => screen.getByRole("button", { name: "Скасувати" }).click());
-      act(() => within(one).getByRole("button", { name: "Прийняти" }).click());
-      // Accepted: the merchant is the card's title and the picker is asked for it.
-      await screen.findByRole("region", { name: "Steamgames" });
-      const accepted = screen.getByRole("region", { name: "Steamgames" });
-      act(() => within(accepted).getByRole("button", { name: "Змінити категорію" }).click());
+      await waitFor(() => expect(within(one).getByText("Steamgames", { exact: true })).toBeTruthy());
+      expect(within(one).queryByRole("button", { name: "Прийняти" })).toBeNull();
+      act(() => within(one).getByRole("button", { name: "Змінити категорію" }).click());
       const dialog = await screen.findByRole("dialog", { name: "Змінити категорію" });
       act(() =>
         within(dialog)

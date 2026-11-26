@@ -2549,7 +2549,6 @@ export const uk = {
   "review.noMerchant.title": "Без мерчанта · по одній",
   "review.noMerchant.hint": "{transactions} без мерчанта розбирають по одній.",
   "review.card.suggested": "Мерчант з опису банку:",
-  "review.card.accept": "Прийняти",
   "review.group.title": "{merchant} · {transactions}",
   "review.group.category": "Категорія для всієї групи",
   "review.group.remember": "Запам’ятати: {merchant} → {category} для нових транзакцій",

@@ -2562,7 +2562,6 @@ export const en: Messages = {
   "review.noMerchant.title": "No merchant · one by one",
   "review.noMerchant.hint": "{transactions} without a merchant are reviewed one by one.",
   "review.card.suggested": "Merchant from the bank description:",
-  "review.card.accept": "Accept",
   "review.group.title": "{merchant} · {transactions}",
   "review.group.category": "Category for the whole group",
   "review.group.remember": "Remember: {merchant} → {category} for new transactions",
