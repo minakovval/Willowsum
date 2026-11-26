@@ -33,20 +33,22 @@ const draftOf = (f: TxFilters): Draft => ({ ...f, amountFromText: f.amountFrom, 
 
 /**
  * FIN-03@PoC FR 22, DAT-01@PoC FR 4 — «Фільтри · N» of S-046 on CMP-32 (canvas PocMoneyTxFilters): the rows Період,
- * Рахунки, Тип, Сума, Стан, Теги, Мерчант; a change in the panel changes the draft only, «Застосувати» applies it,
- * «Скинути все» and a chip's «×» apply at once. «Категорії» waits for a server filter (PR body, «Follow-ups»).
+ * Рахунки, Категорії, Тип, Сума, Стан, Теги, Мерчант; a change in the panel changes the draft only, «Застосувати» applies it,
+ * «Скинути все» and a chip's «×» apply at once.
  */
 export function TransactionFilters({
   filters,
   onChange,
   accounts,
   tags,
+  categories,
   names,
 }: {
   filters: TxFilters;
   onChange: (next: TxFilters) => void;
   accounts: readonly FilterChoice[];
   tags: readonly FilterChoice[];
+  categories: readonly FilterChoice[];
   names: FilterNames;
 }) {
   const { t, locale } = useI18n();
@@ -71,6 +73,7 @@ export function TransactionFilters({
       dateFrom: draft.dateFrom,
       dateTo: draft.dateTo,
       accounts: draft.accounts,
+      categories: draft.categories,
       type: draft.type,
       amountFrom: from,
       amountTo: to,
@@ -130,6 +133,14 @@ export function TransactionFilters({
           value={draft.accounts}
           anyLabel={t("tx.filter.any.accountsOption")}
           onChange={(v) => set({ accounts: v.slice(0, MAX_CHOSEN) })}
+        />
+      </FilterRow>
+      <FilterRow {...row("categories")}>
+        <FilterChecks
+          label={label("categories")}
+          options={categories}
+          value={draft.categories}
+          onChange={(v) => set({ categories: v.slice(0, MAX_CHOSEN) })}
         />
       </FilterRow>
       <FilterRow {...row("type")}>

@@ -109,6 +109,49 @@ export async function loadCards(api: ApiClient): Promise<Loaded<{ cards: ReviewC
   return { kind: "ready", data: { cards, count: list.data.count } };
 }
 
+/** FR 14: the transactions of the queue without a merchant, the oldest first, one card each (the group is only their ids). */
+export async function loadNoMerchantCards(
+  api: ApiClient,
+  groupId: string,
+  count: number,
+): Promise<Loaded<{ cards: ReviewCard[]; count: number }>> {
+  const ids = await outcome(
+    api.GET("/v1/transaction-review/merchant-groups/{groupId}/transactions", {
+      params: { path: { groupId }, query: { limit: CARD_PAGE } },
+    }),
+  );
+  if (!ids.ok) return failed(ids);
+  const [names, ...rows] = await Promise.all([
+    accountNames(api),
+    ...ids.data.items.map(async (id) => {
+      const [tx, category] = await Promise.all([
+        outcome(api.GET("/v1/transactions/{transactionId}", { params: { path: { transactionId: id } } })),
+        categoryOf(api, id),
+      ]);
+      return { tx, category };
+    }),
+  ]);
+  const cards: ReviewCard[] = [];
+  for (const { tx, category } of rows) {
+    if (!tx.ok) return failed(tx);
+    if (!category.ok) return failed(category);
+    const item = tx.data as TransactionItem;
+    cards.push({ item, categoryId: category.data, account: names.get(item.accountId) });
+  }
+  return { kind: "ready", data: { cards, count } };
+}
+
+/**
+ * FR 14: the merchant the bank's description of a card without a merchant names — the shown merchant the API gives for
+ * that text (`/v1/category-suggestions`); null when it gives none.
+ */
+export async function merchantFromDescription(api: ApiClient, description: string): Promise<string | null> {
+  const text = description.trim();
+  if (text === "" || text.length > 200 || /[\r\n]/.test(text)) return null;
+  const o = await outcome(api.GET("/v1/category-suggestions", { params: { query: { counterparty: text } } }));
+  return o.ok ? o.data.merchant : null;
+}
+
 async function categoryOf(api: ApiClient, id: string): Promise<Outcome<string | null>> {
   const o = await outcome(
     api.GET("/v1/transactions/{transactionId}/category", { params: { path: { transactionId: id } } }),
@@ -162,9 +205,11 @@ export const setCategory = (api: ApiClient, id: string, categoryId: string | nul
 
 /** FR 16: «Часто для <мерчанта>» — the categories the space uses most with the group's description. */
 export async function frequentFor(api: ApiClient, counterparty: string | null): Promise<string[]> {
-  if (!counterparty) return [];
-  const o = await outcome(api.GET("/v1/category-suggestions", { params: { query: { counterparty } } }));
-  return o.ok && o.data.top.kind === "frequent" ? o.data.top.categoryIds : [];
+  // FR 16: without a (accepted) merchant the first group is «Нещодавні», which the API gives for no counterparty.
+  const o = await outcome(
+    api.GET("/v1/category-suggestions", { params: { query: counterparty ? { counterparty } : {} } }),
+  );
+  return o.ok ? o.data.top.categoryIds : [];
 }
 
 /** The most ids of a group read for one «Підтвердити» (the bulk selection takes at most 5 000). */

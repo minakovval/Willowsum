@@ -617,3 +617,26 @@
 .bud-add-limit {
   min-inline-size: 150px;
 }
+
+/* BUD-02@PoC FR 21: «…» and «Прибрати» (✕) of an income row stand side by side in the last cell. */
+.bud-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+}
+
+/* BUD-02@PoC FR 21: the «…» of a row of the card «Дохід» is compact (24 px is the minimum target of WCAG 2.2 AA; here 32 px), so it stays at the end of the figures. */
+.bud-income-figures .ws-icon-button {
+  min-inline-size: var(--ws-space-6);
+  min-block-size: var(--ws-space-6);
+  margin-block: calc(var(--ws-space-2) * -1);
+  vertical-align: middle;
+}
+
+/* The menu root is as wide as its button (the sidebar menus' width: 100% would take a whole line). */
+.bud-income-figures .ws-menu-root,
+.bud-row-actions .ws-menu-root {
+  display: inline-flex;
+  inline-size: auto;
+  vertical-align: middle;
+}

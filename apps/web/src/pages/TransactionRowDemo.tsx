@@ -180,6 +180,7 @@ export function TransactionRowDemo() {
           category={food}
           account={t("gallery.transactionRow.accMain")}
           amount={{ value: "-42.90", currency: "EUR" }}
+          type="expense"
           onOpen={() => undefined}
         />
         <TransactionRow
@@ -191,7 +192,33 @@ export function TransactionRowDemo() {
           category={fuel}
           account={t("gallery.transactionRow.accMain")}
           amount={{ value: "-54.20", currency: "EUR" }}
+          type="expense"
           pending
+          onOpen={() => undefined}
+        />
+        <TransactionRow
+          layout="table"
+          withAsset={false}
+          merchant={t("gallery.transactionRow.salary")}
+          date="2026-10-30"
+          time="18:30"
+          category={salary}
+          account={t("gallery.transactionRow.accMain")}
+          amount={{ value: "1200.00", currency: "EUR" }}
+          type="income"
+          onOpen={() => undefined}
+        />
+        <TransactionRow
+          layout="table"
+          withAsset={false}
+          merchant={t("gallery.transactionRow.longName")}
+          date="2026-10-29"
+          time="10:05"
+          category={transfer}
+          account={t("gallery.transactionRow.accMain")}
+          amount={{ value: "-1234567.89", currency: "EUR" }}
+          transfer
+          type="transfer"
           onOpen={() => undefined}
         />
       </div>

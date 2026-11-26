@@ -11,10 +11,12 @@ import {
   Stepper,
   type BadgeTone,
 } from "@willowsum/ui";
+import { NewAccountDialog } from "../accounts/NewAccountDialog.tsx";
+import { kyivToday } from "../recurring/data.ts";
 import { childPath, importPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
-import { type AccountItem } from "./api.ts";
 import {
+  canCreateFor,
   choiceLabel,
   choicesOf,
   countsOf,
@@ -22,6 +24,7 @@ import {
   rowsText,
   sizeText,
   type Choice,
+  type Detected,
   type FileRow,
 } from "./model.ts";
 import "./import.css";
@@ -77,6 +80,10 @@ export function FilesStep({ batchId, onClose }: { batchId: string | null; onClos
   const picker = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [editing, setEditing] = useState<ReadonlySet<string>>(new Set());
+  /** «Створити рахунок» (IMP-08@PoC FR 2, AC 16): the file whose statement the form is open for. */
+  const [creating, setCreating] = useState<{ fileId: string; detected: Detected } | null>(null);
+  /** The account made for a file from the form, to say so under the file once the file is parsed for it. */
+  const [created, setCreated] = useState<ReadonlyMap<string, string>>(new Map());
 
   const steps = [
     { label: t("import.step.files"), state: "current" as const },
@@ -223,10 +230,14 @@ export function FilesStep({ batchId, onClose }: { batchId: string | null; onClos
                 key={row.key}
                 row={row}
                 choices={choices}
-                accounts={accounts.accounts}
                 byId={byId}
                 editing={editing.has(row.key)}
                 saveFailed={step.saveFailed === row.fileId}
+                canCreate={canCreateFor(row)}
+                createdAccount={row.fileId ? byId.get(created.get(row.fileId) ?? "") : undefined}
+                onCreate={() =>
+                  row.fileId && row.detected && setCreating({ fileId: row.fileId, detected: row.detected })
+                }
                 onEdit={() => setEditing((old) => new Set(old).add(row.key))}
                 onChoose={(accountId) => {
                   setEditing((old) => {
@@ -276,6 +287,24 @@ export function FilesStep({ batchId, onClose }: { batchId: string | null; onClos
           />
         )}
       </footer>
+
+      {creating ? (
+        <NewAccountDialog
+          open
+          today={kyivToday()}
+          prefill={creating.detected}
+          onClose={() => setCreating(null)}
+          onCreated={(accountId) => {
+            const { fileId } = creating;
+            setCreating(null);
+            setCreated((old) => new Map(old).set(fileId, accountId));
+            void (async () => {
+              await step.refreshAccounts();
+              await step.choose(fileId, accountId);
+            })();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -283,10 +312,14 @@ export function FilesStep({ batchId, onClose }: { batchId: string | null; onClos
 interface LineProps {
   row: FileRow;
   choices: readonly Choice[];
-  accounts: readonly AccountItem[];
   byId: ReadonlyMap<string, Choice>;
   editing: boolean;
   saveFailed: boolean;
+  /** The statement names an account the space does not have: «Створити рахунок» (IMP-08@PoC FR 2, AC 16). */
+  canCreate: boolean;
+  /** The account made for this file from the form, once it is in the list. */
+  createdAccount: Choice | undefined;
+  onCreate: () => void;
   onEdit: () => void;
   onChoose: (accountId: string) => void;
   onRetryUpload: () => void;
@@ -357,6 +390,12 @@ function FileLine(p: LineProps) {
                 {t("import.account.unsure", { account: suggested.label })}
               </span>
             ) : null}
+            {p.canCreate ? (
+              <span className="imp-create">
+                <span className="imp-note ws-muted">{t("import.account.missing")}</span>
+                <Button size="sm" label={t("import.account.create")} onClick={p.onCreate} />
+              </span>
+            ) : null}
           </span>
         ) : own ? (
           <span className="imp-account-line">
@@ -369,6 +408,11 @@ function FileLine(p: LineProps) {
               label={t("import.account.change")}
               onClick={p.onEdit}
             />
+            {p.createdAccount && own?.id === p.createdAccount.id ? (
+              <span className="imp-note ws-muted" role="status">
+                {t("import.account.created", { account: p.createdAccount.label })}
+              </span>
+            ) : null}
           </span>
         ) : null}
         {row.recipeFormat === "match" ? (

@@ -24,7 +24,12 @@ export interface FileRow {
   readonly message: { readonly uk: string; readonly en: string } | null;
   /** «Підтвердіть рахунок» (readiness): what the file shows against the chosen account and the best guess. */
   readonly refusal: AccountRefusal | null;
+  /** What the statement says about its own account (bank, currency, «…» and 4 characters): `null` before the parse. */
+  readonly detected: Detected | null;
 }
+
+/** `files[].detected` of the parse: the facts only when the file names them; the mask is already cut to 4 characters. */
+export type Detected = NonNullable<FileParse["detected"]>;
 
 /** A file that has no row on the server (yet or at all): being uploaded, refused by the picker or lost on the way. */
 export interface Local {
@@ -58,6 +63,7 @@ export function rowsOf(s: Snapshot): FileRow[] {
     code: l.code,
     message: l.message,
     refusal: null,
+    detected: null,
   }));
   const server: FileRow[] = s.files.map((f) => {
     const base = {
@@ -71,6 +77,7 @@ export function rowsOf(s: Snapshot): FileRow[] {
       code: null,
       message: null,
       refusal: null,
+      detected: null,
     };
     if (f.status === "rejected") return { ...base, phase: "rejected" as const, code: f.rejectionCode };
     const p = s.parse.get(f.id);
@@ -89,6 +96,7 @@ export function rowsOf(s: Snapshot): FileRow[] {
       accountId: p.accountId,
       recipeFormat: p.recipe?.format ?? null,
       refusal,
+      detected: p.detected ?? null,
       phase: p.accountId === null || refusal !== null ? ("needs-account" as const) : ("ready" as const),
     };
   });
@@ -162,3 +170,14 @@ export const rowsText = (t: Translate, locale: string, count: number): string =>
   const form = rule === "one" || rule === "few" || rule === "many" ? rule : "other";
   return t(`import.rows.${form}` as MessageKey, { count });
 };
+
+/**
+ * IMP-08@PoC FR 2, AC 16, AC 17: «Створити рахунок» is offered for a file that waits for an account when no account of
+ * the space fits what the statement names (`detected.accountMatch` «none»). The rule is the server's one
+ * (import-sessions `accountFor`, row 230b): the card or IBAN tail first, the bank only when it has one account; the
+ * step does not match accounts itself. A tail one account ends in is that account; several accounts that fit — the
+ * person picks among them, no offer.
+ */
+export function canCreateFor(row: FileRow): boolean {
+  return row.phase === "needs-account" && row.fileId !== null && row.detected?.accountMatch === "none";
+}

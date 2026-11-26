@@ -235,7 +235,8 @@ describe("BUD-02@PoC d) S-121 «Бюджет»: the current month", () => {
     );
     const outside = document.querySelector<HTMLElement>("tbody[data-group='outside']")!;
     expect(outside.textContent).toContain("Поза планом");
-    expect(plain(outside.textContent)).toContain("Подорожі150,00 €");
+    expect(plain(outside.textContent)).toContain("Подорожі");
+    expect(plain(outside.textContent)).toContain("150,00 €");
     expect(outside.querySelector("[role='progressbar'], .ws-usage")).toBeNull();
   });
 

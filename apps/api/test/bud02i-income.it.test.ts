@@ -18,6 +18,7 @@ import {
   createBudgetPlanSources,
   createBudgetServices,
   type BudgetObligations,
+  type BudgetServices,
 } from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -36,6 +37,9 @@ import {
 } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * BUD-02@PoC FR 3, FR 9, FR 11, FR 15, FR 21, AC1, AC7, AC17, AC18, EC1 and BUD-17@PoC FR 1 (owner decision 2026-11-21,
@@ -202,11 +206,11 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
         goals: goalsServices,
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: (householdId) => fakeFlags().isEnabled(householdId, "budget.plan"),
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -228,22 +232,8 @@ beforeAll(async () => {
             },
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
-            recurring: {
-              chargesIn: async (householdId, month) =>
-                (charges.get(householdId) ?? [])
-                  .filter((c) => c.month === month)
-                  .map((c) => ({
-                    paymentId: c.paymentId,
-                    type: "income" as const,
-                    categoryId: null,
-                    dueOn: `${month}-10`,
-                    expected: c.expected,
-                    status: "expected" as const,
-                    overdueDays: null,
-                  })),
-            },
           }),
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -405,9 +395,9 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
     expect(nov.incomePlan).toEqual(eur("5700"));
     // FR 9: first the categories still below the plan (the larger plan first), then those that reached it.
     expect(nov.incomeCategories).toEqual([
-      { categoryId: rent, plan: eur("400"), actual: eur("150") },
-      { categoryId: tutoring, plan: eur("300"), actual: eur("0") },
-      { categoryId: salary, plan: eur("5000"), actual: eur("5000") },
+      { categoryId: rent, plan: eur("400"), actual: eur("150"), inBudgetCurrency: null },
+      { categoryId: tutoring, plan: eur("300"), actual: eur("0"), inBudgetCurrency: null },
+      { categoryId: salary, plan: eur("5000"), actual: eur("5000"), inBudgetCurrency: null },
     ]);
   });
 
@@ -426,11 +416,11 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
     ).toBe(201);
     await transaction(space, acc, "12.50", "2026-11-04", "Кешбек");
     expect((await period(space, "2026-11")).incomeCategories).toEqual([
-      { categoryId: salary, plan: eur("3000"), actual: eur("0") },
-      { categoryId: cashback, plan: eur("0"), actual: eur("12.5") },
+      { categoryId: salary, plan: eur("3000"), actual: eur("0"), inBudgetCurrency: null },
+      { categoryId: cashback, plan: eur("0"), actual: eur("12.5"), inBudgetCurrency: null },
     ]);
     expect((await period(space, "2026-12")).incomeCategories).toEqual([
-      { categoryId: salary, plan: eur("3000"), actual: null },
+      { categoryId: salary, plan: eur("3000"), actual: null, inBudgetCurrency: null },
     ]);
   });
 
@@ -579,24 +569,41 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
   });
 });
 
-describe("BUD-17@PoC FR 1: the grid's «План доходу»", () => {
-  it("BUD-17@PoC FR 1: «План доходу» of the grid is the budget's income plan — the sum of the income categories' plans", async () => {
+describe("BUD-17@PoC FR 1: the grid's «Надходження» by income category", () => {
+  it("BUD-17@PoC FR 1 (owner decision 2026-11-21): «Надходження» is a row per income category of the plan with its plan, and the section's sum is the budget's income plan", async () => {
     const space = await newSpace();
+    const salary = await category(space, "Зарплата");
+    const rent = await category(space, "Дохід від оренди");
     const res = await create(space, {
       firstPeriod: "2026-11",
       incomePlans: [
-        { categoryId: await category(space, "Зарплата"), amount: eur("5000") },
-        { categoryId: await category(space, "Дохід від оренди"), amount: eur("400") },
+        { categoryId: salary, amount: eur("5000") },
+        { categoryId: rent, amount: eur("400") },
       ],
     });
     expect(res.statusCode, res.body).toBe(201);
     const g = (await call(space, "GET", "/v1/budget/plan-grid")).json() as {
       months: { period: string }[];
-      income: { plan: { amount: unknown; own: boolean }[] };
+      income: {
+        categories: { categoryId: string; cells: { amount: unknown; own: boolean }[] }[];
+        totals: unknown[];
+      };
     };
     const nov = g.months.findIndex((x) => x.period === "2026-11");
-    expect(g.income.plan[nov]).toMatchObject({ amount: eur("5400"), own: false });
-    expect(g.income.plan[nov + 1]).toMatchObject({ amount: eur("5400"), own: false });
+    // In the tree's order (module categories); the test compares them by id.
+    const rows = g.income.categories.map((r) => [r.categoryId, r.cells[nov]] as const);
+    expect(rows.sort((x, y) => (x[0] < y[0] ? -1 : 1))).toEqual(
+      (
+        [
+          [rent, { amount: eur("400"), own: false, version: 0 }],
+          [salary, { amount: eur("5000"), own: false, version: 0 }],
+        ] as const
+      )
+        .slice()
+        .sort((x, y) => (x[0] < y[0] ? -1 : 1)),
+    );
+    expect(g.income.totals[nov]).toEqual(eur("5400"));
+    expect(g.income.totals[nov + 1]).toEqual(eur("5400"));
   });
 });
 

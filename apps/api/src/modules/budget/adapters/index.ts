@@ -7,3 +7,4 @@ export { budgetWorkerQueue, requeueDeadHandOffs } from "./queue/hand-off.ts";
 export { HAND_OFF_JOB } from "./queue/job.ts";
 export { createBudgetObligations, OBLIGATION_MAX_INTEGER_DIGITS } from "./obligations.ts";
 export { createBudgetPlanSources } from "./plan-sources.ts";
+export { budgetCategoryUsage } from "./category-limits.ts";

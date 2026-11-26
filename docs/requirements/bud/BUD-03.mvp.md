@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-17, П-18, DS-23, NFR-01
 - Сценарії: UC-BUD-14, UC-BUD-15, UC-BUD-16, UC-BUD-17
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud03a-spendable.test.ts`, `apps/api/src/modules/recurring/domain/bud03a-month.test.ts`, `apps/api/src/modules/budget/adapters/obligations.test.ts`, `apps/api/test/bud03a-obligations.it.test.ts`, `apps/api/src/modules/budget/domain/bud03c-spendable-sources.test.ts`, `apps/api/test/bud03c-spendable.it.test.ts`, `apps/api/test/sec641-spendable.it.test.ts`, `apps/api/src/modules/feature-flags/domain/sec641-spendable-flag.test.ts`, `apps/web/src/planning/bud03b-spendable.test.tsx`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud03a-spendable.test.ts`, `apps/api/src/modules/recurring/domain/bud03a-month.test.ts`, `apps/api/src/modules/budget/adapters/obligations.test.ts`, `apps/api/test/bud03a-obligations.it.test.ts`, `apps/api/src/modules/budget/domain/bud03c-spendable-sources.test.ts`, `apps/api/test/bud03c-spendable.it.test.ts`, `apps/api/test/sec641-spendable.it.test.ts`, `apps/api/src/modules/feature-flags/domain/sec641-spendable-flag.test.ts`, `apps/web/src/planning/bud03b-spendable.test.tsx`, `apps/api/src/modules/budget/domain/bud02j-category-currency.test.ts`, `apps/api/test/bud02j-category-currency.it.test.ts`
 
 **Мета.** Як власник бюджету, я хочу одним числом бачити, скільки ще можу витратити до кінця періоду і сьогодні, щоб не перевищити бюджет і не зачепити заощадження.
 
@@ -35,7 +35,7 @@
 - Очікуваний дохід = більше з плану і факту; pending-транзакції враховуються; витрати в категоріях без ліміту («Поза планом») враховуються; внески в цілі не є витратами, але зменшують суму.
 - Регулярні платежі (частоти: тиждень, 2 тижні, місяць, квартал, рік; їх можна додати вручну) — джерело для «Можна витратити»; платежі за кредитами і страховими преміями беруться з графіків зобов'язань і полісів без дублювання; кредит дає лише суму чергового платежу за графіком на кожен місяць періоду (без графіка — типовий щомісячний платіж за розпізнаванням регулярних платежів), а не залишок боргу чи повне погашення; регулярні доходи формують очікуваний дохід.
 - Перекази між власними рахунками, погашення кредитних карток, позначені як переказ, і внески в цілі не є ні витратою, ні доходом. Погашення картки з невідомим джерелом рахується як надходження, доки користувач не підтвердить переказ.
-- Суми в інших валютах перераховуються за поточним курсом; транзакції — за курсом дати транзакції.
+- Суми в інших валютах — регулярні платежі, ліміти і плани доходу категорій у валюті категорії (правило бюджету «Валюта категорії»; рішення власника 2026-11-26) — перераховуються у валюту бюджету за поточним курсом; транзакції — за курсом дати транзакції. Сума картки, у яку входить ліміт чи план категорії в іншій валюті, показується зі знаком «≈», підказка називає курс і його дату.
 - Тексти — факти, не поради: віджет не оцінює витрати і не радить, що купувати.
 - Продукт не виконує платежів і переказів і не пропонує кредитів чи розстрочок третіх сторін.
 - У «Режимі без бюджету» «Можна витратити» і бюджетні сповіщення вимкнені.

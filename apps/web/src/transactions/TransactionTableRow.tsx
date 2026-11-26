@@ -36,6 +36,7 @@ export function TransactionTableRow({
       amount={{ value: item.amount.amount, currency: item.amount.currency }}
       pending={item.status === "pending"}
       transfer={item.transfer !== null}
+      type={item.transfer !== null ? "transfer" : item.type}
       split={item.split ? (item.split.mode === "months" ? item.split.parts.length : true) : undefined}
       tags={item.tags.map((tag) => tag.name)}
       note={item.note !== null && item.note !== ""}

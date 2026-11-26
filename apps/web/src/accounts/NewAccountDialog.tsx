@@ -44,11 +44,13 @@ import {
   OTHER_INSTITUTION,
   parseGrace,
   parseRate,
+  prefilledValues,
   useBanks,
   useDuplicate,
   type AccountKind,
   type ExtraCurrency,
   type NewAccountValues,
+  type Prefill,
 } from "./newAccount.ts";
 
 /**
@@ -90,6 +92,7 @@ export function NewAccountDialog({
   open,
   today,
   initialKind,
+  prefill,
   onClose,
   onCreated,
 }: {
@@ -97,13 +100,17 @@ export function NewAccountDialog({
   /** «Сьогодні» of the space (П-27), YYYY-MM-DD: the default «На дату». */
   today: string;
   initialKind?: AccountKind | undefined;
+  /** What a statement says about its account (IMP-08@PoC FR 2, AC 16): the form opens filled with it. */
+  prefill?: Prefill | undefined;
   onClose: () => void;
   onCreated: (accountId: string) => void;
 }) {
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const format = formatLocaleOf(locale);
-  const [v, setV] = useState<NewAccountValues>(() => initialValues(today, initialKind));
+  const [v, setV] = useState<NewAccountValues>(() =>
+    prefill ? prefilledValues(today, prefill, initialKind) : initialValues(today, initialKind),
+  );
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ key: MessageKey; code?: string | undefined } | null>(null);
   /** The duplicate check that `POST /v1/accounts` refused with 409 `ACCOUNT_DUPLICATE` (FR 25), and its text. */
@@ -112,6 +119,16 @@ export function NewAccountDialog({
   const nextKey = useRef(0);
   const { banks, loading: banksLoading } = useBanks(api, open);
   const countries = useMemo(() => countryOptions(format), [format]);
+  // The statement's bank is a name of the directory; its code is known once the directory is read (once, and never
+  // over a bank the person chose meanwhile).
+  const bankName = prefill?.bank;
+  const [bankApplied, setBankApplied] = useState(false);
+  if (!bankApplied && bankName && banks.length > 0) {
+    // Adjusting state while rendering, once, when the directory arrives (react.dev «You Might Not Need an Effect»).
+    setBankApplied(true);
+    const code = banks.find((b) => b.name === bankName)?.code;
+    if (code) setV((old) => (old.bank === "" ? { ...old, bank: code } : old));
+  }
 
   const set = <K extends keyof NewAccountValues>(k: K, value: NewAccountValues[K]) => {
     setFailure(null);
