@@ -131,7 +131,7 @@ export function FormDialog({
   const moved = useRef(false);
   const base = useId();
   const [confirming, setConfirming] = useState(false);
-  const baseline = useRef<string | null>(null);
+  const baseline = useRef<ReadonlyMap<Element, string> | null>(null);
   // The values the form opened with, to tell later whether anything changed (after the consumer's first paint).
   useLayoutEffect(() => {
     if (!open) baseline.current = null;
@@ -141,7 +141,7 @@ export function FormDialog({
     if (el && baseline.current === null) baseline.current = signature(el);
   };
   const changed = () =>
-    dirty ?? (baseline.current !== null && signature(stepsRef.current) !== baseline.current);
+    dirty ?? (baseline.current !== null && differs(baseline.current, signature(stepsRef.current)));
   // CMP-21@PoC FR 24: unsaved changes turn the same dialog into «Зберегти зміни?», never a second dialog.
   const refocus = useRef(false);
   const requestClose = () => {
@@ -367,18 +367,23 @@ export function FormMore({ label, fields: ids, children }: FormMoreProps) {
   );
 }
 
-/** The values of every native control inside `root`: what «Зберегти зміни?» compares (CMP-21@PoC FR 24). */
-function signature(root: HTMLElement | null): string {
-  if (!root) return "";
+/** The value of every control inside `root`, by element: what «Зберегти зміни?» compares (CMP-21@PoC FR 24). */
+function signature(root: HTMLElement | null): ReadonlyMap<Element, string> {
+  const values = new Map<Element, string>();
+  if (!root) return values;
   // Native controls by value; a listbox trigger (SearchSelect, ListButton) is a button, so its shown choice counts too.
   // The transient search box inside an open SearchSelect (`role="combobox"`) is not a form value.
-  const native = [
-    ...root.querySelectorAll<HTMLInputElement>('input:not([role="combobox"]), select, textarea'),
-  ].map((el) => (el.type === "checkbox" || el.type === "radio" ? String(el.checked) : el.value));
-  const picked = [...root.querySelectorAll<HTMLElement>('[aria-haspopup="listbox"]')].map(
-    (el) => el.textContent ?? "",
-  );
-  return [...native, ...picked].join("\u0001");
+  for (const el of root.querySelectorAll<HTMLInputElement>('input:not([role="combobox"]), select, textarea'))
+    values.set(el, el.type === "checkbox" || el.type === "radio" ? String(el.checked) : el.value);
+  for (const el of root.querySelectorAll<HTMLElement>('[aria-haspopup="listbox"]'))
+    values.set(el, el.textContent ?? "");
+  return values;
+}
+
+/** A control the form opened with now shows another value. A control that mounted later (loaded options) is not a change. */
+function differs(before: ReadonlyMap<Element, string>, now: ReadonlyMap<Element, string>): boolean {
+  for (const [el, value] of before) if (now.has(el) && now.get(el) !== value) return true;
+  return false;
 }
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);

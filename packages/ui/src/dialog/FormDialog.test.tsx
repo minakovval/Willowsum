@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { I18nProvider } from "@willowsum/i18n";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Field } from "../field/Field.tsx";
 import { SearchSelect } from "../select/SearchSelect.tsx";
 import { FormDialog, FormMore, type FormDialogField } from "./FormDialog.tsx";
@@ -700,5 +700,41 @@ describe("CMP-21@PoC FormDialog — a choice in a SearchSelect and the focus of 
     act(() => screen.getByRole("button", { name: "Редагувати далі" }).click());
     expect(document.activeElement).not.toBe(document.body);
     expect(document.activeElement).toBe(screen.getByLabelText(/^Назва/));
+  });
+
+  it("CMP-21@PoC AC27: a SearchSelect that mounts after the first paint (loaded options) is not a change — «Скасувати» closes at once", async () => {
+    const close = vi.fn();
+    function Late() {
+      const [ready, setReady] = useState(false);
+      useEffect(() => {
+        const id = setTimeout(() => setReady(true), 20);
+        return () => clearTimeout(id);
+      }, []);
+      return (
+        <I18nProvider>
+          <FormDialog
+            open
+            onClose={close}
+            title="Ф"
+            closeLabel="Закрити"
+            fields={[]}
+            submitLabel="Ок"
+            onSubmit={() => {}}
+            editing
+          >
+            {() => (
+              <>
+                <Field label="Назва" value="Х" onChange={() => {}} />
+                {ready ? <SearchSelect label="Банк" groups={groups} value="a" onChange={() => {}} /> : null}
+              </>
+            )}
+          </FormDialog>
+        </I18nProvider>
+      );
+    }
+    render(<Late />);
+    await screen.findByRole("button", { name: /Альфа/ });
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
