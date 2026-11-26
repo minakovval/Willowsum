@@ -332,11 +332,30 @@ describe("BUD-01@PoC S-196 «Категорії»", () => {
     expect(sent(calls, "DELETE").map((c) => c.path)).toEqual([`/v1/categories/${id}`]);
   });
 
-  it("BUD-01@PoC AC19: «Кава» with transactions offers no «Видалити», only «Приховати» and «Об’єднати з іншою…» with the reason; a refused delete says the same and changes nothing", async () => {
+  const usageOf = (over: Record<string, unknown> = {}) => ({
+    status: 200,
+    body: {
+      transactions: 0,
+      rules: 0,
+      recurringPayments: 0,
+      mergedCategories: 0,
+      budget: { limit: null, stored: false, planCells: 0 },
+      deletable: false,
+      ...over,
+    },
+  });
+  const reasons = "Категорію не можна видалити: її використовують";
+
+  it("BUD-01@PoC AC19: «Кава» with 40 transactions offers no «Видалити»; the menu says why it cannot be deleted and «Чому не можна видалити…» shows the reason «40 транзакцій» with «Приховати» and «Об’єднати з іншою…»", async () => {
     const data = tree();
-    const stale = byName(data, "Кава з собою");
+    const coffee = byName(data, "Кава");
     const { client, calls } = api(
-      { [`DELETE /v1/categories/${stale.id}`]: problem(409, "CATEGORY_NOT_EMPTY") },
+      {
+        [`GET /v1/categories/${coffee.id}/usage`]: usageOf({
+          transactions: 40,
+          budget: { limit: { amount: "60.00", currency: "EUR" }, stored: true, planCells: 0 },
+        }),
+      },
       data,
     );
     renderAt(PATH, client);
@@ -344,19 +363,73 @@ describe("BUD-01@PoC S-196 «Категорії»", () => {
     const menu = openMenu("Кава");
     expect(items(menu)).not.toContain("Видалити");
     expect(items(menu)).toEqual(expect.arrayContaining(["Приховати", "Об’єднати з іншою…"]));
-    const reason =
-      "Категорію з транзакціями, правилами або лімітами не можна видалити — приховайте або об'єднайте її";
-    expect(within(menu).getByText(reason)).toBeTruthy();
-    expect(document.getElementById(menu.getAttribute("aria-describedby")!)!.textContent).toBe(reason);
-    fireEvent.keyDown(menu, { key: "Escape" });
+    expect(within(menu).getByText(reasons)).toBeTruthy();
+    expect(document.getElementById(menu.getAttribute("aria-describedby")!)!.textContent).toBe(reasons);
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Чому не можна видалити…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Видалити категорію «Кава»?" });
+    await waitFor(() => expect(dialog.querySelectorAll("li")).toHaveLength(1));
+    expect(plain(dialog.querySelector("li")!.textContent)).toBe("40 транзакцій");
+    // The limit does not hold a category: it is not named as a reason.
+    expect(plain(dialog.textContent)).not.toMatch(/Ліміт|60/);
+    expect(within(dialog).getByRole("button", { name: "Приховати" })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Об’єднати з іншою…" })).toBeTruthy();
+    expect(within(dialog).queryByRole("button", { name: "Видалити" })).toBeNull();
+    expect(sent(calls, "DELETE")).toHaveLength(0);
+  });
 
-    // The tree said «Кава з собою» was empty, but a transaction came meanwhile: the server's refusal is shown.
+  it("BUD-01@PoC AC19: the tree said «Кава з собою» was empty, but a transaction came meanwhile — the refused delete shows the reason with its count and changes nothing", async () => {
+    const data = tree();
+    const stale = byName(data, "Кава з собою");
+    let held = false;
+    const { client, calls } = api(
+      {
+        [`GET /v1/categories/${stale.id}/usage`]: () =>
+          held ? usageOf({ transactions: 1 }) : usageOf({ deletable: true }),
+        [`DELETE /v1/categories/${stale.id}`]: () => {
+          held = true;
+          return problem(409, "CATEGORY_NOT_EMPTY");
+        },
+      },
+      data,
+    );
+    renderAt(PATH, client);
+    await screen.findByText("Кава");
     fireEvent.click(within(openMenu("Кава з собою")).getByRole("menuitem", { name: "Видалити" }));
-    const dialog = await screen.findByRole("alertdialog");
+    const dialog = (await screen.findByText("Видалити категорію «Кава з собою»?")).closest("dialog")!;
+    await waitFor(() => within(dialog).getByRole("button", { name: "Видалити" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Видалити" }));
-    expect(await within(dialog).findByText(reason)).toBeTruthy();
+    expect(await within(dialog).findByText("1 транзакція")).toBeTruthy();
+    expect(plain(dialog.textContent)).toContain(reasons);
+    expect(within(dialog).queryByRole("button", { name: "Видалити" })).toBeNull();
     expect(gets(calls)).toHaveLength(1);
     expect(screen.getByText("Кава з собою")).toBeTruthy();
+  });
+
+  it("BUD-01@PoC AC22: «Кава з собою» held only by its limit — «Видалити» asks «Ліміт 30,00 € теж буде видалено», confirmed, the delete is sent with the confirmation and the tree is read again", async () => {
+    const data = tree();
+    const target = byName(data, "Кава з собою");
+    const seen: string[] = [];
+    const { client, calls } = api(
+      {
+        [`GET /v1/categories/${target.id}/usage`]: usageOf({
+          deletable: true,
+          budget: { limit: { amount: "30.00", currency: "EUR" }, stored: true, planCells: 2 },
+        }),
+        [`DELETE /v1/categories/${target.id}`]: (_call, url) => {
+          seen.push(url.search);
+          return { status: 200, body: { deleted: true } };
+        },
+      },
+      data,
+    );
+    renderAt(PATH, client);
+    await screen.findByText("Кава");
+    fireEvent.click(within(openMenu("Кава з собою")).getByRole("menuitem", { name: "Видалити" }));
+    const dialog = (await screen.findByText("Видалити категорію «Кава з собою»?")).closest("dialog")!;
+    await waitFor(() => expect(plain(dialog.textContent)).toContain("Ліміт 30,00 € теж буде видалено."));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Видалити" }));
+    await waitFor(() => expect(seen).toEqual(["?confirmLimit=true"]));
+    await waitFor(() => expect(gets(calls)).toHaveLength(2));
   });
 
   it("BUD-01@PoC FR 2: «Нова група» with its type, «Нова категорія» in a group, renaming, and «Така назва вже існує» for a taken name", async () => {
