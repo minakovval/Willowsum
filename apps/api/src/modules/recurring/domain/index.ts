@@ -72,6 +72,7 @@ export {
   scheduleBetween,
   type FinishedMonthCharge,
   type MonthCharge,
+  type RangeCharge,
 } from "./month.ts";
 export {
   CALENDAR_DAYS,

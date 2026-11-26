@@ -17,7 +17,11 @@ export interface MonthCharge {
   readonly expected: Money;
   readonly status: ChargeStatus;
   readonly overdueDays: number | null;
-  /** The transaction that paid it (FR 9 «з посиланням на транзакцію»); null — not paid. */
+}
+
+/** A charge of `chargesBetween` (BUD-07@PoC FR 7): with the transaction that paid it. */
+export interface RangeCharge extends MonthCharge {
+  /** FR 9 «з посиланням на транзакцію»; null — not paid. */
   readonly transactionId: string | null;
   /** The paying transaction's date; null — not paid. */
   readonly paidOn: string | null;
@@ -60,7 +64,15 @@ export function chargesInMonth(
   month: string,
   today: string,
 ): MonthCharge[] {
-  return chargesBetween(payment, tracking, `${month}-01`, lastDay(month), today);
+  return chargesBetween(payment, tracking, `${month}-01`, lastDay(month), today).map((c): MonthCharge => ({
+    paymentId: c.paymentId,
+    type: c.type,
+    categoryId: c.categoryId,
+    dueOn: c.dueOn,
+    expected: c.expected,
+    status: c.status,
+    overdueDays: c.overdueDays,
+  }));
 }
 
 /**
@@ -77,7 +89,7 @@ export function chargesBetween(
   to: string,
   today: string,
   options: { readonly flagged?: "left-out" | "shown" } = {},
-): MonthCharge[] {
+): RangeCharge[] {
   // The pause that holds today: unpaid charges due up to its end are out of the month while it lasts.
   const pause =
     tracking.hold === "paused"
@@ -91,7 +103,7 @@ export function chargesBetween(
   const tracked = new Map(tracking.charges.map((c) => [c.dueOn, c]));
   const covered = tracking.charges.reduce((last, c) => (c.dueOn > last ? c.dueOn : last), "");
   const end = payment.endDate !== null && payment.endDate < to ? payment.endDate : to;
-  const out: MonthCharge[] = [];
+  const out: RangeCharge[] = [];
   for (const dueOn of scheduleBetween(payment.anchorDate, payment.frequency, from, end)) {
     const c = tracked.get(dueOn);
     if (!c && (dueOn <= covered || dueOn <= today || heldOn(tracking.holds, dueOn))) continue;
@@ -117,7 +129,10 @@ export function chargesBetween(
 }
 
 /** A charge of a finished month as «Підсумок періоду» shows it: its status now and the day it was paid. */
-export type FinishedMonthCharge = MonthCharge;
+export interface FinishedMonthCharge extends MonthCharge {
+  /** «Сплачено <дата>» / «Сплачено із запізненням · <дата>»: the paying transaction's date; null — not paid. */
+  readonly paidOn: string | null;
+}
 
 /**
  * FLW-38@PoC FR 1 (S-135 «Підсумок періоду», card «Регулярні платежі»): the charges of a finished month of one payment,
@@ -140,7 +155,6 @@ export function chargesOfFinishedMonth(
       expected: c.expected,
       status: c.status,
       overdueDays: c.overdueDays,
-      transactionId: c.transactionId,
       paidOn: c.paidOn,
     }));
 }
