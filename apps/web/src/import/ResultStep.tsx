@@ -498,6 +498,7 @@ function RollbackLine({
         label={t("importResult.rollback.action")}
         onClick={() => {
           onOpen();
+          setKeepManual(true);
           setOpen(true);
         }}
       />

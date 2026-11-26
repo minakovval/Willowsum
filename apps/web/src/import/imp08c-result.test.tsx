@@ -547,6 +547,22 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     expect(posts(calls, "/rollback")[0]!.body).toEqual({ mode: "all" });
   });
 
+  it("IMP-16@PoC FR 4: «Залишити змінені вручну» is on again each time the dialog opens, after it was switched off and cancelled", async () => {
+    const { client } = api();
+    renderAt(at, client);
+    await screen.findByRole("heading", { name: "Імпорт завершено" });
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    let dialog = await screen.findByRole("dialog");
+    const box = () => within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" });
+    fireEvent.click(box());
+    expect(box()).toHaveProperty("checked", false);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    dialog = await screen.findByRole("dialog");
+    expect(box()).toHaveProperty("checked", true);
+  });
+
   it("IMP-04@PoC AC8: after the 7 days the step says «Строк відкату минув» and offers no rollback; the server's refusal reads the same in the dialog", async () => {
     const expired = api({
       [`GET /v1/import/batches/${BATCH}/result`]: () => ({

@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { I18nProvider } from "@willowsum/i18n";
 import { useState } from "react";
 import { Field } from "../field/Field.tsx";
+import { SearchSelect } from "../select/SearchSelect.tsx";
 import { FormDialog, FormMore, type FormDialogField } from "./FormDialog.tsx";
 
 /**
@@ -633,5 +634,71 @@ describe("CMP-21@PoC FormMore («Додатково»)", () => {
     // While it holds a value or an error it cannot be collapsed.
     act(() => toggle().click());
     expect(body().hidden).toBe(false);
+  });
+});
+
+describe("CMP-21@PoC FormDialog — a choice in a SearchSelect and the focus of the question", () => {
+  const groups = [
+    {
+      id: "g",
+      title: "Банки",
+      options: [
+        { value: "a", label: "Альфа" },
+        { value: "b", label: "Бета" },
+      ],
+    },
+  ];
+  function PickForm({ onClose }: { onClose: () => void }) {
+    const [bank, setBank] = useState("a");
+    const [name, setName] = useState("Х");
+    return (
+      <I18nProvider>
+        <FormDialog
+          open
+          onClose={onClose}
+          title="Ф"
+          closeLabel="Закрити"
+          fields={[]}
+          submitLabel="Ок"
+          onSubmit={() => {}}
+          editing
+        >
+          {() => (
+            <>
+              <Field label="Назва" value={name} onChange={setName} />
+              <SearchSelect label="Банк" groups={groups} value={bank} onChange={setBank} />
+            </>
+          )}
+        </FormDialog>
+      </I18nProvider>
+    );
+  }
+
+  it("CMP-21@PoC AC27 and CMP-21@PoC FR27: only a SearchSelect changed, then «Скасувати» — the question is shown, the dialog is not closed", () => {
+    const close = vi.fn();
+    render(<PickForm onClose={close} />);
+    act(() => screen.getByRole("button", { name: /Альфа/ }).click());
+    act(() => screen.getByRole("option", { name: /Бета/ }).click());
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog", { name: "Зберегти зміни?" })).toBeTruthy();
+  });
+
+  it("CMP-21@PoC AC27: opening the search box of an untouched SearchSelect is not a change", () => {
+    const close = vi.fn();
+    render(<PickForm onClose={close} />);
+    act(() => screen.getByRole("button", { name: /Альфа/ }).click());
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("CMP-21@PoC AC24: the question takes the focus on «Редагувати далі»; «Редагувати далі» returns it to a field of the form, never to <body>", () => {
+    render(<PickForm onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText(/^Назва/), { target: { value: "Інша" } });
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Редагувати далі" }));
+    act(() => screen.getByRole("button", { name: "Редагувати далі" }).click());
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Назва/));
   });
 });

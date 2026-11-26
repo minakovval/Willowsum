@@ -143,9 +143,12 @@ export function FormDialog({
   const changed = () =>
     dirty ?? (baseline.current !== null && signature(stepsRef.current) !== baseline.current);
   // CMP-21@PoC FR 24: unsaved changes turn the same dialog into «Зберегти зміни?», never a second dialog.
+  const refocus = useRef(false);
   const requestClose = () => {
-    if (changed()) setConfirming(true);
-    else onClose();
+    if (changed()) {
+      refocus.current = true;
+      setConfirming(true);
+    } else onClose();
   };
   // Opening again starts the form afresh: step 1, nothing left yet (state adjusted during render).
   const [wasOpen, setWasOpen] = useState(open);
@@ -245,8 +248,24 @@ export function FormDialog({
   const hinted = (i: number) => fields.some((f) => f.required && stepOf(f) === i);
   const hint = requiredHint(t("dialog.form.requiredHint"));
 
-  const keepEditing = () => setConfirming(false);
+  const keepEditing = () => {
+    refocus.current = true;
+    setConfirming(false);
+  };
   const asking = confirming && open;
+  // The form is hidden while the question shows (and back): focus goes to «Редагувати далі», then to the first field
+  // of the current step, never to <body> (CMP-21 «Клавіатура і екранний читач»: focus on the safe action).
+  useLayoutEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    const dlg = stepsRef.current?.closest("dialog");
+    const target = asking
+      ? dlg?.querySelector<HTMLElement>(".ws-dialog-action")
+      : stepsRef.current?.querySelector<HTMLElement>(
+          `[data-step="${current}"] :is(input, select, textarea, button):not([disabled])`,
+        );
+    target?.focus();
+  }, [asking, current]);
   return (
     <Dialog
       open={open}
@@ -351,9 +370,15 @@ export function FormMore({ label, fields: ids, children }: FormMoreProps) {
 /** The values of every native control inside `root`: what «Зберегти зміни?» compares (CMP-21@PoC FR 24). */
 function signature(root: HTMLElement | null): string {
   if (!root) return "";
-  return [...root.querySelectorAll<HTMLInputElement>("input, select, textarea")]
-    .map((el) => (el.type === "checkbox" || el.type === "radio" ? String(el.checked) : el.value))
-    .join("\u0001");
+  // Native controls by value; a listbox trigger (SearchSelect, ListButton) is a button, so its shown choice counts too.
+  // The transient search box inside an open SearchSelect (`role="combobox"`) is not a form value.
+  const native = [
+    ...root.querySelectorAll<HTMLInputElement>('input:not([role="combobox"]), select, textarea'),
+  ].map((el) => (el.type === "checkbox" || el.type === "radio" ? String(el.checked) : el.value));
+  const picked = [...root.querySelectorAll<HTMLElement>('[aria-haspopup="listbox"]')].map(
+    (el) => el.textContent ?? "",
+  );
+  return [...native, ...picked].join("\u0001");
 }
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);

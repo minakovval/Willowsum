@@ -116,3 +116,28 @@ test("CMP-21@PoC AC24 and CMP-21@PoC AC27: closing «Нова ціль» with ty
   await question.getByRole("button", { name: "Редагувати далі" }).click();
   await expect(page.getByRole("dialog", { name: "Нова ціль" }).getByLabel(/^Назва/)).toHaveValue("Відпустка");
 });
+
+test("CMP-21@PoC AC24: the focus is never on <body> — on «Редагувати далі» when the question opens, on the first field of the form after «Редагувати далі»", async ({
+  page,
+}) => {
+  const active = () =>
+    page.evaluate(() => {
+      const a = document.activeElement as HTMLElement | null;
+      return {
+        tag: a?.tagName ?? "none",
+        text: a?.textContent?.trim() ?? "",
+        inDialog: Boolean(a?.closest("dialog")),
+      };
+    });
+  await openCase(page, "form");
+  const goal = page.getByRole("dialog", { name: "Нова ціль" });
+  await goal.getByLabel(/^Назва/).fill("Відпустка");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("alertdialog", { name: "Зберегти зміни?" })).toBeVisible();
+  expect(await active()).toEqual({ tag: "BUTTON", text: "Редагувати далі", inDialog: true });
+  await page.getByRole("button", { name: "Редагувати далі" }).click();
+  await expect(page.getByRole("dialog", { name: "Нова ціль" })).toBeVisible();
+  const after = await active();
+  expect(after.tag).toBe("INPUT");
+  expect(after.inDialog).toBe(true);
+});
