@@ -25,6 +25,7 @@ import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
+  createCategoryTransactions,
   categorizationRulePorts,
   createCategorizationServices,
   createImportCategoryCarry,
@@ -428,6 +429,8 @@ const server = buildServer({
               duplicates: createDuplicateCheck(),
               // BUD-12 FR 7: «Підтвердити» on a card whose category was changed elsewhere is refused.
               categoryOf: createTransactionCategories(databases.for("categorization")),
+              // FIN-03 FR 22 «Категорії»: the list «Транзакції» by category («Показати транзакції», BUD-01 AC 20).
+              categoryTransactions: createCategoryTransactions(databases.for("categorization")),
             }),
             // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
             duplicateMatching: createDuplicateMatchingServices({

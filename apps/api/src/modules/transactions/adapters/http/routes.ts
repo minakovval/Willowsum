@@ -1,4 +1,10 @@
 import { Decimal, Money } from "@willowsum/domain-kernel";
+import {
+  CATEGORY_FILTER_MAX,
+  categoryCondition,
+  ownCategoryTransactions,
+  takeCategoryFilters,
+} from "./category-filter.ts";
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
@@ -658,7 +664,19 @@ export const listTransactionsRoute = defineRoute({
   summary:
     "«Транзакції»: one numbered page, the count, and the totals of income, expenses and their difference in the profile currency",
   access: { permission: "household.data.read", feature: FEATURE },
-  request: { query: z.object({ ...transactionsList.query }) },
+  request: {
+    query: z.object({
+      ...transactionsList.query,
+      filter: transactionsList.query.filter.meta({
+        description:
+          "Filter `<field>.<operator>:<value>` (repeatable; all must hold): `accountId` eq/in, `date` gte/lte, `type` eq " +
+          "(in/out), `amount` gte/lte (without sign), `counterparty` eq/has, `search` has, `status` eq/in, `split` eq, " +
+          "`hidden` eq, `transfer` eq, `tag` eq/in, `review` eq/in, `category` eq/in — FIN-03 FR 22 «Категорії»: the " +
+          "exact categories (no others); an unsplit transaction by its own category, a split one by its parts; a " +
+          `category with more than ${CATEGORY_FILTER_MAX} transactions is 422 LIMIT_REACHED`,
+      }),
+    }),
+  },
   response: {
     status: 200,
     description:
@@ -684,13 +702,18 @@ export const listTransactionsRoute = defineRoute({
   },
   handler: async ({ query }, ctx) => {
     refuseScoped(ctx);
-    const { totals, reportingCurrency, oneOffEnabled } = transactionsServices(ctx);
+    const { totals, reportingCurrency, oneOffEnabled, categoryTransactions } = transactionsServices(ctx);
     const oneOffOn = await oneOffEnabled(ctx.principal.householdId);
+    // FIN-03 FR 22 «Категорії»: the own categories are module categorization's, read before this module's transaction.
+    const { rest, categories } = takeCategoryFilters(shownUnlessAsked(query.filter));
+    const own = await ownCategoryTransactions(categoryTransactions, ctx.principal.householdId, categories);
     const { page, parts, transfers, merged, names } = await ctx.inHousehold(async (q) => {
+      const condition = await categoryCondition(q, ctx.principal.householdId, categories, own);
       const page = await transactionsList.run(q, {
         ...query,
-        filter: shownUnlessAsked(query.filter),
+        filter: rest,
         sort: dateAndTime(query.sort),
+        condition: condition ?? undefined,
       });
       const split = page.items.filter((r) => r["splitMode"] !== null).map((r) => String(r["id"]));
       const transferIds = page.items

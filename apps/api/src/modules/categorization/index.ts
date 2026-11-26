@@ -10,6 +10,7 @@ import type { MerchantDirectory } from "../merchants/index.ts";
 import {
   transactionCreated,
   transactionImportMerged,
+  type CategoryTransactions,
   type TransactionImportMerged,
   type TransactionLookup,
   type TransactionRuleInputs,
@@ -30,6 +31,7 @@ import {
   setCategoryAction,
   TRANSACTION_CREATED_JOB,
   transactionsCategoryTarget,
+  transactionsWithCategories,
   ruleCount,
 } from "./adapters/index.ts";
 import { carryImportMerged, categoriesInUse, countWithCategory, type RuleDeps } from "./application/index.ts";
@@ -245,6 +247,18 @@ export function createTransactionCategories(db: ModuleDatabase): TransactionCate
         for (const [id, row] of rows) if (row.categoryId !== null) out.set(id, row.categoryId);
         return out;
       }),
+  };
+}
+
+/**
+ * FIN-03@PoC FR 22 «Категорії» (BUD-01@PoC AC 20, BUD-02@PoC AC 19 «Показати транзакції»): the transactions of a
+ * category by their own category, for module transactions' list (`createTransactionsServices({ categoryTransactions })`,
+ * src/main.ts). Read only; `db` is the categorization module's own database.
+ */
+export function createCategoryTransactions(db: ModuleDatabase): CategoryTransactions {
+  return {
+    withCategories: (householdId, categoryIds, limit) =>
+      db.inHousehold(householdId, (q) => transactionsWithCategories(q, householdId, categoryIds, limit)),
   };
 }
 
