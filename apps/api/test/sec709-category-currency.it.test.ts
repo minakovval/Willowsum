@@ -30,6 +30,7 @@ import {
   createTransactionsServices,
 } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -436,8 +437,8 @@ describe("sec709: category currency — input validation, isolation, snapshot im
     ]) {
       const res = await call(mine, "GET", url);
       expect(res.statusCode, url).toBe(200);
-      expect(res.body, url).not.toContain("UAH");
-      expect(res.body, url).not.toContain(theirClubs);
+      expect(leakText(res.body), url).not.toContain("UAH");
+      expect(leakText(res.body), url).not.toContain(theirClubs);
     }
     // A category of the other space is not a line of mine in any currency.
     const b = (await call(mine, "GET", "/v1/budget")).json().budget;
@@ -573,5 +574,104 @@ describe("sec709: category currency — input validation, isolation, snapshot im
         )
       ).rows,
     ).toEqual([]);
+  });
+});
+
+describe("sec709: a category delete keeps the stored income plan and its audit exact (BUD-01@PoC FR 12, BUD-02@PoC FR 24)", () => {
+  it("sec709: deleting an income category stores the others' sum at today's rate, audits that sum and the deleted plan's own currency", async () => {
+    await rates();
+    const space = await newSpace();
+    const tree = await call(space, "GET", "/v1/categories");
+    const incomeGroup = (tree.json().groups as { id: string; kind: string }[]).find(
+      (g) => g.kind === "income",
+    )!;
+    const income = async (name: string) => {
+      const res = await call(space, "POST", "/v1/categories", { groupId: incomeGroup.id, name });
+      expect(res.statusCode, res.body).toBe(201);
+      return res.json().id as string;
+    };
+    const salary = await category(space, "Зарплата");
+    const bonus = await income("Синтетичні премії");
+    const rent = await income("Синтетична оренда");
+    await createBudget(space, {
+      incomePlans: [
+        { categoryId: salary, amount: eur("1000") },
+        { categoryId: bonus, amount: eur("300") },
+        { categoryId: rent, amount: uah("10000") },
+      ],
+    });
+    const stored = async () =>
+      (
+        await db.owner.query<{ income_plan: string }>(
+          `SELECT income_plan::text FROM budget.budgets WHERE household_id = $1`,
+          [space.householdId],
+        )
+      ).rows[0]!.income_plan;
+    const audited = async (entity: string, action: string) =>
+      (
+        await db.owner.query<{ changes: { field: string; before: unknown; after: unknown }[] }>(
+          `SELECT changes FROM audit.entries WHERE household_id = $1 AND entity_type = $2 AND action = $3
+            ORDER BY occurred_at`,
+          [space.householdId, entity, action],
+        )
+      ).rows.map((r) => r.changes);
+
+    // 1 000 € and 10 000 UAH (200 € today) stay: the stored plan and its audit say 1 200 €, never 1 000 €.
+    expect((await call(space, "DELETE", `/v1/categories/${bonus}?confirmLimit=true`)).statusCode).toBe(200);
+    expect(await stored()).toMatch(/^1200(\.0+)?$/);
+    const updates = await audited("budget.budget", "update");
+    expect(updates.at(-1)).toContainEqual(expect.objectContaining({ field: "incomePlan", after: "1200" }));
+
+    // The deleted UAH plan is audited in its own currency: 10 000 UAH, not 10 000 €.
+    expect((await call(space, "DELETE", `/v1/categories/${rent}?confirmLimit=true`)).statusCode).toBe(200);
+    const deletes = await audited("budget.income-plan", "delete");
+    expect(deletes.at(-1)).toContainEqual(
+      expect.objectContaining({ field: "currency", before: "UAH", after: null }),
+    );
+    expect(await stored()).toMatch(/^1000(\.0+)?$/);
+  });
+});
+
+describe("sec709: a late rate converts an income plan of a finished period too (lead decision 2026-11-26, #709)", () => {
+  it("sec709: a PLN income plan without a rate on the period's last day joins the snapshot's income plan once a rate appears", async () => {
+    await rates();
+    // A cross rate takes both sides from one date.
+    await rate("2026-10-20", "EUR", "50.00");
+    await rate("2026-10-20", "PLN", "12.50");
+    now = at("2026-10-20");
+    const space = await newSpace();
+    const salary = await category(space, "Зарплата");
+    const tree = await call(space, "GET", "/v1/categories");
+    const incomeGroup = (tree.json().groups as { id: string; kind: string }[]).find(
+      (g) => g.kind === "income",
+    )!;
+    const res = await call(space, "POST", "/v1/categories", {
+      groupId: incomeGroup.id,
+      name: "Синтетичний дохід PLN",
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const pln = res.json().id as string;
+    await createBudget(space, {
+      firstPeriod: "2026-10",
+      incomePlans: [
+        { categoryId: salary, amount: eur("1000") },
+        { categoryId: pln, amount: { amount: "1000", currency: "PLN" } },
+      ],
+    });
+    await db.owner.query(`DELETE FROM fx_rates.rates WHERE currency = 'PLN'`);
+    now = at(TODAY);
+    // No PLN rate on 31 October: the line counts 0 for now.
+    expect((await period(space, "2026-10")).incomePlan).toEqual(eur("1000"));
+    // 1 PLN = 12.50 UAH, 1 € = 50 UAH: 1 000 PLN = 250 €, added to the finished month's income plan and kept.
+    await rate("2026-11-10", "EUR", "50.00");
+    await rate("2026-11-10", "PLN", "12.50");
+    expect((await period(space, "2026-10")).incomePlan).toEqual(eur("1250"));
+    const { rows } = await db.owner.query<{ income_plan: string }>(
+      `SELECT income_plan::text FROM budget.period_snapshots WHERE household_id = $1 AND period = '2026-10-01'`,
+      [space.householdId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.income_plan).toMatch(/^1250(\.0+)?$/);
+    await db.owner.query(`DELETE FROM fx_rates.rates WHERE currency = 'PLN'`);
   });
 });
