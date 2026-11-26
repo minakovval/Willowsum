@@ -563,6 +563,51 @@ describe("BUD-03@PoC and BUD-17@PoC: a category's currency in «Можна ви�
     expect(res.json().rates).toEqual([{ currency: "UAH", rate: "0.025", date: "2026-11-18" }]);
   });
 
+  it("BUD-17@PoC FR 1, business rules (row 231): the row of a UAH income category is in UAH — its cell saved in UAH, the section's sum in EUR at today's rate; a cell in EUR is refused", async () => {
+    await rates();
+    // Today's rate (the test above may already have written it — the same row): 1 € = 40,00 UAH.
+    await rate("2026-11-18", "EUR", "40.00");
+    const space = await newSpace();
+    const salary = await category(space, "Зарплата");
+    const rent = await category(space, "Дохід від оренди");
+    await createBudget(space, {
+      incomePlans: [
+        { categoryId: salary, amount: eur("1000") },
+        { categoryId: rent, amount: uah("20000") },
+      ],
+    });
+    const set = await call(space, "PUT", "/v1/budget/plan-grid/cells", {
+      period: "2026-12",
+      kind: "income",
+      lineId: rent,
+      amount: uah("25000.25"),
+      version: 0,
+    });
+    expect(set.statusCode, set.body).toBe(200);
+    expect(set.json()).toEqual({ amount: uah("25000.25"), version: 1 });
+    const g = (await call(space, "GET", "/v1/budget/plan-grid")).json();
+    const row = (g.income.categories as { categoryId: string; cells: unknown[] }[]).find(
+      (r) => r.categoryId === rent,
+    )!;
+    expect(row.cells.slice(0, 2)).toEqual([
+      { amount: uah("20000"), own: false, version: 0 },
+      { amount: uah("25000.25"), own: true, version: 1 },
+    ]);
+    // 1 000 € + 20 000 UAH × 0,025; December: 1 000 € + 25 000,25 UAH × 0,025 = 1 625,00625 € — unrounded.
+    expect(g.income.totals.slice(0, 2)).toEqual([eur("1500"), eur("1625.00625")]);
+    expect(g.rates).toEqual([{ currency: "UAH", rate: "0.025", date: "2026-11-18" }]);
+    expect((await period(space, "2026-12")).incomePlan).toEqual(eur("1625.00625"));
+    const wrong = await call(space, "PUT", "/v1/budget/plan-grid/cells", {
+      period: "2027-01",
+      kind: "income",
+      lineId: rent,
+      amount: eur("500"),
+      version: 0,
+    });
+    expect(wrong.statusCode).toBe(400);
+    expect(wrong.json().errors).toEqual([{ in: "body", path: "amount.currency", issue: "currency" }]);
+  });
+
   it("BUD-17@PoC business rules: a cell changed from 3 000 UAH to 3 000 EUR is a change, audited with its currency", async () => {
     await rates();
     const space = await newSpace();

@@ -283,8 +283,6 @@ beforeAll(async () => {
             goals: createGoalPlans(db.databases.for("goals"), goals),
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
-            // FR 1 «Надходження»: the month's expected regular incomes (the income plan of «План», #651).
-            recurring: createRecurringMonth(db.databases.for("recurring"), recurring),
           }),
           goalSpends: createGoalSpends(db.databases.for("goals")),
         })),
@@ -885,27 +883,31 @@ describe("BUD-03@PoC «приблизно» and EC4: the nearest rate is marked,
     expect(s.approximate).toMatchObject({ goals: true });
   });
 
-  it("BUD-03@PoC EC4: the month's income plan made of a regular income in USD at the nearest rate — «приблизно» (#651)", async () => {
+  it("BUD-03@PoC FR 2, EC4 (row 231, BUD-17@PoC FR 1): a regular income in USD over the plan is no longer the month's plan — it is the income still expected, «приблизно» at the nearest rate", async () => {
     const space = await newSpace();
     await current(space);
     await createBudget(space, { incomePlan: eur("100") });
     await rate("2026-11-05", "USD", "41.6");
     await rate("2026-11-05", "EUR", "52");
-    // 1 000 USD = 800 € at the 5 November rate: more than «План доходу» 100 €, so the month's plan is 800 €.
+    // 1 000 USD = 800 € at the 5 November rate: the plan stays 100 €; the expected income is the 800 € still expected.
     await payment(space, {
       type: "income",
       amount: { amount: "1000", currency: "USD" },
-      anchorDate: "2026-11-01",
+      anchorDate: "2026-11-20",
       name: "Синтетичний дохід",
     });
     let s = await spendable(space);
-    expect(s.figures!.income).toMatchObject({ plan: eur("800") });
+    expect(s.figures!.income).toMatchObject({
+      plan: eur("100"),
+      stillExpected: eur("800"),
+      value: eur("800"),
+    });
     expect(s.approximate).toMatchObject({ incomes: true });
-    // Today's rates: the plan is exact.
+    // Today's rates: exact.
     await rate("2026-11-12", "USD", "41.6");
     await rate("2026-11-12", "EUR", "52");
     s = await spendable(space);
-    expect(s.figures!.income).toMatchObject({ plan: eur("800") });
+    expect(s.figures!.income).toMatchObject({ plan: eur("100"), value: eur("800") });
     expect(s.approximate).toMatchObject({ incomes: false });
   });
 
@@ -987,8 +989,8 @@ describe("sec651: «Витратити з цілі» in «Можна витра�
     expect(f.amount).toEqual(eur("-12344678.92"));
   });
 });
-describe("BUD-03@PoC EC4: the income plan alone at the nearest rate (#651 confirmation)", () => {
-  it("BUD-03@PoC EC4: a regular income in USD no longer expected (skipped) still makes the month's income plan — «приблизно» from the plan alone", async () => {
+describe("BUD-03@PoC EC4: a skipped regular income is neither the plan nor expected (#651, row 231)", () => {
+  it("BUD-03@PoC EC4, BUD-17@PoC FR 1: a regular income in USD no longer expected (skipped) — the plan is the budget's 100 €, exact", async () => {
     const space = await newSpace();
     await current(space);
     await createBudget(space, { incomePlan: eur("100") });
@@ -1003,9 +1005,9 @@ describe("BUD-03@PoC EC4: the income plan alone at the nearest rate (#651 confir
     const skipped = await call(space, "POST", `/v1/recurring/payments/${paymentId}/charges/2026-11-01/skip`);
     expect(skipped.statusCode, skipped.body).toBe(200);
     const s = await spendable(space);
-    // Nothing still expected — only the plan (800 € at the 5 November rate) carries the nearest rate.
-    expect(s.figures!.income).toMatchObject({ plan: eur("800"), stillExpected: eur("0") });
-    expect(s.approximate).toMatchObject({ incomes: true });
+    // Nothing still expected, and the plan is the budget's own — no amount at the nearest rate.
+    expect(s.figures!.income).toMatchObject({ plan: eur("100"), stillExpected: eur("0"), value: eur("100") });
+    expect(s.approximate).toMatchObject({ incomes: false });
   });
 });
 

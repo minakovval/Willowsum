@@ -1,5 +1,12 @@
 import { useId, useState } from "react";
-import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
+import {
+  formatMoney,
+  formatNumber,
+  useI18n,
+  type Locale,
+  type MessageKey,
+  type Translate,
+} from "@willowsum/i18n";
 import { currencyPlaces, displayAmount, Icon, StatusMark } from "@willowsum/ui";
 import { NO_VALUE, PlanCellInput } from "./PlanCellInput.tsx";
 import type { Money, PlanCell, PlanRow, PlanSection, PlanView, RowLabel } from "./model.ts";
@@ -16,10 +23,6 @@ export function labelText(t: Translate, label: RowLabel): string {
   switch (label.kind) {
     case "name":
       return label.name;
-    case "incomePlan":
-      return t("planning.plan.row.incomePlan");
-    case "incomeOther":
-      return t("planning.plan.row.incomeOther");
     case "savings":
       return t("planning.plan.row.savings");
     case "debtMinimum":
@@ -27,6 +30,21 @@ export function labelText(t: Translate, label: RowLabel): string {
     case "debtExtra":
       return t("planning.plan.row.debtExtra", { name: label.name });
   }
+}
+
+/** «За поточним курсом: 1 UAH = 0,02 EUR (17.11.2026)» — the rates the sums with «≈» are converted at. */
+function rateHint(t: Translate, locale: Locale, view: PlanView): string {
+  const rates = view.rates.flatMap((r) =>
+    r.rate === null || r.date === null
+      ? []
+      : t("planning.plan.approx.rate", {
+          currency: r.currency,
+          rate: formatNumber(locale, r.rate),
+          budget: view.currency,
+          date: r.date.split("-").reverse().join("."),
+        }),
+  );
+  return t("planning.plan.approx.title", { rates: rates.join("; ") });
 }
 
 export type CommitHandler = (row: PlanRow, cell: PlanCell, text: string) => void;
@@ -143,6 +161,7 @@ function SectionRows({
 }) {
   const { t, locale } = useI18n();
   const name = t(`planning.plan.section.${section.id}` as MessageKey);
+  const hint = section.approximate ? rateHint(t, locale, view) : undefined;
   return (
     <tbody id={id} data-section={section.id}>
       <tr className="plan-section">
@@ -157,10 +176,22 @@ function SectionRows({
             <Icon name={folded ? "chevron-right" : "chevron-down"} size={16} />
             {name}
           </button>
+          {section.approximate ? (
+            <span className="plan-approx" title={hint} aria-label={hint} role="img">
+              {t("planning.plan.approx.mark")}
+            </span>
+          ) : null}
         </th>
-        {view.months.map((m, i) => (
-          <td key={m.period}>{text(section.totals[i] ?? null)}</td>
-        ))}
+        {view.months.map((m, i) => {
+          const total = section.totals[i] ?? null;
+          // BUD-17 business rules: a sum with a row of another currency is at today's rate — «≈» by the section's
+          // name (a month's column has no room for it), the hint on the sum and the sign names the rate.
+          return (
+            <td key={m.period} title={section.approximate && total !== null ? hint : undefined}>
+              {text(total)}
+            </td>
+          );
+        })}
       </tr>
       {section.items.map((item) =>
         item.type === "group" ? (
@@ -176,6 +207,9 @@ function SectionRows({
                 <span className="plan-label" title={labelText(t, item.row.label)}>
                   {labelText(t, item.row.label)}
                 </span>
+                {item.row.currency !== view.currency ? (
+                  <span className="plan-currency">{item.row.currency}</span>
+                ) : null}
                 {item.row.locked ? (
                   <span className="plan-lock" role="img" aria-label={t("planning.plan.locked")}>
                     <Icon name="lock" size={16} />
@@ -189,7 +223,7 @@ function SectionRows({
                 <td key={cell.period}>
                   <PlanCellInput
                     amount={cell.amount}
-                    currency={view.currency}
+                    currency={item.row.currency}
                     label={t("planning.plan.cell", {
                       row: labelText(t, item.row.label),
                       month: monthWord(t, locale, cell.period),

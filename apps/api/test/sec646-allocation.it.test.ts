@@ -257,20 +257,6 @@ beforeAll(async () => {
             },
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
-            recurring: {
-              chargesIn: async (householdId, month) =>
-                (charges.get(householdId) ?? [])
-                  .filter((c) => c.month === month)
-                  .map((c) => ({
-                    paymentId: c.paymentId,
-                    type: "income" as const,
-                    categoryId: null,
-                    dueOn: `${month}-10`,
-                    expected: c.expected,
-                    status: "expected" as const,
-                    overdueDays: null,
-                  })),
-            },
           }),
         })),
         allowedOrigins: new Set([WEB]),

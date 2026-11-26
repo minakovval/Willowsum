@@ -16277,6 +16277,69 @@
                     "income": {
                       "type": "object",
                       "properties": {
+                        "categories": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "categoryId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "cells": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "own": {
+                                      "type": "boolean"
+                                    },
+                                    "version": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "own",
+                                    "version"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "categoryId",
+                              "cells"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "plan": {
                           "type": "array",
                           "items": {
@@ -16320,7 +16383,9 @@
                               "version"
                             ],
                             "additionalProperties": false
-                          }
+                          },
+                          "deprecated": true,
+                          "x-deprecated-since": "2026-11-26"
                         },
                         "rows": {
                           "type": "array",
@@ -16387,7 +16452,9 @@
                               "cells"
                             ],
                             "additionalProperties": false
-                          }
+                          },
+                          "deprecated": true,
+                          "x-deprecated-since": "2026-11-26"
                         },
                         "other": {
                           "type": "array",
@@ -16413,7 +16480,9 @@
                                 "type": "null"
                               }
                             ]
-                          }
+                          },
+                          "deprecated": true,
+                          "x-deprecated-since": "2026-11-26"
                         },
                         "totals": {
                           "type": "array",
@@ -16443,6 +16512,7 @@
                         }
                       },
                       "required": [
+                        "categories",
                         "plan",
                         "rows",
                         "other",

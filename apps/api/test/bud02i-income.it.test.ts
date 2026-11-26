@@ -232,20 +232,6 @@ beforeAll(async () => {
             },
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
-            recurring: {
-              chargesIn: async (householdId, month) =>
-                (charges.get(householdId) ?? [])
-                  .filter((c) => c.month === month)
-                  .map((c) => ({
-                    paymentId: c.paymentId,
-                    type: "income" as const,
-                    categoryId: null,
-                    dueOn: `${month}-10`,
-                    expected: c.expected,
-                    status: "expected" as const,
-                    overdueDays: null,
-                  })),
-            },
           }),
         })),
         allowedOrigins: new Set([WEB]),
@@ -583,24 +569,41 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
   });
 });
 
-describe("BUD-17@PoC FR 1: the grid's «План доходу»", () => {
-  it("BUD-17@PoC FR 1: «План доходу» of the grid is the budget's income plan — the sum of the income categories' plans", async () => {
+describe("BUD-17@PoC FR 1: the grid's «Надходження» by income category", () => {
+  it("BUD-17@PoC FR 1 (owner decision 2026-11-21): «Надходження» is a row per income category of the plan with its plan, and the section's sum is the budget's income plan", async () => {
     const space = await newSpace();
+    const salary = await category(space, "Зарплата");
+    const rent = await category(space, "Дохід від оренди");
     const res = await create(space, {
       firstPeriod: "2026-11",
       incomePlans: [
-        { categoryId: await category(space, "Зарплата"), amount: eur("5000") },
-        { categoryId: await category(space, "Дохід від оренди"), amount: eur("400") },
+        { categoryId: salary, amount: eur("5000") },
+        { categoryId: rent, amount: eur("400") },
       ],
     });
     expect(res.statusCode, res.body).toBe(201);
     const g = (await call(space, "GET", "/v1/budget/plan-grid")).json() as {
       months: { period: string }[];
-      income: { plan: { amount: unknown; own: boolean }[] };
+      income: {
+        categories: { categoryId: string; cells: { amount: unknown; own: boolean }[] }[];
+        totals: unknown[];
+      };
     };
     const nov = g.months.findIndex((x) => x.period === "2026-11");
-    expect(g.income.plan[nov]).toMatchObject({ amount: eur("5400"), own: false });
-    expect(g.income.plan[nov + 1]).toMatchObject({ amount: eur("5400"), own: false });
+    // In the tree's order (module categories); the test compares them by id.
+    const rows = g.income.categories.map((r) => [r.categoryId, r.cells[nov]] as const);
+    expect(rows.sort((x, y) => (x[0] < y[0] ? -1 : 1))).toEqual(
+      (
+        [
+          [rent, { amount: eur("400"), own: false, version: 0 }],
+          [salary, { amount: eur("5000"), own: false, version: 0 }],
+        ] as const
+      )
+        .slice()
+        .sort((x, y) => (x[0] < y[0] ? -1 : 1)),
+    );
+    expect(g.income.totals[nov]).toEqual(eur("5400"));
+    expect(g.income.totals[nov + 1]).toEqual(eur("5400"));
   });
 });
 
