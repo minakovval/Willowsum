@@ -76,6 +76,9 @@ export const en: Messages = {
   "transactionRow.split": "split",
   "transactionRow.splitMonths": "split over {count} mo.",
   "transactionRow.transfer": "transfer",
+  "transactionRow.type.expense": "expense",
+  "transactionRow.type.income": "income",
+  "transactionRow.type.transfer": "transfer",
   "transactionRow.tags": "Tags: {tags}",
   "transactionRow.note": "has a note",
   "transactionRow.confirmed": "Confirmed. {count} left",
@@ -1933,6 +1936,8 @@ export const en: Messages = {
   "gallery.transactionRow.fop": "Sole trader Ivanenko",
   "gallery.transactionRow.salary": "Salary",
   "gallery.transactionRow.transferTo": "Transfer to card ··9021",
+  "gallery.transactionRow.longName":
+    "Transfer of own funds to the savings account «Safety cushion and holiday» of the Upper Dnipro branch office",
   "gallery.transactionRow.rent": "Utilities",
   "gallery.transactionRow.catFood": "Groceries",
   "gallery.transactionRow.catFuel": "Fuel",
