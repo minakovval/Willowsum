@@ -3,9 +3,7 @@
 **Створено:** 2026-11-26 · **Оновлено:** 2026-11-26
 
 Read when you write or reword an FR, AC, EC or NFR item, a П-rule or a glossary entry (`change-requirement` §1,
-item 6). Adapted from the `clarify` skill of [genkovich/sdd](https://github.com/genkovich/sdd) (MIT, © 2026
-Kyrylo Genkov); owner decision 2026-11-26,
-[log](../../../../docs/decisions/log/2026-11-26-owner-ambiguity-checks.md).
+item 6). Owner decision 2026-11-26, [log](../../../../docs/decisions/log/2026-11-26-owner-ambiguity-checks.md).
 
 **The test for every class:** could two competent engineers read this item and build different things, or
 write tests that disagree? If yes, the item is ambiguous.
@@ -21,7 +19,9 @@ write tests that disagree? If yes, the item is ambiguous.
      decision (§4), AGENTS.md «Ambiguity».
 3. Never fix ambiguity by inventing scope: a clarification must follow from the owner's decision or from text
    that already exists (another item, a П-rule, the glossary, the canvas).
-4. List what the sweep found and how each item ended under «Impact» in the PR body, one line per finding
+4. An item of a later release has only 1–2 sentences and no FR, AC or EC (`docs/requirements/README.md`,
+   «Detail only the current release»): never add AC there; fix the sentence or record the gap as out of scope.
+5. List what the sweep found and how each item ended under «Impact» in the PR body, one line per finding
    (class → item → fixed / owner question / lead decision). No findings → write «Ambiguity sweep: 0».
 
 Fix in this order (highest impact first): conflict, under-specified AC, unmeasured NFR, undefined term, missing
@@ -39,7 +39,7 @@ role, scope creep, vague word, unstated assumption.
 ### 2. Under-specified AC
 
 - **Spot it:** an AC covers only the happy path: silent on the error, the role without the right, a scoped
-  member, the plan limit (`402 PLAN_LIMIT_REACHED`), the empty, loading or error state (AGENTS.md «UI»), or two
+  member, the plan limit reached (the item is not created; nothing is deleted or hidden), the empty, loading or error state (AGENTS.md «UI»), or two
   users changing the same thing. Its «then» names one outcome where two are possible. Also an FR with no AC
   or EC that would let a test check it.
 - **Resolve:** add a sibling AC or EC for the missing branch, in observable terms (what the user sees or what
@@ -72,7 +72,8 @@ role, scope creep, vague word, unstated assumption.
 
 - **Spot it:** an item quietly adds a capability, an integration or a screen that the target release does not
   have (`docs/requirements/README.md`, «Detail only the current release»), or a later release's feature in a
-  PoC slice; new product features in PoC are frozen (`pr-pipeline` §2).
+  PoC slice; new product features in PoC are frozen (`pr-pipeline` §2, «PoC requirements freeze», with its
+  exceptions: owner-approved foundation changes and moving scope to a later release).
 - **Resolve:** ask in or out. Out → move it with `--move` or drop it; in → it needs the owner's decision.
 
 ### 7. Vague word
@@ -87,4 +88,5 @@ role, scope creep, vague word, unstated assumption.
 - **Spot it:** the item works only if something unsaid is true: the household has one currency, the bank
   statement always has a field, the user is online, a dated rate exists, data arrives in order.
 - **Resolve:** state the assumption in the item or in `00-general.md` §0.7 («Припущення, що потребують
-  підтвердження власника»), or add an EC for the case where it is false.
+  підтвердження власника»), or add an EC for the case where it is false. A new §0.7 row or a new EC is a
+  requirement change: it needs the owner's decision (§1 item 1), as a new glossary term does in class 4.
