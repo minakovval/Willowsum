@@ -315,6 +315,18 @@ export const PROBLEMS = {
   IMPORT_ROLLBACK_EXPIRED: { status: 409, title: "The time to roll back the batch has passed" },
   /** IMP-06@PoC FR 2, FR 3, FR 14: the recipe is not valid; `recipeErrors` holds each error's code and field path. */
   RECIPE_INVALID: { status: 422, title: "The parsing recipe is not valid" },
+  /**
+   * IMP-07@PoC FR 3, AC10: the template was saved in another window since the version this save was made from —
+   * «Шаблон змінено, оновіть»; `currentVersion` is its version now. Nothing was written.
+   */
+  TEMPLATE_CHANGED: { status: 409, title: "The template was changed; reload it" },
+  /** IMP-07@PoC FR 2: another template of the same scope (the space, or the same account) has this name. */
+  TEMPLATE_NAME_TAKEN: { status: 409, title: "A template with this name already exists" },
+  /**
+   * IMP-07@PoC FR 5, EC1: the template was saved with an older version of the recipe's schema («застарілий»): it is
+   * applied only after it is saved again from the editor.
+   */
+  TEMPLATE_STALE: { status: 409, title: "The template is out of date; save it again from the editor" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**
    * A technical limit that does not depend on the plan (NFR-15 FR 17: filters per request, bulk size, drafts,
@@ -364,7 +376,7 @@ export const ProblemSchema = z
     }),
     /** For VERSION_CONFLICT: the version of the record now (NFR-15 FR 13). */
     currentVersion: z.number().int().min(0).optional().meta({
-      description: "VERSION_CONFLICT: the current version of the record",
+      description: "VERSION_CONFLICT, TEMPLATE_CHANGED: the current version of the record",
     }),
     /** For VERSION_CONFLICT of «Підтвердити» (BUD-12 FR 7): the category the transaction has now; null — «Без категорії». */
     currentCategoryId: z.uuid().nullable().optional().meta({

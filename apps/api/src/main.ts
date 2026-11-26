@@ -538,6 +538,8 @@ const server = buildServer({
             // IMP-06 a: parsing recipes of the space; the account binding's value sealed with the space's key.
             importRecipes: createImportRecipesServices({
               keys: createSpaceKeys(databases.for("household"), audit, kms),
+              // IMP-07 FR 1: a template of scope «рахунок» is for an account of this space.
+              accounts: createAccountDirectory(databases.for("accounts")),
               audit,
               clock: systemClock,
               newId: randomUUID,

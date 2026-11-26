@@ -11,7 +11,7 @@ import {
   requeueDeadHandOffs,
   spaceTx,
 } from "./adapters/index.ts";
-import type { Recipe } from "./domain/index.ts";
+import { isStaleSchema, type Recipe } from "./domain/index.ts";
 
 export const importRecipesModule = defineModule({
   name: "import-recipes",
@@ -24,6 +24,7 @@ export {
   ACCOUNT_VALUE_FIELD,
   readOptionsOf,
   RECIPES_PER_SPACE,
+  TEMPLATE_VERSIONS_KEPT,
   validateRecipe,
 } from "./application/index.ts";
 export { createImportRecipesServices, HAND_OFF_JOB, type ImportRecipesServices } from "./adapters/index.ts";
@@ -33,6 +34,7 @@ export {
   RECIPE_ENCODINGS,
   RECIPE_LIMITS,
   RECIPE_SCHEMA_VERSION,
+  recipeSchema,
 } from "./domain/index.ts";
 export type { Recipe, RecipeCheck, RecipeError, RecipeErrorCode } from "./domain/index.ts";
 
@@ -81,19 +83,46 @@ export interface RecipeForParse {
   readonly accountValueSealed: string | null;
   /** The format fingerprint the recipe was made for (`fp1:…`), or null (IMP-06 FR 6: «збіг» / «змінився» / «невідомо»). */
   readonly fingerprint: string | null;
+  /** IMP-07 FR 5: saved with an older schema version — not applied until saved again from the editor. */
+  readonly stale: boolean;
 }
 
 export interface ImportRecipesReader {
   /** The space's recipe; another space's recipe, or none, is null (read in the space's transaction and row policy). */
   forParse(householdId: string, recipeId: string): Promise<RecipeForParse | null>;
   /**
-   * The space's newest recipe made for the format fingerprint (`fp1:` + SHA-256; IMP-06 FR 7: a matched recipe), or
-   * null; read like `forParse`.
+   * The template to apply automatically to a file of this format (`fp1:` + SHA-256; IMP-06 FR 7, IMP-07 FR 6, FR 7):
+   * of scope «рахунок» for the file's account (`accountId`) first, then of scope «простір», the most recently updated;
+   * never another account's or a stale one (FR 5); a template without a fingerprint never (FR 4). Null — none; read
+   * like `forParse`.
    */
-  forFormat(householdId: string, fingerprint: string): Promise<RecipeForParse | null>;
+  forFormat(
+    householdId: string,
+    fingerprint: string,
+    accountId?: string | null,
+  ): Promise<RecipeForParse | null>;
+  /**
+   * IMP-07 FR 13: the template was used by this parse — its counter and last use. The same parse again (a retried job)
+   * counts once; another space's or an unknown template is left alone.
+   */
+  recordUse(householdId: string, recipeId: string, parseId: string, at: Date): Promise<void>;
 }
 
 const FINGERPRINT = /^fp1:[0-9a-f]{64}$/;
+
+const forParseOf = (found: {
+  readonly id: string;
+  readonly recipe: Recipe;
+  readonly accountValueSealed: string | null;
+  readonly fingerprint: string | null;
+  readonly schemaVersion: number;
+}): RecipeForParse => ({
+  id: found.id,
+  recipe: found.recipe,
+  accountValueSealed: found.accountValueSealed,
+  fingerprint: found.fingerprint,
+  stale: isStaleSchema(found.schemaVersion),
+});
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -104,23 +133,18 @@ export function createImportRecipesReader(db: ModuleDatabase): ImportRecipesRead
       if (!UUID.test(recipeId) || !UUID.test(householdId)) return null;
       const found = await spaceTx(db, householdId)((tx) => tx.find(recipeId));
       if (!found || found.householdId !== householdId) return null;
-      return {
-        id: found.id,
-        recipe: found.recipe,
-        accountValueSealed: found.accountValueSealed,
-        fingerprint: found.fingerprint,
-      };
+      return forParseOf(found);
     },
-    async forFormat(householdId, fingerprint) {
+    async forFormat(householdId, fingerprint, accountId = null) {
       if (!FINGERPRINT.test(fingerprint) || !UUID.test(householdId)) return null;
-      const found = await spaceTx(db, householdId)((tx) => tx.forFormat(fingerprint));
+      if (accountId !== null && !UUID.test(accountId)) return null;
+      const found = await spaceTx(db, householdId)((tx) => tx.forFormat(fingerprint, accountId));
       if (!found || found.householdId !== householdId) return null;
-      return {
-        id: found.id,
-        recipe: found.recipe,
-        accountValueSealed: found.accountValueSealed,
-        fingerprint: found.fingerprint,
-      };
+      return forParseOf(found);
+    },
+    async recordUse(householdId, recipeId, parseId, at) {
+      if (!UUID.test(recipeId) || !UUID.test(householdId) || !UUID.test(parseId)) return;
+      await spaceTx(db, householdId)((tx) => tx.recordUse(recipeId, parseId, at));
     },
   };
 }

@@ -206,7 +206,14 @@ export interface ParsePorts {
   /** The original's bytes; null — it is gone. */
   original(householdId: string, fileId: string): Promise<Uint8Array | null>;
   recipe(householdId: string, recipeId: string): Promise<ParseRecipe | null>;
-  recipeForFormat(householdId: string, fingerprint: string): Promise<ParseRecipe | null>;
+  /** IMP-07 FR 6: the template for the file's format — the file's account's first, then the space's. */
+  recipeForFormat(
+    householdId: string,
+    fingerprint: string,
+    accountId: string | null,
+  ): Promise<ParseRecipe | null>;
+  /** IMP-07 FR 13: the template was used by this parse (counted once per parse). */
+  recordUse(householdId: string, recipeId: string, parseId: string, at: Date): Promise<void>;
   /** An active account of the space, or null. */
   account(householdId: string, accountId: string): Promise<ParseAccount | null>;
   /**
@@ -321,10 +328,11 @@ export async function runParse(
             ? "match"
             : "changed";
     } else {
-      // IMP-06 FR 7: the space's recipe made for this format, matched by the file's fingerprint.
+      // IMP-06 FR 7, IMP-07 FR 6: the space's template made for this format, matched by the file's fingerprint —
+      // the file's account's first, then the space's; never a stale one.
       parsed = await ports.parse(householdId, bytes, {}, statement, null);
       const fp = parsed.reading.format?.fingerprint;
-      recipe = fp ? await ports.recipeForFormat(householdId, fp) : null;
+      recipe = fp ? await ports.recipeForFormat(householdId, fp, accountId) : null;
       if (recipe) {
         parsed = await withRecipe(ports, householdId, bytes, statement, recipe);
         recipeFormat = "match";
@@ -357,6 +365,8 @@ export async function runParse(
     rowCount: parsed.events.events.length,
     parsedAt: deps.now(),
   });
+  // IMP-07 FR 13: the template's usage, in import-recipes' own transaction; a retried job counts once.
+  if (recipe) await ports.recordUse(householdId, recipe.id, parse.parseId, deps.now());
   const recorded = await recordChecks(deps, tx, {
     actorId: parse.requestedBy,
     batchId: job.batchId,

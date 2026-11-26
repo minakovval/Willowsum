@@ -4,11 +4,13 @@ export {
   checkRecipe,
   COLUMN_ROLES,
   fieldPath,
+  isStaleSchema,
   RECIPE_DELIMITERS,
   RECIPE_ENCODINGS,
   RECIPE_LIMITS,
   RECIPE_SCHEMA_VERSION,
   recipePatterns,
+  recipeSchema,
   unsafeText,
 } from "./recipe.ts";
 export type { Recipe, RecipeCheck, RecipeError, RecipeErrorCode } from "./recipe.ts";

@@ -72,8 +72,10 @@ export function parsePorts(modules: ParseModules): ParsePorts {
       }
     },
     recipe: async (householdId, recipeId) => recipeOf(await modules.recipes.forParse(householdId, recipeId)),
-    recipeForFormat: async (householdId, fingerprint) =>
-      recipeOf(await modules.recipes.forFormat(householdId, fingerprint)),
+    recipeForFormat: async (householdId, fingerprint, accountId) =>
+      recipeOf(await modules.recipes.forFormat(householdId, fingerprint, accountId)),
+    recordUse: (householdId, recipeId, parseId, at) =>
+      modules.recipes.recordUse(householdId, recipeId, parseId, at),
     async account(householdId, accountId) {
       const account = await modules.accounts.postingAccount(householdId, accountId);
       if (!account || account.status !== "active") return null;

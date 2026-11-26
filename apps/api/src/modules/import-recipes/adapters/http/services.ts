@@ -41,13 +41,30 @@ export function createImportRecipesServices(options: {
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
+  /**
+   * IMP-07 FR 1: the space's accounts (accounts' `AccountDirectory`), for a template of scope «рахунок»; without it a
+   * template can only have the space's scope (an account is «not found»).
+   */
+  readonly accounts?: {
+    postingAccount(
+      householdId: string,
+      accountId: string,
+    ): Promise<{ readonly status: "active" | "closed" } | null>;
+  };
 }): ImportRecipesServices {
+  const accounts = options.accounts;
   return {
     [BRAND]: true,
     deps: {
       newId: options.newId,
       now: () => new Date(options.clock.now()),
       seal: (householdId, field, plaintext) => options.keys.seal(householdId, field, plaintext),
+      ...(accounts
+        ? {
+            accountStatus: async (householdId: string, accountId: string) =>
+              (await accounts.postingAccount(householdId, accountId))?.status ?? null,
+          }
+        : {}),
     },
     audit: recipesAudit(options.audit),
   };
