@@ -13,7 +13,6 @@ import {
 import {
   daysLeft,
   goalContributions,
-  incomePlanApproximate,
   isPeriod,
   mandatoryNeeds,
   periodFigures,
@@ -194,14 +193,12 @@ export const getSpendableRoute = defineRoute({
     const accountIds = (await deps.reads.accounts(householdId))
       .filter((a) => isIncluded(a, choices))
       .map((a) => a.accountId);
-    const [counted, obligations, goals, extra, incomes] = await Promise.all([
+    const [counted, obligations, goals, extra] = await Promise.all([
       // EC5: «Витратити з цілі» — those transactions no longer lower the sum (BUD-05@PoC FR 8).
       spendableAmounts(deps, householdId, accountIds, period, budget.currency, from),
       deps.obligations ? deps.obligations.month(householdId, period, budget.currency, from) : null,
       deps.planSources ? deps.planSources.goals(householdId, budget.currency) : [],
       deps.planSources ? deps.planSources.extraPayments(householdId, period, budget.currency) : [],
-      // EC4 «приблизно» (#651): the regular incomes the month's income plan may be.
-      deps.planSources ? deps.planSources.incomes(householdId, period, budget.currency) : [],
     ]);
     const figures = periodFigures(plan, categories, counted.amounts);
     const contributions = goalContributions(
@@ -231,9 +228,9 @@ export const getSpendableRoute = defineRoute({
       nearestRateCount: counted.nearestRateCount,
       unavailableCount: counted.unavailableCount,
       obligations: obligations?.approximate ?? false,
-      // A regular income still expected, or the month's income plan made of the regular incomes, at the nearest rate.
-      incomes:
-        (obligations?.incomeApproximate ?? false) || incomePlanApproximate(plan.incomePlan, cells, incomes),
+      // A regular income still expected at the nearest rate (BUD-17 FR 1, row 231: the month's income plan is the sum
+      // of its income categories' plans, never the regular incomes).
+      incomes: obligations?.incomeApproximate ?? false,
       // EC4: an amount that enters the goal's row at the nearest rate — what is contributed, and the required
       // contribution when it is the month's plan (no cell of its own).
       goals:

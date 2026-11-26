@@ -3,7 +3,6 @@ import { Money } from "@willowsum/domain-kernel";
 import {
   goalContributions,
   incomeOf,
-  incomePlanApproximate,
   mandatoryNeeds,
   plannedDebtExpenses,
   type LimitLine,
@@ -132,13 +131,21 @@ describe("BUD-03@PoC FR 8: «Обов'язкові категорії: ще по
   });
 });
 
-describe("BUD-03@PoC EC4: the month's income plan at the nearest rate (#651)", () => {
-  const income = (paymentId: string, amount: string | null, approximate = false) => ({
-    paymentId,
-    amount: amount === null ? null : eur(amount),
-    approximate,
-  });
-  const incomeCell = (lineId: string | null, amount: string) => ({
+describe("BUD-03@PoC FR 2: the expected income of the month is the sum of «Надходження» (row 231)", () => {
+  const salary = { id: "salary", groupId: "g-income", kind: "income" as const, state: "active" as const };
+  const categories = new Map(
+    [salary, { ...salary, id: "freelance" }].map((c) => [c.id, { ...c, mergedInto: null, essential: null }]),
+  );
+  const plan = {
+    incomePlan: eur("5600"),
+    incomePlans: [
+      { categoryId: "salary", amount: eur("5000") },
+      { categoryId: "freelance", amount: eur("600") },
+    ],
+    plannedSavings: eur("0"),
+    limits: [],
+  };
+  const cell = (lineId: string | null, amount: string) => ({
     period: "2026-11",
     kind: "income" as const,
     lineId,
@@ -146,20 +153,11 @@ describe("BUD-03@PoC EC4: the month's income plan at the nearest rate (#651)", (
     version: 1,
   });
 
-  it("BUD-03@PoC EC4: the regular incomes are the plan and one is at the nearest rate — «приблизно»", () => {
-    const incomes = [income("a", "500.10", true), income("b", "299.90")];
-    expect(incomePlanApproximate(incomeOf(eur("100"), [], incomes), [], incomes)).toBe(true);
-  });
-
-  it("BUD-03@PoC EC4: «План доходу» above the regular incomes, an income's own cell, or nothing at the nearest rate — exact", () => {
-    const incomes = [income("a", "500.10", true)];
-    expect(incomePlanApproximate(incomeOf(eur("900"), [], incomes), [], incomes)).toBe(false);
-    const own = [incomeCell("a", "600")];
-    expect(incomePlanApproximate(incomeOf(eur("100"), own, incomes), own, incomes)).toBe(false);
-    const exact = [income("a", "500.10")];
-    expect(incomePlanApproximate(incomeOf(eur("100"), [], exact), [], exact)).toBe(false);
-    const none = [income("a", null, true)];
-    expect(incomePlanApproximate(incomeOf(eur("0"), [], none), [], none)).toBe(false);
+  it("BUD-03@PoC FR 2, BUD-17@PoC FR 1: the plan of the month is the categories' rows — a month's own value of «Фриланс» 450,55 € makes it 5 450,55 €", () => {
+    expect(incomeOf(plan, [], categories)).toEqual(eur("5600"));
+    expect(incomeOf(plan, [cell("freelance", "450.55")], categories)).toEqual(eur("5450.55"));
+    // The former «План доходу» (nil line) and a regular income's value no longer make the plan of a budget by category.
+    expect(incomeOf(plan, [cell(null, "9000"), cell("payment", "7000")], categories)).toEqual(eur("5600"));
   });
 });
 

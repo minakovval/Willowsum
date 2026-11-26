@@ -2,6 +2,7 @@ import { Money } from "@willowsum/domain-kernel";
 import {
   cellPeriodIssue,
   gridMonths,
+  incomePlanIssue,
   limitIssue,
   parseBudgetAmount,
   parseCategoryAmount,
@@ -13,7 +14,6 @@ import {
   type PlanDebt,
   type PlanGrid,
   type PlanCell,
-  type PlanIncome,
   type PlanLineKind,
   type PlanLines,
 } from "../domain/index.ts";
@@ -46,7 +46,7 @@ export async function readPlanGrid(
   /** The budget's own rows, read in one budget transaction before the other modules are read (their pools). */
   stored: {
     readonly limits: readonly StoredLimit[];
-    /** BUD-02 FR 21, FR 24: the income categories' plans — «План доходу» is their sum at today's rate. */
+    /** BUD-02 FR 21, FR 24; FR 1: the income categories' plans — a row each, the section's sum at today's rate. */
     readonly incomePlans?: readonly StoredLimit[];
     readonly cells: readonly PlanCell[];
   },
@@ -62,15 +62,14 @@ export async function readPlanGrid(
   // #623 item 5: the months are read at once, not one call after another (up to 36 calls into other modules).
   const read = await Promise.all(
     months.map(async (p) => {
-      if (p < budget.firstPeriod) return { incomes: undefined, debts: [] as PlanDebt[] | null };
-      const [incomes, obligations, extra] = await Promise.all([
-        deps.planSources ? deps.planSources.incomes(householdId, p, budget.currency) : [],
+      if (p < budget.firstPeriod) return [] as PlanDebt[] | null;
+      const [obligations, extra] = await Promise.all([
         deps.obligations
           ? deps.obligations.month(householdId, p, budget.currency, countsFrom(budget, p))
           : null,
         deps.planSources ? deps.planSources.extraPayments(householdId, p, budget.currency) : null,
       ]);
-      if (!obligations || !extra) return { incomes, debts: null };
+      if (!obligations || !extra) return null;
       const rows = new Map<string, PlanDebt>();
       for (const d of obligations.debtMinimums)
         rows.set(d.accountId, { accountId: d.accountId, minimum: d.amount, extra: null });
@@ -87,13 +86,10 @@ export async function readPlanGrid(
           const row = rows.get(c.lineId);
           if (row) rows.set(c.lineId, { ...row, extra: c.amount });
         }
-      return { incomes, debts: [...rows.values()] };
+      return [...rows.values()];
     }),
   );
-  const debts = new Map<Period, PlanDebt[] | null>(months.map((p, i) => [p, read[i]!.debts]));
-  const incomes = new Map<Period, readonly PlanIncome[]>(
-    months.flatMap((p, i) => (read[i]!.incomes ? [[p, read[i]!.incomes!] as const] : [])),
-  );
+  const debts = new Map<Period, PlanDebt[] | null>(months.map((p, i) => [p, read[i]!]));
   return planGrid({
     today,
     currency: budget.currency,
@@ -101,7 +97,6 @@ export async function readPlanGrid(
     categories,
     base,
     cells,
-    incomes,
     goals,
     debts,
     rates: live.allRates,
@@ -130,21 +125,25 @@ export type CellResult =
   | { readonly kind: "conflict"; readonly version: number };
 
 /**
- * Which line a cell may belong to (FR 1): an active expense category, a regular income expected in that month, «План
- * доходу» (no id; every month — owner decision 2026-11-19, Q3), an active goal, or none for «Заощадження без цілі».
+ * Which line a cell may belong to (FR 1): an active expense category, an active income category of the budget's plan
+ * (owner decision 2026-11-21, 2 б — `incomePlans`; one without a plan has no row: 404-like `not_found`), an active
+ * goal, or none for «Заощадження без цілі».
  */
 function lineIssue(
   input: CellInput,
   categories: ReadonlyMap<string, BudgetCategory>,
   lines: PlanLines,
+  incomePlans: readonly StoredLimit[],
 ): string | null {
   switch (input.kind) {
     case "limit":
       return input.lineId === null ? "required" : limitIssue(categories.get(input.lineId));
-    case "income":
-      return input.lineId === null || lines.incomes.some((i) => i.paymentId === input.lineId)
-        ? null
-        : "not_found";
+    case "income": {
+      if (input.lineId === null) return "required";
+      const issue = incomePlanIssue(categories.get(input.lineId));
+      if (issue) return issue;
+      return incomePlans.some((l) => l.categoryId === input.lineId) ? null : "not_found";
+    }
     case "goal":
       return input.lineId !== null && lines.goalIds.has(input.lineId) ? null : "not_found";
     case "savings":
@@ -173,13 +172,15 @@ export async function setPlanCell(
   const issues: BudgetIssue[] = [];
   const periodIssue = cellPeriodIssue(input.period, today);
   if (periodIssue) issues.push({ field: "period", issue: periodIssue });
-  const line = lineIssue(input, categories, lines);
+  const incomePlans = input.kind === "income" ? await tx.incomePlans(caller.householdId, budget.id) : [];
+  const line = lineIssue(input, categories, lines, incomePlans);
   if (line) issues.push({ field: "lineId", issue: line });
-  // BUD-17 business rules (owner decision 2026-11-26): a category's cell is in the currency of its limit (BUD-02 FR 24).
+  // BUD-17 business rules (owner decision 2026-11-26): a category's cell is in the currency of its limit or its income
+  // plan (BUD-02 FR 24).
+  const own = input.kind === "limit" ? await tx.limits(caller.householdId, budget.id) : incomePlans;
   const lineCurrency =
-    input.kind === "limit"
-      ? ((await tx.limits(caller.householdId, budget.id)).find((l) => l.categoryId === input.lineId)?.amount
-          .currency ?? budget.currency)
+    input.kind === "limit" || input.kind === "income"
+      ? (own.find((l) => l.categoryId === input.lineId)?.amount.currency ?? budget.currency)
       : budget.currency;
   const rates =
     lineCurrency === budget.currency

@@ -29,7 +29,6 @@ import {
   type PeriodPlan,
   type PlanCell,
   type PlanRates,
-  type PlanIncome,
   type PlanLines,
 } from "../domain/index.ts";
 
@@ -99,10 +98,15 @@ export interface BudgetTx {
     currency: string,
   ): Promise<number>;
   /**
-   * BUD-01@PoC FR 12, AC22: removes every month's own value of the line (`kind` «limit», the category) and returns the
+   * BUD-01@PoC FR 12, AC22: removes every month's own value of the line (`kind` «limit» or «income», the category) and returns the
    * cells removed.
    */
-  deletePlanCells(householdId: string, budgetId: string, kind: "limit", lineId: string): Promise<PlanCell[]>;
+  deletePlanCells(
+    householdId: string,
+    budgetId: string,
+    kind: "limit" | "income",
+    lineId: string,
+  ): Promise<PlanCell[]>;
   enqueueHandOff(handOff: BudgetHandOff): Promise<void>;
 }
 
@@ -265,11 +269,6 @@ export interface BudgetPlanSources {
       currency?: string;
     }[]
   >;
-  /**
-   * FR 1: the regular incomes expected in the month (module recurring), one per payment with its charges added up;
-   * `amount` null — no rate.
-   */
-  incomes(householdId: string, period: Period, currency: string): Promise<readonly PlanIncome[]>;
   /** BUD-19 FR 5: the extra payments of the saved payoff plans in the month, by debt. */
   extraPayments(
     householdId: string,
@@ -605,8 +604,8 @@ export async function planCellsInEffect(
 export type LinesOf = (period: Period) => Promise<PlanLines>;
 
 /**
- * FR 1, edge case 2: the lines a month's cells count on — its expected regular incomes and the active goals (read
- * once). Without the ports (a test's server) there are none: «План доходу» is the income line, and no goal cell counts.
+ * FR 1, edge case 2: the lines a month's cells count on besides the categories — the active goals (read once). Without
+ * the ports (a test's server) there are none: no goal cell counts.
  */
 export function planLines(
   deps: Pick<BudgetDeps, "planSources">,
@@ -614,11 +613,11 @@ export function planLines(
   currency: string,
 ): LinesOf {
   let goalIds: Promise<ReadonlySet<string>> | null = null;
-  return async (period) => {
+  return async () => {
     const sources = deps.planSources;
-    if (!sources) return { incomes: [], goalIds: new Set() };
+    if (!sources) return { goalIds: new Set() };
     goalIds ??= sources.goals(householdId, currency).then((gs) => new Set(gs.map((g) => g.goalId)));
-    return { incomes: await sources.incomes(householdId, period, currency), goalIds: await goalIds };
+    return { goalIds: await goalIds };
   };
 }
 
@@ -1057,8 +1056,9 @@ export async function categoryEntries(
   if (!b) return NO_ENTRIES;
   const limit = (await tx.limits(householdId, b.id)).find((l) => l.categoryId === categoryId);
   const income = (await tx.incomePlans(householdId, b.id)).find((l) => l.categoryId === categoryId);
+  // Row 231: an income category's months of «Надходження» are its cells too (kind `income`).
   const planCells = (await tx.planCells(householdId, b.id)).filter(
-    (c) => c.kind === "limit" && c.lineId === categoryId && c.amount !== null,
+    (c) => (c.kind === "limit" || c.kind === "income") && c.lineId === categoryId && c.amount !== null,
   ).length;
   const period = periodOf(deps.today());
   const plan = period < b.firstPeriod ? null : await periodPlan(deps, tx, householdId, b, period, categories);
@@ -1143,7 +1143,11 @@ export async function releaseCategory(
         ]),
       );
   }
-  const cells = await tx.deletePlanCells(caller.householdId, budget.id, "limit", categoryId);
+  const cells = [
+    ...(await tx.deletePlanCells(caller.householdId, budget.id, "limit", categoryId)),
+    // Row 231: the category's months of «Надходження» (owner decision 2026-11-21, 2 б).
+    ...(await tx.deletePlanCells(caller.householdId, budget.id, "income", categoryId)),
+  ];
   for (const c of cells)
     if (c.amount !== null) handOffs.push(cellHandOff(deps, caller, budget, c, c.amount, null));
   if (!limit && !plan && cells.length === 0) return { result: NO_ENTRIES, handOffs: [] };

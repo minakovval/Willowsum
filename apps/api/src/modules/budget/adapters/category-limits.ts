@@ -33,7 +33,7 @@ export function budgetCategoryUsage(
             `SELECT category_id AS id FROM limits WHERE household_id = $1 AND category_id = ANY($2::uuid[])
              UNION SELECT category_id FROM income_plans WHERE household_id = $1 AND category_id = ANY($2::uuid[])
              UNION SELECT line_id FROM plan_cells
-                    WHERE household_id = $1 AND kind = 'limit' AND line_id = ANY($2::uuid[])`,
+                    WHERE household_id = $1 AND kind IN ('limit', 'income') AND line_id = ANY($2::uuid[])`,
             [householdId, ids],
           );
           return new Set(rows.map((r) => r.id));
