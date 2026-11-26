@@ -30,6 +30,7 @@ import {
   setCategoryAction,
   TRANSACTION_CREATED_JOB,
   transactionsCategoryTarget,
+  ruleCount,
 } from "./adapters/index.ts";
 import { carryImportMerged, categoriesInUse, countWithCategory, type RuleDeps } from "./application/index.ts";
 
@@ -135,8 +136,9 @@ export function categorizationRulePorts(deps: {
 
 /**
  * BUD-01@PoC FR 12: the categories that existing transactions of the space have as their own category, for module
- * categories («порожня» категорія); BUD-02@PoC FR 23: how many they are, for the dialog «Видалити категорію…». Read only; `db` is the categorization database, `transactions` module
- * transactions' lookup (a row of a deleted transaction is no use).
+ * categories (what holds a category); BUD-02@PoC FR 23: how many transactions they are, for the dialog «Видалити
+ * категорію…»; BUD-01@PoC AC 23: how many category rules set it (information: they do not hold it). Read only; `db` is the categorization database,
+ * `transactions` module transactions' lookup (a row of a deleted transaction is no use).
  */
 export function createCategorizationCategoryUsage(
   db: ModuleDatabase,
@@ -144,6 +146,8 @@ export function createCategorizationCategoryUsage(
 ): CategoryUsage {
   return {
     module: "categorization",
+    // A category rule does not hold its category (lead decision 2026-11-26, row 221): deleting the category sends the
+    // rule to «Потребує уваги» (BUD-14 FR 10); the count is in `holds` for the dialog's text only.
     used: (householdId, ids) =>
       db.inHousehold(householdId, (q) =>
         categoriesInUse(categorizationTx(q), transactions, householdId, ids),
@@ -153,6 +157,8 @@ export function createCategorizationCategoryUsage(
       db.inHousehold(householdId, (q) =>
         countWithCategory(categorizationTx(q), transactions, householdId, categoryId),
       ),
+    holds: (householdId, categoryId) =>
+      db.inHousehold(householdId, async (q) => ({ rules: await ruleCount(q, householdId, categoryId) })),
   };
 }
 

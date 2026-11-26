@@ -19,6 +19,7 @@ import {
   createBudgetObligations,
   createBudgetPlanSources,
   createBudgetServices,
+  type BudgetServices,
 } from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -47,6 +48,9 @@ import {
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * BUD-03@PoC c) (the read API of «Можна витратити», before row 126): GET /v1/budget/periods/{period}/spendable through
@@ -253,7 +257,7 @@ beforeAll(async () => {
           clock,
           newId: randomUUID,
           usage: [
-            createBudgetCategoryUsage(db.databases.for("budget")),
+            createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices),
             createRecurringCategoryUsage(db.databases.for("recurring")),
           ],
         }),
@@ -264,7 +268,7 @@ beforeAll(async () => {
         }),
         recurring,
         goals,
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -283,7 +287,7 @@ beforeAll(async () => {
             recurring: createRecurringMonth(db.databases.for("recurring"), recurring),
           }),
           goalSpends: createGoalSpends(db.databases.for("goals")),
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });

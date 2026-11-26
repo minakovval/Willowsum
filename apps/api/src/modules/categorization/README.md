@@ -1,6 +1,6 @@
 # Модуль categorization
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (BUD-02@PoC п. 23: `CategoryUsage.transactions`); 2026-11-20 (IMP-16 п. 4, рядок 44: `createTransactionCategoryRead` — категорії транзакцій для відкату партії; IMP-04 п. 5, #658: категорія ручної, злитої в банківський рядок при застосуванні — `createImportCategoryCarry`, подія `transactions.import-merged`; FIN-03 FR 30, FR 31: підказки категорії форми «Нова транзакція» — `/v1/category-suggestions`; BUD-14 b2: «Застосувати до N наявних», «Відмінити», «Видалити», дія «теги»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (BUD-01@PoC AC 23: `holds.rules` — кількість правил категорії для діалогу видалення (правила її не тримають)); 2026-11-21 (BUD-02@PoC п. 23: `CategoryUsage.transactions`); 2026-11-20 (IMP-16 п. 4, рядок 44: `createTransactionCategoryRead` — категорії транзакцій для відкату партії; IMP-04 п. 5, #658: категорія ручної, злитої в банківський рядок при застосуванні — `createImportCategoryCarry`, подія `transactions.import-merged`; FIN-03 FR 30, FR 31: підказки категорії форми «Нова транзакція» — `/v1/category-suggestions`; BUD-14 b2: «Застосувати до N наявних», «Відмінити», «Видалити», дія «теги»)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -132,6 +132,9 @@ FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): �
   мають наявні транзакції простору (рядок видаленої транзакції — не вжиток). З'єднує `src/main.ts`. Його
   `transactions(householdId, categoryId)` (BUD-02@PoC п. 23) — скільки наявних нерозділених транзакцій мають цю категорію
   власною; читає сторінками по 1 000 за індексом категорії (`transaction_categories_category`) і `facts` модуля transactions.
+  Правила категорій не тримають категорію (рішення ведучого 2026-11-26, рядок 221: правило видаленої категорії «Потребує
+  уваги», BUD-14 п. 10); `holds(householdId, categoryId)` → `{ rules }` — кількість правил з нею лише для тексту діалогу
+  (BUD-01@PoC AC 23; індекс `rules_category`).
 - `createCategoryBulkActions({ db, transactions, categories })` → `{ targets, actions }` для `createBulkActionsServices`
   (`src/wiring.ts`): ціль `transactions` (вибір за фільтром списку «Транзакції» — `TransactionLookup.select`; поля
   `category`, `source`; версія — версія рядка, 0 без рядка; запис — правилами однієї зміни, без власного аудиту) і дія

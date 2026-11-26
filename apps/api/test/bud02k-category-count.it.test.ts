@@ -229,8 +229,27 @@ describe("BUD-02@PoC FR 23: «Видалити категорію…» shows the
       ).toBe(200);
     const res = await usage(space, coffee.id);
     expect(res.statusCode, res.body).toBe(200);
-    expect(res.json()).toEqual({ transactions: 12 });
+    expect(res.json()).toMatchObject({ transactions: 12 });
     expect((await category(space, "Кава")).deletable).toBe(false);
+  });
+
+  it("BUD-02@PoC FR 23, BUD-01@PoC FR 13 (server part): the dialog's reason is exact — «12 транзакцій» and nothing else; a refused delete names the same reason with the same count", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const coffee = await addCategory(space, "Кава");
+    for (let i = 0; i < 12; i++)
+      await setCategory(space, await purchase(space, account, "Синтетична кава"), coffee.id);
+    const reason = {
+      transactions: 12,
+      rules: 0,
+      recurringPayments: 0,
+      mergedCategories: 0,
+      budget: { limit: null, stored: false, planCells: 0 },
+    };
+    expect((await usage(space, coffee.id)).json()).toEqual({ ...reason, deletable: false });
+    const refused = await call(space, "DELETE", `/v1/categories/${coffee.id}`);
+    expect(refused.statusCode, refused.body).toBe(409);
+    expect(refused.json()).toMatchObject({ code: "CATEGORY_NOT_EMPTY", categoryUsage: reason });
   });
 
   it("BUD-02@PoC FR 23: a split transaction counts once, by its parts, however many parts have the category; a deleted transaction does not count; an empty category is 0", async () => {
@@ -238,7 +257,7 @@ describe("BUD-02@PoC FR 23: «Видалити категорію…» shows the
     const account = await createAccount(space);
     const coffee = await addCategory(space, "Кава");
     const groceries = await category(space, "Продукти");
-    expect((await usage(space, coffee.id)).json()).toEqual({ transactions: 0 });
+    expect((await usage(space, coffee.id)).json()).toMatchObject({ transactions: 0 });
     const own = await purchase(space, account, "Синтетична кава");
     expect((await setCategory(space, own, coffee.id)).statusCode).toBe(200);
     await split(space, account, coffee.id, groceries.id);
@@ -257,9 +276,9 @@ describe("BUD-02@PoC FR 23: «Видалити категорію…» shows the
         })
       ).statusCode,
     ).toBe(200);
-    expect((await usage(space, coffee.id)).json()).toEqual({ transactions: 4 });
+    expect((await usage(space, coffee.id)).json()).toMatchObject({ transactions: 4 });
     expect((await call(space, "DELETE", `/v1/transactions/${own}`)).statusCode).toBe(200);
-    expect((await usage(space, coffee.id)).json()).toEqual({ transactions: 3 });
+    expect((await usage(space, coffee.id)).json()).toMatchObject({ transactions: 3 });
   });
 
   it("BUD-02@PoC FR 23: more transactions than one page of the count (1 000) are all counted", async () => {
@@ -278,7 +297,7 @@ describe("BUD-02@PoC FR 23: «Видалити категорію…» shows the
       expect(
         (await setCategory(space, await purchase(space, account, "Синтетична кава"), coffee.id)).statusCode,
       ).toBe(200);
-    expect((await usage(space, coffee.id)).json()).toEqual({ transactions: 2 });
+    expect((await usage(space, coffee.id)).json()).toMatchObject({ transactions: 2 });
   });
 });
 
@@ -300,7 +319,7 @@ describe("BUD-02@PoC FR 23 «Права доступу»: the count of a categor
     off.add("categories.tree");
     expect((await usage(a, secret.id)).statusCode).toBe(404);
     off.clear();
-    expect((await usage(a, secret.id)).json()).toEqual({ transactions: 1 });
+    expect((await usage(a, secret.id)).json()).toMatchObject({ transactions: 1 });
   });
 
   it("BUD-02@PoC FR 23: a category merged away is out of use — not found", async () => {
@@ -334,7 +353,7 @@ describe("sec702: the count of a category — paging and isolation (security rev
       expect(
         (await setCategory(space, await purchase(space, account, "Синтетична кава"), coffee.id)).statusCode,
       ).toBe(200);
-    expect((await usage(space, coffee.id)).json()).toEqual({ transactions: 2 });
+    expect((await usage(space, coffee.id)).json()).toMatchObject({ transactions: 2 });
   });
 
   it("sec702: rows of another space that carry this space's category id are not counted (row-level security, defence in depth)", async () => {
@@ -359,6 +378,6 @@ describe("sec702: the count of a category — paging and isolation (security rev
       `UPDATE transactions.transaction_parts SET category_id = $3 WHERE household_id = $1 AND transaction_id = $2`,
       [b.householdId, splitB, secret.id],
     );
-    expect((await usage(a, secret.id)).json()).toEqual({ transactions: 1 });
+    expect((await usage(a, secret.id)).json()).toMatchObject({ transactions: 1 });
   });
 });
