@@ -128,13 +128,22 @@ export const PROBLEMS = {
   /** BUD-01@PoC FR 12, FR 3: a system category is never deleted, only hidden; nothing was written. */
   CATEGORY_SYSTEM_FIXED: { status: 409, title: "A system category cannot be deleted; it can be hidden" },
   /**
-   * «Категорію з транзакціями, правилами або лімітами не можна видалити — приховайте або об'єднайте її» (BUD-01@PoC
-   * FR 12, AC19): a transaction, split part, rule, recurring payment, limit or «План» cell uses the category, or
-   * another was merged into it; nothing was written.
+   * BUD-01@PoC FR 12, AC19, AC23: data holds the category — a transaction or split part, a category rule, a regular
+   * payment, or another category was merged into it; `categoryUsage` names each kind with its count. Nothing was
+   * written. A limit or «План» cells do not hold it (owner decision 2026-11-26).
    */
   CATEGORY_NOT_EMPTY: {
     status: 409,
-    title: "A category with transactions, rules or limits cannot be deleted — hide or merge it",
+    title: "Transactions, category rules or regular payments hold this category — hide or merge it",
+  },
+  /**
+   * BUD-01@PoC FR 12, AC22 (owner decision 2026-11-26): only its limit and «План» cells hold the category — they are
+   * deleted with it once the request confirms it (`confirmLimit=true`); `categoryUsage.budget` names them. Nothing was
+   * written.
+   */
+  CATEGORY_LIMIT_CONFIRM: {
+    status: 409,
+    title: "The category's limit will be deleted with it — confirm the deletion",
   },
   /**
    * BUD-07@PoC FR 4: the proposal is not offered any more — its merchant became a regular payment, the series was
@@ -344,6 +353,30 @@ export function problemType(code: ProblemCode): string {
   return `urn:willowsum:problem:${code.toLowerCase().replaceAll("_", "-")}`;
 }
 
+/**
+ * BUD-01@PoC FR 12, FR 13; BUD-02@PoC FR 23: what holds a category (each kind with its count) and its budget entries,
+ * which do not hold it and are deleted with it (owner decision 2026-11-26). Shared by the problems of a delete and
+ * `GET /v1/categories/{categoryId}/usage`.
+ */
+export const categoryUsageSchema = z.object({
+  /** Existing transactions with the category (hidden ones too); a split one once, by its parts. */
+  transactions: z.number().int().min(0),
+  /** Category rules that set it (BUD-14). */
+  rules: z.number().int().min(0),
+  /** Regular payments with it (BUD-07). */
+  recurringPayments: z.number().int().min(0),
+  /** Categories merged into it (BUD-01 FR 8): their records went there. */
+  mergedCategories: z.number().int().min(0),
+  budget: z.object({
+    /** The limit (an income category: its plan) of the current period; null — none. Decimal text. */
+    limit: z.object({ amount: z.string(), currency: z.string() }).nullable(),
+    /** The budget keeps a limit or plan of the category (the delete removes it). */
+    stored: z.boolean(),
+    /** Months of «План» with the category's own value (the delete removes them). */
+    planCells: z.number().int().min(0),
+  }),
+});
+
 export const ProblemSchema = z
   .object({
     type: z.string(),
@@ -395,6 +428,11 @@ export const ProblemSchema = z
     excess: z.object({ amount: z.string(), currency: z.string() }).optional().meta({
       description:
         "GOAL_ENVELOPES_OVER_BALANCE: by how much the envelopes would exceed the account's balance",
+    }),
+    /** For CATEGORY_NOT_EMPTY and CATEGORY_LIMIT_CONFIRM: what holds the category and its budget entries (BUD-01 FR 12). */
+    categoryUsage: categoryUsageSchema.optional().meta({
+      description:
+        "CATEGORY_NOT_EMPTY, CATEGORY_LIMIT_CONFIRM: every kind of data that holds the category with its count, and its budget entries deleted with it",
     }),
     /** For FILE_REJECTED and FILE_TOO_LARGE: why the first file was rejected (IMP-01 FR 6). */
     rejection: z
@@ -480,6 +518,7 @@ export type ProblemExtensions = Partial<
     | "excess"
     | "rejection"
     | "recipeErrors"
+    | "categoryUsage"
   >
 >;
 
@@ -522,6 +561,19 @@ export function problemBody(
             ...(options.extensions.rejection.ceiling
               ? { ceiling: { ...options.extensions.rejection.ceiling } }
               : {}),
+          },
+        }
+      : {}),
+    ...(options.extensions?.categoryUsage !== undefined
+      ? {
+          categoryUsage: {
+            ...options.extensions.categoryUsage,
+            budget: {
+              ...options.extensions.categoryUsage.budget,
+              limit: options.extensions.categoryUsage.budget.limit
+                ? { ...options.extensions.categoryUsage.budget.limit }
+                : null,
+            },
           },
         }
       : {}),

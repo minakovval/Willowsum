@@ -515,6 +515,96 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
     expect((screen.getByRole("radio", { name: "По одній" }) as HTMLInputElement).checked).toBe(true);
   });
 
+  describe("BUD-12@PoC FR 14, FR 16, AC11: no group «Без мерчанта»", () => {
+    /** Two Shell transactions (a group) and five without a merchant; the server still lists those five as a group. */
+    const shellAndFive = () => {
+      const none = [10, 11, 12, 13, 14].map((n) =>
+        tx(n, null as unknown as string, "-20.00", n === 10 ? { description: "PAYPAL *STEAMGAMES" } : {}),
+      );
+      const queue = [tx(1, "Shell", "-25.00"), tx(2, "Shell", "-25.00"), ...none];
+      return space({
+        queue,
+        groups: [
+          group("g-shell", "Shell", 2, "-50.00"),
+          group("g-none", null, 5, "-100.00", { suggestedCategoryId: FOOD }),
+        ],
+        over: {
+          "GET /v1/transaction-review/merchant-groups/g-none/transactions": () => ({
+            status: 200,
+            body: { items: none.map((t) => t.id), nextCursor: null },
+          }),
+          "GET /v1/category-suggestions": (_c, url) => ({
+            status: 200,
+            body: {
+              merchant: url.searchParams.get("counterparty") === "PAYPAL *STEAMGAMES" ? "Steamgames" : null,
+              suggestion: null,
+              top: { kind: "recent", merchant: null, categoryIds: [FUEL] },
+              merchants: [],
+              truncated: false,
+            },
+          }),
+        },
+      });
+    };
+
+    it("BUD-12@PoC FR 14: «Мерчанти» lists no group «Без мерчанта» and no «Запам'ятати» for it; the 5 follow the groups as cards one by one", async () => {
+      const { api } = shellAndFive();
+      open(api);
+      const groups = await screen.findByRole("list", { name: "Мерчанти в черзі" });
+      expect(
+        within(groups)
+          .getAllByRole("button")
+          .map((r) => plain(r.textContent)),
+      ).toEqual(["SShell2 транзакції−50,00 €"]);
+      expect(screen.queryByRole("heading", { name: /^Без мерчанта · 5/ })).toBeNull();
+      // The list header counts the merchant groups' transactions only (2), not the 5 without a merchant.
+      expect(plain(document.querySelector(".review-group-list-head")!.textContent)).toContain(
+        "за мерчантами · 2 транзакції",
+      );
+      // The 5 as one card at a time, after the groups: the first (the oldest) is shown.
+      const one = await screen.findByRole("region", { name: "Без мерчанта" });
+      expect(screen.getByText("5 транзакцій без мерчанта розбирають по одній.")).toBeTruthy();
+      expect(within(one).getByText("PAYPAL *STEAMGAMES")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: nm("Підтвердити 5") })).toBeNull();
+      expect(screen.queryByRole("checkbox", { name: /Запам/ })).toBeNull();
+    });
+
+    it("BUD-12@PoC AC11: the card with the bank's text «PAYPAL *STEAMGAMES» offers the merchant from it; «Підтвердити» confirms only this transaction, the other 4 stay, no rule", async () => {
+      const { api, state } = shellAndFive();
+      open(api);
+      const one = await screen.findByRole("region", { name: "Без мерчанта" });
+      await waitFor(() => expect(within(one).getByText("Мерчант з опису банку:")).toBeTruthy());
+      expect(within(one).getByText("Steamgames")).toBeTruthy();
+      await act(async () => within(one).getByRole("button", { name: "Підтвердити" }).click());
+      await waitFor(() => expect(posts(api, `/v1/transactions/${txId(10)}/review/confirm`)).toHaveLength(1));
+      expect(posts(api, "/v1/category-rules")).toHaveLength(0);
+      expect(posts(api, "/v1/bulk-actions")).toHaveLength(0);
+      expect(state.queue.filter((q) => q.id !== txId(1) && q.id !== txId(2)).map((q) => q.id)).toEqual(
+        [11, 12, 13, 14].map(txId),
+      );
+      await waitFor(() => expect(progress()).toBe("1 з 7 · лишилось 6"));
+      // The next card has no text and so no suggestion.
+      const next = await screen.findByRole("region", { name: "Без мерчанта" });
+      expect(within(next).queryByText("Мерчант з опису банку:")).toBeNull();
+    });
+
+    it("BUD-12@PoC FR 16: the picker of a card with a suggested merchant starts with «Часто для <мерчанта>», without one — «Нещодавні»; no «Прийняти»", async () => {
+      const { api } = shellAndFive();
+      open(api);
+      const one = await screen.findByRole("region", { name: "Без мерчанта" });
+      await waitFor(() => expect(within(one).getByText("Steamgames", { exact: true })).toBeTruthy());
+      expect(within(one).queryByRole("button", { name: "Прийняти" })).toBeNull();
+      act(() => within(one).getByRole("button", { name: "Змінити категорію" }).click());
+      const dialog = await screen.findByRole("dialog", { name: "Змінити категорію" });
+      act(() =>
+        within(dialog)
+          .getByRole("button", { name: /^Категорія/ })
+          .click(),
+      );
+      expect(within(dialog).getAllByRole("group")[0]!.textContent).toContain("Часто для «Steamgames»");
+    });
+  });
+
   it("BUD-12@PoC AC8: «Запам'ятати: Сільпо → Продукти» and «Підтвердити» on the group confirm its 18 and create the rule; «18 з 103 · лишилось 85»", async () => {
     const silpo = Array.from({ length: 18 }, (_, i) => txId(500 + i));
     const confirmBodies: unknown[] = [];

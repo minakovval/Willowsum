@@ -1,3 +1,4 @@
+import type { Institution } from "./detect.ts";
 import { currencyInfo, Decimal as KernelDecimal, isCurrencyCode } from "@willowsum/domain-kernel";
 import { IN_VALUES, OUT_VALUES, type Role, type StatementAnalysis } from "./analysis.ts";
 import {
@@ -122,6 +123,11 @@ export interface StatementOptions {
   readonly currencySymbols?: Readonly<Record<string, string>>;
   /** The country of the account's IBAN, when the caller knows it; else the IBAN in the file's preamble. */
   readonly country?: string;
+  /**
+   * IMP-08@PoC FR 2 (row 230): the directory of banks the statement's own bank is looked up in (accounts' NBU
+   * directory); none — no bank is detected.
+   */
+  readonly institutions?: readonly Institution[];
 }
 
 export interface StatementEvents {

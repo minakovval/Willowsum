@@ -66,8 +66,6 @@ function deps(over: { failIn?: { port: string; period: string }; delayMs?: numbe
     },
     planSources: {
       goals: (householdId, currency) => read("goals", householdId, null, currency, []),
-      incomes: (householdId, period, currency) =>
-        read("incomes", householdId, period, currency, [{ paymentId: "salary", amount: eur("3100") }]),
       extraPayments: (householdId, period, currency) =>
         // Each month its own amount (its number), so a month's figures in another month's place are seen.
         read("extra", householdId, period, currency, [
@@ -86,7 +84,7 @@ describe("#623: the grid's months read at once", () => {
     const months = gridMonths(TODAY);
     expect(new Set(seen.map((s) => s.householdId))).toEqual(new Set([HOUSEHOLD]));
     expect(new Set(seen.map((s) => s.currency))).toEqual(new Set(["EUR"]));
-    for (const port of ["incomes", "obligations", "extra"])
+    for (const port of ["obligations", "extra"])
       expect(
         seen
           .filter((s) => s.port === port)
@@ -97,12 +95,11 @@ describe("#623: the grid's months read at once", () => {
     expect(seen.filter((s) => s.port === "goals")).toHaveLength(1);
     // Each month has its own figures in its own place: the minimum 300 + the month's own extra payment.
     expect(g.income.totals).toEqual(months.map(() => eur("5600")));
-    expect(g.income.other).toEqual(months.map(() => eur("2500")));
     expect(g.debts.totals).toEqual(months.map((p) => eur("300").plus(eur(String(Number(p.slice(5)))))));
   });
 
   it("BUD-17@PoC FR 1: a month whose read fails fails the whole grid — no grid with that month left out or empty", async () => {
-    for (const port of ["incomes", "obligations", "extra"])
+    for (const port of ["obligations", "extra"])
       for (const period of ["2026-11", "2027-03", "2027-10"]) {
         const { d } = deps({ failIn: { port, period } });
         await expect(readPlanGrid(d, HOUSEHOLD, budget, [], stored), `${port} ${period}`).rejects.toThrow(

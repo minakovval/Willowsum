@@ -96,27 +96,77 @@ export interface CategoriesTx {
   publishMerged(event: MergedEvent): Promise<void>;
   /** FR 12: of `ids`, those another category was merged into (its records went there, FR 8). */
   mergeTargets(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
+  /** FR 12: how many categories were merged into `id`. */
+  mergedCount(householdId: string, id: string): Promise<number>;
   /** FR 12: the row of a custom category is removed; its name is free again. */
   deleteCategory(householdId: string, id: string): Promise<void>;
 }
 
 /**
- * FR 12: «порожня» is a question to every module that keeps category ids — `transactions` (split parts),
- * `categorization` (the transaction's category, rules), `budget` (limits, «План» cells), `recurring` (recurring
- * payments; lead decision, #260). Each answers which of `ids` its records of the space use. A module that starts to
- * keep category ids adds its own to the API's wiring (src/main.ts) in the same PR.
+ * FR 12: what holds a category is a question to every module that keeps category ids — `transactions` (split parts),
+ * `categorization` (the transaction's category, category rules), `recurring` (regular payments; lead decision, #260)
+ * — and, without holding it, `budget` (limits, «План» cells: owner decision 2026-11-26, deleted with the category). A
+ * module that starts to keep category ids adds its own to the API's wiring (src/main.ts) in the same PR.
  */
 export interface CategoryUsage {
   /** The answering module, for the reader of the wiring. */
   readonly module: string;
-  used(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
+  /** Which of `ids` this module's records of the space hold (they block the deletion); left out — none. */
+  used?(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
   /**
    * BUD-02@PoC FR 23, AC 19; BUD-01@PoC FR 13: how many transactions of the space this module's records put in the
    * category — only the modules that keep transactions' categories (the transaction's own category, split parts)
    * answer; one transaction is counted by one module only.
    */
   transactions?(householdId: string, categoryId: string): Promise<number>;
+  /** FR 12: how many of this module's other records hold the category, by kind (rules, regular payments). */
+  holds?(householdId: string, categoryId: string): Promise<Partial<Record<HoldKind, number>>>;
+  /** FR 12 (owner decision 2026-11-26): the budget's entries of the category — they do not hold it. */
+  readonly limits?: CategoryLimits;
 }
+
+/** FR 12: the kinds of other records that hold a category besides its transactions. */
+type HoldKind = "rules" | "recurringPayments";
+
+/** An amount as decimal text with its currency (never a float). */
+export interface MoneyText {
+  readonly amount: string;
+  readonly currency: string;
+}
+
+/**
+ * FR 12 (owner decision 2026-11-26): a category's entries in the budget — its limit (an income category: its plan)
+ * and its months' own values in «План». `limit` is the one of the current period (null — none then); `stored` — the
+ * budget keeps a limit or plan of the category at all. Finished periods' snapshots are not entries: they stay.
+ */
+export interface CategoryBudgetEntries {
+  readonly limit: MoneyText | null;
+  readonly stored: boolean;
+  readonly planCells: number;
+}
+
+/** FR 12: module budget's port — reads and, with a confirmed delete, removes the category's entries (its own tables). */
+export interface CategoryLimits {
+  /** Which of `ids` have any entry. */
+  held(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
+  entries(householdId: string, categoryId: string): Promise<CategoryBudgetEntries>;
+  /** Removes them (module budget's transaction and audit entries) and returns what it removed. */
+  release(caller: Caller, categoryId: string): Promise<CategoryBudgetEntries>;
+}
+
+export const NO_BUDGET_ENTRIES: CategoryBudgetEntries = { limit: null, stored: false, planCells: 0 };
+
+/** FR 12: what holds a category, each kind with its count; `budget` does not hold it. */
+export interface CategoryUsageReport {
+  readonly transactions: number;
+  readonly rules: number;
+  readonly recurringPayments: number;
+  /** FR 8: categories merged into it (their records went there). */
+  readonly mergedCategories: number;
+  readonly budget: CategoryBudgetEntries;
+}
+
+const hasBudgetEntries = (b: CategoryBudgetEntries): boolean => b.stored || b.planCells > 0;
 
 export type AuditedEntity = "categories.tree" | "categories.group" | "categories.category";
 export type AuditValues = Readonly<Record<string, string | null>>;
@@ -161,8 +211,16 @@ export type Result<T> =
   | { readonly kind: "service-fixed" }
   /** FR 12, FR 3: a system category is never deleted, only hidden. */
   | { readonly kind: "system-fixed" }
-  /** «Категорію з транзакціями, правилами або лімітами не можна видалити — приховайте або об'єднайте її» (FR 12). */
-  | { readonly kind: "not-empty" }
+  /**
+   * FR 12: data holds the category — transactions, category rules, regular payments (or another category merged into
+   * it); the refusal names each kind with its count.
+   */
+  | { readonly kind: "not-empty"; readonly usage?: CategoryUsageReport }
+  /**
+   * FR 12 (owner decision 2026-11-26): only its limit and «План» cells hold it — deleted with them once the request
+   * confirms it (`confirmLimit`); unconfirmed, nothing changes and the answer names the limit.
+   */
+  | { readonly kind: "confirm-limit"; readonly usage: CategoryUsageReport }
   | { readonly kind: "not-found" };
 
 const ok = <T>(value: T): Result<T> => ({ kind: "ok", value });
@@ -504,8 +562,9 @@ export async function mergeCategory(
 }
 
 /**
- * FR 12: of the given categories, those in use — by a record of another module (`usage`) or as the target of a merge.
- * A system category is never deletable whatever this says.
+ * FR 12: of the given categories, those data holds — a record of another module (`usage`: transactions, split parts,
+ * category rules, regular payments) or a category merged into it. Limits and «План» cells do not hold a category
+ * (owner decision 2026-11-26). A system category is never deletable whatever this says.
  */
 export async function categoriesInUse(
   usage: readonly CategoryUsage[],
@@ -516,7 +575,7 @@ export async function categoriesInUse(
   if (ids.length === 0) return new Set();
   const answers = await Promise.all([
     tx.mergeTargets(householdId, ids),
-    ...usage.map((u) => u.used(householdId, ids)),
+    ...usage.map((u) => (u.used ? u.used(householdId, ids) : Promise.resolve(new Set<string>()))),
   ]);
   return new Set(answers.flatMap((a) => [...a]));
 }
@@ -536,7 +595,41 @@ export async function transactionCount(
   return counts.reduce((t, n) => t + n, 0);
 }
 
-/** FR 12: which of `categories` the menu offers «Видалити» for — custom, in the tree and empty. */
+/**
+ * BUD-01@PoC FR 12, FR 13, AC 19, AC 23; BUD-02@PoC FR 23: the exact reason of the delete dialog — every kind of data
+ * that holds the category with its count — and its budget entries, which are deleted with it (AC 22).
+ */
+export async function categoryUsage(
+  usage: readonly CategoryUsage[],
+  tx: CategoriesTx,
+  householdId: string,
+  categoryId: string,
+): Promise<CategoryUsageReport> {
+  const limits = usage.find((u) => u.limits)?.limits;
+  const [transactions, holds, mergedCategories, budget] = await Promise.all([
+    transactionCount(usage, householdId, categoryId),
+    Promise.all(
+      usage.map((u): Promise<Partial<Record<HoldKind, number>>> =>
+        u.holds ? u.holds(householdId, categoryId) : Promise.resolve({}),
+      ),
+    ),
+    tx.mergedCount(householdId, categoryId),
+    limits ? limits.entries(householdId, categoryId) : Promise.resolve(NO_BUDGET_ENTRIES),
+  ]);
+  const sum = (kind: HoldKind) => holds.reduce((t, h) => t + (h[kind] ?? 0), 0);
+  return {
+    transactions,
+    rules: sum("rules"),
+    recurringPayments: sum("recurringPayments"),
+    mergedCategories,
+    budget,
+  };
+}
+
+/**
+ * FR 12: which of `categories` the menu offers «Видалити» for — custom, in the tree and held by no data (a limit or
+ * «План» cells do not hold it: owner decision 2026-11-26, the delete confirms them).
+ */
 export async function deletableIds(
   usage: readonly CategoryUsage[],
   tx: CategoriesTx,
@@ -549,10 +642,14 @@ export async function deletableIds(
 }
 
 /**
- * FR 12: delete a custom category while it is empty (AC18); one in use is refused and nothing changes (AC19); a
- * system one never (FR 3). The row stays locked while the modules are asked, so a merge into it waits and then finds
- * it gone. One audit entry `delete` with the fields before. A record another module saves with the category after
- * its check and before this commit is the residual race of a check across modules (README «Порядок однієї зміни»).
+ * FR 12: delete a custom category no data holds (AC18); one held is refused with every reason and its count, and
+ * nothing changes (AC19, AC23); a system one never (FR 3). Its limit and «План» cells do not hold it (owner decision
+ * 2026-11-26, AC22): unconfirmed (`confirmLimit` false) the request is refused naming them; confirmed, module budget
+ * removes them first (its own transaction, with its audit entries; finished periods' snapshots stay), then the row
+ * goes. The row stays locked while the modules are asked, so a merge into it waits and then finds it gone. One audit
+ * entry `delete` with the fields before and the budget entries removed. A record another module saves with the
+ * category after its check and before this commit is the residual race of a check across modules (README «Порядок
+ * однієї зміни»); a failure after the budget's commit leaves the category without its limit — as «Прибрати з бюджету».
  */
 export async function deleteCategory(
   deps: CategoriesDeps,
@@ -560,6 +657,7 @@ export async function deleteCategory(
   tx: CategoriesTx,
   caller: Caller,
   categoryId: string,
+  confirmLimit = false,
 ): Promise<Result<StoredCategory>> {
   const before = await tx.category(caller.householdId, categoryId, true);
   if (!before || before.state === "retired") return { kind: "not-found" };
@@ -568,15 +666,48 @@ export async function deleteCategory(
     (await categoriesInUse(usage, tx, caller.householdId, [before.id])).has(before.id);
   const problem = deleteProblem(before, used);
   if (problem === "system") return { kind: "system-fixed" };
-  if (problem === "not_empty") return { kind: "not-empty" };
+  if (problem === "not_empty")
+    return { kind: "not-empty", usage: await categoryUsage(usage, tx, caller.householdId, before.id) };
+  const limits = usage.find((u) => u.limits)?.limits;
+  let removed = NO_BUDGET_ENTRIES;
+  if (limits && (await limits.held(caller.householdId, [before.id])).has(before.id)) {
+    // Rows without a value (a «План» cell back to its default) need no confirmation; they go all the same.
+    const report = await categoryUsage(usage, tx, caller.householdId, before.id);
+    if (!confirmLimit && hasBudgetEntries(report.budget)) return { kind: "confirm-limit", usage: report };
+    removed = await limits.release(caller, before.id);
+  }
   await tx.deleteCategory(caller.householdId, before.id);
   await deps.audit.changed(
     caller.householdId,
     caller,
     { type: "categories.category", id: before.id },
     "delete",
-    categoryValues(before),
+    { ...categoryValues(before), ...(hasBudgetEntries(removed) ? budgetValues(removed) : {}) },
     null,
   );
   return ok(before);
 }
+
+/**
+ * FR 12: after a delete has committed, module budget removes once more any entry of the category written while the
+ * delete ran (a limit or «План» cell saved between budget's commit and the category's: the category was still in the
+ * directory then). Budget's write takes the budget row lock, so a write that waited for it is swept too. Left: a write
+ * that read the category before the delete's commit and takes the lock only after this sweep (README «Порядок однієї
+ * зміни»; follow-up).
+ */
+export async function sweepBudgetEntries(
+  usage: readonly CategoryUsage[],
+  caller: Caller,
+  categoryId: string,
+): Promise<CategoryBudgetEntries> {
+  const limits = usage.find((u) => u.limits)?.limits;
+  if (!limits || !(await limits.held(caller.householdId, [categoryId])).has(categoryId))
+    return NO_BUDGET_ENTRIES;
+  return limits.release(caller, categoryId);
+}
+
+/** FR 12: the budget entries a delete removed, in its audit entry (П-10). */
+const budgetValues = (b: CategoryBudgetEntries): AuditValues => ({
+  limit: b.limit ? `${b.limit.amount} ${b.limit.currency}` : null,
+  planCells: String(b.planCells),
+});

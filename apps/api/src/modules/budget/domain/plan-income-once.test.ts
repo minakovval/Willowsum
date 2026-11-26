@@ -1,41 +1,65 @@
-import { Money } from "@willowsum/domain-kernel";
+import { Decimal, Money } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
 import {
+  convertLines,
   gridMonths,
   planGrid,
   withCells,
+  withPlanRates,
   type BudgetCategory,
   type GridInput,
   type PeriodPlan,
   type PlanCell,
-  type PlanIncome,
+  type PlanRates,
 } from "./index.ts";
 
 /**
- * #623 (follow-up of #626; from its security review) (BUD-17@PoC, owner decision 2026-11-19, Q3): the month's income plan counts «План доходу»
- * and the regular incomes once — never both — in the grid and in the period plan alike. Synthetic amounts only.
+ * #623 (follow-up of #626), redone for row 231 (BUD-17@PoC FR 1; owner decision 2026-11-21, 2 б): the month's income
+ * plan is the sum of its income categories' rows — counted once, in the grid and in the period plan alike, exactly,
+ * with categories of other currencies at today's rate. Synthetic amounts only; 1 € = 50,00 UAH.
  */
 const eur = (a: string) => Money.of(a, "EUR");
+const uah = (a: string) => Money.of(a, "UAH");
 const TODAY = "2026-11-18";
-const groceries: BudgetCategory = {
-  id: "groceries",
-  groupId: "g-home",
-  kind: "expense",
+const rates: PlanRates = new Map([
+  ["UAH", { currency: "UAH", rate: new Decimal("0.02"), date: "2026-11-17", source: "NBU" }],
+]);
+const income = (id: string): BudgetCategory => ({
+  id,
+  groupId: "g-income",
+  kind: "income",
   state: "active",
   mergedInto: null,
-  essential: false,
-};
-const shown = new Map([["groceries", groceries]]);
-const plan = (income: string): PeriodPlan => ({
-  incomePlan: eur(income),
-  plannedSavings: eur("0"),
-  limits: [],
+  essential: null,
 });
-const cell = (period: string, lineId: string | null, amount: string): PlanCell => ({
+const tree = [income("salary"), income("rent"), income("freelance")];
+const shown = new Map(tree.map((c) => [c.id, c]));
+/** «Зарплата» 5 000 €, «Дохід від оренди» 20 000 UAH (400 €), «Фриланс» 200,10 €. */
+const plan = (): PeriodPlan => {
+  const incomePlans = convertLines(
+    [
+      { categoryId: "salary", amount: eur("5000") },
+      { categoryId: "rent", amount: uah("20000") },
+      { categoryId: "freelance", amount: eur("200.10") },
+    ],
+    "EUR",
+    rates,
+  );
+  return withPlanRates(
+    {
+      incomePlan: incomePlans.reduce((t, l) => t.plus(l.amount), eur("0")),
+      incomePlans,
+      plannedSavings: eur("0"),
+      limits: [],
+    },
+    rates,
+  );
+};
+const cell = (period: string, lineId: string, amount: Money): PlanCell => ({
   period,
   kind: "income",
   lineId,
-  amount: eur(amount),
+  amount,
   version: 1,
 });
 function input(over: Partial<GridInput>): GridInput {
@@ -44,83 +68,71 @@ function input(over: Partial<GridInput>): GridInput {
     today: TODAY,
     currency: "EUR",
     firstPeriod: "2026-11",
-    categories: [groceries],
-    base: new Map(months.map((p) => [p, plan("5600")])),
+    categories: tree,
+    base: new Map(months.map((p) => [p, plan()])),
     cells: [],
-    incomes: new Map(),
     goals: [],
     debts: new Map(months.map((p) => [p, []])),
+    rates,
     ...over,
   };
 }
 
-describe("#623: «План доходу», the regular incomes and «Інші надходження» count once", () => {
-  it("BUD-17@PoC FR 1, FR 2 (owner decision 2026-11-19, Q3): a regular income's own month value counts in the period plan — over «План доходу» the plan is the regular incomes with it", () => {
-    const salaries: PlanIncome[] = [
-      { paymentId: "andrii", amount: eur("3100") },
-      { paymentId: "olena", amount: eur("2500") },
-    ];
-    // 3 100 + 3 000.10 (typed for the month) = 6 100.10 > 5 600; without the cell it would be 5 600.
-    const cells = [cell("2026-12", "olena", "3000.10")];
-    const period = withCells(plan("5600"), cells, shown, { incomes: salaries, goalIds: new Set() });
-    expect(period.incomePlan).toEqual(eur("6100.10"));
-    const g = planGrid(input({ cells, incomes: new Map(gridMonths(TODAY).map((p) => [p, salaries])) }));
-    expect(g.income.totals[1]).toEqual(eur("6100.10"));
-    expect(g.income.other[1]).toBeNull();
-    // A typed value under the expected amount lowers the regular incomes: the rest is «Інші надходження».
-    const low = [cell("2026-12", "olena", "100.05")];
-    expect(withCells(plan("5600"), low, shown, { incomes: salaries, goalIds: new Set() }).incomePlan).toEqual(
-      eur("5600"),
-    );
-    const gl = planGrid(input({ cells: low, incomes: new Map(gridMonths(TODAY).map((p) => [p, salaries])) }));
-    expect(gl.income.other[1]).toEqual(eur("2399.95"));
-    expect(gl.income.totals[1]).toEqual(eur("5600"));
+describe("#623, row 231: the income categories' rows count once", () => {
+  it("BUD-17@PoC FR 1: a row's cell is in its category's currency; the sum of the section is in the budget's at today's rate, named for «≈»", () => {
+    const g = planGrid(input({ cells: [cell("2026-12", "rent", uah("25000.50"))] }));
+    expect(g.income.categories.map((r) => r.cells[0]!.amount)).toEqual([
+      eur("5000"),
+      uah("20000"),
+      eur("200.10"),
+    ]);
+    expect(g.income.categories[1]!.cells[1]).toEqual({ amount: uah("25000.50"), own: true, version: 1 });
+    expect(g.income.totals[0]).toEqual(eur("5600.10"));
+    // 25 000,50 UAH × 0,02 = 500,01 € — unrounded.
+    expect(g.income.totals[1]).toEqual(eur("5700.11"));
+    expect(g.rates).toEqual([...rates.values()]);
+    // Without the rate: no sum, no «Не розподілено» — never a sum without the row.
+    const none = planGrid(input({ rates: new Map() }));
+    expect(none.income.totals[0]).toBeNull();
+    expect(none.unallocated[0]).toBeNull();
   });
 
-  it("BUD-17@PoC FR 1 (owner decision 2026-11-19, Q3): in every month the income total = the regular incomes + «Інші надходження», is never under «План доходу», and equals the period plan — no double count", () => {
+  it("BUD-17@PoC FR 1: in every month the income total = the sum of the rows = the period plan's income plan — no double count, to the cent", () => {
     const months = gridMonths(TODAY);
-    const cases: { typed: string | null; regular: string[] }[] = [
-      { typed: null, regular: [] },
-      { typed: null, regular: ["0.01"] },
-      { typed: null, regular: ["5599.99"] },
-      { typed: null, regular: ["5600"] },
-      { typed: null, regular: ["5600.01"] },
-      { typed: "0", regular: ["0"] },
-      { typed: "0", regular: ["12.34"] },
-      { typed: "4000.50", regular: ["3100.25", "900.25"] },
-      { typed: "4000.50", regular: ["3100.25", "900.24"] },
-      { typed: "999999999999999.99", regular: ["0.01", "0.02"] },
-      { typed: "0.03", regular: ["0.01", "0.01"] },
+    const cases: Partial<Record<"salary" | "rent" | "freelance", Money>>[] = [
+      {},
+      { salary: eur("0") },
+      { salary: eur("0.01"), freelance: eur("0") },
+      { rent: uah("0.01") },
+      { rent: uah("999999.99"), freelance: eur("0.03") },
+      { salary: eur("999999999999.99"), rent: uah("1"), freelance: eur("0.01") },
+      { salary: eur("5000"), rent: uah("20000"), freelance: eur("200.10") },
     ];
     for (const [k, c] of cases.entries()) {
-      const p = months[k % months.length]!;
-      const incomes: PlanIncome[] = c.regular.map((a, i) => ({ paymentId: `p${i}`, amount: eur(a) }));
-      const cells = c.typed === null ? [] : [cell(p, null, c.typed)];
-      const g = planGrid(input({ cells, incomes: new Map([[p, incomes]]) }));
-      const i = months.indexOf(p);
-      const regular = incomes.reduce((t, x) => t.plus(x.amount!), eur("0"));
-      const typed = eur(c.typed ?? "5600");
-      const total = g.income.totals[i]!;
-      const other = g.income.other[i]!;
+      const p = months[k]!;
+      const cells = Object.entries(c).map(([id, a]) => cell(p, id, a));
+      const g = planGrid(input({ cells }));
+      const total = g.income.totals[k]!;
       const label = JSON.stringify(c);
-      expect(g.income.plan[i]!.amount, label).toEqual(typed);
-      expect(regular.plus(other ?? eur("0")), label).toEqual(total);
-      expect(total.compare(typed) >= 0 && total.compare(regular) >= 0, label).toBe(true);
-      expect(total.equals(typed) || total.equals(regular), label).toBe(true);
-      if (other !== null) expect(other.isNegative() || other.isZero(), label).toBe(false);
-      const period = withCells(plan("5600"), cells, shown, { incomes, goalIds: new Set() });
-      expect(period.incomePlan, label).toEqual(total);
+      const rows = g.income.categories.map((r) => r.cells[k]!.amount!);
+      const sum = rows.reduce(
+        (t, a) => t.plus(a.currency === "EUR" ? a : Money.of(a.amount.times("0.02").toString(), "EUR")),
+        eur("0"),
+      );
+      expect(total.equals(sum), label).toBe(true);
+      const period = withCells(plan(), cells, shown, { goalIds: new Set() }, rates);
+      expect(period.incomePlan.equals(total), label).toBe(true);
+      expect(
+        period.incomePlans?.map((l) => (l.original ?? l.amount).toDecimalString()),
+        label,
+      ).toEqual(rows.map((a) => a.toDecimalString()));
       // «Не розподілено» takes the same total (no expenses, goals or debts here).
-      expect(g.unallocated[i], label).toEqual({ kind: "unallocated", amount: total });
+      expect(g.unallocated[k]?.kind, label).toBe("unallocated");
+      expect(g.unallocated[k]!.amount.equals(total), label).toBe(true);
     }
   });
 
-  it("BUD-02@PoC FR 9 (П-14): without regular incomes (the flag `budget.plan` off) the month's plan is «План доходу» alone, to the cent", () => {
-    const none = { incomes: [], goalIds: new Set<string>() };
-    expect(withCells(plan("5600.07"), [], shown, none).incomePlan).toEqual(eur("5600.07"));
-    // A stored value of a regular income does not count while its line is not read.
-    expect(withCells(plan("5600.07"), [cell("2026-12", "olena", "9000")], shown, none).incomePlan).toEqual(
-      eur("5600.07"),
-    );
+  it("BUD-02@PoC FR 9 (П-14): without own values (the flag `budget.plan` off) the month's plan is the categories' plans alone, to the cent", () => {
+    expect(withCells(plan(), [], shown, { goalIds: new Set() }, rates).incomePlan).toEqual(eur("5600.10"));
   });
 });

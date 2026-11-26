@@ -44,5 +44,6 @@ export {
   createTransactionsServices,
   transactionAudit,
   transactionsRoutes,
+  type CategoryTransactions,
   type TransactionsServices,
 } from "./http/index.ts";

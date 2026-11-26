@@ -87,6 +87,17 @@ export function useImportStep(batchIdProp: string | null, openBatch: (batchId: s
     setAccountsRound((n) => n + 1);
   }, []);
 
+  /**
+   * Reads the accounts again without the skeleton (a new account made from the step, IMP-08@PoC AC 16): the step
+   * and the form over it stay where they are. `false` when the list could not be read.
+   */
+  const refreshAccounts = useCallback(async (): Promise<boolean> => {
+    const o = await loadActiveAccounts(api);
+    if (!alive.current) return false;
+    if (o.ok) setAccounts({ kind: "ready", accounts: o.data });
+    return o.ok;
+  }, [api]);
+
   /** Reads the parse until no file is pending, then the readiness (the files that still need an account). */
   const poll = useCallback(
     async (id: string) => {
@@ -318,6 +329,7 @@ export function useImportStep(batchIdProp: string | null, openBatch: (batchId: s
   return {
     accounts,
     reloadAccounts,
+    refreshAccounts,
     batch,
     rows,
     refreshFailed,

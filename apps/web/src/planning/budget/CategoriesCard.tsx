@@ -13,6 +13,7 @@ import {
   type FilterChipItem,
 } from "@willowsum/ui";
 import { RowMenu, useCategoryActions } from "./CategoryActions.tsx";
+import { UnbudgetedMark } from "./UnbudgetedMark.tsx";
 import { AddRow, LimitButton } from "./LimitEditing.tsx";
 import {
   filterCount,
@@ -349,6 +350,21 @@ export function CategoriesCard({
                 </td>
               ) : null}
             </tr>
+            {/* FR 7 (owner, 2026-11-26): the row to add is the first of the group, right under its heading. */}
+            {adding === s.id ? (
+              <AddRow
+                view={view}
+                groupId={s.id}
+                columns={columns.slice(1).map((c) => c.key)}
+                created={created}
+                onNew={(groupId) => actions.addTo(groupId)}
+                onCancel={() => setAdding(null)}
+                onSaved={() => {
+                  setAdding(null);
+                  onChanged();
+                }}
+              />
+            ) : null}
             {s.rows.map((row) => (
               <tr key={row.id} data-state={row.state ?? undefined}>
                 <th scope="row">
@@ -375,20 +391,6 @@ export function CategoriesCard({
                 <td className="bud-menu">{menuOf(row)}</td>
               </tr>
             ))}
-            {adding === s.id ? (
-              <AddRow
-                view={view}
-                groupId={s.id}
-                columns={columns.slice(1).map((c) => c.key)}
-                created={created}
-                onNew={(groupId) => actions.addTo(groupId)}
-                onCancel={() => setAdding(null)}
-                onSaved={() => {
-                  setAdding(null);
-                  onChanged();
-                }}
-              />
-            ) : null}
           </tbody>
         ))}
         {outside.length > 0 ? (
@@ -402,7 +404,12 @@ export function CategoriesCard({
             {outside.map((row) => (
               <tr key={row.id} data-state="outOfPlan">
                 <th scope="row">
-                  <span className="bud-name">{label(row)}</span>
+                  <span className="bud-name">
+                    {label(row)}
+                    {row.mandatory ? <StatusMark id="v.mandatory" /> : null}
+                    {/* FR 25: every row of «Поза планом» is out of the budget — it has no limit. */}
+                    {treeCategories.has(row.id) ? <UnbudgetedMark /> : null}
+                  </span>
                 </th>
                 {columns.slice(1).map((c) => (
                   <td key={c.key} data-col={c.key}>

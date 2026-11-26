@@ -93,7 +93,11 @@ export {
   type TransactionImportMerged,
 } from "./events.ts";
 
-export { createTransactionsServices, type TransactionsServices } from "./adapters/index.ts";
+export {
+  createTransactionsServices,
+  type CategoryTransactions,
+  type TransactionsServices,
+} from "./adapters/index.ts";
 export { TRANSACTION_TYPES, typeOf } from "./domain/index.ts";
 
 /** The transactions queue's job (ARC-04): the hand-off of a create, an edit or a delete to the journal and audit. */

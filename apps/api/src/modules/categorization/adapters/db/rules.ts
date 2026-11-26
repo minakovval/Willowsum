@@ -158,3 +158,16 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
     },
   };
 }
+
+/** BUD-01@PoC AC 23: how many category rules of the space set the category (the dialog names them; they do not hold it). */
+export async function ruleCount(
+  q: HouseholdQueryRunner,
+  householdId: string,
+  categoryId: string,
+): Promise<number> {
+  const { rows } = await q.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM rules WHERE household_id = $1 AND category_id = $2`,
+    [householdId, categoryId],
+  );
+  return rows[0]?.n ?? 0;
+}
