@@ -257,7 +257,12 @@ const plain = (rows: Awaited<ReturnType<typeof budgetRead>>) =>
     amount: r.amount.toDecimalString(),
     currency: r.amount.currency,
     date: r.date,
-    parts: r.parts?.map((p) => ({ categoryId: p.categoryId, amount: p.amount.toDecimalString() })) ?? null,
+    parts:
+      r.parts?.map((p) => ({
+        categoryId: p.categoryId,
+        amount: p.amount.toDecimalString(),
+        ...(p.asIncome ? { asIncome: true } : {}),
+      })) ?? null,
   }));
 
 /** The space's EUR and UAH accounts and a confirmed transfer of −100,00 EUR / `credit` UAH on 2026-10-14. */
@@ -317,7 +322,8 @@ describe("FIN-03@PoC FR 8: the currency difference of a transfer is «Коміс
         amount: "30",
         currency: "UAH",
         date: "2026-10-14",
-        parts: [{ categoryId: fees, amount: "30" }],
+        // A gain is income of the budget under «Комісії банку», not a refund of it (AC31).
+        parts: [{ categoryId: fees, amount: "30", asIncome: true }],
       },
     ]);
   });

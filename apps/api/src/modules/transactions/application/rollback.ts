@@ -104,7 +104,7 @@ export interface ImportRollbackTx extends Pick<
   /** Step 3: `ids` locked in the order of their ids; absent — no such row. */
   lockRows(householdId: string, ids: readonly string[]): Promise<readonly RollbackRow[]>;
   /** `ids` as `lockRows` reads them, unlocked (the preview of the dialog, `previewRollback`). */
-  readRows(householdId: string, ids: readonly string[]): Promise<readonly RollbackRow[]>;
+  rollbackPreviewRows(householdId: string, ids: readonly string[]): Promise<readonly RollbackRow[]>;
   markRolledBack(householdId: string, id: string, at: Date): Promise<void>;
   recordRollback(
     householdId: string,
@@ -272,14 +272,14 @@ export interface RollbackPreview {
 
 export async function previewRollback(
   deps: Pick<ImportRollbackDeps, "categories">,
-  tx: Pick<ImportRollbackTx, "rolledBackBatch" | "batchRows" | "mergedInto" | "readRows">,
+  tx: Pick<ImportRollbackTx, "rolledBackBatch" | "batchRows" | "mergedInto" | "rollbackPreviewRows">,
   householdId: string,
   batchId: string,
 ): Promise<RollbackPreview | null> {
   if (await tx.rolledBackBatch(householdId, batchId)) return null;
   const batchIds = new Set((await tx.batchRows(householdId, batchId)).map((r) => r.id.toLowerCase()));
   const merged = await tx.mergedInto(householdId, [...batchIds]);
-  const read = await tx.readRows(householdId, [...new Set([...batchIds, ...merged])].sort());
+  const read = await tx.rollbackPreviewRows(householdId, [...new Set([...batchIds, ...merged])].sort());
   const rows = read.filter((r) => batchIds.has(r.id.toLowerCase()) && !r.rolledBack);
   const into = (id: string) => read.filter((m) => m.mergedInto?.toLowerCase() === id.toLowerCase());
   const free = rows.filter((r) => r.transfer === null);

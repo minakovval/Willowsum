@@ -492,7 +492,16 @@ export interface BudgetTransactions {
       readonly amount: Money;
       readonly date: string;
       readonly parts:
-        | readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[]
+        | readonly {
+            readonly categoryId: string;
+            readonly month: string | null;
+            readonly amount: Money;
+            /**
+             * FIN-03@PoC FR 8, AC31: a transfer's gain against the official rate — income of the budget under its
+             * category («Комісії банку», an expense category), never a refund of it. Absent — counted by the category.
+             */
+            readonly asIncome?: boolean;
+          }[]
         | null;
       /**
        * BUD-06@PoC FR 8 «Одноразова витрата»: counted in the fact of its period, left out of the averages (BUD-06 FR 4,
@@ -569,9 +578,17 @@ async function transferDifferences(
   if (differences.length === 0) return [];
   const categoryId = await options.feeCategory(householdId);
   if (categoryId === null) return [];
+  // A loss is spending in «Комісії банку»; a gain is income under the same category (FIN-03 AC31).
   return differences.map((d) => ({
     ...d,
-    parts: [{ categoryId, month: null, amount: d.amount }],
+    parts: [
+      {
+        categoryId,
+        month: null,
+        amount: d.amount,
+        ...(d.amount.isNegative() ? {} : { asIncome: true }),
+      },
+    ],
     oneOff: false,
   }));
 }

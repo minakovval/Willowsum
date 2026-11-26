@@ -18,8 +18,8 @@ const rules = JSON.parse(readFileSync(path.join(apiDir, "module-rules.json"), "u
 const root = mkdtempSync(path.join(os.tmpdir(), "ws-sec726-main-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
-describe("NFR-01@PoC FR 3: a role process never makes the key file (security review of #726)", () => {
-  it("NFR-01@PoC FR 3: `main.ts --role api` with a missing key file exits 1, names the file only and makes no file", () => {
+describe("NFR-01@PoC FR 3, NFR-15@PoC FR 26: a role process never makes the key file (security review of #726)", () => {
+  it("NFR-01@PoC FR 3, NFR-15@PoC FR 26: `main.ts --role api` with a missing key file exits 1, names the file only and makes no file", () => {
     const kmsKeyFile = path.join(root, "inst", "local-kms-key.json");
     const env = roleEnv({
       port: 8081,

@@ -230,7 +230,7 @@ export function importRollbackTx(q: HouseholdQueryRunner): ImportRollbackTx {
       return rows.map((r) => r.id);
     },
     lockRows: (householdId, ids) => rollbackRows(q, householdId, ids, true),
-    readRows: (householdId, ids) => rollbackRows(q, householdId, ids, false),
+    rollbackPreviewRows: (householdId, ids) => rollbackRows(q, householdId, ids, false),
     async markRolledBack(householdId, id, at) {
       await q.query(`UPDATE transactions SET rolled_back_at = $3 WHERE household_id = $1 AND id = $2`, [
         householdId,

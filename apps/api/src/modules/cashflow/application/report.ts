@@ -30,7 +30,14 @@ export interface CashflowTransaction {
   readonly amount: Money;
   readonly date: string;
   readonly parts:
-    readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[] | null;
+    | readonly {
+        readonly categoryId: string;
+        readonly month: string | null;
+        readonly amount: Money;
+        /** FIN-03@PoC FR 8, AC31: a transfer's gain — income under its category. */
+        readonly asIncome?: boolean;
+      }[]
+    | null;
 }
 
 /** One amount at the rate of its date in the report's currency (module fx-rates); null — «Курс недоступний». */
@@ -267,14 +274,21 @@ export async function cashflowReport(
     householdId,
     counted.filter((r) => r.parts === null).map((r) => r.id),
   );
-  const lines: { categoryId: string | null; amount: Money; date: string }[] = [];
+  const lines: { categoryId: string | null; amount: Money; date: string; asIncome?: boolean }[] = [];
   for (const r of counted) {
     if (r.parts === null) lines.push({ categoryId: own.get(r.id) ?? null, amount: r.amount, date: r.date });
     else if (r.parts.some((p) => p.month !== null))
       // FR 13: split over months — one record, the whole amount in the month of payment, in its one category.
       lines.push({ categoryId: r.parts[0]?.categoryId ?? null, amount: r.amount, date: r.date });
     // FR 13: split by categories — counted by its parts.
-    else for (const p of r.parts) lines.push({ categoryId: p.categoryId, amount: p.amount, date: r.date });
+    else
+      for (const p of r.parts)
+        lines.push({
+          categoryId: p.categoryId,
+          amount: p.amount,
+          date: r.date,
+          ...(p.asIncome === true ? { asIncome: true } : {}),
+        });
   }
   const categories = new Map((await reads.categories(householdId)).map((c) => [c.id, c]));
 
@@ -300,8 +314,13 @@ export async function cashflowReport(
         flows.push({
           kind: flow.kind,
           goalId: flow.kind === "goal" ? flow.goalId : null,
-          // A contribution is what left the budget account; a withdrawal what came back to it.
-          amount: flow.kind === "withdrawal" ? t.inflow.amount : t.outflow.amount.negated(),
+          // A contribution is what left the budget account; a withdrawal what came back to it. In one currency the
+          // transfer's fee is already spending in «Комісії банку» (FIN-03@PoC FR 8, on the debit's account), so
+          // the contribution is what reached the other account: the fee is not taken a second time (FR 4).
+          amount:
+            flow.kind === "withdrawal" || t.inflow.amount.currency === t.outflow.amount.currency
+              ? t.inflow.amount
+              : t.outflow.amount.negated(),
           date: flow.kind === "withdrawal" ? t.inflow.date : t.outflow.date,
         });
     }
@@ -328,7 +347,13 @@ export async function cashflowReport(
   const inCurrency: CountedLine[] = [];
   lines.forEach((l, i) => {
     const value = converted.values[i];
-    if (value) inCurrency.push({ month: l.date.slice(0, 7), categoryId: l.categoryId, amount: value });
+    if (value)
+      inCurrency.push({
+        month: l.date.slice(0, 7),
+        categoryId: l.categoryId,
+        amount: value,
+        ...(l.asIncome === true ? { asIncome: true } : {}),
+      });
   });
   const flowLines: FlowLine[] = [];
   flows.forEach((f, i) => {

@@ -164,8 +164,10 @@ export function monthHistory(
     if (o.categoryId !== null && limitIssue(categories.get(o.categoryId)) === null)
       spent.set(o.categoryId, o.spent);
   const incomeByCategory = new Map<string, Money>();
+  // An income category's plan only: a transfer's gain counts as income in «Комісії банку» (FIN-03 AC31), no plan line.
   for (const [id, t] of categoryTotals(categories, amounts, currency).income)
-    if (categories.get(id)?.state === "active") incomeByCategory.set(id, t.amount);
+    if (categories.get(id)?.state === "active" && categories.get(id)?.kind === "income")
+      incomeByCategory.set(id, t.amount);
   return {
     period,
     categorized: amounts.some((a) => a.categoryId !== null),

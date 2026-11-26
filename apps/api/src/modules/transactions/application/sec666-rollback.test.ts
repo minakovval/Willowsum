@@ -80,7 +80,7 @@ function store(
       if (options.mergedMeanwhile) all.set(options.mergedMeanwhile.id, options.mergedMeanwhile);
       return locked;
     },
-    readRows: async (_h, ids) => ids.flatMap((i) => (all.has(i) ? [all.get(i)!] : [])),
+    rollbackPreviewRows: async (_h, ids) => ids.flatMap((i) => (all.has(i) ? [all.get(i)!] : [])),
     update: async (_h, next) => {
       const before = all.get(next.id)!;
       const after = { ...before, ...next } as RollbackRow;
