@@ -13,11 +13,14 @@ import {
   newSpaceKey,
   openBytes,
   openField,
+  rewrapFromSource,
   rewrapSpaceKeys,
   sealBytes,
   sealField,
   type FieldOpener,
+  type RewrapFromResult,
   type RewrapResult,
+  type RewrapSource,
   type SpaceKeysDeps,
   type SpaceMembership,
 } from "./application/index.ts";
@@ -46,7 +49,13 @@ export {
   SEAL_MAX_LENGTH,
   wipeFieldOpener,
 } from "./application/index.ts";
-export type { FieldOpener, RewrapResult, SpaceMembership } from "./application/index.ts";
+export type {
+  FieldOpener,
+  RewrapFromResult,
+  RewrapResult,
+  RewrapSource,
+  SpaceMembership,
+} from "./application/index.ts";
 
 /**
  * Keys of spaces (ARC-06@PoC; ADR-0012): sensitive fields sealed with the space's own key, the daily rewrap after a
@@ -68,6 +77,11 @@ export interface SpaceKeys {
   fieldOpener(householdId: string, field: string): Promise<FieldOpener>;
   /** Rewraps every key of an older master key version; gives `pending:` spaces their key. The scheduler's task. */
   rewrapAll(): Promise<RewrapResult>;
+  /**
+   * The one-time move off another KMS (NFR-01@PoC FR 3): every key wrapped by a version `source` owns is rewrapped by
+   * this KMS's current version; `dryRun` only counts. Idempotent. The re-wrap command's work (scripts/kms-rewrap.ts).
+   */
+  rewrapFrom(source: RewrapSource, options: { readonly dryRun: boolean }): Promise<RewrapFromResult>;
   /** Destroys the space's key (ARC-06 FR 5, NFR-12 FR 3): its sealed values can no longer be opened. */
   destroy(householdId: string): Promise<{ readonly destroyed: boolean }>;
 }
@@ -192,6 +206,7 @@ export function createSpaceKeys(
     openBytes: (householdId, purpose, sealed) => openBytes(keyDeps, householdId, purpose, sealed),
     fieldOpener: (householdId, field) => fieldOpener(keyDeps, householdId, field),
     rewrapAll: () => rewrapSpaceKeys(keyDeps),
+    rewrapFrom: (source, options) => rewrapFromSource(keyDeps, source, options),
     destroy: (householdId) => destroySpaceKey(keyDeps, householdId),
   };
 }

@@ -262,6 +262,92 @@ export async function openBytes(
 }
 
 /**
+ * Moves one space's key to the current master key version: unwrapped through `from` (the same KMS, or the one that
+ * made the old wrap), wrapped again through `deps.kms`. The new wrap is unwrapped and compared before it is stored,
+ * the rewrap is recorded in the space's log before the row changes, and the row changes only if no one rewrapped it
+ * meanwhile (false then). The data key stays the same and is wiped after use.
+ */
+async function rewrapOne(
+  deps: SpaceKeysDeps,
+  from: KeyManagement,
+  householdId: string,
+  key: StoredSpaceKey,
+): Promise<boolean> {
+  const dataKey = await unwrapStored(from, householdId, key);
+  let next: StoredSpaceKey;
+  try {
+    const wrapped = await deps.kms.wrap(dataKey, { space: householdId });
+    next = {
+      keyId: key.keyId,
+      masterKeyVersion: wrapped.masterKeyVersion,
+      wrappedKey: Buffer.from(wrapped.ciphertext).toString("base64url"),
+    };
+    // The new wrap is checked before it replaces the old one: a faulty KMS answer must not lose the key once
+    // the old master key version is retired.
+    const check = await unwrapStored(deps.kms, householdId, next);
+    try {
+      if (check.length !== dataKey.length || !timingSafeEqual(check, dataKey))
+        throw new Error("The new wrap does not unwrap to the same data key");
+    } finally {
+      check.fill(0);
+    }
+  } finally {
+    dataKey.fill(0);
+  }
+  // The entry is written first, as for destroy: a failed write leaves the old wrap for the next run, and a
+  // rewrap that loses the race below leaves at most an entry without a change — never a change without one.
+  await deps.audit.keyRewrapped(householdId, key.keyId, key.masterKeyVersion, next.masterKeyVersion);
+  return deps.store.inSpace(householdId, (tx) =>
+    tx.rewrapSpaceKey(householdId, key.keyId, key.masterKeyVersion, next),
+  );
+}
+
+/** The KMS that made older wraps, and which master key versions are its own. */
+export interface RewrapSource {
+  readonly kms: KeyManagement;
+  owns(masterKeyVersion: string): boolean;
+}
+
+export interface RewrapFromResult {
+  /** Keys wrapped by the source's versions when the run started (a dry run counts only these). */
+  readonly found: number;
+  /** Of them, moved to the current master key version of `deps.kms`. */
+  readonly rewrapped: number;
+  /** Spaces not read or keys not moved this run (the old wrap stays; a repeat tries again). */
+  readonly failed: number;
+}
+
+/**
+ * The one-time move of every space key off another KMS (NFR-01@PoC FR 3; security review of #722): each key whose
+ * master key version `source` owns is unwrapped by it and wrapped by the installation's KMS, as the daily rewrap does
+ * (checked, recorded in the space's log). Idempotent: a moved key is no longer the source's, so a repeat finds none.
+ * `dryRun` only counts. Counts only: no key, wrap or space id leaves this function.
+ */
+export async function rewrapFromSource(
+  deps: SpaceKeysDeps,
+  source: RewrapSource,
+  options: { readonly dryRun: boolean },
+): Promise<RewrapFromResult> {
+  let found = 0;
+  let rewrapped = 0;
+  let failed = 0;
+  for (const householdId of await deps.store.spaceIds()) {
+    try {
+      const key = await deps.store.inSpace(householdId, (tx) => tx.spaceKey(householdId));
+      if (!key || !source.owns(key.masterKeyVersion)) continue;
+      found += 1;
+      if (options.dryRun) continue;
+      if (await rewrapOne(deps, source.kms, householdId, key)) rewrapped += 1;
+      else failed += 1;
+    } catch {
+      // A space whose key could not be read (or moved) is counted, never named.
+      failed += 1;
+    }
+  }
+  return { found, rewrapped, failed };
+}
+
+/**
  * ARC-06 FR 3: the daily task. Every space's key wrapped by an older master key version is unwrapped and wrapped
  * again with the current one; the data key stays the same, so sealed values open before, during and after (no
  * downtime). The new wrap is unwrapped and compared before it is stored, each rewrap is recorded in the space's
@@ -282,34 +368,7 @@ export async function rewrapSpaceKeys(deps: SpaceKeysDeps): Promise<RewrapResult
       }));
       if (key) {
         if (key.masterKeyVersion === current) continue;
-        const dataKey = await unwrapStored(deps.kms, householdId, key);
-        let next: StoredSpaceKey;
-        try {
-          const wrapped = await deps.kms.wrap(dataKey, { space: householdId });
-          next = {
-            keyId: key.keyId,
-            masterKeyVersion: wrapped.masterKeyVersion,
-            wrappedKey: Buffer.from(wrapped.ciphertext).toString("base64url"),
-          };
-          // The new wrap is checked before it replaces the old one: a faulty KMS answer must not lose the key once
-          // the old master key version is retired.
-          const check = await unwrapStored(deps.kms, householdId, next);
-          try {
-            if (check.length !== dataKey.length || !timingSafeEqual(check, dataKey))
-              throw new Error("The new wrap does not unwrap to the same data key");
-          } finally {
-            check.fill(0);
-          }
-        } finally {
-          dataKey.fill(0);
-        }
-        // The entry is written first, as for destroy: a failed write leaves the old wrap for the next run, and a
-        // rewrap that loses the race below leaves at most an entry without a change — never a change without one.
-        await deps.audit.keyRewrapped(householdId, key.keyId, key.masterKeyVersion, next.masterKeyVersion);
-        const changed = await deps.store.inSpace(householdId, (tx) =>
-          tx.rewrapSpaceKey(householdId, key.keyId, key.masterKeyVersion, next),
-        );
-        if (changed) rewrapped += 1;
+        if (await rewrapOne(deps, deps.kms, householdId, key)) rewrapped += 1;
       } else if (ref?.startsWith(keyRef.pendingPrefix)) {
         const fresh = await newSpaceKey(deps.kms, householdId);
         const after = keyRef.live(fresh.keyId);

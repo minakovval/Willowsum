@@ -109,6 +109,14 @@ export interface Config {
      */
     readonly dir?: string;
   };
+  /**
+   * The local KMS adapter (NFR-01@PoC FR 3, NFR-15@PoC FR 26; ARC-06 FR 1). `realData` (`WS_REAL_DATA=true`) marks an
+   * instance that holds real data — the owner's `pnpm local:dev`: it never runs with the fixed-label test key, so it
+   * needs `keyFile`. `keyFile` (`WS_KMS_KEY_FILE`, an absolute path) is the installation's key file, made with a
+   * random key on the first start (platform/adapters/kms/key-file.ts); only its path is configured, never a key.
+   * Local only: refused in staging and production, which use the live KMS.
+   */
+  readonly kms: { readonly realData: boolean; readonly keyFile?: string };
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -280,6 +288,11 @@ export function loadConfig(
       .string()
       .regex(/^\/[^\0\r\n]{1,500}$/)
       .optional(),
+    WS_REAL_DATA: z.enum(["true", "false"]).default("false"),
+    WS_KMS_KEY_FILE: z
+      .string()
+      .regex(/^\/[^\0\r\n]{1,500}$/)
+      .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -380,6 +393,16 @@ export function loadConfig(
     )
       problems.push("WS_FILES_DIR");
   }
+  if (parsed.success) {
+    // NFR-01@PoC FR 3, NFR-15@PoC FR 26: an instance with real data never runs with the fixed-label test key, whose
+    // key anyone with the repository derives: locally it needs its installation's key file. A file of this machine is
+    // never the master key of a deployed process (the live KMS is).
+    const d = parsed.data;
+    const deployed = DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT);
+    if (d.WS_KMS_KEY_FILE !== undefined && deployed) problems.push("WS_KMS_KEY_FILE");
+    if (d.WS_REAL_DATA === "true" && !deployed && d.WS_KMS_KEY_FILE === undefined)
+      problems.push("WS_KMS_KEY_FILE");
+  }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;
   const telemetryMode = (v["WS_TELEMETRY"] ?? "test") as TelemetryMode;
@@ -446,6 +469,10 @@ export function loadConfig(
         ? { linkKey: Buffer.from(v["WS_FILE_LINK_KEY"] as string, "base64") }
         : {}),
       ...(v["WS_FILES_DIR"] !== undefined ? { dir: v["WS_FILES_DIR"] as string } : {}),
+    },
+    kms: {
+      realData: v["WS_REAL_DATA"] === "true",
+      ...(v["WS_KMS_KEY_FILE"] !== undefined ? { keyFile: v["WS_KMS_KEY_FILE"] as string } : {}),
     },
     database: {
       host: v["WS_DB_HOST"] as string,

@@ -79,6 +79,8 @@ async function startRun(): Promise<Run> {
       WS_LOCAL_DEV_DATABASE: database,
       WS_LOCAL_DEV_STATE_DIR: stateDir,
       WS_LOCAL_DEV_WEB_PORT: String(webPort),
+      // NFR-01@PoC FR 3: the run's own installation key file, never the person's one in ~/.config.
+      WS_LOCAL_DEV_KMS_KEY_FILE: path.join(stateDir, "kms", "local-kms-key.json"),
       // This test file already holds the cluster lock (its integration run): the script must not wait for itself.
       [HOLDER_PID_ENV]: holderPid,
     },

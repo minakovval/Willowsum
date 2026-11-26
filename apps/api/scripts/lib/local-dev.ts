@@ -8,6 +8,7 @@ import { createServer } from "node:net";
 import path from "node:path";
 import type { FlagKind } from "../../src/modules/feature-flags/index.ts";
 import { modulePasswordVariable } from "../../src/platform/config/config.ts";
+import { defaultKmsKeyFile } from "../../../../tools/local-env/lib/kms-key.mjs";
 
 /** The persistent development database on the `pnpm local:up` PostgreSQL; `--fresh` recreates it. */
 export const DEV_DATABASE = "ws_dev";
@@ -38,11 +39,17 @@ export interface LocalDevSettings {
   readonly database: string;
   readonly stateDir: string;
   readonly webPort: number;
+  /**
+   * The installation's master key file (NFR-01@PoC FR 3): `~/.config/willowsum/local-kms-key.json`, outside the
+   * repository, the database and the backup folder; the API makes it with a random key on the first start.
+   */
+  readonly kmsKeyFile: string;
 }
 
 export function localDevSettings(
   env: Readonly<Record<string, string | undefined>>,
   defaultStateDir: string,
+  defaultKeyFile: string = defaultKmsKeyFile(),
 ): LocalDevSettings {
   const database = env["WS_LOCAL_DEV_DATABASE"] ?? DEV_DATABASE;
   if (database !== DEV_DATABASE && !/^ws_t_[a-z0-9_]{1,50}$/.test(database))
@@ -52,7 +59,9 @@ export function localDevSettings(
   const webPort = Number(env["WS_LOCAL_DEV_WEB_PORT"] ?? WEB_PORT);
   if (!Number.isInteger(webPort) || webPort < 1024 || webPort > 65535)
     throw new Error("WS_LOCAL_DEV_WEB_PORT: a port 1024–65535");
-  return { database, stateDir, webPort };
+  const kmsKeyFile = env["WS_LOCAL_DEV_KMS_KEY_FILE"] ?? defaultKeyFile;
+  if (!kmsKeyFile.startsWith("/")) throw new Error("WS_LOCAL_DEV_KMS_KEY_FILE: an absolute path");
+  return { database, stateDir, webPort, kmsKeyFile };
 }
 
 export interface LocalDevOptions {
@@ -130,7 +139,9 @@ export function localFiles(env: Readonly<Record<string, string | undefined>>, st
 
 /**
  * Environment of one role process: only what it needs (configuration comes only from the environment, ARC-02
- * FR 3), synthetic providers and in-process telemetry, so nothing leaves the machine (ARC-05, ARC-09).
+ * FR 3), synthetic providers and in-process telemetry, so nothing leaves the machine (ARC-05, ARC-09). The owner's
+ * instance holds real data (`WS_REAL_DATA=true`): its master key is the installation's key file, never the
+ * fixed-label test key (NFR-01@PoC FR 3); only the file's path is passed, never a key.
  */
 export function roleEnv(options: {
   readonly port: number;
@@ -143,6 +154,8 @@ export function roleEnv(options: {
   readonly files: LocalFiles;
   /** The key of signed file links, base64 of 32 bytes drawn for this run: the same for every role. */
   readonly fileLinkKey: string;
+  /** The installation's master key file (LocalDevSettings.kmsKeyFile): the same for every role. */
+  readonly kmsKeyFile: string;
 }): Record<string, string> {
   const u = new URL(options.databaseUrl);
   const web = options.webOrigin ?? WEB_ORIGIN;
@@ -172,6 +185,8 @@ export function roleEnv(options: {
         }
       : { WS_FILES_DIR: options.files.dir }),
     WS_FILE_LINK_KEY: options.fileLinkKey,
+    WS_REAL_DATA: "true",
+    WS_KMS_KEY_FILE: options.kmsKeyFile,
   };
 }
 
