@@ -147,6 +147,8 @@ export const en: Messages = {
   "tx.noResults.reset": "Reset filters",
   "tx.error.title": "✕ Error",
   "tx.error.body": "Could not load the transactions. Check your connection and try again.",
+  "tx.error.tooMany":
+    "The category has more than 20,000 transactions — the list cannot show them all. Add another filter, for example a period.",
   "tx.error.retry": "Try again",
   "tx.error.code": "Code: {code}",
   "tx.filter.period": "Period",
@@ -163,7 +165,7 @@ export const en: Messages = {
   "tx.filter.any.type": "Debits and credits",
   "tx.filter.any.amount": "Any",
   "tx.filter.any.state": "Any",
-  "tx.filter.any.categories": "Any",
+  "tx.filter.any.categories": "All",
   "tx.filter.any.tags": "Any",
   "tx.filter.any.merchant": "Any",
   "tx.filter.type.out": "Debits",

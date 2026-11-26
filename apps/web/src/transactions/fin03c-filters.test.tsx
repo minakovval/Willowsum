@@ -3,7 +3,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
-import { fakeApi, plain, renderAt, resetAuthState, type Call, type Reply } from "../auth/testing.tsx";
+import {
+  fakeApi,
+  plain,
+  problem,
+  renderAt,
+  resetAuthState,
+  type Call,
+  type Reply,
+} from "../auth/testing.tsx";
 import { endSession } from "../auth/session.ts";
 import { resetNavigationSession } from "../routing/session.ts";
 import { filteredTransactionsPath } from "./filters.ts";
@@ -143,12 +151,12 @@ const account = (id: string, name: string, last4: string) => ({
   loan: null,
 });
 
-function open(hash = "#/money/transactions") {
+function open(hash = "#/money/transactions", list: (call: Call, url: URL) => Reply = listReply) {
   const queries: URLSearchParams[] = [];
   const handlers: Record<string, Reply | ((call: Call, url: URL) => Reply)> = {
     "GET /v1/transactions": (call, url) => {
       queries.push(url.searchParams);
-      return listReply(call, url);
+      return list(call, url);
     },
     "GET /v1/accounts": {
       status: 200,
@@ -295,7 +303,7 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
     );
   });
 
-  it("filter panel: one button «Фільтри» opens the panel under it with rows «підпис — випадний список» Період, Рахунки, Категорії, Тип, Сума, Стан, Теги, Мерчант; unset ones say «Будь-який», «Усі» or «Будь-які» in grey; no «Умова»", async () => {
+  it("filter panel: one button «Фільтри» opens the panel under it with rows «підпис — випадний список» Період, Рахунки, Категорії, Тип, Сума, Стан, Теги, Мерчант; unset ones say «Будь-який» or «Усі» in grey; no «Умова»", async () => {
     open();
     await loaded();
     const button = filtersButton();
@@ -316,7 +324,7 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
     expect(shown.map((b) => b.getAttribute("aria-label"))).toEqual([
       "Період: Будь-який",
       "Рахунки: Усі",
-      "Категорії: Будь-які",
+      "Категорії: Усі",
       "Тип: Списання і надходження",
       "Сума: Будь-яка",
       "Стан: Будь-який",
@@ -478,6 +486,19 @@ describe("FIN-03@PoC FR 33, DAT-01@PoC FR 7: filters from a link and back", () =
     expect(window.location.hash).toBe("#/money/transactions");
     fireEvent.click(screen.getByRole("button", { name: "Прибрати фільтр: Категорії — Кава" }));
     await waitFor(() => expect(lastFilters()).toEqual([]));
+  });
+
+  it("FIN-03@PoC FR 22: a category with more than 20 000 transactions (422 LIMIT_REACHED) says so instead of the connection error, with no retry button", async () => {
+    open(`#${filteredTransactionsPath({ category: CAT })}`, (call, url) =>
+      url.searchParams.getAll("filter").some((f) => f.startsWith("category.eq:"))
+        ? problem(422, "LIMIT_REACHED")
+        : listReply(call, url),
+    );
+    await waitFor(() =>
+      expect(plain(screen.getByRole("alert").textContent)).toContain("Категорія має понад 20 000 транзакцій"),
+    );
+    expect(plain(screen.getByRole("alert").textContent)).not.toContain("Перевірте з’єднання");
+    expect(within(screen.getByRole("alert")).queryByRole("button")).toBeNull();
   });
 
   it("FIN-03@PoC FR 22: «Категорії» of the panel chooses categories by name", async () => {

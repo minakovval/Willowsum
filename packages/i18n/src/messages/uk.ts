@@ -148,6 +148,8 @@ export const uk = {
   "tx.noResults.reset": "Скинути фільтри",
   "tx.error.title": "✕ Помилка",
   "tx.error.body": "Не вдалося завантажити транзакції. Перевірте з’єднання та спробуйте ще раз.",
+  "tx.error.tooMany":
+    "Категорія має понад 20 000 транзакцій — список не може показати їх усі. Додайте ще один фільтр, наприклад період.",
   "tx.error.retry": "Спробувати ще раз",
   "tx.error.code": "Код: {code}",
   "tx.filter.period": "Період",
@@ -164,7 +166,7 @@ export const uk = {
   "tx.filter.any.type": "Списання і надходження",
   "tx.filter.any.amount": "Будь-яка",
   "tx.filter.any.state": "Будь-який",
-  "tx.filter.any.categories": "Будь-які",
+  "tx.filter.any.categories": "Усі",
   "tx.filter.any.tags": "Будь-які",
   "tx.filter.any.merchant": "Будь-який",
   "tx.filter.type.out": "Списання",

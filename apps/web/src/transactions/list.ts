@@ -107,11 +107,13 @@ export type Loaded<T> =
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly data: T }
   | { readonly kind: "off" }
-  | { readonly kind: "error"; readonly supportId?: string };
+  | { readonly kind: "error"; readonly supportId?: string; readonly tooMany?: boolean };
 
 export function failed(o: Exclude<Outcome<unknown>, { ok: true }>): Loaded<never> {
   if (o.kind === "problem" && (o.problem.code === "NOT_FOUND" || o.problem.code === "MODULE_UNAVAILABLE"))
     return { kind: "off" };
+  // FIN-03 FR 22: a category with more than 20 000 transactions is refused by the filter (422 LIMIT_REACHED).
+  if (o.kind === "problem" && o.problem.code === "LIMIT_REACHED") return { kind: "error", tooMany: true };
   return o.kind === "problem" && o.supportId ? { kind: "error", supportId: o.supportId } : { kind: "error" };
 }
 

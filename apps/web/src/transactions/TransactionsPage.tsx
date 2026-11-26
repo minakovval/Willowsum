@@ -197,7 +197,8 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   }, [query, view.search, setView]);
 
   if (state.kind === "off") return <EmptyState icon={TRANSACTIONS.icon} />;
-  if (state.kind === "error") return <ListError supportId={state.supportId} retry={retry} />;
+  if (state.kind === "error")
+    return <ListError supportId={state.supportId} tooMany={state.tooMany === true} retry={retry} />;
   const ready = state.kind === "ready" ? state.data : null;
   const filtered = activeCount(view.filters) > 0;
   // FIN-03@PoC AC19: a space without transactions shows the empty state, without the toolbar.
@@ -501,13 +502,21 @@ function NoResults({ query, onReset }: { query: string; onReset: () => void }) {
 }
 
 /** «✕ Помилка», what failed, «Спробувати ще раз» and «Код: …» (canvas PocMoneyTxError, PocStates). */
-function ListError({ supportId, retry }: { supportId: string | undefined; retry: () => void }) {
+function ListError({
+  supportId,
+  tooMany,
+  retry,
+}: {
+  supportId: string | undefined;
+  tooMany: boolean;
+  retry: () => void;
+}) {
   const t = useT();
   return (
     <section className="ws-card tx-state" role="alert">
       <p className="tx-error-title">{t("tx.error.title")}</p>
-      <p>{t("tx.error.body")}</p>
-      <Button label={t("tx.error.retry")} onClick={retry} />
+      <p>{t(tooMany ? "tx.error.tooMany" : "tx.error.body")}</p>
+      {tooMany ? null : <Button label={t("tx.error.retry")} onClick={retry} />}
       {supportId ? <p className="ws-muted">{t("tx.error.code", { code: supportId })}</p> : null}
     </section>
   );
