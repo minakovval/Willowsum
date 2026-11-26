@@ -5,7 +5,7 @@ description: Change Willowsum requirements, screens or shared П-rules without c
 
 # Change a requirement
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-26
 
 Input: a requested change to requirements, screens or shared П-rules (PRC-02), usually a batch of them. Output:
 one docs-only PR for the whole batch, in which every dependent artifact is updated or explicitly listed as a
@@ -37,6 +37,12 @@ fails CI (`view-stale`).
    `uk.ts`/`en.ts`; a requirement says only what the text conveys and where («кнопка підтвердження на S-050 (текст
    — канва)») — `docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва — єдине джерело» (Рішення ведучого
    (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-requirements-and-texts.md))).
+6. **Ambiguity sweep.** Every FR, AC, EC or NFR item, П-rule or glossary entry the batch adds or rewords is
+   checked against the eight classes of ambiguity (conflict, under-specified AC, unmeasured NFR, undefined
+   term, missing role, scope creep, vague word, unstated assumption) before the PR is opened; each finding is
+   fixed in the text, asked as an owner question or recorded as a lead decision, and listed under «Impact»
+   (owner, 2026-11-26, [log](../../../docs/decisions/log/2026-11-26-owner-ambiguity-checks.md)) —
+   [ambiguity checks](references/ambiguity-checks.md) (read when you write or reword an item).
 
 ## 2. Impact
 
@@ -107,7 +113,7 @@ the one you wrote (it names this PR).
    until CI is green. Body: `.github/pull_request_template.md`. Before pushing and before every body change, run
    the local PR checks below.
 2. «Owner decision»: the decisions this PR implements, with the quote and source, as in step 5.
-3. «Impact»: the `--impact` summary, a table «що змінено → у якому зрізі» (source line → views), the releases
+3. «Impact»: the `--impact` summary, the ambiguity sweep (§1 item 6), a table «що змінено → у якому зрізі» (source line → views), the releases
    changed and the releases left unchanged with the reason, the `--move` warnings and what was done with each,
    follow-ups (the lead opens the issues), and the check results of step 6.
 4. «Sensitive areas touched»: tick it only if the change touches the requirements of a sensitive area (auth,
