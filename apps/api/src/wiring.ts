@@ -5,6 +5,8 @@
  */
 import type pg from "pg";
 import {
+  bankDirectory,
+  createAccountCandidates,
   createAccountDirectory,
   createAccountsHandOffRecovery,
   createAccountsWorkerQueue,
@@ -519,6 +521,8 @@ export function workerQueues(
                 keys: importParse.keys,
                 recipes: createImportRecipesReader(databases.for("import-recipes")),
                 accounts: createAccountDirectory(databases.for("accounts")),
+                banks: bankDirectory,
+                candidates: createAccountCandidates(databases.for("accounts")),
                 // One parser per worker: its own limit of parse workers at a time on top of the heavy-job limit.
                 parser: isolatedStatementParser(),
               },

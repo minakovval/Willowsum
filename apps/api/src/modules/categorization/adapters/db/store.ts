@@ -103,3 +103,24 @@ export function categorizationTx(q: HouseholdQueryRunner): CategorizationTx {
     enqueueHandOff: (_householdId, handOff: CategoryHandOff) => enqueueHandOff(q, handOff),
   };
 }
+
+/**
+ * FIN-03@PoC FR 22 «Категорії» of the list «Транзакції» (module transactions' port `CategoryTransactions`): the
+ * transactions of the space whose own category is one of `categoryIds`, at most `limit` (index
+ * `transaction_categories_category`; no order: a caller that reaches the bound refuses the request). Read only.
+ */
+export async function transactionsWithCategories(
+  q: HouseholdQueryRunner,
+  householdId: string,
+  categoryIds: readonly string[],
+  limit: number,
+): Promise<string[]> {
+  if (categoryIds.length === 0) return [];
+  const { rows } = await q.query<{ transaction_id: string }>(
+    `SELECT transaction_id FROM transaction_categories
+      WHERE household_id = $1 AND category_id IS NOT NULL AND category_id = ANY($2::uuid[])
+      LIMIT $3::int`,
+    [householdId, categoryIds, limit],
+  );
+  return rows.map((r) => r.transaction_id);
+}

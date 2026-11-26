@@ -1,6 +1,6 @@
 # Модуль recurring
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (BUD-07 b2, перша частина: «Призупинити», «Позначити скасованим»,
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (BUD-01@PoC AC 23: `holds.recurringPayments` для причини видалення категорії); 2026-11-20 (BUD-07 b2, перша частина: «Призупинити», «Позначити скасованим»,
 «Відновити» — таблиця `payment_holds`, стани `paused` і `cancelled`; раніше FLW-38@PoC: `RecurringHistory` — списання завершеного місяця для «Підсумку періоду»; #567: `RecurringMonth` — списання місяця для бюджету; раніше BUD-07 b1: статуси списань, «Позначити пропущеним», «Зарахувати», «Залишити», оновлення очікуваної суми; раніше — a2: підтвердження, «Не регулярний», ручне додавання, таблиці, аудит, черга)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
@@ -116,7 +116,8 @@ BUD-07@PoC b2), перша частина: п. 13 (призупинення до
   `MerchantDirectory` модуля merchants, `AccountDirectory` модуля accounts (вид і стан рахунку), `CategoryDirectory`
   модуля categories, журнал аудиту, годинник («сьогодні» — дата Києва).
 - `createRecurringCategoryUsage(db)` → `CategoryUsage` (`used(householdId, ids)` — категорії, що їх має регулярний
-  платіж простору; `src/main.ts`, `createCategoriesServices({ usage })`; BUD-01 п. 12).
+  платіж простору; `src/main.ts`, `createCategoriesServices({ usage })`; BUD-01 п. 12; `holds(householdId, categoryId)` →
+  `{ recurringPayments }` — їх кількість для причини видалення, AC 23).
 - `recurringSubscriptions` — підписка на `categories.merged` v1 задачею `recurring.category-merged` (`src/wiring.ts`).
 - `createRecurringWorkerQueue(db, audit)` → `WorkerQueue` (`src/wiring.ts`); `createRecurringRecovery(db, households)` —
   щоденне повернення задач `dead` обох видів (`recurring.hand-off-recovery`, до очищення черги; WARN

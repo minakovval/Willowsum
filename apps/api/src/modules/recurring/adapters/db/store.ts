@@ -181,6 +181,13 @@ export function recurringTx(q: HouseholdQueryRunner): RecurringTx {
       );
       return new Set(rows.map((r) => r.category_id));
     },
+    async categoryPayments(householdId, categoryId) {
+      const { rows } = await q.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM payments WHERE household_id = $1 AND category_id = $2`,
+        [householdId, categoryId],
+      );
+      return rows[0]?.n ?? 0;
+    },
     async lockPayment(householdId, id) {
       const { rows } = await q.query<PaymentRow>(
         `SELECT ${PAYMENT_COLUMNS} FROM payments WHERE household_id = $1 AND id = $2 FOR UPDATE`,

@@ -1,11 +1,18 @@
 import { Money } from "@willowsum/domain-kernel";
 import {
   addMonths,
+  convertLines,
+  inBudgetCurrency,
   periodMode,
   periodOf,
+  ratesMap,
+  withPlanRates,
   type BudgetCategory,
+  type IncomePlanLine,
   type Period,
   type PeriodPlan,
+  type PlanRate,
+  type PlanRates,
 } from "./budget.ts";
 
 /**
@@ -20,10 +27,11 @@ import {
 export const PLAN_GRID_MONTHS = 12;
 
 /**
- * A line of the grid a cell belongs to: an income line — a regular income expected in the month (module recurring's
- * payment) or, null, «План доходу» (the month's income plan as typed; default — the budget's income plan of BUD-02),
- * the limit of an expense category, a goal's planned contribution, «Заощадження без цілі» (no id). «Погашення боргів» is read only
- * (FR 1): no cell.
+ * A line of the grid a cell belongs to: an income category of the budget's plan (FR 1; owner decision 2026-11-21, 2 б —
+ * module categories' id), the limit of an expense category, a goal's planned contribution, «Заощадження без цілі» (no
+ * id). «Погашення боргів» is read only (FR 1): no cell. A stored `income` cell of another line — a regular income's
+ * (module recurring's payment) or the nil id of the former «План доходу» — is kept and no longer counts (row 231),
+ * except the nil one of a budget without income categories (`incomeOf`).
  */
 export const PLAN_LINE_KINDS = ["income", "limit", "goal", "savings"] as const;
 export type PlanLineKind = (typeof PLAN_LINE_KINDS)[number];
@@ -66,74 +74,131 @@ export function cellPeriodIssue(period: Period, today: string): "past" | "too_fa
 const sum = (xs: readonly Money[], currency: string): Money =>
   xs.reduce((t, x) => t.plus(x), Money.zero(currency));
 
-/** A regular income expected in a month (module recurring), in the budget's currency; `amount` null — no rate. */
-export interface PlanIncome {
-  readonly paymentId: string;
-  readonly amount: Money | null;
-  /** BUD-03@PoC EC4 «приблизно»: `amount` at the nearest rate (a zero amount is exact); left out — exact. */
-  readonly approximate?: boolean;
-}
-
 /**
- * The lines a month's cells may count on (FR 1, edge case 2): its expected regular incomes and the space's active
- * goals. A cell whose line the grid no longer shows — a goal closed, an income no longer expected that month, a
- * category hidden or merged — stops counting; it counts again if its line comes back (lead decision, #613).
+ * The lines a month's cells may count on besides the categories (FR 1, edge case 2): the space's active goals. A cell
+ * whose line the grid no longer shows — a goal closed, a category hidden or merged, an income category no longer in the
+ * budget's plan — stops counting; it counts again if its line comes back (lead decision, #613).
  */
 export interface PlanLines {
-  readonly incomes: readonly PlanIncome[];
   readonly goalIds: ReadonlySet<string>;
 }
 
 const shownCategory = (c: BudgetCategory | undefined, kind: BudgetCategory["kind"]) =>
   c !== undefined && c.kind === kind && c.state === "active" && c.mergedInto === null;
 
-/** The larger of two sums of one currency. */
-const larger = (a: Money, b: Money): Money => (a.compare(b) < 0 ? b : a);
+const ownCell = (cells: readonly PlanCell[], kind: PlanCellKind, lineId: string | null) =>
+  cells.find((c) => c.kind === kind && c.lineId === lineId && c.amount !== null)?.amount ?? null;
 
 /**
- * FR 1 (owner decision 2026-11-19, Q3): the month's income plan — «План доходу» as typed (its cell, else the budget's
- * income plan) while the expected regular incomes (each its own cell, else the expected amount; one without a rate is
- * left out) are less: the rest is «Інші надходження»; when the regular incomes reach it or exceed it, their sum (no
- * negative row). A month without any regular income — «План доходу».
+ * Row 231 (lead decision 2026-11-26): a month's «План доходу» typed before the rows by category (an income cell on the
+ * nil line) is laid out on those rows when read, until the month has an own value of a shown income category — then
+ * `setPlanCell` stores the laid-out values first (`legacyIncome` is null from there on). The shown categories with a
+ * plan in the budget's currency share the typed amount less the plans that count without a row (hidden or merged
+ * categories in the budget's currency): largest plan first (then by id), each takes its plan while the amount lasts,
+ * the first one also what is left — exactly, no rounding. A category in another currency keeps its own plan, on top.
+ * No such category, or the plans without a row above the typed amount: the typed amount stays the month's income plan
+ * as it is (`typed`). `plans` — the budget's income plans in their categories' currencies; `cells` — one month's.
  */
-export function incomeOf(base: Money, cells: readonly PlanCell[], incomes: readonly PlanIncome[]): Money {
-  const own = ownIncome(cells);
-  return larger(own(null) ?? base, regularIncome(own, incomes, base.currency));
+export function legacyIncome(
+  plans: readonly { readonly categoryId: string; readonly amount: Money }[],
+  cells: readonly PlanCell[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+  currency: string,
+): { readonly cells: readonly PlanCell[]; readonly typed: Money | null } | null {
+  const legacy = cells.find((c) => c.kind === "income" && c.lineId === null && c.amount !== null);
+  if (!legacy || plans.length === 0 || legacy.amount!.currency !== currency) return null;
+  const shown = (id: string) => shownCategory(categories.get(id), "income");
+  if (cells.some((c) => c.kind === "income" && c.lineId !== null && shown(c.lineId))) return null;
+  const own = plans.filter((l) => l.amount.currency === currency);
+  const eligible = own
+    .filter((l) => shown(l.categoryId))
+    .sort((a, b) => b.amount.compare(a.amount) || (a.categoryId < b.categoryId ? -1 : 1));
+  const rest = legacy.amount!.minus(
+    sum(
+      own.filter((l) => !shown(l.categoryId)).map((l) => l.amount),
+      currency,
+    ),
+  );
+  if (eligible.length === 0 || rest.isNegative()) return { cells: [], typed: legacy.amount };
+  let left = rest;
+  const shares = eligible.map((l) => {
+    const share = left.compare(l.amount) < 0 ? left : l.amount;
+    left = left.minus(share);
+    return share;
+  });
+  shares[0] = shares[0]!.plus(left);
+  return {
+    cells: eligible.map((l, i) => ({
+      period: legacy.period,
+      kind: "income" as const,
+      lineId: l.categoryId,
+      amount: shares[i]!,
+      version: 1,
+    })),
+    typed: null,
+  };
 }
 
-const ownIncome = (cells: readonly PlanCell[]) => (lineId: string | null) =>
-  cells.find((c) => c.kind === "income" && c.lineId === lineId && c.amount !== null)?.amount ?? null;
+/** The budget's income plans in their categories' own currencies (`original` — a category in another currency). */
+const ownPlans = (base: PeriodPlan) =>
+  (base.incomePlans ?? []).map((l) => ({ categoryId: l.categoryId, amount: l.original ?? l.amount }));
 
-const regularIncome = (
-  own: (lineId: string | null) => Money | null,
-  incomes: readonly PlanIncome[],
-  currency: string,
-): Money =>
-  sum(
-    incomes.flatMap((i) => {
-      const a = own(i.paymentId) ?? i.amount;
-      return a ? [a] : [];
-    }),
-    currency,
-  );
+/** A month's cells with its typed «План доходу» laid out (`legacyIncome`); `typed` — it counts as it is. */
+function withLegacyIncome(
+  base: PeriodPlan,
+  cells: readonly PlanCell[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+): { readonly cells: readonly PlanCell[]; readonly typed: Money | null } {
+  const legacy = legacyIncome(ownPlans(base), cells, categories, base.incomePlan.currency);
+  return legacy ? { cells: [...cells, ...legacy.cells], typed: legacy.typed } : { cells, typed: null };
+}
 
 /**
- * BUD-03@PoC EC4 «приблизно» (#651): the month's income plan `incomePlan` (`incomeOf`) is the regular incomes' sum and
- * one of them without a cell of its own enters it at the nearest rate. A «План доходу» that happens to equal that sum
- * is marked too — the safe direction.
+ * FR 1 (owner decision 2026-11-21, 2 б): the income plan of each category of the month — a shown income category's own
+ * cell (in its own currency, BUD-02 FR 24) replaces its plan for that month; a category hidden or merged keeps the
+ * budget-wide plan, as a limit does. Null — no own cell counts: the lines are the budget's as they are.
  */
-export function incomePlanApproximate(
-  incomePlan: Money,
+function incomeLinesOf(
+  base: PeriodPlan,
   cells: readonly PlanCell[],
-  incomes: readonly PlanIncome[],
-): boolean {
-  const own = ownIncome(cells);
-  const nearest = incomes.some(
-    (i) => own(i.paymentId) === null && i.amount !== null && i.approximate === true,
-  );
-  if (!nearest) return false;
-  const regular = regularIncome(own, incomes, incomePlan.currency);
-  return !regular.isZero() && regular.equals(incomePlan);
+  categories: ReadonlyMap<string, BudgetCategory>,
+  rates: PlanRates,
+): IncomePlanLine[] | null {
+  const lines = base.incomePlans ?? [];
+  let changed = false;
+  const next = lines.map((l) => {
+    const own = shownCategory(categories.get(l.categoryId), "income")
+      ? ownCell(cells, "income", l.categoryId)
+      : null;
+    if (!own) return l;
+    changed = true;
+    const [line] = convertLines([{ categoryId: l.categoryId, amount: own }], base.incomePlan.currency, rates);
+    return line!;
+  });
+  return changed ? next : null;
+}
+
+/**
+ * FR 1: the month's income plan — the sum of its income categories' rows (each its own cell, else its plan); a budget
+ * without income categories (its plan without categories, BUD-02 FR 21) — that plan, or the month's own value typed
+ * before row 231 (the nil line, read only now).
+ */
+export function incomeOf(
+  base: PeriodPlan,
+  cells: readonly PlanCell[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+  rates: PlanRates = ratesMap(base.rates),
+): Money {
+  if ((base.incomePlans ?? []).length === 0) return ownCell(cells, "income", null) ?? base.incomePlan;
+  const legacy = withLegacyIncome(base, cells, categories);
+  if (legacy.typed) return legacy.typed;
+  const lines = incomeLinesOf(base, legacy.cells, categories, rates);
+  return lines
+    ? sum(
+        lines.map((l) => l.amount),
+        base.incomePlan.currency,
+      )
+    : base.incomePlan;
 }
 
 /**
@@ -148,28 +213,42 @@ export function withCells(
   cells: readonly PlanCell[],
   categories: ReadonlyMap<string, BudgetCategory>,
   lines: PlanLines | null,
+  /** BUD-02 FR 24: the rates a category's cell of another currency converts at; left out — the plan's own. */
+  rates: PlanRates = ratesMap(base.rates),
 ): PeriodPlan {
+  const currency = base.incomePlan.currency;
   const set = cells.filter((c) => c.amount !== null);
   const limits = new Map(base.limits.map((l) => [l.categoryId, l]));
   for (const c of set)
-    if (c.kind === "limit" && c.lineId !== null && shownCategory(categories.get(c.lineId), "expense"))
-      limits.set(c.lineId, {
-        categoryId: c.lineId,
-        amount: c.amount!,
-        mandatory: categories.get(c.lineId)?.essential ?? false,
-      });
-  if (lines === null) return { ...base, limits: [...limits.values()] };
+    if (c.kind === "limit" && c.lineId !== null && shownCategory(categories.get(c.lineId), "expense")) {
+      // BUD-17 business rules (owner decision 2026-11-26): a category's cell is in its own currency.
+      const [line] = convertLines([{ categoryId: c.lineId, amount: c.amount! }], currency, rates);
+      limits.set(c.lineId, { ...line!, mandatory: categories.get(c.lineId)?.essential ?? false });
+    }
+  if (lines === null) return withPlanRates({ ...base, limits: [...limits.values()] }, rates);
   const savings = set
     .filter((c) => c.kind === "savings" || (c.kind === "goal" && lines.goalIds.has(c.lineId ?? "")))
     .map((c) => c.amount!);
-  return {
-    incomePlan: incomeOf(base.incomePlan, set, lines.incomes),
-    // BUD-02 FR 21: the categories' plans stay the budget's; a month's own «План доходу» changes the total only.
-    ...(base.incomePlans ? { incomePlans: base.incomePlans } : {}),
-    plannedSavings: base.plannedSavings.plus(sum(savings, base.plannedSavings.currency)),
-    limits: [...limits.values()],
-  };
+  // FR 1 (owner decision 2026-11-21, 2 б): a category's own cell is that month's plan of the category (BUD-02 FR 9,
+  // FR 11: the card «Дохід» and the snapshot), and the income plan is their sum.
+  // The cleared rows too: a month whose layout was stored does not lay out again (`legacyIncome`).
+  const legacy = withLegacyIncome(base, cells, categories);
+  const incomePlans = legacy.typed ? null : incomeLinesOf(base, legacy.cells, categories, rates);
+  return withPlanRates(
+    {
+      ...base,
+      incomePlan: incomeOf(base, cells, categories, rates),
+      ...(incomePlans ? { incomePlans } : base.incomePlans ? { incomePlans: base.incomePlans } : {}),
+      plannedSavings: base.plannedSavings.plus(sum(savings, base.plannedSavings.currency)),
+      limits: [...limits.values()],
+    },
+    rates,
+  );
 }
+
+/** BUD-17 business rules: a limit's or an income plan's default cell — in the category's own currency (BUD-02 FR 24). */
+const lineAmount = (l: { amount: Money; original?: Money } | undefined): Money | null =>
+  l ? (l.original ?? l.amount) : null;
 
 /** A goal as the grid plans it (module goals, in the budget's currency). */
 export interface PlanGoal {
@@ -206,21 +285,12 @@ export interface PlanGrid {
   readonly months: readonly GridMonth[];
   readonly income: {
     /**
-     * «План доходу» (owner decision 2026-11-19, Q3): the month's income plan as typed — default the budget's income
-     * plan of BUD-02; not a source, so not in the sum.
+     * FR 1 (owner decision 2026-11-21, 2 б): a row per active income category of the budget's plan, in the tree's
+     * order; a cell — the category's plan of the month in its own currency (default — its plan in the budget). No
+     * «План доходу», no «Інші надходження», no regular incomes (they are in their category's fact).
      */
-    readonly plan: readonly GridCell[];
-    /** Each regular income expected in a month of the grid; `expected` — the line counts there. */
-    readonly rows: readonly {
-      readonly paymentId: string;
-      readonly cells: readonly (GridCell & { readonly expected: boolean })[];
-    }[];
-    /**
-     * «Інші надходження» (Q3): «План доходу» − the regular incomes while they are less; null — they reach it (no
-     * negative row), a month before the budget or without a figure.
-     */
-    readonly other: readonly (Money | null)[];
-    /** The month's income plan: the larger of «План доходу» and the regular incomes; null — no figure. */
+    readonly categories: readonly { readonly categoryId: string; readonly cells: readonly GridCell[] }[];
+    /** The month's income plan: the sum of the rows in the budget's currency; null — a row without a rate. */
     readonly totals: readonly (Money | null)[];
   };
   readonly expenses: {
@@ -247,6 +317,11 @@ export interface PlanGrid {
     readonly totals: readonly (Money | null)[];
   };
   /**
+   * BUD-17 business rules (owner decision 2026-11-26): the rates (today's) the cells of categories in another currency
+   * are converted at into the sums of the sections; not empty — such a sum is shown with «≈» and the hint names the rate.
+   */
+  readonly rates: readonly PlanRate[];
+  /**
    * FR 1, AC6: «Не розподілено» = надходження − витрати − цілі й заощадження − погашення боргів; negative —
    * «Дефіцит N €» (`kind` deficit, `amount` its absolute value). Null — a section without a figure.
    */
@@ -265,12 +340,12 @@ export interface GridInput {
   /** The budget-wide plan of each month (BUD-02: the income plan and limits, a proportional first period scaled). */
   readonly base: ReadonlyMap<Period, PeriodPlan>;
   readonly cells: readonly PlanCell[];
-  /** Each month's expected regular incomes (module recurring). */
-  readonly incomes: ReadonlyMap<Period, readonly PlanIncome[]>;
   /** Null — the goals are not read (a test's server). */
   readonly goals: readonly PlanGoal[] | null;
   /** Each month's debts; null for a month — its figures are unknown (no rate). */
   readonly debts: ReadonlyMap<Period, readonly PlanDebt[] | null>;
+  /** BUD-02 FR 24: today's rates of the categories' own currencies; left out — none (every cell in the budget's). */
+  readonly rates?: PlanRates;
 }
 
 const active = (c: BudgetCategory, kind: BudgetCategory["kind"]) => shownCategory(c, kind);
@@ -297,6 +372,17 @@ export function planGrid(input: GridInput): PlanGrid {
     return { amount: fallback, own: false, version: own?.version ?? 0 };
   };
   const base = (m: GridMonth) => input.base.get(m.period);
+  const byId = new Map(input.categories.map((c) => [c.id, c]));
+  const monthCells = (m: GridMonth) => input.cells.filter((c) => c.period === m.period);
+  // Row 231: a month's «План доходу» typed before is shown laid out on its rows (`legacyIncome`).
+  for (const m of months) {
+    const b = base(m);
+    const laid = m.inBudget && b ? withLegacyIncome(b, monthCells(m), byId).cells : [];
+    for (const c of laid) {
+      const key = `${c.period}/${cellKey(c.kind, c.lineId)}`;
+      if (!cells.get(key)?.amount) cells.set(key, c);
+    }
+  }
   const total = (rows: readonly (readonly { amount: Money | null }[])[], i: number): Money | null =>
     months[i]!.inBudget
       ? sum(
@@ -305,32 +391,6 @@ export function planGrid(input: GridInput): PlanGrid {
         )
       : null;
 
-  const incomesOf = (m: GridMonth) => input.incomes.get(m.period) ?? [];
-  const paymentIds: string[] = [];
-  for (const m of months)
-    for (const i of incomesOf(m)) if (!paymentIds.includes(i.paymentId)) paymentIds.push(i.paymentId);
-  const incomeCell = (m: GridMonth, paymentId: string) => {
-    const expected = m.inBudget && incomesOf(m).some((i) => i.paymentId === paymentId);
-    if (!expected) return { ...cellOf(m, "income", paymentId, null), amount: null, own: false, expected };
-    const fallback = incomesOf(m).find((i) => i.paymentId === paymentId)?.amount ?? null;
-    return { ...cellOf(m, "income", paymentId, fallback), expected };
-  };
-  const incomePlan = months.map((m) => cellOf(m, "income", null, base(m)?.incomePlan ?? null));
-  const incomeRows = paymentIds.map((paymentId) => ({
-    paymentId,
-    cells: months.map((m) => incomeCell(m, paymentId)),
-  }));
-  // An expected source without a rate and no own value leaves the month without an income total.
-  const incomeKnown = (i: number) =>
-    incomeRows.every((r) => !r.cells[i]!.expected || r.cells[i]!.amount !== null);
-  const regularTotals = months.map((_, i) =>
-    incomeKnown(i)
-      ? total(
-          incomeRows.map((r) => r.cells),
-          i,
-        )
-      : null,
-  );
   // A Map keeps the order of insertion: the groups come in the tree's order.
   const groups = new Map<string, { categoryId: string; cells: GridCell[] }[]>();
   for (const c of input.categories.filter((c) => active(c, "expense"))) {
@@ -338,11 +398,37 @@ export function planGrid(input: GridInput): PlanGrid {
     groups.get(c.groupId)!.push({
       categoryId: c.id,
       cells: months.map((m) =>
-        cellOf(m, "limit", c.id, base(m)?.limits.find((l) => l.categoryId === c.id)?.amount ?? null),
+        cellOf(m, "limit", c.id, lineAmount(base(m)?.limits.find((l) => l.categoryId === c.id))),
       ),
     });
   }
-  const expenseRows = [...groups.values()].flat().map((r) => r.cells);
+  // FR 1 (owner decision 2026-11-21, 2 б): a row per active income category of the budget's plan, in the tree's order.
+  const planned = new Set(months.flatMap((m) => (base(m)?.incomePlans ?? []).map((l) => l.categoryId)));
+  const incomeRows = input.categories
+    .filter((c) => active(c, "income") && planned.has(c.id))
+    .map((c) => ({
+      categoryId: c.id,
+      cells: months.map((m) =>
+        cellOf(m, "income", c.id, lineAmount(base(m)?.incomePlans?.find((l) => l.categoryId === c.id))),
+      ),
+    }));
+  // BUD-17 business rules (owner decision 2026-11-26): a category's cell is in its own currency; the section's sum is
+  // in the budget's, each cell at today's rate — a cell without a rate leaves the month without a sum.
+  const rates = input.rates ?? new Map<string, PlanRate>();
+  const used = new Map<string, PlanRate>();
+  const inBudget = (rows: readonly (readonly GridCell[])[]) =>
+    rows.map((r) =>
+      r.map((c) => {
+        if (!c.amount || c.amount.currency === currency) return { amount: c.amount, unknown: false };
+        const converted = inBudgetCurrency(c.amount, currency, rates);
+        if (converted) used.set(c.amount.currency, rates.get(c.amount.currency)!);
+        return { amount: converted, unknown: converted === null };
+      }),
+    );
+  const expenseRows = inBudget([...groups.values()].flat().map((r) => r.cells));
+  const incomeConverted = inBudget(incomeRows.map((r) => r.cells));
+  const known = (rows: readonly (readonly { unknown: boolean }[])[], i: number) =>
+    rows.every((r) => !r[i]!.unknown);
 
   const goalRows = (input.goals ?? []).map((g) => ({
     goalId: g.goalId,
@@ -385,15 +471,14 @@ export function planGrid(input: GridInput): PlanGrid {
       : null;
   };
 
-  const incomeTotals = months.map((_, i) => {
-    const [typed, regular] = [incomePlan[i]!.amount, regularTotals[i]];
-    return typed && regular ? larger(typed, regular) : null;
+  // FR 1, BUD-03 FR 2: the section's sum is the month's income plan (`incomeOf`, the figure of the period and «Можна
+  // витратити»), with the same categories — a row without a rate leaves the month without a sum.
+  const incomeTotals = months.map((m, i) => {
+    const b = base(m);
+    if (!m.inBudget || !b || !known(incomeConverted, i)) return null;
+    return incomeOf(b, monthCells(m), byId, rates);
   });
-  const otherIncome = months.map((_, i) => {
-    const [typed, regular] = [incomePlan[i]!.amount, regularTotals[i]];
-    return typed && regular && regular.compare(typed) < 0 ? typed.minus(regular) : null;
-  });
-  const expenseTotals = months.map((_, i) => total(expenseRows, i));
+  const expenseTotals = months.map((_, i) => (known(expenseRows, i) ? total(expenseRows, i) : null));
   const goalTotals = months.map((_, i) =>
     goalsKnown(i) ? total([...goalRows.map((r) => r.cells), savings], i) : null,
   );
@@ -408,13 +493,14 @@ export function planGrid(input: GridInput): PlanGrid {
   });
   return {
     months,
-    income: { plan: incomePlan, rows: incomeRows, other: otherIncome, totals: incomeTotals },
+    income: { categories: incomeRows, totals: incomeTotals },
     expenses: {
       groups: [...groups].map(([groupId, categories]) => ({ groupId, categories })),
       totals: expenseTotals,
     },
     goals: { rows: goalRows, savings, totals: goalTotals },
     debts: { rows: debtRows, totals: debtTotals },
+    rates: [...used.values()].sort((a, b) => (a.currency < b.currency ? -1 : 1)),
     unallocated,
   };
 }

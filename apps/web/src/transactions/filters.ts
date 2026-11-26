@@ -24,6 +24,8 @@ export interface TxFilters {
   readonly amountTo: string;
   /** «Стан»: one state (the server joins filters by AND, so several states cannot be «any of»). */
   readonly state: TxState | null;
+  /** «Категорії»: any of these categories (the named ones, no subcategories). */
+  readonly categories: readonly string[];
   /** «Теги»: any of these tags. */
   readonly tags: readonly string[];
   /** «Мерчант»: the counterparty contains this text. */
@@ -38,12 +40,22 @@ export const NO_FILTERS: TxFilters = {
   amountFrom: "",
   amountTo: "",
   state: null,
+  categories: [],
   tags: [],
   merchant: "",
 };
 
 /** The filter fields, in the order of the panel rows and of the chips. */
-export const FILTER_FIELDS = ["period", "accounts", "type", "amount", "state", "tags", "merchant"] as const;
+export const FILTER_FIELDS = [
+  "period",
+  "accounts",
+  "categories",
+  "type",
+  "amount",
+  "state",
+  "tags",
+  "merchant",
+] as const;
 export type FilterField = (typeof FILTER_FIELDS)[number];
 
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -85,6 +97,7 @@ export function isTxFilters(value: unknown): value is TxFilters {
     amountOrEmpty(v.amountFrom) &&
     amountOrEmpty(v.amountTo) &&
     (v.state === null || (TX_STATES as readonly unknown[]).includes(v.state)) &&
+    ids(v.categories) &&
     ids(v.tags) &&
     typeof v.merchant === "string" &&
     v.merchant.length <= MERCHANT_MAX_LENGTH
@@ -104,6 +117,8 @@ export function isSet(f: TxFilters, field: FilterField): boolean {
       return f.amountFrom !== "" || f.amountTo !== "";
     case "state":
       return f.state !== null;
+    case "categories":
+      return f.categories.length > 0;
     case "tags":
       return f.tags.length > 0;
     case "merchant":
@@ -129,6 +144,8 @@ export function without(f: TxFilters, field: FilterField): TxFilters {
       return { ...f, amountFrom: "", amountTo: "" };
     case "state":
       return { ...f, state: null };
+    case "categories":
+      return { ...f, categories: [] };
     case "tags":
       return { ...f, tags: [] };
     case "merchant":
@@ -154,6 +171,8 @@ export function filterParams(f: TxFilters): string[] {
   if (f.amountFrom) out.push(`amount.gte:${f.amountFrom}`);
   if (f.amountTo) out.push(`amount.lte:${f.amountTo}`);
   if (f.state) out.push(STATE_FILTER[f.state]);
+  if (f.categories.length === 1) out.push(`category.eq:${f.categories[0]}`);
+  else if (f.categories.length > 1) out.push(`category.in:${f.categories.join(",")}`);
   if (f.tags.length === 1) out.push(`tag.eq:${f.tags[0]}`);
   else if (f.tags.length > 1) out.push(`tag.in:${f.tags.join(",")}`);
   const merchant = f.merchant.trim();
@@ -167,6 +186,7 @@ export const ROW_LABEL: Record<FilterField, MessageKey> = {
   type: "tx.filter.type",
   amount: "tx.filter.amount",
   state: "tx.filter.state",
+  categories: "tx.filter.categories",
   tags: "tx.filter.tags",
   merchant: "tx.filter.merchant",
 };
@@ -177,6 +197,7 @@ export const ANY_LABEL: Record<FilterField, MessageKey> = {
   type: "tx.filter.any.type",
   amount: "tx.filter.any.amount",
   state: "tx.filter.any.state",
+  categories: "tx.filter.any.categories",
   tags: "tx.filter.any.tags",
   merchant: "tx.filter.any.merchant",
 };
@@ -205,6 +226,7 @@ export function rangeText(t: Translate, from: string, to: string, show: (v: stri
 export interface FilterNames {
   readonly accounts: ReadonlyMap<string, string>;
   readonly tags: ReadonlyMap<string, string>;
+  readonly categories: ReadonlyMap<string, string>;
 }
 
 /** What a set field shows in its panel row: the chosen names through a comma, or the range. */
@@ -229,6 +251,8 @@ export function rowSummary(
       return rangeText(t, f.amountFrom, f.amountTo, amount);
     case "state":
       return t(STATE_LABEL[f.state!]);
+    case "categories":
+      return f.categories.map((id) => names.categories.get(id) ?? "—").join(", ");
     case "tags":
       return f.tags.map((id) => names.tags.get(id) ?? "—").join(", ");
     case "merchant":
@@ -251,6 +275,11 @@ export function chipsOf(t: Translate, locale: Locale, f: TxFilters, names: Filte
         f.accounts.length === 1
           ? t("tx.filter.chip.account", { name: summary })
           : t("tx.filter.chip.accounts", { count: f.accounts.length });
+    } else if (field === "categories") {
+      text =
+        f.categories.length === 1
+          ? t("tx.filter.chip.category", { name: summary })
+          : t("tx.filter.chip.categories", { count: f.categories.length });
     } else if (field === "tags") {
       // As for «Рахунки»: the «×» names the chosen tags.
       text =
@@ -277,9 +306,15 @@ export function chipsOf(t: Translate, locale: Locale, f: TxFilters, names: Filte
  * FIN-03@PoC FR 33: «Усі N транзакцій рахунку» (account card) and «Схожі транзакції» (S-047) open S-046 with one
  * active filter — `#/money/transactions?account=<id>` or `?merchant=<name>`; the list reads it once and drops it.
  */
-export function filteredTransactionsPath(filter: { account: string } | { merchant: string }): string {
+export function filteredTransactionsPath(
+  filter: { account: string } | { merchant: string } | { category: string },
+): string {
   const q = new URLSearchParams(
-    "account" in filter ? { account: filter.account } : { merchant: filter.merchant },
+    "account" in filter
+      ? { account: filter.account }
+      : "category" in filter
+        ? { category: filter.category }
+        : { merchant: filter.merchant },
   );
   return `${TRANSACTIONS.path}?${q.toString()}`;
 }
@@ -291,6 +326,9 @@ export function filtersFromHash(hash: string): TxFilters | null {
   const q = new URLSearchParams(hash.slice(at + 1));
   const account = q.get("account");
   if (account !== null && UUID.test(account)) return { ...NO_FILTERS, accounts: [account] };
+  // BUD-01@PoC AC 20: «Показати транзакції» of the delete dialog opens the list of one category.
+  const category = q.get("category");
+  if (category !== null && UUID.test(category)) return { ...NO_FILTERS, categories: [category] };
   const merchant = q.get("merchant")?.trim();
   if (merchant) return { ...NO_FILTERS, merchant: merchant.slice(0, MERCHANT_MAX_LENGTH) };
   // BUD-16@PoC b): a column of «Тренд» opens the list of its month (`?from=` and `?to=`, both days of one period).

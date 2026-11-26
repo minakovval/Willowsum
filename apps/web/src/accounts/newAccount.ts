@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { operations } from "@willowsum/api-contract";
 import type { MessageKey } from "@willowsum/i18n";
-import { currencyInfo } from "@willowsum/domain-kernel";
+import { currencyInfo, knownCurrencies } from "@willowsum/domain-kernel";
 import { amountInPlaces } from "@willowsum/ui";
 import { outcome, type useAuthApi } from "../auth/api.ts";
 
@@ -101,6 +101,51 @@ export function initialValues(today: string, kind: AccountKind = "current"): New
     monthlyProblem: false,
     extras: [],
     note: "",
+  };
+}
+
+/**
+ * What a statement says about its account (IMP-08@PoC FR 2, AC 16; `files[].detected` of `GET /v1/import/batches/{id}/parse`):
+ * the form «Додати рахунок» opens filled with it. `mask` is «…» and the last 4 characters of the card or IBAN, as the
+ * server masks it; never more reaches the form.
+ */
+export interface Prefill {
+  readonly bank?: string | undefined;
+  /** `false` — the bank is the name the statement prints, not a bank of the directory: «Інша установа» with it. */
+  readonly bankInDirectory?: boolean | undefined;
+  readonly currency?: string | undefined;
+  readonly mask?: string | undefined;
+}
+
+const MASK_RE = /^…([A-Z0-9]{4})$/u;
+
+/** The last 4 characters of a masked number «…1234», or `""` for anything else (a longer text is never taken). */
+export const maskTail = (mask: string | undefined): string => MASK_RE.exec(mask ?? "")?.[1] ?? "";
+
+/**
+ * The values of the form for a statement's account: its currency and card or IBAN tail, the bank's name as the name;
+ * a bank outside the directory as «Інша установа» with its printed name (IMP-08@PoC AC 17, row 230b).
+ */
+export function prefilledValues(
+  today: string,
+  prefill: Prefill,
+  kind: AccountKind = "current",
+): NewAccountValues {
+  const start = initialValues(today, kind);
+  const currency = knownCurrencies().some((c) => c.kind === "fiat" && c.code === prefill.currency)
+    ? (prefill.currency ?? "")
+    : "";
+  // A bank outside the directory (row 230b): «Інша установа» with the printed name; the country is the person's.
+  const printed =
+    prefill.bankInDirectory === false && prefill.bank && institutionNameProblem(prefill.bank) === null
+      ? prefill.bank.normalize("NFC").trim()
+      : "";
+  return {
+    ...start,
+    name: prefill.bank && [...prefill.bank].length <= NAME_MAX ? prefill.bank : "",
+    ...(printed ? { bank: OTHER_INSTITUTION, otherName: printed } : {}),
+    currency,
+    number: maskTail(prefill.mask),
   };
 }
 

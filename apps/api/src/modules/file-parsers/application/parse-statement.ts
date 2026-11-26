@@ -1,5 +1,6 @@
 import {
   analyzeTable,
+  detectAccount,
   feesTaken,
   hasCardMask,
   maskedMismatch,
@@ -81,5 +82,8 @@ export function parseStatement(
     cardInFile: hasCardMask(preamble),
     cardDebt: debt,
   });
-  return { reading, analysis, events, account, checks };
+  // IMP-08 FR 2 (row 230): the bank, the one currency and the masked number the file names for its own account.
+  const fileCurrencies = [...events.currencies, ...(figures.currency ? [figures.currency] : [])];
+  const detected = detectAccount(preamble, fileCurrencies, statement.institutions);
+  return { reading, analysis, events, account, checks: { ...checks, detected } };
 }

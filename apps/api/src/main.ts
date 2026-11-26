@@ -25,6 +25,7 @@ import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
+  createCategoryTransactions,
   categorizationRulePorts,
   createCategorizationServices,
   createImportCategoryCarry,
@@ -310,6 +311,50 @@ const goals = createGoalsServices({
   newId: randomUUID,
 });
 
+// BUD-02 a: the space's budget services — the routes' and, BUD-01 FR 12, the category delete's (its limits).
+const budgetServices = createBudgetServices({
+  categories: createCategoryDirectory({
+    db: databases.for("categories"),
+    audit,
+    newId: randomUUID,
+  }),
+  accounts: createAccountList(databases.for("accounts")),
+  // BUD-06 FR 8: «Одноразова витрата» leaves the averages while `transactions.one-off` is on.
+  transactions: createBudgetTransactions(databases.for("transactions"), {
+    oneOffEnabled: oneOffOn,
+  }),
+  categorization: createTransactionCategories(databases.for("categorization")),
+  fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+  audit,
+  clock: systemClock,
+  newId: randomUUID,
+  // #567: the month's regular charges (recurring) and loans' monthly payments (accounts, liabilities) with
+  // whether the month has a payment to the loan (transactions), at today's NBU rate (fx-rates).
+  // BUD-17 a: «План» — the active goals' required contributions (goals), the saved payoff plans' extra
+  // payments (debt-payoff), at today's NBU rate (fx-rates).
+  planSources: createBudgetPlanSources({
+    goals: createGoalPlans(databases.for("goals"), goals),
+    debts: createDebtPlannedExpenses(
+      databases.for("debt-payoff"),
+      createCreditAccounts(databases.for("accounts")),
+    ),
+    fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+  }),
+  // BUD-03 EC5: «Витратити з цілі» — a goal's spends leave «Можна витратити» (goals).
+  goalSpends: createGoalSpends(databases.for("goals")),
+  // FLW-38 (S-135): «Підсумок періоду» — a finished month's regular charges (recurring).
+  chargeHistory: createRecurringHistory(databases.for("recurring"), recurring),
+  // BUD-17 (owner decision 2026-11-20, batch 2, item 2): «План» off — its typed values act nowhere.
+  planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
+  obligations: createBudgetObligations({
+    recurring: createRecurringMonth(databases.for("recurring"), recurring),
+    credit: createCreditAccounts(databases.for("accounts")),
+    liabilities: createLiabilities(databases.for("liabilities"), audit),
+    payments: createAccountPayments(databases.for("transactions")),
+    fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+  }),
+});
+
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 // Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.
 lifecycle.onStop(() => telemetry.shutdown());
@@ -380,6 +425,8 @@ const server = buildServer({
               duplicates: createDuplicateCheck(),
               // BUD-12 FR 7: «Підтвердити» on a card whose category was changed elsewhere is refused.
               categoryOf: createTransactionCategories(databases.for("categorization")),
+              // FIN-03 FR 22 «Категорії»: the list «Транзакції» by category («Показати транзакції», BUD-01 AC 20).
+              categoryTransactions: createCategoryTransactions(databases.for("categorization")),
             }),
             // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
             duplicateMatching: createDuplicateMatchingServices({
@@ -433,58 +480,13 @@ const server = buildServer({
                   databases.for("categorization"),
                   createTransactionLookup(databases.for("transactions")),
                 ),
-                createBudgetCategoryUsage(databases.for("budget")),
+                createBudgetCategoryUsage(databases.for("budget"), budgetServices),
                 createRecurringCategoryUsage(databases.for("recurring")),
               ],
             }),
             // BUD-02 a: the space's budget over the category tree, the accounts, the period's transactions with their
             // categories, each converted at the NBU rate of its date (fx-rates).
-            budget: createBudgetServices({
-              categories: createCategoryDirectory({
-                db: databases.for("categories"),
-                audit,
-                newId: randomUUID,
-              }),
-              accounts: createAccountList(databases.for("accounts")),
-              // BUD-06 FR 8: «Одноразова витрата» leaves the averages while `transactions.one-off` is on.
-              transactions: createBudgetTransactions(databases.for("transactions"), {
-                oneOffEnabled: oneOffOn,
-              }),
-              categorization: createTransactionCategories(databases.for("categorization")),
-              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
-              audit,
-              clock: systemClock,
-              newId: randomUUID,
-              // #567: the month's regular charges (recurring) and loans' monthly payments (accounts, liabilities) with
-              // whether the month has a payment to the loan (transactions), at today's NBU rate (fx-rates).
-              // BUD-17 a: «План» — the active goals' required contributions (goals), the saved payoff plans' extra
-              // payments (debt-payoff) and the expected regular incomes (recurring), at today's NBU rate (fx-rates).
-              planSources: createBudgetPlanSources({
-                goals: createGoalPlans(databases.for("goals"), goals),
-                debts: createDebtPlannedExpenses(
-                  databases.for("debt-payoff"),
-                  createCreditAccounts(databases.for("accounts")),
-                ),
-                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
-                // FR 1 «Надходження»: the month's expected regular incomes.
-                recurring: createRecurringMonth(databases.for("recurring"), recurring),
-                // #613: «План» off — «Бюджет» keeps the budget's own income plan.
-                planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
-              }),
-              // BUD-03 EC5: «Витратити з цілі» — a goal's spends leave «Можна витратити» (goals).
-              goalSpends: createGoalSpends(databases.for("goals")),
-              // FLW-38 (S-135): «Підсумок періоду» — a finished month's regular charges (recurring).
-              chargeHistory: createRecurringHistory(databases.for("recurring"), recurring),
-              // BUD-17 (owner decision 2026-11-20, batch 2, item 2): «План» off — its typed values act nowhere.
-              planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
-              obligations: createBudgetObligations({
-                recurring: createRecurringMonth(databases.for("recurring"), recurring),
-                credit: createCreditAccounts(databases.for("accounts")),
-                liabilities: createLiabilities(databases.for("liabilities"), audit),
-                payments: createAccountPayments(databases.for("transactions")),
-                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
-              }),
-            }),
+            budget: budgetServices,
             // BUD-08 a: «Грошовий потік» over the category tree, the accounts, the period's transactions with their
             // categories, the proposed transfers (left out) and the NBU rate of each date (fx-rates).
             cashflow: createCashflowServices({

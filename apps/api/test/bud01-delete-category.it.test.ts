@@ -40,11 +40,29 @@ let audit: AuditLog;
 let directory: CategoryDirectory;
 let app: ReturnType<typeof buildServer>;
 const off = new Set<string>();
-/** What the modules not built yet would answer: category ids their records (rules, limits, recurring) use. */
+/** What the module not wired here answers: category ids its records (regular payments) hold. */
 const elsewhere = new Set<string>();
 const standIn: CategoryUsage = {
-  module: "budget",
+  module: "recurring",
   used: async (_householdId, ids) => new Set(ids.filter((id) => elsewhere.has(id))),
+  holds: async (_householdId, id) => ({ recurringPayments: elsewhere.has(id) ? 1 : 0 }),
+};
+/** Module budget's port (its real one: bud01-delete-category-limit.it.test.ts): category ids with a limit. */
+const limited = new Set<string>();
+const released: string[] = [];
+const LIMIT = { limit: { amount: "30.00", currency: "EUR" }, stored: true, planCells: 0 };
+const NONE = { limit: null, stored: false, planCells: 0 };
+const budgetStandIn: CategoryUsage = {
+  module: "budget",
+  limits: {
+    held: async (_householdId, ids) => new Set(ids.filter((id) => limited.has(id))),
+    entries: async (_householdId, id) => (limited.has(id) ? LIMIT : NONE),
+    release: async (_caller, id) => {
+      released.push(id);
+      limited.delete(id);
+      return LIMIT;
+    },
+  },
 };
 
 interface Space {
@@ -202,7 +220,7 @@ beforeAll(async () => {
           audit,
           clock: { now: () => NOW },
           newId: randomUUID,
-          usage: [createTransactionCategoryUsage(db.databases.for("transactions")), standIn],
+          usage: [createTransactionCategoryUsage(db.databases.for("transactions")), standIn, budgetStandIn],
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -218,6 +236,8 @@ afterAll(async () => {
 beforeEach(() => {
   off.clear();
   elsewhere.clear();
+  limited.clear();
+  released.length = 0;
 });
 
 describe("BUD-01@PoC FR 12: an empty custom category is deleted", () => {
@@ -273,25 +293,79 @@ describe("BUD-01@PoC FR 12: an empty custom category is deleted", () => {
   });
 });
 
+describe("BUD-01@PoC FR 12: a category only its limit holds is deleted after confirmation", () => {
+  it("BUD-01@PoC FR 12: «Видалити» is offered; unconfirmed the request is refused naming the limit and nothing changes; with `confirmLimit=true` module budget removes the limit, then the category goes, and the audit entry names the limit", async () => {
+    const space = await newSpace();
+    const subs = await addCategory(space, "Абонементи");
+    limited.add(subs.id);
+    expect((await named(space, "Абонементи"))!.deletable).toBe(true);
+    const unconfirmed = await call(space, "DELETE", `/v1/categories/${subs.id}`);
+    expect(unconfirmed.statusCode, unconfirmed.body).toBe(409);
+    expect(unconfirmed.json()).toMatchObject({
+      code: "CATEGORY_LIMIT_CONFIRM",
+      categoryUsage: { transactions: 0, rules: 0, recurringPayments: 0, budget: LIMIT },
+    });
+    expect(released).toEqual([]);
+    expect(await named(space, "Абонементи")).toBeDefined();
+
+    const res = await call(space, "DELETE", `/v1/categories/${subs.id}?confirmLimit=true`);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(released).toEqual([subs.id]);
+    expect(await named(space, "Абонементи")).toBeUndefined();
+    const log = await audit.entriesFor(space.householdId, { type: "categories.category", id: subs.id });
+    expect(log.map((e) => e.action)).toEqual(["create", "delete"]);
+    expect(log[1]!.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "limit", before: "30.00 EUR", after: null }),
+        expect.objectContaining({ field: "planCells", before: "0", after: null }),
+      ]),
+    );
+  });
+
+  it("BUD-01@PoC FR 12: a category without a limit needs no confirmation; `confirmLimit=false` is the same as none", async () => {
+    const space = await newSpace();
+    const plain = await addCategory(space, "Синтетичні дрібниці");
+    const res = await call(space, "DELETE", `/v1/categories/${plain.id}?confirmLimit=false`);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(released).toEqual([]);
+  });
+});
+
 describe("BUD-01@PoC FR 12: a category in use is not deleted", () => {
-  it("BUD-01@PoC AC19: «Кава» with 40 transactions and a budget limit — no «Видалити»; the request is refused with «Категорію з транзакціями, правилами або лімітами не можна видалити — приховайте або об'єднайте її»; the category, transactions and limit are unchanged", async () => {
+  it("BUD-01@PoC AC19: «Кава» with 40 transactions and a budget limit — no «Видалити»; the reason is the 40 transactions (the limit is not named); the request is refused with the same reason and count; the category, transactions and limit are unchanged", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const coffee = await addCategory(space, "Кава");
     const groceries = (await named(space, "Продукти"))!.id;
     for (let i = 0; i < 40; i++) await splitInto(space, account, coffee.id, groceries);
-    // The limit is the budget's (BUD-02, not on `main`): its module answers that it uses the category.
-    elsewhere.add(coffee.id);
+    limited.add(coffee.id);
     expect((await named(space, "Кава"))!.deletable).toBe(false);
     expect((await call(space, "GET", `/v1/categories/${coffee.id}`)).json().deletable).toBe(false);
+    const reason = {
+      transactions: 40,
+      rules: 0,
+      recurringPayments: 0,
+      mergedCategories: 0,
+      budget: LIMIT,
+    };
+    expect((await call(space, "GET", `/v1/categories/${coffee.id}/usage`)).json()).toEqual({
+      ...reason,
+      deletable: false,
+    });
     const before = { categories: await snapshot(space.householdId), parts: await parts(space.householdId) };
 
-    const res = await call(space, "DELETE", `/v1/categories/${coffee.id}`);
-    expect(res.statusCode, res.body).toBe(409);
-    expect(res.json()).toMatchObject({
-      code: NOT_EMPTY,
-      title: "A category with transactions, rules or limits cannot be deleted — hide or merge it",
-    });
+    // Confirming the limit changes nothing: the transactions hold the category.
+    for (const url of [`/v1/categories/${coffee.id}`, `/v1/categories/${coffee.id}?confirmLimit=true`]) {
+      const res = await call(space, "DELETE", url);
+      expect(res.statusCode, res.body).toBe(409);
+      expect(res.json()).toMatchObject({
+        code: NOT_EMPTY,
+        title: "Transactions, category rules or regular payments hold this category — hide or merge it",
+        categoryUsage: reason,
+      });
+    }
+    expect(released).toEqual([]);
+    expect(limited.has(coffee.id)).toBe(true);
     expect(await snapshot(space.householdId)).toEqual(before.categories);
     expect(await parts(space.householdId)).toEqual(before.parts);
     expect(before.parts.filter((p: { category_id: string }) => p.category_id === coffee.id)).toHaveLength(40);
@@ -310,7 +384,7 @@ describe("BUD-01@PoC FR 12: a category in use is not deleted", () => {
     expect(merge.statusCode, merge.body).toBe(200);
   });
 
-  it.each(["the transactions' split parts", "a rule, a limit, a «План» cell or a recurring payment"])(
+  it.each(["the transactions' split parts", "a recurring payment"])(
     "BUD-01@PoC FR 12: a category used only by %s is not deleted",
     async (by) => {
       const space = await newSpace();

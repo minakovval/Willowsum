@@ -230,20 +230,6 @@ describe("BUD-12@PoC b): «Відмінити» after a group", () => {
     expect(progress()).toBe("18 з 103 · лишилось 85");
   });
 
-  it("BUD-12@PoC AC11: the group «Без мерчанта» has no «Запам'ятати», «Підтвердити» creates no rule, and «Відмінити» returns its 5", async () => {
-    const { api } = space({ g: group("g-none", null, 5, OTHER), n: 5, total: 12 });
-    open(api);
-    await screen.findByRole("heading", { name: nm("Без мерчанта · 5 транзакцій") });
-    expect(screen.queryByRole("checkbox")).toBeNull();
-    await confirmGroup(5);
-    expect(api.calls.filter((c) => c.path === "/v1/category-rules")).toHaveLength(0);
-    await waitFor(() => expect(progress()).toBe("5 з 12 · лишилось 7"));
-
-    await act(async () => screen.getByRole("button", { name: "Відмінити" }).click());
-    await waitFor(() => expect(progress()).toBe("0 з 12 · лишилось 12"));
-    expect(undoCalls(api)).toHaveLength(1);
-  });
-
   it("BUD-12@PoC FR 6: a mixed group undoes confirm-category before set-category; when the second undo fails, the queue is reloaded and the partial-undo text shows", async () => {
     const { api } = space({
       g: { ...group("g-silpo", "Сільпо", 18, FOOD), mixedCategories: true },

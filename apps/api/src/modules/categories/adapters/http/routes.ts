@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
-import { ApiProblem } from "../../../../platform/http/problem.ts";
+import { ApiProblem, categoryUsageSchema } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import {
   createCategory,
   createGroup,
@@ -11,8 +12,10 @@ import {
   mergeCategory,
   readTree,
   renameGroup,
-  transactionCount,
+  categoryUsage,
+  sweepBudgetEntries,
   updateCategory,
+  type CategoryUsageReport,
   type Result,
   type StoredCategory,
   type StoredGroup,
@@ -51,8 +54,9 @@ const categorySchema = z.object({
   /** FR 3: out of the budget plan; its transactions count in «Інше». */
   hidden: z.boolean(),
   /**
-   * FR 12: the menu offers «Видалити» — a custom category no transaction, split part, rule, recurring payment, limit
-   * or «План» cell uses; otherwise «Приховати» and «Об'єднати з іншою…» with the explanation.
+   * FR 12: the menu offers «Видалити» — a custom category no transaction, split part, category rule or regular payment
+   * holds (a limit and «План» cells do not: the delete confirms them, owner decision 2026-11-26); otherwise «Приховати»
+   * and «Об'єднати з іншою…» with the reasons of `GET /v1/categories/{categoryId}/usage`.
    */
   deletable: z.boolean(),
 });
@@ -117,11 +121,27 @@ function value<T>(result: Result<T>): T {
     case "system-fixed":
       throw new ApiProblem("CATEGORY_SYSTEM_FIXED");
     case "not-empty":
-      throw new ApiProblem("CATEGORY_NOT_EMPTY");
+      throw new ApiProblem(
+        "CATEGORY_NOT_EMPTY",
+        result.usage ? { extensions: { categoryUsage: presentUsage(result.usage) } } : {},
+      );
+    case "confirm-limit":
+      throw new ApiProblem("CATEGORY_LIMIT_CONFIRM", {
+        extensions: { categoryUsage: presentUsage(result.usage) },
+      });
     case "not-found":
       throw new ApiProblem("NOT_FOUND");
   }
 }
+
+/** FR 12: the reasons and the budget entries as the API serves them. */
+const presentUsage = (u: CategoryUsageReport): z.input<typeof categoryUsageSchema> => ({
+  transactions: u.transactions,
+  rules: u.rules,
+  recurringPayments: u.recurringPayments,
+  mergedCategories: u.mergedCategories,
+  budget: { limit: u.budget.limit, stored: u.budget.stored, planCells: u.budget.planCells },
+});
 
 type Usage = { readonly usage: ReturnType<typeof categoriesServices>["usage"] };
 
@@ -224,24 +244,29 @@ export const getCategoryUsageRoute = defineRoute({
   path: "/v1/categories/{categoryId}/usage",
   operationId: "getCategoryUsage",
   summary:
-    "«Видалити категорію…» (BUD-02 FR 23, BUD-01 FR 13): how many transactions of the space are in the category; another space's or one out of use is not found",
+    "«Видалити категорію…» (BUD-02 FR 23, BUD-01 FR 12, FR 13): what holds the category, each kind with its count, and the budget entries deleted with it; another space's or one out of use is not found",
   access: { permission: "household.data.read", feature: FEATURE },
   request: { params: categoryParams },
   response: {
     status: 200,
-    description: "The count «N транзакцій» of the delete dialog",
-    schema: z.object({
-      /** Existing transactions with the category (hidden ones too); a split one once, by its parts. */
-      transactions: z.number().int().min(0),
+    description:
+      "The exact reason of the delete dialog: «N транзакцій», category rules, regular payments, merged categories; the limit and «План» cells the delete removes; whether «Видалити» is offered",
+    schema: categoryUsageSchema.extend({
+      /** FR 12: a custom category nothing holds — «Видалити» (with a limit: after its confirmation). */
+      deletable: z.boolean(),
     }),
   },
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
     const householdId = ctx.principal.householdId;
     const { usage } = categoriesServices(ctx);
-    const row = await ctx.inHousehold((q) => categoriesTx(q).category(householdId, params.categoryId));
-    if (!row || row.state === "retired") throw new ApiProblem("NOT_FOUND");
-    return { transactions: await transactionCount(usage, householdId, row.id) };
+    return ctx.inHousehold(async (q) => {
+      const row = await categoriesTx(q).category(householdId, params.categoryId);
+      if (!row || row.state === "retired") throw new ApiProblem("NOT_FOUND");
+      const report = await categoryUsage(usage, categoriesTx(q), householdId, row.id);
+      const free = await deletable(q, { usage }, householdId, [row]);
+      return { ...presentUsage(report), deletable: free.has(row.id) };
+    });
   },
 });
 
@@ -392,20 +417,46 @@ export const deleteCategoryRoute = defineRoute({
   path: "/v1/categories/{categoryId}",
   operationId: "deleteCategory",
   summary:
-    "«Видалити» an empty custom category: it leaves the tree and its name is free again (FR 12); in use or system — refused",
+    "«Видалити» a custom category nothing holds: it leaves the tree and its name is free again (FR 12); with its limit and «План» cells only after `confirmLimit=true` (AC22); held or system — refused",
   access: { permission: "household.data.write", feature: FEATURE },
-  problems: ["CATEGORY_NOT_EMPTY", "CATEGORY_SYSTEM_FIXED"],
-  request: { params: categoryParams },
+  problems: ["CATEGORY_NOT_EMPTY", "CATEGORY_LIMIT_CONFIRM", "CATEGORY_SYSTEM_FIXED"],
+  request: {
+    params: categoryParams,
+    query: z.object({
+      confirmLimit: z.enum(["true", "false"]).optional().meta({
+        description:
+          "BUD-01 FR 12, AC22: the user confirmed that the category's limit and «План» cells are deleted with it; without it such a category is refused with CATEGORY_LIMIT_CONFIRM",
+      }),
+    }),
+  },
   response: {
     status: 200,
     description: "Deleted; the action is in the space's audit log",
     schema: z.object({ deleted: z.literal(true) }),
   },
-  handler: async ({ params }, ctx) => {
+  handler: async ({ params, query }, ctx) => {
     refuseScoped(ctx);
     await inTree(ctx, async (q, s) =>
-      value(await deleteCategory(s, s.usage, categoriesTx(q), caller(ctx), params.categoryId)),
+      value(
+        await deleteCategory(
+          s,
+          s.usage,
+          categoriesTx(q),
+          caller(ctx),
+          params.categoryId,
+          query.confirmLimit === "true",
+        ),
+      ),
     );
+    // The category is gone: an entry budget saved for it meanwhile goes too. A failure here fails no request.
+    try {
+      await sweepBudgetEntries(categoriesServices(ctx).usage, caller(ctx), params.categoryId);
+    } catch (error) {
+      logEvent("categories.budget_sweep_failed", "warn", {
+        "ws.module": "categories",
+        "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+      });
+    }
     return { deleted: true as const };
   },
 });
