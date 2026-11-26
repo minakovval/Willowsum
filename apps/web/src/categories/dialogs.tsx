@@ -4,7 +4,6 @@ import { useT } from "@willowsum/i18n";
 import {
   CATEGORY_ICON_NAMES,
   CategoryDisc,
-  ConfirmDialog,
   Dialog,
   Field,
   FormDialog,
@@ -466,54 +465,5 @@ function MergeForm({
         error={differ ? t("categories.merge.kindsDiffer") : undefined}
       />
     </Dialog>
-  );
-}
-
-/** «Видалити» of an empty custom category (FR 12, AC18): the confirmation, then the category leaves the tree. */
-export function DeleteDialog({
-  category,
-  onClose,
-  onDone,
-}: {
-  category: Category | null;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  if (!category) return null;
-  return <DeleteForm key={category.id} category={category} onClose={onClose} onDone={onDone} />;
-}
-
-function DeleteForm({
-  category,
-  onClose,
-  onDone,
-}: {
-  category: Category;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const t = useT();
-  const api = useAuthApi();
-  const { busy, failure, run } = useAction(onDone);
-  return (
-    <ConfirmDialog
-      open
-      onClose={onClose}
-      title={t("categories.delete.title", { name: category.name })}
-      text={t("categories.delete.text")}
-      closeLabel={t("shell.close")}
-      cancelLabel={t("categories.form.cancel")}
-      confirmLabel={t("categories.delete.confirm")}
-      busyLabel={t("categories.delete.busy")}
-      busy={busy}
-      error={failure ? <FailureText failure={failure} /> : undefined}
-      onConfirm={() =>
-        void run(() =>
-          outcome(
-            api.DELETE("/v1/categories/{categoryId}", { params: { path: { categoryId: category.id } } }),
-          ),
-        )
-      }
-    />
   );
 }

@@ -15,7 +15,8 @@ import {
   type Group,
   type Tree,
 } from "./api.ts";
-import { AppearanceDialog, DeleteDialog, MergeDialog, NameDialog, type NameTarget } from "./dialogs.tsx";
+import { DeleteCategoryDialog } from "./DeleteCategoryDialog.tsx";
+import { AppearanceDialog, MergeDialog, NameDialog, type NameTarget } from "./dialogs.tsx";
 import "./categories.css";
 
 /**
@@ -222,13 +223,14 @@ function CategoryTree({ tree, reload }: { tree: Tree; reload: () => void }) {
           reload();
         }}
       />
-      <DeleteDialog
+      <DeleteCategoryDialog
         category={open.kind === "delete" ? open.category : null}
         onClose={close}
         onDone={() => {
           close();
           reload();
         }}
+        onMerge={(c) => setOpen({ kind: "merge", category: c })}
       />
     </>
   );
@@ -432,6 +434,15 @@ function categoryMenu(
       label: t("categories.action.delete"),
       icon: "trash",
       danger: true,
+      onSelect: act.remove,
+    });
+  // A custom category that data holds: no «Видалити»; the reasons with their counts are one item away.
+  if (!c.deletable && c.systemKey === null)
+    items.push({
+      id: "why",
+      label: t("categories.action.why"),
+      icon: "info",
+      separator: true,
       onSelect: act.remove,
     });
   const note = c.systemKey === null && !c.deletable ? t("categories.notDeletable") : undefined;
