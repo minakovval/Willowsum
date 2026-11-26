@@ -44,6 +44,7 @@ export {
   EVENT_LIMITS,
   FLAG_SEVERITY,
   historyGap,
+  INSTITUTION_LIMITS,
   readingFits,
   SIGN_BASES,
 } from "./domain/index.ts";
@@ -59,8 +60,10 @@ export type {
   ControlCheck,
   DateOrderClarification,
   DeclaredFigures,
+  DetectedAccount,
   HistoryGap,
   HistoryStatus,
+  Institution,
   MismatchReason,
   RowSign,
   Severity,

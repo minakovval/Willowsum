@@ -767,7 +767,37 @@ const parseFileSchema = z.object({
   checks: z.looseObject({ currency: z.string().nullable(), flags: z.array(flagSchema) }).nullable(),
   history: z.looseObject({ status: z.enum(["continuous", "gap", "overlap", "unknown"]) }).nullable(),
   previousFileId: z.uuid().nullable(),
+  /**
+   * IMP-08 FR 2 (row 230): what the file says about its own account, for «Створити рахунок» — the bank as the
+   * directory names it (GET /v1/accounts/banks; absent when no directory bank matches exactly or after folding), the
+   * statement's one currency and the card or IBAN as «…» and its last 4 characters. Each part only when the file names
+   * it unambiguously; absent until the file is parsed (optional: the clients of the base contract keep compiling).
+   */
+  detected: z
+    .object({ bank: z.string().optional(), currency: z.string().optional(), mask: z.string().optional() })
+    .optional(),
 });
+
+/** Only the three facts, each a short text; anything else a stored check holds is dropped (masked values only). */
+function presentDetected(
+  checks: FileReview["checks"],
+): NonNullable<z.input<typeof parseFileSchema>["detected"]> {
+  const d = checks.detected ?? {};
+  const text = (v: unknown, max: number) => (typeof v === "string" && v.length <= max ? v : undefined);
+  const bank = text(d.bank, 300);
+  const currency = text(d.currency, 10);
+  const mask = typeof d.mask === "string" && /^…[A-Za-z0-9]{4}$/.test(d.mask) ? d.mask : undefined;
+  return {
+    ...(bank !== undefined ? { bank } : {}),
+    ...(currency !== undefined ? { currency } : {}),
+    ...(mask !== undefined ? { mask } : {}),
+  };
+}
+
+/** The checks without `detected`: it is its own field (`detected`). */
+function checksWithout(checks: FileReview["checks"]): unknown {
+  return Object.fromEntries(Object.entries(checks).filter(([key]) => key !== "detected"));
+}
 
 function presentParse(
   fileId: string,
@@ -786,9 +816,10 @@ function presentParse(
     accountId: p?.accountId ?? null,
     engineVersion: p?.engineVersion ?? "",
     rowCount: p?.rowCount ?? null,
-    checks: review ? (review.checks as unknown as z.input<typeof parseFileSchema>["checks"]) : null,
+    checks: review ? (checksWithout(review.checks) as z.input<typeof parseFileSchema>["checks"]) : null,
     history: review ? { ...review.history } : null,
     previousFileId: review?.previousFileId ?? null,
+    ...(review ? { detected: presentDetected(review.checks) } : {}),
   };
 }
 

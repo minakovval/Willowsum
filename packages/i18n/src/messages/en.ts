@@ -831,17 +831,7 @@ export const en: Messages = {
   "planning.budget.cat.unbudgeted.mark": "off budget",
   "planning.budget.cat.unbudget": "Remove from the budget",
   "planning.budget.cat.delete": "Delete category…",
-  "planning.budget.cat.delete.keep":
-    "This category cannot be deleted: it has transactions, rules or limits. Hide it or merge it into another: the transactions move to the chosen category.",
   "planning.budget.cat.error": "Could not change the budget. Try again",
-  "planning.budget.cat.delete.has.one":
-    "The category has {count} transaction — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
-  "planning.budget.cat.delete.has.few":
-    "The category has {count} transactions — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
-  "planning.budget.cat.delete.has.many":
-    "The category has {count} transactions — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
-  "planning.budget.cat.delete.has.other":
-    "The category has {count} transactions — it cannot be deleted. Hide it or merge it into another: the transactions move to the chosen category.",
   "planning.budget.limit.edit": "Change the limit",
   "planning.budget.limit.editOf": "Change the limit of «{name}»",
   "planning.budget.limit.set": "Set a limit",
@@ -2510,8 +2500,7 @@ export const en: Messages = {
   "categories.action.show": "Show",
   "categories.action.delete": "Delete",
   "categories.action.newInGroup": "New category in this group",
-  "categories.notDeletable":
-    "A category with transactions, rules or limits cannot be deleted — hide it or merge it",
+  "categories.notDeletable": "The category cannot be deleted: it is in use",
   "categories.badge.hidden": "hidden",
   "categories.badge.custom": "custom",
   "categories.badge.essential": "essential",
@@ -2550,6 +2539,29 @@ export const en: Messages = {
   "categories.delete.text": "The category leaves the tree and its name is free again.",
   "categories.delete.confirm": "Delete",
   "categories.delete.busy": "Deleting…",
+  "categories.action.why": "Why it cannot be deleted…",
+  "categories.delete.checking": "Checking what uses the category…",
+  "categories.delete.reasons": "The category cannot be deleted: it is in use",
+  "categories.delete.system": "This is a system category — it cannot be deleted.",
+  "categories.delete.advice": "Hide it or merge it with another.",
+  "categories.delete.reason.transactions.one": "{count} transaction",
+  "categories.delete.reason.transactions.few": "{count} transactions",
+  "categories.delete.reason.transactions.many": "{count} transactions",
+  "categories.delete.reason.transactions.other": "{count} transactions",
+  "categories.delete.reason.recurring.one": "{count} recurring payment",
+  "categories.delete.reason.recurring.few": "{count} recurring payments",
+  "categories.delete.reason.recurring.many": "{count} recurring payments",
+  "categories.delete.reason.recurring.other": "{count} recurring payments",
+  "categories.delete.reason.merged.one": "{count} merged category",
+  "categories.delete.reason.merged.few": "{count} merged categories",
+  "categories.delete.reason.merged.many": "{count} merged categories",
+  "categories.delete.reason.merged.other": "{count} merged categories",
+  "categories.delete.rulesNote":
+    "Category rules ({count}) refer to the category; they do not prevent deleting it.",
+  "categories.delete.rulesAttention":
+    "The category rules that refer to it ({count}) get the mark “Needs attention”.",
+  "categories.delete.limit": "The limit {amount} is deleted too.",
+  "categories.delete.entries": "The limit and the monthly values of “Plan” are deleted too.",
   // BUD-12@PoC b): S-058 «До розбору» (texts: canvas board PocMoneyReviewTexts).
   "review.progress.label": "Reviewed",
   "review.mode.label": "Show",
@@ -3051,6 +3063,9 @@ export const en: Messages = {
   "import.account.reason.currency": "currency",
   "import.account.reasonDetail": "{reason} {file} in the file, {account} in the account",
   "import.account.saveFailed": "Could not save the account choice.",
+  "import.account.missing": "There is no such account yet",
+  "import.account.create": "Create an account",
+  "import.account.created": "Account “{account}” created and chosen for the file",
   "import.template.match": "Template applied",
   "import.template.changed": "The format changed — review it",
   "import.template.banner":

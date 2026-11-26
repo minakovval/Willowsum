@@ -33,6 +33,21 @@ export interface ReviewCategories {
   categoriesOf(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
 }
 
+/**
+ * FIN-03@PoC FR 22 «Категорії» (BUD-01@PoC AC 20, BUD-02@PoC AC 19 «Показати транзакції»): module categorization's
+ * index of the transactions' own categories (wired in src/main.ts). `withCategories` gives the ids of the space's
+ * transactions whose own category is one of `categoryIds` — the exact categories, no others — at most `limit` ids
+ * (more rows than that: `limit` of them, so the caller sees the bound was reached). A row of a deleted or split
+ * transaction may be among them: the list's query decides what it shows.
+ */
+export interface CategoryTransactions {
+  withCategories(
+    householdId: string,
+    categoryIds: readonly string[],
+    limit: number,
+  ): Promise<readonly string[]>;
+}
+
 const BRAND = Symbol("willowsum-transactions-services");
 
 /**
@@ -53,6 +68,8 @@ export interface TransactionsServices {
    * card whose category was changed in another window is refused; null when it is not wired.
    */
   readonly categoryOf: ReviewCategories | null;
+  /** FIN-03 FR 22 «Категорії»: the transactions of a category (module categorization); null when it is not wired. */
+  readonly categoryTransactions: CategoryTransactions | null;
   /** The profile currency of the totals (EUR for every space in this release, ACC-06). */
   readonly reportingCurrency: string;
   /** «Історія змін» (FIN-03 FR 27): the audit log's entries of one entity; null when the log given cannot read. */
@@ -86,6 +103,8 @@ export function createTransactionsServices(options: {
   readonly duplicates?: DuplicateCheck;
   /** BUD-12 FR 7: the category each transaction has (module categorization), for the card's version check. */
   readonly categoryOf?: ReviewCategories;
+  /** FIN-03 FR 22: the transactions of a category (module categorization); without it the filter answers 500. */
+  readonly categoryTransactions?: CategoryTransactions;
 }): TransactionsServices {
   const deps: TransactionsDeps = {
     accounts: options.accounts,
@@ -107,6 +126,7 @@ export function createTransactionsServices(options: {
     transfers: options.rates ? { ...deps, rates: options.rates } : null,
     totals: options.totals,
     categoryOf: options.categoryOf ?? null,
+    categoryTransactions: options.categoryTransactions ?? null,
     reportingCurrency: REPORTING_CURRENCY,
     history: options.audit.entriesFor ? { entriesFor: options.audit.entriesFor.bind(options.audit) } : null,
     oneOffEnabled: (householdId) =>

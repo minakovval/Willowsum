@@ -7,7 +7,7 @@ export {
 } from "./bulk/transactions.ts";
 export { eraseHouseholdCategorization } from "./db/erasure.ts";
 export { ruleCount, rulesTx } from "./db/rules.ts";
-export { categorizationTx } from "./db/store.ts";
+export { categorizationTx, transactionsWithCategories } from "./db/store.ts";
 export { categorizationRoutes } from "./http/routes.ts";
 export {
   categorizationAudit,

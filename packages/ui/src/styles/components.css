@@ -1795,10 +1795,13 @@
   line-height: var(--ws-text-heading-2-line);
   font-weight: var(--ws-text-heading-2-weight);
   letter-spacing: var(--ws-text-heading-2-tracking);
+  /* A name with no spaces (a category of 60 characters) wraps inside the dialog instead of crossing its edge. */
+  overflow-wrap: anywhere;
 }
 
 .ws-dialog-text {
   margin: 0;
+  overflow-wrap: anywhere;
   color: var(--ws-ink-muted);
   font-family: var(--ws-font-sans);
   font-size: var(--ws-text-action-size);
