@@ -437,7 +437,7 @@ describe("CMP-21@PoC FormDialog", () => {
     );
   });
 
-  it("CMP-21@PoC AC24: on steps 2 and 3 the bar has «Скасувати», «Назад» and the main action (step 2 also «Далі»); «Скасувати» closes without changes", () => {
+  it("CMP-21@PoC AC24: on steps 2 and 3 the bar has «Скасувати», «Назад» and the main action (step 2 also «Далі»); «Скасувати» does not save", () => {
     const close = vi.fn();
     const submit = vi.fn();
     render(<GoalForm onClose={close} onSubmit={submit} />);
@@ -447,8 +447,72 @@ describe("CMP-21@PoC FormDialog", () => {
     act(() => button("Далі").click());
     expect(barLabels()).toEqual(["Скасувати", "Назад", "Додати ціль"]);
     act(() => button("Скасувати").click());
-    expect(close).toHaveBeenCalledTimes(1);
     expect(submit).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("CMP-21@PoC AC24, CMP-21@PoC AC27 and CMP-21@PoC FR27: «Скасувати» with unsaved changes asks «Зберегти зміни?» in the same dialog (one dialog, three buttons) instead of closing", () => {
+    const close = vi.fn();
+    const submit = vi.fn();
+    render(<GoalForm onClose={close} onSubmit={submit} />);
+    fillStep1();
+    act(() => button("Далі").click());
+    act(() => button("Далі").click());
+    act(() => button("Скасувати").click());
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
+    expect(document.querySelectorAll("dialog")).toHaveLength(1);
+    expect(
+      within(screen.getByRole("alertdialog")).getByRole("heading", { name: "Зберегти зміни?" }),
+    ).toBeTruthy();
+    expect(barLabels()).toEqual(["Редагувати далі", "Не зберігати", "Зберегти"]);
+    expect(screen.queryByRole("button", { name: "Закрити" })).toBeNull();
+    // «Редагувати далі» returns to the form on the same step with the typed values.
+    act(() => screen.getByRole("button", { name: "Редагувати далі" }).click());
+    expect(screen.getByRole("dialog", { name: "Нова ціль" })).toBeTruthy();
+    expect(barLabels()).toEqual(["Скасувати", "Назад", "Додати ціль"]);
+    act(() => button("Назад").click());
+    act(() => button("Назад").click());
+    expect(input("Назва").value).toBe("Відпустка");
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("CMP-21@PoC AC27 and CMP-21@PoC FR27: «Не зберігати» closes without saving; «Зберегти» saves; ✕ and Esc ask the same question", () => {
+    const close = vi.fn();
+    const submit = vi.fn();
+    render(<GoalForm onClose={close} onSubmit={submit} />);
+    fillStep1();
+    act(() => button("Закрити").click());
+    expect(screen.getByRole("alertdialog", { name: "Зберегти зміни?" })).toBeTruthy();
+    // Esc on the question goes back to the form, as «Редагувати далі».
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "Нова ціль" })).toBeTruthy();
+    fireEvent.keyDown(dialog(), { key: "Escape" });
+    expect(screen.getByRole("alertdialog", { name: "Зберегти зміни?" })).toBeTruthy();
+    act(() => screen.getByRole("button", { name: "Зберегти" }).click());
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    act(() => screen.getByRole("button", { name: "Не зберігати" }).click());
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("CMP-21@PoC AC27 and CMP-21@PoC FR27: a form without changes closes at once; so does one whose values were put back; «Зберегти» is inactive while a required field is empty", () => {
+    const close = vi.fn();
+    render(<GoalForm onClose={close} />);
+    act(() => button("Скасувати").click());
+    expect(close).toHaveBeenCalledTimes(1);
+    cleanup();
+    const again = vi.fn();
+    render(<GoalForm onClose={again} />);
+    type("Назва", "Відпустка");
+    type("Назва", "");
+    act(() => button("Закрити").click());
+    expect(again).toHaveBeenCalledTimes(1);
+    cleanup();
+    render(<GoalForm />);
+    type("Назва", "Відпустка");
+    act(() => button("Скасувати").click());
+    expect(screen.getByRole("button", { name: "Зберегти" }).getAttribute("aria-disabled")).toBe("true");
   });
 
   it("CMP-21@PoC AC1: focus starts on the first field of step 1 and moves to the first field of each new step", () => {

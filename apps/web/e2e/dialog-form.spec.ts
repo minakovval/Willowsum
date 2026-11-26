@@ -73,8 +73,12 @@ test("CMP-21@PoC AC22: a group that would make a 700 px step is split into two s
     expect(shown.scrolls).toBe(false);
   }
 
-  // A form without steps with «Додатково» open fits as well.
+  // A form without steps with «Додатково» open fits as well. The typed values make Esc ask «Зберегти зміни?» (AC24).
   await page.keyboard.press("Escape");
+  await page
+    .getByRole("alertdialog", { name: "Зберегти зміни?" })
+    .getByRole("button", { name: "Не зберігати" })
+    .click();
   await expect(page.locator("dialog.ws-dialog[open]")).toHaveCount(0);
   await openCase(page, "short");
   const rule = page.getByRole("dialog", { name: "Правило категорії" });
@@ -84,4 +88,31 @@ test("CMP-21@PoC AC22: a group that would make a 700 px step is split into two s
   const opened = await box(page);
   expect(opened.height).toBeLessThanOrEqual(m.limit);
   expect(opened.scrolls).toBe(false);
+});
+
+test("CMP-21@PoC AC24 and CMP-21@PoC AC27: closing «Нова ціль» with typed values asks «Зберегти зміни?» in the same dialog; «Редагувати далі» keeps the values; a form left empty closes at once", async ({
+  page,
+}) => {
+  await openCase(page, "form");
+  const goal = page.getByRole("dialog", { name: "Нова ціль" });
+  await goal.getByRole("button", { name: "Скасувати" }).click();
+  await expect(page.locator("dialog.ws-dialog[open]")).toHaveCount(0);
+
+  await openCase(page, "form");
+  const form = page.getByRole("dialog", { name: "Нова ціль" });
+  await form.getByLabel(/^Назва/).fill("Відпустка");
+  const before = await box(page);
+  await page.keyboard.press("Escape");
+  const question = page.getByRole("alertdialog", { name: "Зберегти зміни?" });
+  await expect(question).toBeVisible();
+  await expect(page.locator("dialog.ws-dialog[open]")).toHaveCount(1);
+  const buttons = question.locator(".ws-dialog-action");
+  await expect(buttons).toHaveText(["Редагувати далі", "Не зберігати", "Зберегти"]);
+  const sizes = await buttons.evaluateAll((all) =>
+    all.map((b) => Math.round(b.getBoundingClientRect().width)),
+  );
+  expect(new Set(sizes).size).toBe(1);
+  expect((await box(page)).height).toBeLessThanOrEqual(Math.max(before.height, 0) + 1);
+  await question.getByRole("button", { name: "Редагувати далі" }).click();
+  await expect(page.getByRole("dialog", { name: "Нова ціль" }).getByLabel(/^Назва/)).toHaveValue("Відпустка");
 });
