@@ -151,7 +151,19 @@ function chainOrder(links: readonly Link[]): Link[] {
         rest.findIndex((l) => !ledTo(l)),
       );
     }
-    const path = dayPath(rest, byBefore, reached ?? before(rest[start]!));
+    // A walk through every link starts where one more link leaves than arrives (out − in = 1); with none (every
+    // balance balanced, a cycle) it may start anywhere, here at the row chosen above.
+    let from = reached;
+    if (from === null) {
+      const surplus = new Map<string, number>();
+      for (const l of rest) {
+        surplus.set(key(before(l)), (surplus.get(key(before(l))) ?? 0) + 1);
+        surplus.set(key(l.balance), (surplus.get(key(l.balance)) ?? 0) - 1);
+      }
+      const first = rest.find((l) => surplus.get(key(before(l))) === 1);
+      from = first ? before(first) : before(rest[start]!);
+    }
+    const path = dayPath(rest, byBefore, from);
     if (path) {
       for (const k of path) ordered.push(rest[k]!);
       continue;

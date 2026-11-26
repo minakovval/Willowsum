@@ -65,6 +65,22 @@ describe("IMP-05@PoC FR 1: rows of one day are ordered as a path through their b
     }
   });
 
+  it("IMP-05@PoC FR 1: the first day of a longer file, printed B first — the walk starts where one more row leaves than arrives", () => {
+    const next: Row = ["17.11.2026", "Кава Тест", "-10.00", "", "60.00"];
+    for (const day of [
+      [B, A, C],
+      [B, C, A],
+    ])
+      for (const newestFirst of [false, true]) {
+        const p = parse([...day, next], newestFirst);
+        expect(chain(p).status, `${day.map((r) => r[1]).join(", ")} newest first ${newestFirst}`).toBe(
+          "verified",
+        );
+        expect(p.checks.bounds.opening).toBe("100.00");
+        expect(p.checks.bounds.closing).toBe("60.00");
+      }
+  });
+
   it("IMP-05@PoC FR 1: a day with a real break still reports «розбіжність»", () => {
     const broken: Row = ["16.11.2026", "Покупка Тест", "-50.00", "", "101.00"];
     for (const newestFirst of [false, true]) {
@@ -120,7 +136,14 @@ describe("IMP-02@PoC FR 5: a purchase, its refund and another operation of one m
 
   it("IMP-02@PoC FR 5: the same moment with a real break — the chain is «розбіжність» and the basis is not guessed", () => {
     const refund: Row = ["16.11.2026", "Повернення Тест", "200.00", "", "1001.00"];
-    const p = parse([OPEN, COFFEE, PURCHASE, refund]);
-    expect(chain(p).status).toBe("mismatch");
+    for (const newestFirst of [false, true]) {
+      const p = parse([OPEN, COFFEE, PURCHASE, refund], newestFirst);
+      expect(chain(p).status).toBe("mismatch");
+      // Neither reading of the fee verifies and the fee row sits on no unbroken link: flagged, never guessed.
+      const purchase = p.events.events.find((e) => e.description === "Покупка Тест")!;
+      expect(purchase.fee).toEqual({ amount: "1.00", currency: "UAH" });
+      expect(purchase.flags).toContain("fee-basis-unknown");
+      expect(purchase.feeIncluded).toBeUndefined();
+    }
   });
 });
