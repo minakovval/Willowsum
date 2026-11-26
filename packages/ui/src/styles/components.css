@@ -3054,6 +3054,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 
 .ws-filter-rows {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--ws-space-3);
   padding-block: var(--ws-space-2);
 }

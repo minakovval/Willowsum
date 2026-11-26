@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
-import { categoryCondition, ownCategoryTransactions, takeCategoryFilters } from "./category-filter.ts";
+import {
+  CATEGORY_FILTER_MAX,
+  categoryCondition,
+  ownCategoryTransactions,
+  takeCategoryFilters,
+} from "./category-filter.ts";
 
 const A = "6f1c1c2e-8b0a-4c47-9a4e-0f6a1d2b3c4d";
 const B = "0b7e5a3c-1d2f-4e6a-8b9c-7d8e9f0a1b2c";
@@ -24,7 +29,42 @@ describe("FIN-03@PoC FR 22 «Категорії»: the category filters of the l
       "hidden.eq:false",
     ]);
     expect(taken.rest).toEqual([`accountId.eq:${A}`, "hidden.eq:false"]);
-    expect(taken.categories).toEqual([[A], [A, B]]);
+    // Each set in id order (B sorts before A), so the same set written another way is the same set.
+    expect(taken.categories).toEqual([[A], [B, A]]);
+  });
+
+  it("FIN-03@PoC FR 22 (security review of #714): a category filter repeated, or the same set in another order or case, is read once; repeated ids in one filter count once", () => {
+    const taken = takeCategoryFilters([
+      ...Array.from({ length: 30 }, () => `category.eq:${A}`),
+      `category.in:${A},${B}`,
+      `category.in:${B},${A.toUpperCase()},${B}`,
+      `category.in:${A},${A}`,
+    ]);
+    expect(taken.rest).toEqual([]);
+    expect(taken.categories).toEqual([[A], [B, A]]);
+  });
+
+  it("FIN-03@PoC FR 22 (security review of #714): the bound is the request's — two filters of 15 000 each are 422, each source is asked only for what is left", async () => {
+    const asked: number[] = [];
+    const port = {
+      withCategories: async (_h: string, _ids: readonly string[], limit: number) => {
+        asked.push(limit);
+        return Array.from({ length: Math.min(15_000, limit) }, () => A);
+      },
+    };
+    const refused = await ownCategoryTransactions(port, A, [[A], [B]]).catch((e: unknown) => e);
+    expect(refused).toMatchObject({ code: "LIMIT_REACHED" });
+    expect(asked).toEqual([CATEGORY_FILTER_MAX + 1, CATEGORY_FILTER_MAX + 1 - 15_000]);
+    const sent: unknown[] = [];
+    const q = {
+      query: async (_text: string, values: readonly unknown[]) => {
+        sent.push(values[2]);
+        return { rows: Array.from({ length: Math.min(15_000, Number(values[2])) }, () => ({ id: B })) };
+      },
+    } as never;
+    const parts = await categoryCondition(q, A, [[A], [B]], [[], []]).catch((e: unknown) => e);
+    expect(parts).toMatchObject({ code: "LIMIT_REACHED" });
+    expect(sent).toEqual([CATEGORY_FILTER_MAX + 1, CATEGORY_FILTER_MAX + 1 - 15_000]);
   });
 
   it("FIN-03@PoC FR 22: a value that is not an id is invalid_value; another operator is unknown_filter; more than 50 values is 422", () => {

@@ -304,6 +304,44 @@ describe("FIN-03@PoC FR 22 «Категорії»: the filter of the list «Тр
     ]);
   });
 
+  it("FIN-03@PoC FR 22: the category filter with sort, paging and «Стан: приховані» — the pages split the same set, the count and totals cover all of it, hidden ones only on request", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const coffee = await addCategory(space, "Кава");
+    // 27 purchases of 1.00 … 27.00 € in «Кава», one more in «Продукти».
+    const byCents: string[] = [];
+    for (let i = 1; i <= 27; i++) byCents.push(await bought(space, account, coffee.id, `-${i}.00`));
+    await bought(space, account, (await category(space, "Продукти")).id, "-100.00");
+    // Hidden as a «Можливий дубль» would be (FIN-03 FR 18), set directly: the list's rule is what is under test.
+    const hidden = byCents[26]!;
+    await db.owner.query(
+      `UPDATE transactions.transactions SET hidden = true WHERE household_id = $1 AND id = $2`,
+      [space.householdId, hidden],
+    );
+    const page = (n: number, extra: string[] = []) =>
+      call(
+        space,
+        "GET",
+        `/v1/transactions?pageSize=25&page=${n}&sort=-amount&` +
+          [`category.eq:${coffee.id}`, ...extra].map((f) => `filter=${encodeURIComponent(f)}`).join("&"),
+      );
+    const itemIds = (res: { json(): { items: { id: string }[] } }) => res.json().items.map((i) => i.id);
+    const first = await page(1);
+    expect(first.statusCode, first.body).toBe(200);
+    // Descending by amount: −1.00 first; the hidden −27.00 and the other category are not there.
+    expect(itemIds(first)).toEqual(byCents.slice(0, 25));
+    expect(first.json()).toMatchObject({ count: 26, from: 1, to: 25 });
+    // 1 + 2 + … + 26 = 351: the totals cover every matching row, not the page.
+    expect(first.json().summary.expense.total).toEqual({ amount: "-351", currency: "EUR" });
+    const second = await page(2);
+    expect(itemIds(second)).toEqual([byCents[25]]);
+    expect(second.json()).toMatchObject({ count: 26, from: 26, to: 26 });
+    expect(second.json().summary).toEqual(first.json().summary);
+    const onlyHidden = await page(1, ["hidden.eq:true"]);
+    expect(itemIds(onlyHidden)).toEqual([hidden]);
+    expect(onlyHidden.json().count).toBe(1);
+  });
+
   it("FIN-03@PoC FR 22: a malformed category filter is 400 without echoing it; an unknown operator is an unknown filter", async () => {
     const space = await newSpace();
     const bad = await list(space, ["category.eq:Синтетична-не-ідентифікатор"]);

@@ -951,10 +951,46 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     expect([...dialog.querySelectorAll("li")].map((li) => plain(li.textContent))).toEqual(["12 транзакцій"]);
     expect(plain(dialog.textContent)).toContain("Приховайте її або об’єднайте з іншою.");
     expect(plain(dialog.textContent)).not.toMatch(/Ліміт|150/);
+    // BUD-02 AC19: «Показати транзакції» opens the list filtered by this category.
+    expect(within(dialog).getByRole("link", { name: "Показати транзакції" }).getAttribute("href")).toBe(
+      `#/money/transactions?category=${TRANSPORT.id}`,
+    );
     expect(within(dialog).getByRole("button", { name: "Приховати" })).toBeTruthy();
     expect(within(dialog).getByRole("button", { name: "Об’єднати з іншою…" })).toBeTruthy();
     expect(within(dialog).queryByRole("button", { name: "Видалити" })).toBeNull();
     expect(api.calls.some((c) => c.path === `/v1/categories/${TRANSPORT.id}/usage`)).toBe(true);
+  });
+
+  it("BUD-01@PoC AC20: «Транспорт» with 40 transactions — the dialog has the reason, «Показати транзакції» to the list of the category, and «Об’єднати з іншою…»; a category without transactions has no link", async () => {
+    open({
+      [`GET /v1/categories/${TRANSPORT.id}/usage`]: usage({ transactions: 40 }),
+      [`GET /v1/categories/${SALARY.id}/usage`]: usage({ recurringPayments: 1 }),
+    });
+    await screen.findByRole("table");
+    const dialog = await askDelete("Транспорт");
+    const link = await within(dialog).findByRole("link", { name: "Показати транзакції" });
+    expect(link.getAttribute("href")).toBe(`#/money/transactions?category=${TRANSPORT.id}`);
+    expect(plain(dialog.textContent)).toContain("40 транзакцій");
+    expect(within(dialog).getByRole("button", { name: "Об’єднати з іншою…" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+  });
+
+  it("BUD-01@PoC AC19: when the usage cannot be read again after the server said it changed, the dialog shows an error and does not ask the same question again", async () => {
+    let reads = 0;
+    open({
+      [`GET /v1/categories/${PRODUCTS.id}/usage`]: () => {
+        reads += 1;
+        return reads === 1 ? usage({ deletable: true }) : problem(503, "MODULE_UNAVAILABLE");
+      },
+      [`DELETE /v1/categories/${PRODUCTS.id}`]: problem(409, "CATEGORY_NOT_EMPTY"),
+    });
+    await screen.findByRole("table");
+    const dialog = await askDelete("Продукти");
+    await waitFor(() => within(dialog).getByRole("button", { name: "Видалити" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Видалити" }));
+    await waitFor(() => expect(plain(dialog.textContent)).toContain("Помилка"));
+    expect(within(dialog).queryByRole("button", { name: "Видалити" })).toBeNull();
+    expect(reads).toBe(2);
   });
 
   it("BUD-01@PoC AC23: the reasons are the regular payments and merged categories, each with its count in the form of the language; a category rule is named but is no reason", async () => {

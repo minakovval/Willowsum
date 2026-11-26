@@ -16,8 +16,9 @@ import type { CategoryTransactions } from "./services.ts";
  * is not split by its own category (module categorization, through its port — no SQL across modules), a split one by
  * its parts (this module's `transaction_parts`), whatever its own category was before the split.
  *
- * Bounded (NFR-15 FR 17): at most `CATEGORY_FILTER_MAX` transactions per category filter, from each of the two sources;
- * a category with more is 422 LIMIT_REACHED, never a partial list.
+ * Bounded (NFR-15 FR 17; security review of #714): at most `CATEGORY_FILTER_MAX` ids per request from each of the two
+ * sources, all category filters of the request together (a filter repeated is read once); more is 422 LIMIT_REACHED,
+ * never a partial list.
  */
 export const CATEGORY_FILTER_MAX = 20_000;
 
@@ -48,7 +49,9 @@ export function takeCategoryFilters(filter: readonly string[]): {
     const values = op === "in" ? text.split(",") : [text];
     requireWithinLimit(values.length, TECHNICAL_LIMITS.filtersPerRequest);
     if (!values.every((v) => categoryId.safeParse(v).success)) invalid("invalid_value");
-    categories.push([...new Set(values.map((v) => v.toLowerCase()))]);
+    // The same set twice adds nothing to an AND: read it once.
+    const set = [...new Set(values.map((v) => v.toLowerCase()))].sort();
+    if (!categories.some((c) => c.join() === set.join())) categories.push(set);
   }
   return { rest, categories };
 }
@@ -65,9 +68,12 @@ export async function ownCategoryTransactions(
   if (categories.length === 0) return [];
   if (port === null) throw new ApiProblem("INTERNAL");
   const own: (readonly string[])[] = [];
+  // The bound is the request's, not each filter's: all category filters together carry at most that many ids.
+  let total = 0;
   for (const ids of categories) {
-    const found = await port.withCategories(householdId, ids, CATEGORY_FILTER_MAX + 1);
-    requireWithinLimit(found.length, CATEGORY_FILTER_MAX);
+    const found = await port.withCategories(householdId, ids, CATEGORY_FILTER_MAX + 1 - total);
+    total += found.length;
+    requireWithinLimit(total, CATEGORY_FILTER_MAX);
     own.push(found);
   }
   return own;
@@ -85,9 +91,11 @@ export async function categoryCondition(
 ): Promise<ListCondition | null> {
   if (categories.length === 0) return null;
   const sets: { own: readonly string[]; split: readonly string[] }[] = [];
+  let total = 0;
   for (const [i, ids] of categories.entries()) {
-    const split = await splitTransactionsIn(q, householdId, ids, CATEGORY_FILTER_MAX + 1);
-    requireWithinLimit(split.length, CATEGORY_FILTER_MAX);
+    const split = await splitTransactionsIn(q, householdId, ids, CATEGORY_FILTER_MAX + 1 - total);
+    total += split.length;
+    requireWithinLimit(total, CATEGORY_FILTER_MAX);
     sets.push({ own: own[i] ?? [], split });
   }
   return (firstParam) => ({
