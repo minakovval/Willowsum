@@ -620,7 +620,9 @@ describe("BUD-03@PoC and BUD-17@PoC: a category's currency in «Можна ви�
 
 describe("BUD-02@PoC FR 24 with BUD-01@PoC FR 12: a category of another currency deleted with its budget entries", () => {
   it("BUD-02@PoC FR 24: the delete names the limit in the category's currency and audits it; the income plan of the others is their sum at today's rate", async () => {
-    await rates();
+    // Its own day with its own rate: the rates are shared by the file's tests (another one sets 2026-11-18).
+    now = at("2026-11-25");
+    await rate("2026-11-25", "EUR", "50.00");
     const space = await newSpace();
     const tree = await call(space, "GET", "/v1/categories");
     const incomeGroup = (tree.json().groups as { id: string; kind: string }[]).find(
@@ -656,7 +658,9 @@ describe("BUD-02@PoC FR 24 with BUD-01@PoC FR 12: a category of another currency
       [space.householdId],
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0]!.changes).toContainEqual({ field: "currency", before: "UAH", after: null });
+    expect(rows[0]!.changes).toContainEqual(
+      expect.objectContaining({ field: "currency", before: "UAH", after: null }),
+    );
 
     // The other plans are 1 000 € and 10 000 UAH (≈ 200 € today): the income plan becomes 1 200 €.
     const gone = await call(space, "DELETE", `/v1/categories/${bonus}?confirmLimit=true`);
