@@ -146,8 +146,13 @@ export function maskedChecks(checks: StatementChecks): StatementChecks {
     ...(checks.detected
       ? {
           detected: {
-            ...(checks.detected.bank !== undefined ? { bank: checks.detected.bank } : {}),
-            ...(checks.detected.currency !== undefined && /^[A-Z0-9]{3,10}$/.test(checks.detected.currency)
+            // A directory name (at most a few digits, «БАНК 3/4»); a value with more digits is not kept (a card or an IBAN).
+            ...(checks.detected.bank !== undefined &&
+            checks.detected.bank.length <= 300 &&
+            (checks.detected.bank.match(/\p{Nd}/gu)?.length ?? 0) <= 4
+              ? { bank: checks.detected.bank }
+              : {}),
+            ...(checks.detected.currency !== undefined && /^[A-Z]{3,10}$/.test(checks.detected.currency)
               ? { currency: checks.detected.currency }
               : {}),
             ...(checks.detected.mask !== undefined ? { mask: masked(checks.detected.mask) } : {}),

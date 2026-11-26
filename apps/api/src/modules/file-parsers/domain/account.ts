@@ -56,6 +56,12 @@ function maskedIn(cell: string): string[] {
   return found;
 }
 
+/**
+ * A Latin «x» right after another letter is part of a word («Box 2024», «Fax 044…», «Index 01001»), never a mask mark:
+ * it is replaced before the cell is compacted, so a postal box or a phone number is not read as a masked card (#711).
+ */
+const withoutWordX = (cell: string): string => cell.normalize("NFKC").replace(/(?<=[^\P{L}xX])[xX]/gu, "_");
+
 const compact = (text: string): string =>
   text
     .normalize("NFKC")
@@ -154,6 +160,7 @@ export function maskedMismatch(
 export const hasCardMask = (preamble: readonly (readonly string[])[]): boolean =>
   preamble
     .flat()
+    .map(withoutWordX)
     .map(compact)
     .some((cell) => maskedIn(cell).length > 0);
 
@@ -169,7 +176,7 @@ export function detectedMask(preamble: readonly (readonly string[])[]): string |
     const last4 = new Set(found.map(maskLast4));
     return last4.size === 1 ? [...last4][0]! : null;
   };
-  const cards = cells.map(compact).flatMap(maskedIn);
+  const cards = cells.map(withoutWordX).map(compact).flatMap(maskedIn);
   if (cards.length > 0) return one(cards);
   return one(cells.flatMap(ibans));
 }

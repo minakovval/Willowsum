@@ -375,11 +375,24 @@ export async function runParse(
       id: accountId,
       currency: account && account.currencies.length === 1 ? account.currencies[0]! : null,
     },
-    checks: parsed.checks,
+    checks: withDirectoryBank(parsed.checks, institutions),
   });
   handOffs.push(...recorded.handOffs);
   handOffs.push(...(await finishBatch(deps, tx, job.batchId, parse.requestedBy)));
   return handOffs;
+}
+
+/** The worker's answer is not trusted: a detected bank is kept only when it is a name of the directory it was given. */
+function withDirectoryBank(checks: StatementChecks, institutions: readonly Institution[]): StatementChecks {
+  const bank = checks.detected?.bank;
+  if (bank === undefined || institutions.some((i) => i.name === bank)) return checks;
+  return {
+    ...checks,
+    detected: {
+      ...(checks.detected?.currency !== undefined ? { currency: checks.detected.currency } : {}),
+      ...(checks.detected?.mask !== undefined ? { mask: checks.detected.mask } : {}),
+    },
+  };
 }
 
 function withRecipe(

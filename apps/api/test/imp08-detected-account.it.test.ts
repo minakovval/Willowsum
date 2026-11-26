@@ -20,6 +20,7 @@ import {
 } from "../src/modules/import-sessions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * IMP-08@PoC FR 2, server part (plan row 230): `GET /v1/import/batches/{id}/parse` gives each parsed file
@@ -261,9 +262,9 @@ describe("IMP-08@PoC FR 2 (server part): the parse gives each file what it says 
     expect(plain!.detected).toEqual({});
     // Only the masked form leaves the API: no full IBAN and no visible card digits but the last 4; `detected` is
     // its own field, not repeated in the checks.
-    expect(res.body).not.toContain(IBAN);
-    expect(res.body).not.toContain(IBAN.slice(2, 12));
-    expect(res.body).not.toContain("537541");
+    expect(leakText(res.body)).not.toContain(IBAN);
+    expect(leakText(res.body)).not.toContain(IBAN.slice(2, 12));
+    expect(leakText(res.body)).not.toContain("537541");
     expect(mono!.checks).not.toHaveProperty("detected");
     // Stored masked too.
     const { rows } = await db.owner.query<{ checks: string }>(
@@ -285,7 +286,7 @@ describe("IMP-08@PoC FR 2 (server part): the parse gives each file what it says 
     await work(owner.householdId);
     const res = await view(stranger, batch.batchId);
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain("…1234");
+    expect(leakText(res.body)).not.toContain("…1234");
     expect((await view(owner, batch.batchId)).json().files[0].detected.mask).toBe("…1234");
   });
 });

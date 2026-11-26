@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Institution, StatementOptions } from "../domain/index.ts";
+import { detectedMask, type Institution, type StatementOptions } from "../domain/index.ts";
 import { parseStatement } from "./parse-statement.ts";
 
 /**
@@ -109,5 +109,22 @@ describe("IMP-08@PoC FR 2 (server part): the statement's own account facts for �
     // «ПУМБ» inside another word is not the bank.
     const p = parse(["ТОВ ПУМБАЛЕТ", ...ROWS], { institutions: BANKS });
     expect(p.checks.detected?.bank).toBeUndefined();
+  });
+
+  it("IMP-08@PoC FR 2: a Latin «x» inside a word («Box 2024», «Fax 044 …», «Index 01001») is not a masked card — the IBAN is the mask", () => {
+    for (const cell of ["Box 2024", "Fax 044 123 4567", "Index 01001"]) {
+      const p = parse([
+        `IBAN;${IBAN}`,
+        `Адреса;${cell}`,
+        "Дата;Сума;Валюта;Опис",
+        "01.03.2026;-1,00;EUR;Кава",
+        "02.03.2026;-2,00;EUR;Чай",
+      ]);
+      expect(p.checks.detected?.mask, cell).toBe("…5678");
+    }
+    // Marks written as x stay marks.
+    expect(detectedMask([["Card", "xxxx xxxx xxxx 4321"]])).toBe("…4321");
+    expect(detectedMask([["Картка", "XXXX 4321"]])).toBe("…4321");
+    expect(detectedMask([["Box 2024"]])).toBeNull();
   });
 });
