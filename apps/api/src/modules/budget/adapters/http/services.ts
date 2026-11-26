@@ -8,6 +8,7 @@ import type { AuditLog } from "../../../audit/index.ts";
 import type { TransactionCategories } from "../../../categorization/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { FxReporting } from "../../../fx-rates/index.ts";
+import { createBudgetRates } from "../plan-rates.ts";
 import type { GoalSpends } from "../../../goals/index.ts";
 import { SPACE_REPORTING_CURRENCY } from "../../../household/index.ts";
 import type { BudgetTransactions } from "../../../transactions/index.ts";
@@ -244,6 +245,8 @@ export function createBudgetServices(options: {
       today: () => kyivToday(options.clock.now()),
       reportingCurrency: SPACE_REPORTING_CURRENCY,
       reads: budgetReads(options),
+      // BUD-02 FR 24: the rates of the categories' own currencies (fx-rates).
+      rates: createBudgetRates(options.fx),
       obligations: options.obligations ?? null,
       planSources: options.planSources ?? null,
       chargeHistory: options.chargeHistory ?? null,

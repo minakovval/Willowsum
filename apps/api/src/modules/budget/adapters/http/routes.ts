@@ -8,6 +8,7 @@ import {
   createBudget,
   deleteBudget,
   isIncluded,
+  livePlanToday,
   CHOSEN_MAX,
   INCOME_PLANS_MAX,
   LIMITS_MAX,
@@ -36,11 +37,13 @@ import {
   trendPeriods,
   TREND_MONTHS_MAX,
   ALLOCATION_ROWS_MAX,
+  type PeriodPlan,
   type StartChoice,
 } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
 import { compareRoutes } from "./compare.ts";
 import { planGridRoutes } from "./plan-grid.ts";
+import { planRatesSchema, ratesOut } from "./rates.ts";
 import { spendableRoutes } from "./spendable.ts";
 import { summaryRoutes } from "./summary.ts";
 import { budgetServices, handOffNow } from "./services.ts";
@@ -63,10 +66,10 @@ const moneyInput = z
     amount: z.string().max(48).meta({
       description: "A plain non-negative decimal, at most 15 integer digits and the currency's minor units",
     }),
-    currency: z
-      .string()
-      .max(10)
-      .meta({ description: "The budget's currency (the space's reporting currency)" }),
+    currency: z.string().max(10).meta({
+      description:
+        "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)",
+    }),
   })
   .strict();
 const periodText = z.string().max(7).meta({ description: "A calendar month, YYYY-MM" });
@@ -89,12 +92,16 @@ const budgetSchema = z.object({
   firstPeriod: z.string(),
   /** FR 14: the proportional first period's share of days; null — the first period is whole. */
   proportional: shareSchema.nullable(),
-  /** FR 21: the sum of `incomePlans`; a budget without them — its plan without categories. */
+  /**
+   * FR 21: the sum of `incomePlans` in the budget's currency (FR 24: another currency at today's rate, `rates`); a
+   * budget without them — its plan without categories.
+   */
   incomePlan: moneySchema,
-  /** FR 21: «План доходу» — the plan of each income category as it is now (from the current period on). */
+  /** FR 21, FR 24: «План доходу» — the plan of each income category as it is now, in the category's currency. */
   incomePlans: z.array(z.object({ categoryId: z.uuid(), amount: moneySchema })),
-  /** FR 7: the limits as they are now (from the current period on); a category without one is «Поза планом». */
+  /** FR 7, FR 24: the limits as they are now, each in its category's currency; a category without one is «Поза планом». */
   limits: z.array(z.object({ categoryId: z.uuid(), amount: moneySchema })),
+  rates: planRatesSchema,
   createdOn: z.string(),
   /** Sent back with a change of the plan: another window's change in between is «Бюджет змінено в іншому вікні». */
   version: z.number().int(),
@@ -108,17 +115,28 @@ async function present(ctx: ProtectedContext, b: StoredBudget): Promise<z.input<
     await budgetTx(q).limits(ctx.principal.householdId, b.id),
     await budgetTx(q).incomePlans(ctx.principal.householdId, b.id),
   ]);
+  // FR 24: the income plan and the rates as of today (a line of another currency at today's rate).
+  const live = await livePlanToday(budgetServices(ctx).deps, b, limits, new Map(), incomePlans);
   return {
     id: b.id,
     currency: b.currency,
     firstPeriod: b.firstPeriod,
     proportional: share(b, b.firstPeriod),
-    incomePlan: money(b.incomePlan),
+    incomePlan: money(live.incomePlan),
+    rates: ratesOut(live),
     incomePlans: incomePlans.map((l) => ({ categoryId: l.categoryId, amount: money(l.amount) })),
     limits: limits.map((l) => ({ categoryId: l.categoryId, amount: money(l.amount) })),
     createdOn: b.createdOn,
     version: b.version,
   };
+}
+
+/** FR 24: the category currencies of a plan other than the budget's (each read once). */
+function planCurrencies(plan: PeriodPlan, currency: string): string[] {
+  const all = [...plan.limits, ...(plan.incomePlans ?? [])].flatMap((l) =>
+    l.original && l.original.currency !== currency ? [l.original.currency] : [],
+  );
+  return [...new Set(all)].sort();
 }
 
 function value<T>(result: Result<T>): T {
@@ -403,11 +421,20 @@ const lineSchema = z.object({
   groupId: z.uuid().nullable(),
   /** «Обов'язкова» (BUD-01 FR 11); a finished period — as its snapshot keeps it. */
   mandatory: z.boolean(),
+  /** FR 24: in the category's currency (the budget's by default), as are `spent` and `remaining`. */
   limit: moneySchema,
-  /** Null for a future month. */
+  /** Null for a future month. FR 24: each transaction in the category's currency at the rate of its date. */
   spent: moneySchema.nullable(),
   /** Limit − spent; negative — over the limit. Null for a future month. */
   remaining: moneySchema.nullable(),
+  /**
+   * FR 24: a category of another currency — its limit at the period's rate (`rates`), its spending at each
+   * transaction's date's rate and their difference, in the budget's currency: what `totals` and `summary` add up. Null —
+   * the category is in the budget's currency.
+   */
+  inBudgetCurrency: z
+    .object({ limit: moneySchema, spent: moneySchema.nullable(), remaining: moneySchema.nullable() })
+    .nullable(),
 });
 
 const periodSchema = z.object({
@@ -419,7 +446,16 @@ const periodSchema = z.object({
   /** FR 11: planned contributions to goals and «Заощадження без цілі». */
   plannedSavings: moneySchema,
   incomeCategories: z
-    .array(z.object({ categoryId: z.uuid(), plan: moneySchema, actual: moneySchema.nullable() }))
+    .array(
+      z.object({
+        categoryId: z.uuid(),
+        /** FR 24: in the category's currency, as is `actual`. */
+        plan: moneySchema,
+        actual: moneySchema.nullable(),
+        /** FR 24: another currency — the plan at the period's rate and the fact, in the budget's currency; else null. */
+        inBudgetCurrency: z.object({ plan: moneySchema, actual: moneySchema.nullable() }).nullable(),
+      }),
+    )
     .meta({
       description:
         "FR 9, AC18: the card «Дохід» — the plan and the fact of each income category of the period's plan (a finished period — its snapshot's; a snapshot written before the plan by category has none), then the income of a category without a plan with plan 0. First the categories whose fact is below the plan, then those that reached it; inside each, the larger plan first, then the larger fact. `actual` null — a future month. The month's own «План доходу» of «План» changes `incomePlan` only",
@@ -428,6 +464,7 @@ const periodSchema = z.object({
   proportional: shareSchema.nullable(),
   /** Null for a future month. */
   incomeActual: moneySchema.nullable(),
+  rates: planRatesSchema,
   /** The categories with a limit, by group in the order of the space's tree. */
   groups: z.array(z.object({ groupId: z.uuid().nullable(), categories: z.array(lineSchema) })),
   /** «Поза планом» (FR 7, AC5): expense categories without a limit with spending; categoryId null — «Без категорії». */
@@ -525,15 +562,34 @@ export const getPeriodRoute = defineRoute({
       const accountIds = (await deps.reads.accounts(householdId))
         .filter((a) => isIncluded(a, choices))
         .map((a) => a.accountId);
-      counted = await deps.reads.amounts(
-        householdId,
+      counted = {
         accountIds,
-        params.period,
-        budget.currency,
-        countsFrom(budget, params.period),
-      );
+        ...(await deps.reads.amounts(
+          householdId,
+          accountIds,
+          params.period,
+          budget.currency,
+          countsFrom(budget, params.period),
+        )),
+      };
     }
-    const figures = periodFigures(plan, categories, counted?.amounts ?? null);
+    // FR 24: the categories of other currencies count their transactions in their own currency too.
+    const originals = new Map<string, Awaited<ReturnType<typeof deps.reads.amounts>>["amounts"]>();
+    if (counted !== null)
+      for (const currency of planCurrencies(plan, budget.currency))
+        originals.set(
+          currency,
+          (
+            await deps.reads.amounts(
+              householdId,
+              counted.accountIds,
+              params.period,
+              currency,
+              countsFrom(budget, params.period),
+            )
+          ).amounts,
+        );
+    const figures = periodFigures(plan, categories, counted?.amounts ?? null, originals);
     // FR 16: a past month is «план проти факту» — no «Очікувані платежі», no «Ще потрібно» (#567).
     const obligations =
       deps.obligations && mode !== "past"
@@ -558,9 +614,23 @@ export const getPeriodRoute = defineRoute({
           categoryId: l.categoryId,
           groupId: l.groupId,
           mandatory: l.mandatory,
-          limit: money(l.limit),
-          spent: orNull(l.spent),
-          remaining: orNull(l.remaining),
+          ...(l.original
+            ? {
+                limit: money(l.original.limit),
+                spent: orNull(l.original.spent),
+                remaining: orNull(l.original.remaining),
+                inBudgetCurrency: {
+                  limit: money(l.limit),
+                  spent: orNull(l.spent),
+                  remaining: orNull(l.remaining),
+                },
+              }
+            : {
+                limit: money(l.limit),
+                spent: orNull(l.spent),
+                remaining: orNull(l.remaining),
+                inBudgetCurrency: null,
+              }),
         },
       ]);
     const t = figures.totals;
@@ -570,11 +640,22 @@ export const getPeriodRoute = defineRoute({
       currency: budget.currency,
       incomePlan: money(plan.incomePlan),
       plannedSavings: money(plan.plannedSavings),
-      incomeCategories: incomeLines(plan, categories, counted?.amounts ?? null).map((l) => ({
-        categoryId: l.categoryId,
-        plan: money(l.plan),
-        actual: orNull(l.actual),
-      })),
+      incomeCategories: incomeLines(plan, categories, counted?.amounts ?? null, originals).map((l) =>
+        l.original
+          ? {
+              categoryId: l.categoryId,
+              plan: money(l.original.plan),
+              actual: orNull(l.original.actual),
+              inBudgetCurrency: { plan: money(l.plan), actual: orNull(l.actual) },
+            }
+          : {
+              categoryId: l.categoryId,
+              plan: money(l.plan),
+              actual: orNull(l.actual),
+              inBudgetCurrency: null,
+            },
+      ),
+      rates: ratesOut(plan),
       proportional: share(budget, params.period),
       incomeActual: orNull(t.incomeActual),
       groups: [...groups.entries()].map(([groupId, lines]) => ({ groupId, categories: lines })),

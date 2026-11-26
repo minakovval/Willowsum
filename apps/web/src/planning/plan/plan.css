@@ -154,6 +154,23 @@
   color: var(--ws-ink-muted);
 }
 
+/* BUD-17 business rules: a row in another currency than the budget's names it; its sums are «≈». */
+.plan-currency {
+  flex: none;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-chart-axis-size);
+}
+
+.plan-approx {
+  margin-inline-start: var(--ws-space-2);
+  color: var(--ws-ink-muted);
+  font-weight: 400;
+  white-space: nowrap;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
 .plan-hint {
   display: block;
   color: var(--ws-ink-muted);

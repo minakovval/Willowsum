@@ -108,15 +108,22 @@ export function startChoices(today: string): {
 export function scalePlan(plan: PeriodPlan, share: PeriodShare): PeriodPlan {
   const scale = (m: Money) => roundToMinor(m.amount.times(share.days).div(share.daysInPeriod), m.currency);
   // FR 21: by category — each category's plan scaled, and the income plan their sum (it stays the sum of the lines).
-  const incomePlans = plan.incomePlans?.map((l) => ({ ...l, amount: scale(l.amount) }));
+  // BUD-02 FR 24: a line of another currency is scaled in its own currency too.
+  const line = <L extends { amount: Money; original?: Money }>(l: L): L => ({
+    ...l,
+    amount: scale(l.amount),
+    ...(l.original ? { original: scale(l.original) } : {}),
+  });
+  const incomePlans = plan.incomePlans?.map(line);
   return {
+    ...plan,
     incomePlan:
       incomePlans && incomePlans.length > 0
         ? incomePlansTotal(incomePlans, plan.incomePlan.currency)
         : scale(plan.incomePlan),
     ...(incomePlans ? { incomePlans } : {}),
     plannedSavings: scale(plan.plannedSavings),
-    limits: plan.limits.map((l) => ({ ...l, amount: scale(l.amount) })),
+    limits: plan.limits.map(line),
   };
 }
 

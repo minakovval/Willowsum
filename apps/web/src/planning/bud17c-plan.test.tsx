@@ -18,6 +18,10 @@ const LONG_ID = "c0000000-0000-4000-8000-000000000003";
 const GOAL_TRIP = "d0000000-0000-4000-8000-000000000001";
 const LOAN = "e0000000-0000-4000-8000-000000000001";
 const SALARY = "f0000000-0000-4000-8000-000000000001";
+const FREELANCE = "f0000000-0000-4000-8000-000000000002";
+const RENTAL = "f0000000-0000-4000-8000-000000000003";
+const G_INCOME = "9a000000-0000-4000-8000-000000000003";
+const LONG_INCOME = `Дохід від здавання в оренду квартири на вулиці з дуже довгою назвою ${"Нерозривнеслово".repeat(2)}`;
 const LONG_NAME = `Категорія з дуже довгою назвою на шістдесят і більше символів у рядку плану ${"Нерозривнеслово".repeat(3)}`;
 
 const monthsFrom = (first: string, count = 12) => {
@@ -39,9 +43,9 @@ const flat = <T,>(n: number, make: (i: number) => T): T[] => Array.from({ length
 interface GridOver {
   first?: string;
   foodAt?: (i: number) => Cell;
-  incomePlan?: string;
-  salary?: string | null;
-  other?: (ReturnType<typeof eur> | null)[];
+  /** Row 231: «Надходження» — a row per income category; «Дохід від оренди» in UAH with today's rate. */
+  freelanceAt?: (i: number) => Cell;
+  rental?: boolean;
   unallocated?: ({ kind: "unallocated" | "deficit"; amount: ReturnType<typeof eur> } | null)[];
   goalAt?: (i: number) => Cell;
   extra?: boolean;
@@ -54,18 +58,23 @@ function grid(over: GridOver = {}) {
     currency: "EUR",
     months: periods.map((period, i) => ({ period, mode: i === 0 ? "current" : "future", inBudget: true })),
     income: {
-      plan: flat(12, () => cell(over.incomePlan ?? "5600.00")),
-      rows:
-        over.salary === null
-          ? []
-          : [
+      categories: [
+        { categoryId: SALARY, cells: flat(12, () => cell("5000.00")) },
+        { categoryId: FREELANCE, cells: flat(12, over.freelanceAt ?? (() => cell("600.00"))) },
+        ...(over.rental
+          ? [
               {
-                paymentId: SALARY,
-                cells: flat(12, () => ({ ...cell(over.salary ?? "3100.00"), expected: true })),
+                categoryId: RENTAL,
+                cells: flat(12, () => ({ ...cell(null), amount: { amount: "20000.00", currency: "UAH" } })),
               },
-            ],
-      other: over.other ?? flat(12, () => "2500.00").map(eur),
-      totals: sum("5600.00"),
+            ]
+          : []),
+      ],
+      // ARC-07 FR 3: the former fields, deprecated — the page reads none of them.
+      plan: flat(12, () => cell("5600.00")),
+      rows: [],
+      other: flat(12, () => null),
+      totals: sum(over.rental ? "6000.00" : "5600.00"),
     },
     expenses: {
       groups: [
@@ -102,6 +111,7 @@ function grid(over: GridOver = {}) {
       ],
       totals: sum("310.00"),
     },
+    rates: over.rental ? [{ currency: "UAH", rate: "0.02", date: "2026-11-17" }] : [],
     unallocated:
       over.unallocated ?? flat(12, () => ({ kind: "unallocated" as const, amount: eur("200.00") })),
   };
@@ -131,6 +141,32 @@ const tree = {
         color: "#336699",
         iconTone: "white",
         essential: false,
+        hidden: false,
+        deletable: true,
+      })),
+    },
+    {
+      id: G_INCOME,
+      systemKey: null,
+      kind: "income",
+      name: "Доходи",
+      renamed: false,
+      tone: "neutral",
+      categories: [
+        [SALARY, "Зарплата"],
+        [FREELANCE, "Фриланс"],
+        [RENTAL, LONG_INCOME],
+      ].map(([id, name]) => ({
+        id,
+        groupId: G_INCOME,
+        systemKey: null,
+        kind: "income",
+        name,
+        renamed: false,
+        icon: "wallet",
+        color: "#336699",
+        iconTone: "white",
+        essential: null,
         hidden: false,
         deletable: true,
       })),
@@ -363,18 +399,54 @@ describe("BUD-17@PoC «Бюджет → План» (S-126)", () => {
     });
   });
 
-  it("BUD-17@PoC FR 1: «План доходу» and «Інші надходження» (plan − regular incomes) show while the incomes are below the plan, and no «Інші надходження» row when they are not", async () => {
+  it("BUD-17@PoC FR 1 (owner decision 2026-11-21): «Надходження» is a row per income category — «Зарплата» 5 000,00 and «Фриланс» 600,00, 5 600,00 together; no «План доходу», «Інші надходження» or regular income row", async () => {
     show(api().client);
-    expect(val(await cellOf("План доходу", "листопад"))).toBe("5 600,00");
-    expect(val(await cellOf("Андрій, зарплата", "листопад"))).toBe("3 100,00");
-    expect(val(screen.getByRole("textbox", { name: "Інші надходження, листопад" }))).toBe("2 500,00");
-    expect(
-      screen.getByRole("textbox", { name: "Інші надходження, листопад" }).getAttribute("readonly"),
-    ).not.toBeNull();
-    cleanup();
-    show(api({}, grid({ salary: "6000.00", other: flat(12, () => "0.00").map(eur) })).client);
-    await cellOf("План доходу", "листопад");
-    expect(screen.queryByRole("textbox", { name: /Інші надходження/ })).toBeNull();
+    expect(val(await cellOf("Зарплата", "листопад"))).toBe("5 000,00");
+    expect(val(await cellOf("Фриланс", "листопад"))).toBe("600,00");
+    const section = screen.getByRole("button", { name: "Надходження" }).closest("tr")!;
+    expect(plain(section.textContent ?? "")).toContain("5 600,00");
+    for (const gone of [/План доходу/, /Інші надходження/, /Андрій, зарплата/])
+      expect(screen.queryByRole("textbox", { name: gone })).toBeNull();
+  });
+
+  it("BUD-17@PoC FR 1, FR 2: a month of «Фриланс» is saved as that category's income cell, for that month only", async () => {
+    const { client, calls } = api();
+    show(client);
+    await edit("Фриланс", "грудень", "800,25");
+    await waitFor(() => expect(puts(calls)).toHaveLength(1));
+    expect(puts(calls)[0]!.body).toEqual({
+      period: "2026-12",
+      kind: "income",
+      lineId: FREELANCE,
+      amount: { amount: "800.25", currency: "EUR" },
+      version: 0,
+    });
+  });
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-26): a UAH income category's row is in UAH — named, typed and sent in UAH; the section's sum is «≈» with today's rate in its hint", async () => {
+    const { client, calls } = api({}, grid({ rental: true }));
+    show(client);
+    expect(val(await cellOf(LONG_INCOME, "листопад"))).toBe("20 000,00");
+    const rowEl = screen.getByRole("row", { name: new RegExp(LONG_INCOME.slice(0, 30)) });
+    expect(within(rowEl).getByText("UAH")).toBeTruthy();
+    const hint = "За поточним курсом: 1 UAH = 0,02 EUR (17.11.2026)";
+    const section = screen.getByRole("button", { name: "Надходження" }).closest("tr")!;
+    const mark = within(section).getByRole("img", { name: /За поточним курсом/ });
+    expect(plain(mark.textContent ?? "")).toBe("≈");
+    expect(plain(mark.getAttribute("aria-label") ?? "")).toBe(hint);
+    const sums = within(section).getAllByRole("cell");
+    expect(plain(sums[0]!.textContent ?? "")).toBe("6 000,00");
+    expect(plain(sums[0]!.getAttribute("title") ?? "")).toBe(hint);
+    // «Витрати» has no row of another currency: no «≈».
+    const expenses = screen.getByRole("button", { name: "Витрати" }).closest("tr")!;
+    expect(within(expenses).queryByRole("img", { name: /За поточним курсом/ })).toBeNull();
+    await edit(LONG_INCOME, "січень", "25 000,5");
+    await waitFor(() => expect(puts(calls)).toHaveLength(1));
+    expect(puts(calls)[0]!.body).toMatchObject({
+      kind: "income",
+      lineId: RENTAL,
+      amount: { amount: "25000.50", currency: "UAH" },
+    });
   });
 
   it("BUD-17@PoC FR 1: a section folds and unfolds, and a debt payment is read only with its lock", async () => {

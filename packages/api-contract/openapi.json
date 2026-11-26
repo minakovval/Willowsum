@@ -8807,6 +8807,36 @@
                                 "additionalProperties": false
                               }
                             },
+                            "rates": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "currency": {
+                                    "type": "string"
+                                  },
+                                  "rate": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "date": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "currency",
+                                  "rate",
+                                  "date"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "description": "BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈»"
+                            },
                             "createdOn": {
                               "type": "string"
                             },
@@ -8824,6 +8854,7 @@
                             "incomePlan",
                             "incomePlans",
                             "limits",
+                            "rates",
                             "createdOn",
                             "version"
                           ],
@@ -8987,7 +9018,7 @@
                       "currency": {
                         "type": "string",
                         "maxLength": 10,
-                        "description": "The budget's currency (the space's reporting currency)"
+                        "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                       }
                     },
                     "required": [
@@ -9018,7 +9049,7 @@
                             "currency": {
                               "type": "string",
                               "maxLength": 10,
-                              "description": "The budget's currency (the space's reporting currency)"
+                              "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                             }
                           },
                           "required": [
@@ -9058,7 +9089,7 @@
                             "currency": {
                               "type": "string",
                               "maxLength": 10,
-                              "description": "The budget's currency (the space's reporting currency)"
+                              "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                             }
                           },
                           "required": [
@@ -9103,7 +9134,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -9143,7 +9174,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -9183,7 +9214,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -9218,7 +9249,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -9257,7 +9288,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -9297,7 +9328,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -9476,6 +9507,36 @@
                         "additionalProperties": false
                       }
                     },
+                    "rates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "rate",
+                          "date"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈»"
+                    },
                     "createdOn": {
                       "type": "string"
                     },
@@ -9493,6 +9554,7 @@
                     "incomePlan",
                     "incomePlans",
                     "limits",
+                    "rates",
                     "createdOn",
                     "version"
                   ],
@@ -9974,7 +10036,7 @@
                       "currency": {
                         "type": "string",
                         "maxLength": 10,
-                        "description": "The budget's currency (the space's reporting currency)"
+                        "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                       }
                     },
                     "required": [
@@ -10005,7 +10067,7 @@
                             "currency": {
                               "type": "string",
                               "maxLength": 10,
-                              "description": "The budget's currency (the space's reporting currency)"
+                              "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                             }
                           },
                           "required": [
@@ -10045,7 +10107,7 @@
                             "currency": {
                               "type": "string",
                               "maxLength": 10,
-                              "description": "The budget's currency (the space's reporting currency)"
+                              "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                             }
                           },
                           "required": [
@@ -10077,7 +10139,7 @@
                         "currency": {
                           "type": "string",
                           "maxLength": 10,
-                          "description": "The budget's currency (the space's reporting currency)"
+                          "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                         }
                       },
                       "required": [
@@ -10115,7 +10177,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -10155,7 +10217,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -10195,7 +10257,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -10230,7 +10292,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -10269,7 +10331,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -10309,7 +10371,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -13466,12 +13528,69 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "inBudgetCurrency": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "plan": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "actual": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "plan",
+                                  "actual"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
                           }
                         },
                         "required": [
                           "categoryId",
                           "plan",
-                          "actual"
+                          "actual",
+                          "inBudgetCurrency"
                         ],
                         "additionalProperties": false
                       },
@@ -13534,6 +13653,36 @@
                           "type": "null"
                         }
                       ]
+                    },
+                    "rates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "rate",
+                          "date"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈»"
                     },
                     "groups": {
                       "type": "array",
@@ -13638,6 +13787,86 @@
                                       "type": "null"
                                     }
                                   ]
+                                },
+                                "inBudgetCurrency": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "limit": {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "spent": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "amount": {
+                                                  "type": "string"
+                                                },
+                                                "currency": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "amount",
+                                                "currency"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "remaining": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "amount": {
+                                                  "type": "string"
+                                                },
+                                                "currency": {
+                                                  "type": "string"
+                                                }
+                                              },
+                                              "required": [
+                                                "amount",
+                                                "currency"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "limit",
+                                        "spent",
+                                        "remaining"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 }
                               },
                               "required": [
@@ -13646,7 +13875,8 @@
                                 "mandatory",
                                 "limit",
                                 "spent",
-                                "remaining"
+                                "remaining",
+                                "inBudgetCurrency"
                               ],
                               "additionalProperties": false
                             }
@@ -14103,6 +14333,7 @@
                     "incomeCategories",
                     "proportional",
                     "incomeActual",
+                    "rates",
                     "groups",
                     "outsidePlan",
                     "totals",
@@ -14924,6 +15155,36 @@
                         ]
                       }
                     },
+                    "rates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "rate",
+                          "date"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈»"
+                    },
                     "approximate": {
                       "type": "object",
                       "properties": {
@@ -14967,6 +15228,7 @@
                     "daysLeft",
                     "figures",
                     "unavailable",
+                    "rates",
                     "approximate"
                   ],
                   "additionalProperties": false
@@ -15553,7 +15815,7 @@
                       "currency": {
                         "type": "string",
                         "maxLength": 10,
-                        "description": "The budget's currency (the space's reporting currency)"
+                        "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                       }
                     },
                     "required": [
@@ -15587,7 +15849,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -15633,7 +15895,7 @@
                                 "currency": {
                                   "type": "string",
                                   "maxLength": 10,
-                                  "description": "The budget's currency (the space's reporting currency)"
+                                  "description": "The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`)"
                                 }
                               },
                               "required": [
@@ -15802,6 +16064,36 @@
                         "additionalProperties": false
                       }
                     },
+                    "rates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "rate",
+                          "date"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈»"
+                    },
                     "createdOn": {
                       "type": "string"
                     },
@@ -15819,6 +16111,7 @@
                     "incomePlan",
                     "incomePlans",
                     "limits",
+                    "rates",
                     "createdOn",
                     "version"
                   ],
@@ -15984,6 +16277,69 @@
                     "income": {
                       "type": "object",
                       "properties": {
+                        "categories": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "categoryId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "cells": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "own": {
+                                      "type": "boolean"
+                                    },
+                                    "version": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "own",
+                                    "version"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "categoryId",
+                              "cells"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "plan": {
                           "type": "array",
                           "items": {
@@ -16027,7 +16383,9 @@
                               "version"
                             ],
                             "additionalProperties": false
-                          }
+                          },
+                          "deprecated": true,
+                          "x-deprecated-since": "2026-11-26"
                         },
                         "rows": {
                           "type": "array",
@@ -16094,7 +16452,9 @@
                               "cells"
                             ],
                             "additionalProperties": false
-                          }
+                          },
+                          "deprecated": true,
+                          "x-deprecated-since": "2026-11-26"
                         },
                         "other": {
                           "type": "array",
@@ -16120,7 +16480,9 @@
                                 "type": "null"
                               }
                             ]
-                          }
+                          },
+                          "deprecated": true,
+                          "x-deprecated-since": "2026-11-26"
                         },
                         "totals": {
                           "type": "array",
@@ -16150,6 +16512,7 @@
                         }
                       },
                       "required": [
+                        "categories",
                         "plan",
                         "rows",
                         "other",
@@ -16556,6 +16919,36 @@
                       ],
                       "additionalProperties": false
                     },
+                    "rates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "currency": {
+                            "type": "string"
+                          },
+                          "rate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "date": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "rate",
+                          "date"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "description": "BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈»"
+                    },
                     "unallocated": {
                       "type": "array",
                       "items": {
@@ -16607,6 +17000,7 @@
                     "expenses",
                     "goals",
                     "debts",
+                    "rates",
                     "unallocated"
                   ],
                   "additionalProperties": false
@@ -20379,7 +20773,7 @@
     "/v1/categories/{categoryId}": {
       "delete": {
         "operationId": "deleteCategory",
-        "summary": "«Видалити» an empty custom category: it leaves the tree and its name is free again (FR 12); in use or system — refused",
+        "summary": "«Видалити» a custom category nothing holds: it leaves the tree and its name is free again (FR 12); with its limit and «План» cells only after `confirmLimit=true` (AC22); held or system — refused",
         "tags": [
           "categories"
         ],
@@ -20399,6 +20793,19 @@
               "type": "string",
               "format": "uuid",
               "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "confirmLimit",
+            "in": "query",
+            "required": false,
+            "description": "BUD-01 FR 12, AC22: the user confirmed that the category's limit and «План» cells are deleted with it; without it such a category is refused with CATEGORY_LIMIT_CONFIRM",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
             }
           }
         ],
@@ -20474,7 +20881,7 @@
             }
           },
           "409": {
-            "description": "A category with transactions, rules or limits cannot be deleted — hide or merge it (CATEGORY_NOT_EMPTY); A system category cannot be deleted; it can be hidden (CATEGORY_SYSTEM_FIXED)",
+            "description": "Transactions, category rules or regular payments hold this category — hide or merge it (CATEGORY_NOT_EMPTY); The category's limit will be deleted with it — confirm the deletion (CATEGORY_LIMIT_CONFIRM); A system category cannot be deleted; it can be hidden (CATEGORY_SYSTEM_FIXED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -21154,7 +21561,7 @@
     "/v1/categories/{categoryId}/usage": {
       "get": {
         "operationId": "getCategoryUsage",
-        "summary": "«Видалити категорію…» (BUD-02 FR 23, BUD-01 FR 13): how many transactions of the space are in the category; another space's or one out of use is not found",
+        "summary": "«Видалити категорію…» (BUD-02 FR 23, BUD-01 FR 12, FR 13): what holds the category, each kind with its count, and the budget entries deleted with it; another space's or one out of use is not found",
         "tags": [
           "categories"
         ],
@@ -21179,7 +21586,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The count «N транзакцій» of the delete dialog",
+            "description": "The exact reason of the delete dialog: «N транзакцій», category rules, regular payments, merged categories; the limit and «План» cells the delete removes; whether «Видалити» is offered",
             "content": {
               "application/json": {
                 "schema": {
@@ -21189,10 +21596,75 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "rules": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "recurringPayments": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "mergedCategories": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "budget": {
+                      "type": "object",
+                      "properties": {
+                        "limit": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "stored": {
+                          "type": "boolean"
+                        },
+                        "planCells": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "limit",
+                        "stored",
+                        "planCells"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "deletable": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "transactions"
+                    "transactions",
+                    "rules",
+                    "recurringPayments",
+                    "mergedCategories",
+                    "budget",
+                    "deletable"
                   ],
                   "additionalProperties": false
                 }
@@ -38234,6 +38706,32 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "detected": {
+                            "type": "object",
+                            "properties": {
+                              "bank": {
+                                "type": "string"
+                              },
+                              "bankInDirectory": {
+                                "type": "boolean"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "mask": {
+                                "type": "string"
+                              },
+                              "accountMatch": {
+                                "type": "string",
+                                "enum": [
+                                  "picked",
+                                  "several",
+                                  "none"
+                                ]
+                              }
+                            },
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -51198,7 +51696,7 @@
             "name": "filter",
             "in": "query",
             "required": false,
-            "description": "Filter `<field>.<operator>:<value>` (repeatable); fields and operators from the list's whitelist",
+            "description": "Filter `<field>.<operator>:<value>` (repeatable; all must hold): `accountId` eq/in, `date` gte/lte, `type` eq (in/out), `amount` gte/lte (without sign), `counterparty` eq/has, `search` has, `status` eq/in, `split` eq, `hidden` eq, `transfer` eq, `tag` eq/in, `review` eq/in, `category` eq/in — FIN-03 FR 22 «Категорії»: the exact categories (no others); an unsplit transaction by its own category, a split one by its parts; more than 20000 transactions in all category filters of a request is 422 LIMIT_REACHED",
             "schema": {
               "anyOf": [
                 {
@@ -64881,6 +65379,7 @@
               "CATEGORY_SERVICE_FIXED",
               "CATEGORY_SYSTEM_FIXED",
               "CATEGORY_NOT_EMPTY",
+              "CATEGORY_LIMIT_CONFIRM",
               "RECURRING_PROPOSAL_GONE",
               "RECURRING_CHARGE_STATE",
               "RECURRING_TRANSACTION_TAKEN",
@@ -64993,6 +65492,82 @@
             "required": [
               "amount",
               "currency"
+            ],
+            "additionalProperties": false
+          },
+          "categoryUsage": {
+            "description": "CATEGORY_NOT_EMPTY, CATEGORY_LIMIT_CONFIRM: every kind of data that holds the category with its count, and its budget entries deleted with it",
+            "type": "object",
+            "properties": {
+              "transactions": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "rules": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "recurringPayments": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "mergedCategories": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "budget": {
+                "type": "object",
+                "properties": {
+                  "limit": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "amount": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "amount",
+                          "currency"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "stored": {
+                    "type": "boolean"
+                  },
+                  "planCells": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "limit",
+                  "stored",
+                  "planCells"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "transactions",
+              "rules",
+              "recurringPayments",
+              "mergedCategories",
+              "budget"
             ],
             "additionalProperties": false
           },

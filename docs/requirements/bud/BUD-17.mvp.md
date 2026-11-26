@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-11, П-17, П-18, П-21, NFR-01
 - Сценарії: UC-BUD-92, UC-BUD-93, UC-BUD-94, UC-BUD-95, UC-BUD-96, UC-BUD-97, UC-BUD-98
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`, `apps/api/test/sec613-plan-grid.it.test.ts`, `apps/api/test/sec613b-plan-incomes.it.test.ts`, `apps/web/src/planning/bud17c-plan.test.tsx`, `apps/api/test/bud02i-income.it.test.ts`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`, `apps/api/test/sec613-plan-grid.it.test.ts`, `apps/api/test/sec613b-plan-incomes.it.test.ts`, `apps/web/src/planning/bud17c-plan.test.tsx`, `apps/api/test/bud02i-income.it.test.ts`, `apps/api/src/modules/budget/domain/bud02j-category-currency.test.ts`, `apps/api/test/bud02j-category-currency.it.test.ts`, `apps/api/src/modules/budget/domain/plan-income-once.test.ts`
 
 **Мета.** Як учасник із правом редагування бюджету, я хочу планувати суми за категоріями на 12 місяців у сітці, автоматично заповнювати план, швидко виправляти перевитрати і за потреби почати бюджет з нуля, щоб тримати план актуальним без ручної рутини.
 
@@ -38,6 +38,7 @@
 15. Усі пропозиції — факти й розрахунки, не поради.
 
 **Бізнес-правила**
+- Клітинка категорії — у валюті її ліміту чи плану (правило бюджету «Валюта категорії»; рішення власника 2026-11-26); суми розділів і рядок «Не розподілено» / «Дефіцит» — у валюті бюджету: клітинки в іншій валюті перераховуються за поточним курсом, і сума з таким перерахунком показується зі знаком «≈», підказка називає курс.
 - Зміна ліміту діє на поточний і майбутні періоди; минулі періоди не перераховуються.
 - Автопризначення заповнює лише порожні клітинки, якщо не обрано «Перезаписати»; правила — минулий місяць, середнє за 3, 6 або 12 місяців, цільові суми; суми — цілі одиниці валюти бюджету; категорія без історії позначається «недостатньо даних».
 - Скасування і повтор — до 50 власних дій у сесії; конфлікт з чужою зміною вирішується через «Відкотити» в історії.

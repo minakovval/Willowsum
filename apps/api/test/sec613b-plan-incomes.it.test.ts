@@ -16,6 +16,7 @@ import {
   createBudgetObligations,
   createBudgetPlanSources,
   createBudgetServices,
+  type BudgetServices,
 } from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -44,11 +45,14 @@ import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
+
 /**
- * PR #613 (BUD-17@PoC a, round 2): «Надходження» of «План» over the real module recurring (`createRecurringMonth`) on a
- * real PostgreSQL through the real API — the read stays in the caller's space, only income payments are sources,
- * nothing of a payment but its id and amount is returned, and while the release flag `budget.plan` is off «Бюджет»
- * keeps the budget's own income plan. Every name and amount is synthetic; the clock is fixed (18 November 2026, Kyiv).
+ * PR #613 (BUD-17@PoC a, round 2), redone for row 231 (owner decision 2026-11-21, 2 б): «Надходження» of «План» with the
+ * real module recurring on a real PostgreSQL through the real API — a row per income category of the caller's space,
+ * no regular income is a row or a sum, and «Бюджет» keeps the budget's own income plan whether `budget.plan` is on or
+ * off. Every name and amount is synthetic; the clock is fixed (18 November 2026, Kyiv).
  */
 const WEB = "http://localhost:5173";
 const TODAY = "2026-11-18";
@@ -201,7 +205,7 @@ beforeAll(async () => {
           clock,
           newId: randomUUID,
           usage: [
-            createBudgetCategoryUsage(db.databases.for("budget")),
+            createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices),
             createRecurringCategoryUsage(db.databases.for("recurring")),
           ],
         }),
@@ -211,7 +215,7 @@ beforeAll(async () => {
           audit,
         }),
         recurring,
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: (householdId) => FLAGS.isEnabled(householdId, "budget.plan"),
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -226,10 +230,8 @@ beforeAll(async () => {
             goals: { active: async () => [] },
             debts: { inMonth: async () => [] },
             fx,
-            recurring: createRecurringMonth(db.databases.for("recurring"), recurring),
-            planEnabled: (householdId) => FLAGS.isEnabled(householdId, "budget.plan"),
           }),
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -258,68 +260,75 @@ const cell = (space: Space, lineId: string, principal?: { role?: string; scoped?
   );
 const errors = (res: { json(): { errors?: unknown } }) => res.json().errors;
 
-describe("sec613 round 2: «Надходження» over the real module recurring", () => {
-  it("sec613 AC5, FR 1: the regular incomes are read in the caller's space only — another space's grid and period carry none of them, its payment id is «not_found» like a random one; a scoped member reads nothing", async () => {
+describe("sec613 round 2, row 231: «Надходження» over the real module recurring", () => {
+  it("sec613 AC5, BUD-17@PoC FR 1 (owner decision 2026-11-21): a regular income is no row of «Надходження» — the space's income category is; another space's category is «not_found» like a random id; a scoped member reads nothing", async () => {
     const a = await newSpace();
     const b = await newSpace();
-    await createBudget(a, { incomePlan: eur("1000"), limits: [] });
-    await createBudget(b, { incomePlan: eur("1000"), limits: [] });
     const salaryCategory = await category(a, "Зарплата");
+    await createBudget(a, { incomePlans: [{ categoryId: salaryCategory, amount: eur("1000") }], limits: [] });
+    await createBudget(b, {
+      incomePlans: [{ categoryId: await category(b, "Зарплата"), amount: eur("1000") }],
+      limits: [],
+    });
     const salary = await income(a, "Таємна зарплата", "4321.09", { categoryId: salaryCategory });
-    // An expense payment is never a source of «Надходження».
     await payment(a, { name: "Таємна підписка", amount: eur("77.77"), anchorDate: "2026-11-25" });
 
     const own = await grid(a);
     expect(own.statusCode, own.body).toBe(200);
-    const rows = own.json().income.rows as { paymentId: string | null; cells: { amount: unknown }[] }[];
-    expect(rows.map((r) => r.paymentId)).toEqual([salary]);
-    expect(rows[0]!.cells[1]!.amount).toEqual(eur("4321.09"));
-    expect(own.json().income.totals[1]).toEqual(eur("4321.09"));
-    // Of a payment only its id and the month's amount: no name, category, due date or status.
-    expect(Object.keys(rows[0]!).sort()).toEqual(["cells", "paymentId"]);
-    expect(Object.keys(rows[0]!.cells[1]!).sort()).toEqual(["amount", "expected", "own", "version"]);
-    for (const text of ["Таємна", salaryCategory, "77.77", "2026-11-25"])
+    const income_ = own.json().income as {
+      categories: { categoryId: string; cells: { amount: unknown }[] }[];
+      rows: unknown[];
+      totals: unknown[];
+    };
+    expect(income_.categories.map((r) => r.categoryId)).toEqual([salaryCategory]);
+    expect(income_.categories[0]!.cells[1]!.amount).toEqual(eur("1000"));
+    // The regular income is in its category's fact (BUD-03), not in the plan: no row, no sum of it.
+    expect(income_.rows).toEqual([]);
+    expect(income_.totals[1]).toEqual(eur("1000"));
+    for (const text of ["Таємна", salary, "4321", "77.77", "2026-11-25"])
       expect(leakText(own.body)).not.toContain(text);
 
     const other = await grid(b);
     expect(other.statusCode, other.body).toBe(200);
-    expect(other.json().income.rows).toEqual([]);
-    expect(other.json().income.totals[1]).toEqual(eur("1000"));
     const seen = leakText(other.body) + leakText(JSON.stringify(await period(b, "2026-12")));
     for (const text of [salary, "4321", "Таємна", "77.77", a.householdId, salaryCategory])
       expect(seen).not.toContain(text);
-    const foreign = await cell(b, salary);
+    const foreign = await cell(b, salaryCategory);
     const random = await cell(b, randomUUID());
     expect(foreign.statusCode).toBe(400);
     expect(errors(foreign)).toEqual([{ in: "body", path: "lineId", issue: "not_found" }]);
     expect(errors(random)).toEqual(errors(foreign));
+    // A regular income's payment id is no line either.
+    expect(errors(await cell(a, salary))).toEqual([{ in: "body", path: "lineId", issue: "not_found" }]);
 
     const scoped = { role: "viewer", scoped: true };
     expect((await grid(a, scoped)).statusCode).toBe(404);
     expect((await call(a, "GET", "/v1/budget/periods/2026-12", undefined, scoped)).statusCode).toBe(404);
-    expect((await cell(a, salary, scoped)).statusCode).toBe(403);
-    expect((await cell(a, salary, { role: "viewer" })).statusCode).toBe(403);
+    expect((await cell(a, salaryCategory, scoped)).statusCode).toBe(403);
+    expect((await cell(a, salaryCategory, { role: "viewer" })).statusCode).toBe(403);
     const { rows: stored } = await db.owner.query(`SELECT count(*)::int AS n FROM budget.plan_cells`);
     expect(stored[0].n).toBe(0);
   });
 
-  it("BUD-02@PoC FR 9, FR 14 (П-14): while «План» is off, a regular income does not replace the budget's income plan on «Бюджет»", async () => {
+  it("BUD-02@PoC FR 9, FR 14 (П-14), BUD-17@PoC FR 1: a regular income never replaces the budget's income plan on «Бюджет» — «План» off or on", async () => {
     const space = await newSpace();
     await createBudget(space, { incomePlan: eur("5600"), limits: [] });
     const first = await newSpace();
     await createBudget(first, { incomePlan: eur("3000"), limits: [], proportional: true });
     off = ["budget.plan"];
-    await income(space, "Синтетична допомога", "700");
+    await income(space, "Синтетична допомога", "7000");
     await income(first, "Синтетична зарплата", "3000", { anchorDate: "2026-11-05" });
     expect((await grid(space)).statusCode).toBe(404);
-    // «План доходу» as typed on «Бюджет»; the proportional first period keeps its share (13 of 30 days).
+    // The plan as typed on «Бюджет»; the proportional first period keeps its share (13 of 30 days).
     expect((await period(space, "2026-11")).incomePlan).toEqual(eur("5600"));
     expect((await period(space, "2026-12")).incomePlan).toEqual(eur("5600"));
     expect((await period(first, "2026-11")).incomePlan).toEqual(eur("1300"));
-    // With «План» on (BUD-17 FR 1, owner decision 2026-11-19, Q3) the income of 700 is under «План доходу»: the month's
-    // plan stays 5 600 and the rest is «Інші надходження».
+    // With «План» on the regular income of 7 000 (over the plan) still changes nothing: a budget without income
+    // categories has no rows, and the section's sum is its plan.
     off = [];
     expect((await period(space, "2026-12")).incomePlan).toEqual(eur("5600"));
-    expect((await grid(space)).json().income.other[1]).toEqual(eur("4900"));
+    const g = (await grid(space)).json().income as { categories: unknown[]; totals: unknown[] };
+    expect(g.categories).toEqual([]);
+    expect(g.totals[1]).toEqual(eur("5600"));
   });
 });

@@ -5,6 +5,7 @@ import { defineRoute } from "../../../../platform/http/route.ts";
 import { byId, planLines, readPlanGrid, setPlanCell, type CellResult } from "../../application/index.ts";
 import { gridMonths, isPeriod, PLAN_LINE_KINDS, type GridCell } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
+import { planRatesSchema, ratesOut } from "./rates.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
 /**
@@ -28,6 +29,8 @@ const cellSchema = z.object({
   version: z.number().int(),
 });
 const totalsSchema = z.array(moneySchema.nullable());
+/** ARC-07 FR 3: a response field kept for 6 months after this mark, then removed (row 231). */
+const DEPRECATED = { deprecated: true, "x-deprecated-since": "2026-11-26" };
 
 const gridSchema = z.object({
   currency: z.string(),
@@ -36,21 +39,25 @@ const gridSchema = z.object({
     z.object({ period: z.string(), mode: z.enum(["current", "future"]), inBudget: z.boolean() }),
   ),
   /**
-   * «Надходження» (owner decision 2026-11-19, Q3): `plan` — «План доходу», the month's income plan as typed (a cell
-   * with `lineId` null; default — the budget's income plan), not summed; a row per regular income expected in a month
-   * of the grid (module recurring's payment; `expected` — the line counts in that month, only such a cell can be
-   * changed); `other` — «Інші надходження» = «План доходу» − the regular incomes while they are less (null — none, no
-   * negative row); `totals` — the month's income plan, the larger of the two.
+   * «Надходження» (owner decision 2026-11-21, 2 б; row 231): `categories` — a row per active income category of the
+   * budget's plan in the tree's order, a cell — the category's plan of the month in its own currency (default — its
+   * plan in the budget; `kind` `income`, `lineId` the category); `totals` — the month's income plan, the sum of the
+   * rows in the budget's currency. `plan`, `rows` and `other` — the former «План доходу», regular incomes and «Інші
+   * надходження»: deprecated (ARC-07 FR 3); `plan` carries the month's income plan as a cell without an own value,
+   * `rows` is empty, `other` null.
    */
   income: z.object({
-    plan: z.array(cellSchema),
-    rows: z.array(
-      z.object({
-        paymentId: z.uuid(),
-        cells: z.array(cellSchema.extend({ expected: z.boolean() })),
-      }),
-    ),
-    other: totalsSchema,
+    categories: z.array(z.object({ categoryId: z.uuid(), cells: z.array(cellSchema) })),
+    plan: z.array(cellSchema).meta(DEPRECATED),
+    rows: z
+      .array(
+        z.object({
+          paymentId: z.uuid(),
+          cells: z.array(cellSchema.extend({ expected: z.boolean() })),
+        }),
+      )
+      .meta(DEPRECATED),
+    other: totalsSchema.meta(DEPRECATED),
     totals: totalsSchema,
   }),
   /** «Витрати»: the active expense categories by group in the tree's order; a cell — the month's limit. */
@@ -84,6 +91,12 @@ const gridSchema = z.object({
     ),
     totals: totalsSchema,
   }),
+  /**
+   * BUD-17 business rules (owner decision 2026-11-26): a category's cells are in its currency (BUD-02 FR 24); the sums
+   * of the sections and «Не розподілено» are in the budget's, such a cell at today's rate — these rates; not empty — those
+   * sums are shown with «≈» and the hint names the rate.
+   */
+  rates: planRatesSchema,
   /** «Не розподілено N €» or «Дефіцит N €» (`deficit`, the absolute value); null — a section has no figure (no rate). */
   unallocated: z.array(
     z.object({ kind: z.enum(["unallocated", "deficit"]), amount: moneySchema }).nullable(),
@@ -117,6 +130,7 @@ export const getPlanGridRoute = defineRoute({
     if (!budget) throw new ApiProblem("NOT_FOUND");
     const stored = await ctx.inHousehold(async (q) => ({
       limits: await budgetTx(q).limits(householdId, budget.id),
+      incomePlans: await budgetTx(q).incomePlans(householdId, budget.id),
       cells: await budgetTx(q).planCells(householdId, budget.id, gridMonths(deps.today())[0]),
     }));
     const grid = await readPlanGrid(deps, householdId, budget, categories, stored);
@@ -124,12 +138,13 @@ export const getPlanGridRoute = defineRoute({
       currency: budget.currency,
       months: [...grid.months],
       income: {
-        plan: grid.income.plan.map(cell),
-        rows: grid.income.rows.map((r) => ({
-          paymentId: r.paymentId,
-          cells: r.cells.map((c) => ({ ...cell(c), expected: c.expected })),
+        categories: grid.income.categories.map((r) => ({
+          categoryId: r.categoryId,
+          cells: r.cells.map(cell),
         })),
-        other: totals(grid.income.other),
+        plan: grid.income.totals.map((t) => ({ amount: orNull(t), own: false, version: 0 })),
+        rows: [],
+        other: grid.income.totals.map(() => null),
         totals: totals(grid.income.totals),
       },
       expenses: {
@@ -154,6 +169,7 @@ export const getPlanGridRoute = defineRoute({
         })),
         totals: totals(grid.debts.totals),
       },
+      rates: ratesOut({ rates: grid.rates }),
       unallocated: grid.unallocated.map((u) => (u ? { kind: u.kind, amount: u.amount.toJSON() } : null)),
     };
   },
@@ -195,7 +211,7 @@ export const setPlanCellRoute = defineRoute({
           .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
           .meta({ description: "A calendar month, YYYY-MM" }),
         kind: z.enum(PLAN_LINE_KINDS),
-        /** The expense category, the regular income (payment), the goal; null — «План доходу» or «Заощадження без цілі». */
+        /** The expense category, the income category of the budget's plan, the goal; null — «Заощадження без цілі». */
         lineId: z.uuid().nullable(),
         /** Null — back to the line's default. */
         amount: z
@@ -217,10 +233,10 @@ export const setPlanCellRoute = defineRoute({
     const { deps, audit } = budgetServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
     const categories = byId(await deps.reads.categories(caller.householdId));
-    // The month's lines (its regular incomes, the active goals) from their modules, before the budget transaction.
+    // The month's lines (the active goals) from their module, before the budget transaction.
     const lines = isPeriod(body.period)
       ? await planLines(deps, caller.householdId, deps.reportingCurrency)(body.period)
-      : { incomes: [], goalIds: new Set<string>() };
+      : { goalIds: new Set<string>() };
     const { result, handOffs } = await ctx.inHousehold((q) =>
       setPlanCell(deps, budgetTx(q), caller, body, categories, lines),
     );

@@ -24,6 +24,15 @@ export interface TransactionCategory {
   tone?: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | "transfer" | undefined;
 }
 
+/** The type of a transaction as the list tags it. */
+export type TransactionType = "expense" | "income" | "transfer";
+
+const TYPE_TEXT: Record<TransactionType, MessageKey> = {
+  expense: "transactionRow.type.expense",
+  income: "transactionRow.type.income",
+  transfer: "transactionRow.type.transfer",
+};
+
 export interface TransactionRowProps extends RowOpen {
   /** The merchant's name, one line; the initials on a grey tile come from it (there are no logos in PoC). */
   merchant: string;
@@ -40,6 +49,8 @@ export interface TransactionRowProps extends RowOpen {
   possibleDuplicate?: boolean | undefined;
   /** A transfer between own accounts. */
   transfer?: boolean | undefined;
+  /** FIN-03@PoC FR 13: the type tag next to the amount — «витрата», «дохід» or «переказ». Nothing: no tag. */
+  type?: TransactionType | undefined;
   /** Split: `true`, or the number of months it is split into («розділено на 3 міс.»). */
   split?: boolean | number | undefined;
   /** Tags: an icon whose tooltip lists them. */
@@ -120,6 +131,7 @@ export function TransactionRow({
   pending = false,
   possibleDuplicate = false,
   transfer = false,
+  type,
   split,
   tags,
   note = false,
@@ -181,6 +193,8 @@ export function TransactionRow({
     table && withAsset && asset,
     table && account,
     spokenRowAmount(locale, t, hidden, amount),
+    // A transfer is already named by its mark beside the merchant.
+    type && type !== "transfer" && t(TYPE_TEXT[type]),
     review && t("transactionRow.needsReview"),
     ...marks.map((m) => m.text),
     tagList && t("transactionRow.tags", { tags: tagList.join(", ") }),
@@ -188,6 +202,8 @@ export function TransactionRow({
   ]
     .filter(Boolean)
     .join(", ");
+
+  const typeTag = type && <span className="ws-tx-type ws-text-label ws-muted">{t(TYPE_TEXT[type])}</span>;
 
   const confirm = () => {
     if (busy || !onConfirm) return;
@@ -280,7 +296,7 @@ export function TransactionRow({
           <span>{when}</span>
           {time && <span className="ws-muted">{time}</span>}
         </span>
-        <RowAmount amount={amount} />
+        <RowAmount amount={amount}>{typeTag}</RowAmount>
       </div>
     );
 
@@ -309,7 +325,7 @@ export function TransactionRow({
           )}
         </span>
       )}
-      <RowAmount amount={amount} />
+      <RowAmount amount={amount}>{typeTag}</RowAmount>
     </div>
   );
 }

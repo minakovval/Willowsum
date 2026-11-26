@@ -357,6 +357,25 @@
   margin: 0;
 }
 
+.review-card-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-nomerchant {
+  display: grid;
+  gap: var(--ws-space-3);
+  margin-top: var(--ws-space-5);
+}
+
+.review-nomerchant > .review-more {
+  padding: 0;
+}
+
 .review-card-facts dd {
   margin: var(--ws-space-1) 0 0;
 }

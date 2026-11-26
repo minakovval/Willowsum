@@ -1,5 +1,4 @@
 import type { ApiClient, operations } from "@willowsum/api-contract";
-import { Decimal } from "@willowsum/domain-kernel";
 import { outcome, type Outcome } from "../../auth/api.ts";
 import type { Load } from "../../recurring/data.ts";
 
@@ -8,9 +7,9 @@ type Json<T> = T extends { responses: { 200: { content: { "application/json": in
 /**
  * BUD-17@PoC b) (wave 2, row 127): what S-126 «Бюджет → План» reads — `GET /v1/budget/plan-grid` (the 12 months of
  * income, limits, goals and savings, debt payments and «Не розподілено») and, for the row names, the categories,
- * the goals, the debts and the regular payments. Every amount is a decimal string, from the API to the input and
- * back: the page adds nothing up (the sums and «Не розподілено» are the server's) and never turns an amount into a
- * number.
+ * the goals, the debts and the regular payments. Every amount is a decimal string, from the API to the input and back: the page adds
+ * nothing up (the sums and «Не розподілено» are the server's) and never turns an amount into a number. Row 231
+ * (owner decision 2026-11-21, 2 б): «Надходження» is a row per income category of the budget's plan.
  */
 export type Grid = Json<operations["getBudgetPlanGrid"]>;
 export type Money = { readonly amount: string; readonly currency: string };
@@ -30,13 +29,13 @@ export interface CellEdit {
 export interface PlanCell {
   readonly period: string;
   readonly amount: Money | null;
-  /** `null`: read only (a debt payment, «Інші надходження», a month that is over). */
+  /** `null`: read only (a debt payment, a month that is over). */
   readonly edit: CellEdit | null;
 }
 
 export type RowLabel =
   | { readonly kind: "name"; readonly name: string }
-  | { readonly kind: "incomePlan" | "incomeOther" | "savings" }
+  | { readonly kind: "savings" }
   | { readonly kind: "debtMinimum" | "debtExtra"; readonly name: string };
 
 export interface PlanRow {
@@ -45,6 +44,11 @@ export interface PlanRow {
   readonly cells: readonly PlanCell[];
   /** A row nobody can change in this release (the debt payments): shown with a lock. */
   readonly locked: boolean;
+  /**
+   * BUD-17 business rules (owner decision 2026-11-26): the currency of the row's cells — a category's is that of its
+   * limit or its income plan (BUD-02 FR 24), the one its values come in; without any value, the budget's.
+   */
+  readonly currency: string;
 }
 
 export type SectionItem =
@@ -55,6 +59,8 @@ export interface PlanSection {
   readonly id: SectionId;
   readonly totals: readonly (Money | null)[];
   readonly items: readonly SectionItem[];
+  /** A row in another currency is in the sums at today's rate (`PlanView.rates`): they are shown with «≈». */
+  readonly approximate: boolean;
 }
 
 export interface PlanView {
@@ -62,6 +68,8 @@ export interface PlanView {
   readonly months: Grid["months"];
   readonly sections: readonly PlanSection[];
   readonly unallocated: Grid["unallocated"];
+  /** The rates (today's) the cells of another currency are summed at; empty — no «≈». */
+  readonly rates: Grid["rates"];
 }
 
 export type PlanData =
@@ -72,13 +80,12 @@ export interface Names {
   readonly groups: ReadonlyMap<string, string>;
   readonly goals: ReadonlyMap<string, string>;
   readonly debts: ReadonlyMap<string, string>;
+  /** The regular payments (the card «Можна витратити» names them; the grid has no row of them since row 231). */
   readonly payments: ReadonlyMap<string, string>;
 }
 
 /** The calendar month of an ISO date («2026-11-18» → «2026-11»). */
 export const monthOf = (isoDate: string): string => isoDate.slice(0, 7);
-
-const positive = (m: Money | null): boolean => m !== null && new Decimal(m.amount).gt(0);
 
 /**
  * The cells of one row. A month that is already over (the page was left open past the turn of the month) or outside
@@ -108,36 +115,23 @@ const readOnly = (grid: Grid, amounts: readonly (Money | null)[]): PlanCell[] =>
 export function buildView(grid: Grid, names: Names, today: string): PlanView {
   const row = (id: string, label: RowLabel, cells: PlanCell[], locked = false): SectionItem => ({
     type: "row",
-    row: { id, label, cells, locked },
+    row: {
+      id,
+      label,
+      cells,
+      locked,
+      currency: cells.find((c) => c.amount !== null)?.amount?.currency ?? grid.currency,
+    },
   });
 
-  // «Надходження»: «План доходу», the regular incomes and, only while they are less than the plan, «Інші надходження».
-  const income: SectionItem[] = [
+  // «Надходження» (owner decision 2026-11-21, 2 б): a row per income category of the budget's plan, in its currency.
+  const income: SectionItem[] = grid.income.categories.map((c) =>
     row(
-      "income-plan",
-      { kind: "incomePlan" },
-      cellsOf(grid, today, grid.income.plan, { kind: "income", lineId: null }),
+      `income-${c.categoryId}`,
+      { kind: "name", name: names.categories.get(c.categoryId) ?? "" },
+      cellsOf(grid, today, c.cells, { kind: "income", lineId: c.categoryId }),
     ),
-    ...grid.income.rows.map((r) =>
-      row(
-        `income-${r.paymentId}`,
-        { kind: "name", name: names.payments.get(r.paymentId) ?? "" },
-        cellsOf(grid, today, r.cells, { kind: "income", lineId: r.paymentId }),
-      ),
-    ),
-  ];
-  if (grid.income.other.some(positive))
-    income.push(
-      row(
-        "income-other",
-        { kind: "incomeOther" },
-        readOnly(
-          grid,
-          grid.income.other.map((m) => (positive(m) ? m : null)),
-        ),
-        true,
-      ),
-    );
+  );
 
   const expenses: SectionItem[] = grid.expenses.groups.flatMap((g): SectionItem[] => {
     const name = g.groupId === null ? undefined : names.groups.get(g.groupId);
@@ -183,15 +177,23 @@ export function buildView(grid: Grid, names: Names, today: string): PlanView {
     ];
   });
 
+  const section = (id: SectionId, totals: PlanSection["totals"], items: SectionItem[]): PlanSection => ({
+    id,
+    totals,
+    items,
+    approximate:
+      grid.rates.length > 0 && items.some((i) => i.type === "row" && i.row.currency !== grid.currency),
+  });
   return {
     currency: grid.currency,
     months: grid.months,
     unallocated: grid.unallocated,
+    rates: grid.rates,
     sections: [
-      { id: "income", totals: grid.income.totals, items: income },
-      { id: "expenses", totals: grid.expenses.totals, items: expenses },
-      { id: "goals", totals: grid.goals.totals, items: goals },
-      { id: "debts", totals: grid.debts.totals, items: debts },
+      section("income", grid.income.totals, income),
+      section("expenses", grid.expenses.totals, expenses),
+      section("goals", grid.goals.totals, goals),
+      section("debts", grid.debts.totals, debts),
     ],
   };
 }

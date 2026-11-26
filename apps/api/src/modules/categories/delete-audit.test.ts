@@ -5,6 +5,7 @@ import {
   deleteCategory,
   type CategoriesDeps,
   type CategoriesTx,
+  type CategoryUsage,
   type StoredCategory,
 } from "./application/index.ts";
 
@@ -69,13 +70,22 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `categoriesAudit` on a delete", () => 
 });
 
 describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entry once, after the delete, and only when it deleted", () => {
-  function setup(category: StoredCategory | null, used: readonly string[] = []) {
+  const entries = { limit: { amount: "30.00", currency: "EUR" }, stored: true, planCells: 2 };
+  let failDelete = false;
+  function setup(category: StoredCategory | null, used: readonly string[] = [], limited = false) {
     const log: string[] = [];
     const audits: unknown[][] = [];
     const tx = {
       category: async () => category,
       mergeTargets: async () => new Set<string>(),
-      deleteCategory: async () => void log.push("delete"),
+      mergedCount: async () => 0,
+      deleteCategory: async () => {
+        if (failDelete) {
+          failDelete = false;
+          throw new Error("injected");
+        }
+        log.push("delete");
+      },
     } as unknown as CategoriesTx;
     const deps: CategoriesDeps = {
       audit: {
@@ -87,9 +97,34 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entr
       newId: () => "x",
       now: () => 0,
     };
-    const usage = [{ module: "test", used: async () => new Set(used) }];
-    const run = () =>
-      deleteCategory(deps, usage, tx, { householdId: HOUSEHOLD, accountId: ACCOUNT } as never, CATEGORY);
+    const usage: CategoryUsage[] = [
+      {
+        module: "test",
+        used: async () => new Set(used),
+        transactions: async () => (used.length > 0 ? 40 : 0),
+      },
+      {
+        module: "budget",
+        limits: {
+          held: async () => new Set(limited ? [CATEGORY] : []),
+          entries: async () => entries,
+          release: async () => {
+            log.push("release");
+            limited = false;
+            return entries;
+          },
+        },
+      },
+    ];
+    const run = (confirmLimit = false) =>
+      deleteCategory(
+        deps,
+        usage,
+        tx,
+        { householdId: HOUSEHOLD, accountId: ACCOUNT } as never,
+        CATEGORY,
+        confirmLimit,
+      );
     return { run, log, audits };
   }
 
@@ -112,6 +147,44 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entr
       },
       null,
     ]);
+  });
+
+  it("BUD-01@PoC AC 22: only its limit holds it — unconfirmed, refused naming the limit and nothing changes; confirmed, module budget removes the entries, then the row goes, then one entry with them", async () => {
+    const first = setup(stored, [], true);
+    const refused = await first.run(false);
+    expect(refused).toEqual({
+      kind: "confirm-limit",
+      usage: {
+        transactions: 0,
+        rules: 0,
+        recurringPayments: 0,
+        mergedCategories: 0,
+        budget: entries,
+      },
+    });
+    expect(first.log).toEqual([]);
+    const { run, log, audits } = setup(stored, [], true);
+    expect((await run(true)).kind).toBe("ok");
+    expect(log).toEqual(["release", "delete", "audit"]);
+    expect(audits[0]![4]).toMatchObject({ name: "Синтетична категорія", limit: "30.00 EUR", planCells: "2" });
+  });
+
+  it("BUD-01@PoC FR 12: the category's delete fails after budget's commit — the request fails, `release` ran once and the category is left without its limit; a retry without `confirmLimit` deletes it", async () => {
+    const { run, log, audits } = setup(stored, [], true);
+    failDelete = true;
+    await expect(run(true)).rejects.toThrow("injected");
+    expect(log).toEqual(["release"]);
+    expect(audits).toHaveLength(0);
+    expect((await run(false)).kind).toBe("ok");
+    expect(log).toEqual(["release", "delete", "audit"]);
+    expect(audits[0]![4]).not.toHaveProperty("limit");
+  });
+
+  it("BUD-01@PoC AC 19: held by transactions — refused with the reason and its count, even confirmed; the limit is not removed", async () => {
+    const { run, log } = setup(stored, [CATEGORY], true);
+    const refused = await run(true);
+    expect(refused).toMatchObject({ kind: "not-empty", usage: { transactions: 40, budget: entries } });
+    expect(log).toEqual([]);
   });
 
   it.each([

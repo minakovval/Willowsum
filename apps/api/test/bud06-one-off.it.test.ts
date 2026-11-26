@@ -14,7 +14,11 @@ import {
   createCreditAccounts,
 } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
-import { createBudgetCategoryUsage, createBudgetServices } from "../src/modules/budget/index.ts";
+import {
+  createBudgetCategoryUsage,
+  createBudgetServices,
+  type BudgetServices,
+} from "../src/modules/budget/index.ts";
 import { createCashflowServices } from "../src/modules/cashflow/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -38,6 +42,9 @@ import { createTransferProposalSides } from "../src/modules/transfer-matching/in
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * BUD-06@PoC FR 8, AC4 and FLW-38@PoC FR 4, AC3: «Одноразова витрата» — the switch in the transaction's details
@@ -230,10 +237,10 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -243,7 +250,7 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-        }),
+        })),
         goals: createGoalsServices({
           accounts,
           ledger,

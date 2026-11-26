@@ -17,6 +17,7 @@ import {
   createBudgetPlanSources,
   createBudgetServices,
   type BudgetObligations,
+  type BudgetServices,
 } from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -36,6 +37,9 @@ import {
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * Security review of PR #613 (BUD-17@PoC a, «Бюджет → План», the server part): space isolation of `budget.plan_cells`
@@ -131,7 +135,8 @@ async function category(space: Space, name: string): Promise<string> {
 async function budgetWith(space: Space, income: string, limits: Record<string, string>) {
   const res = await call(space, "POST", "/v1/budget", {
     firstPeriod: "2026-11",
-    incomePlan: eur(income),
+    // BUD-17 FR 1 (row 231): «Надходження» is a row per income category — «Зарплата» here.
+    incomePlans: [{ categoryId: await category(space, "Зарплата"), amount: eur(income) }],
     limits: await Promise.all(
       Object.entries(limits).map(async ([name, amount]) => ({
         categoryId: await category(space, name),
@@ -232,11 +237,11 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
         goals: goalsServices,
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
           transactions: createBudgetTransactions(db.databases.for("transactions")),
@@ -252,11 +257,10 @@ beforeAll(async () => {
               inMonth: async (householdId) => (debtCalls.push(householdId), extras.get(householdId) ?? []),
             },
             fx,
-            planEnabled: (householdId) => FLAGS_UNDER_TEST.isEnabled(householdId, "budget.plan"),
           }),
           // As main.ts: «План» off — the months' typed values act nowhere (owner decision 2026-11-20, batch 2, item 2).
           planEnabled: (householdId) => FLAGS_UNDER_TEST.isEnabled(householdId, "budget.plan"),
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -310,7 +314,7 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
       { kind: "limit", lineId: groceries, amount: eur("6543.21") },
       { kind: "goal", lineId: trip, amount: eur("4321.09") },
       { kind: "savings", lineId: null, amount: eur("3219.87") },
-      { kind: "income", lineId: null, amount: eur("2198.76") },
+      { kind: "income", lineId: await category(a, "Зарплата"), amount: eur("2198.76") },
     ]) {
       const res = await put(a, { period: "2026-12", version: 0, ...body });
       expect(res.statusCode, res.body).toBe(200);
@@ -332,6 +336,7 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
       groceries,
       trip,
       debt,
+      await category(a, "Зарплата"),
       a.householdId,
     ])
       expect(text, secret).not.toContain(secret);
@@ -343,6 +348,8 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     for (const [kind, lineId] of [
       ["limit", groceries],
       ["income", groceries],
+      // Row 231: A's income category of «Надходження».
+      ["income", await category(a, "Зарплата")],
       ["goal", trip],
     ] as const) {
       const foreign = await put(b, { period: "2026-12", kind, lineId, amount: eur("1"), version: 1 });
@@ -508,7 +515,7 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect((before.spendable as { figures: unknown }).figures).not.toBeNull();
     for (const [cell, amount] of [
       [{ kind: "limit", lineId: groceries }, "650.37"],
-      [{ kind: "income", lineId: null }, "1234.56"],
+      [{ kind: "income", lineId: await category(space, "Зарплата") }, "1234.56"],
       [{ kind: "savings", lineId: null }, "90.05"],
       [{ kind: "goal", lineId: trip }, "200.10"],
     ] as const)
@@ -707,7 +714,7 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
         { kind: "limit", lineId: groceries },
         { kind: "limit", lineId: cafe },
         { kind: "savings", lineId: null },
-        { kind: "income", lineId: null },
+        { kind: "income", lineId: await category(space, "Зарплата") },
       ]) {
         const res = await put(space, { period: m.period, amount: eur(MAX), version: 0, ...body });
         expect(res.statusCode, res.body).toBe(200);
@@ -765,7 +772,7 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect(reset.statusCode).toBe(400);
     const patch = await call(space, "PATCH", "/v1/budget/plan", {
       version: b.version,
-      incomePlan: eur("2000"),
+      incomePlans: [{ categoryId: await category(space, "Зарплата"), amount: eur("2000") }],
       limits: [{ categoryId: groceries, amount: eur("800") }],
     });
     expect(patch.statusCode, patch.body).toBe(200);

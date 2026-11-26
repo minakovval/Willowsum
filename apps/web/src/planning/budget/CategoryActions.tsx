@@ -1,24 +1,24 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
-import { useI18n, useT, type MessageKey } from "@willowsum/i18n";
-import { Button, Dialog, Icon, MenuButton, Popover, type MenuItem } from "@willowsum/ui";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
+import { useT } from "@willowsum/i18n";
+import { Button, Icon, MenuButton, Popover, type MenuItem } from "@willowsum/ui";
 import { outcome, useAuthApi } from "../../auth/api.ts";
-import { failureOf, type ActionFailure, type Category, type Tree } from "../../categories/api.ts";
-import { DeleteDialog, MergeDialog, NameDialog, type NameTarget } from "../../categories/dialogs.tsx";
+import type { Category, Tree } from "../../categories/api.ts";
+import { DeleteCategoryDialog } from "../../categories/DeleteCategoryDialog.tsx";
+import { MergeDialog, NameDialog, type NameTarget } from "../../categories/dialogs.tsx";
 
 /**
  * BUD-02@PoC FR 7, FR 22, FR 23 (owner, 2026-11-21, «3 а»): the actions of a category on the budget screens — the wizard
  * step «Ліміти» and the page «Бюджет» — in one place: «Перейменувати», «Прибрати з бюджету», «Видалити категорію…», and
  * «Додати категорію» with «Нова категорія…». The dialogs are the ones of «Налаштування → Категорії» (BUD-01 FR 8, 12):
- * rename (a taken name — «Така назва вже існує»), delete of an empty custom category after the confirmation, merge. A
- * category that cannot be deleted gets the choice «Приховати» or «Об'єднати з іншою…» and, in its explanation, the count
- * of its transactions «N транзакцій» (BUD-01 FR 13, BUD-02 AC 19; `GET /v1/categories/{id}/usage`). «Прибрати з бюджету» is the
+ * rename (a taken name — «Така назва вже існує»), delete (`DeleteCategoryDialog`: the exact reasons with their counts, or
+ * the confirmation «Ліміт N теж буде видалено»; BUD-01 FR 12, FR 13, AC 19, AC 22, AC 23; BUD-02 FR 23, AC 19), merge.
+ * «Прибрати з бюджету» is the
  * screen's own (the wizard clears the limit, the page sends it to the server), so it comes in as `onRemove`.
  */
 type Open =
   | { readonly kind: "none" }
   | { readonly kind: "name"; readonly target: NameTarget; readonly groupKind?: "expense" | "income" }
   | { readonly kind: "delete"; readonly category: Category }
-  | { readonly kind: "keep"; readonly category: Category }
   | { readonly kind: "merge"; readonly category: Category };
 
 export interface CategoryActions {
@@ -50,7 +50,7 @@ export function useCategoryActions({
   };
   return {
     rename: (c) => setOpen({ kind: "name", target: { kind: "renameCategory", id: c.id, name: c.name } }),
-    remove: (c) => setOpen(c.deletable ? { kind: "delete", category: c } : { kind: "keep", category: c }),
+    remove: (c) => setOpen({ kind: "delete", category: c }),
     addTo: (groupId) =>
       setOpen({ kind: "name", target: { kind: "newCategory", groupId }, groupKind: "expense" }),
     addIncome: () => setOpen({ kind: "name", target: { kind: "newCategory" }, groupKind: "income" }),
@@ -67,20 +67,12 @@ export function useCategoryActions({
             else onChanged();
           }}
         />
-        <DeleteDialog
+        <DeleteCategoryDialog
           category={open.kind === "delete" ? open.category : null}
           onClose={close}
           onDone={done}
+          onMerge={(c) => setOpen({ kind: "merge", category: c })}
         />
-        {/* Mounted only while open: each opening reads the count afresh, never shows the last one. */}
-        {open.kind === "keep" ? (
-          <KeepDialog
-            category={open.category}
-            onClose={close}
-            onHidden={done}
-            onMerge={(c) => setOpen({ kind: "merge", category: c })}
-          />
-        ) : null}
         <MergeDialog
           category={open.kind === "merge" ? open.category : null}
           tree={tree}
@@ -90,94 +82,6 @@ export function useCategoryActions({
       </>
     ),
   };
-}
-
-/**
- * «Видалити категорію…» of a category that cannot be deleted (it has transactions, rules or limits, or it is a system
- * one): the reason and the two ways out of BUD-01 FR 13 — hide it or merge it into another.
- */
-function KeepDialog({
-  category,
-  onClose,
-  onHidden,
-  onMerge,
-}: {
-  category: Category | null;
-  onClose: () => void;
-  onHidden: () => void;
-  onMerge: (category: Category) => void;
-}) {
-  const { t, locale } = useI18n();
-  const api = useAuthApi();
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<ActionFailure | null>(null);
-  const [count, setCount] = useState<{ readonly id: string; readonly transactions: number } | null>(null);
-  const id = category?.id ?? null;
-  useEffect(() => {
-    if (id === null) return;
-    let live = true;
-    // The count is part of the explanation; without it (a failed read) the dialog still offers both ways out.
-    void outcome(api.GET("/v1/categories/{categoryId}/usage", { params: { path: { categoryId: id } } })).then(
-      (o) => {
-        if (live && o.ok) setCount({ id, transactions: o.data.transactions });
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [api, id]);
-  if (!category) return null;
-  const transactions = count?.id === category.id && count.transactions > 0 ? count.transactions : null;
-  const hide = async () => {
-    if (busy) return;
-    setBusy(true);
-    setFailure(null);
-    const o = await outcome(
-      api.PATCH("/v1/categories/{categoryId}", {
-        params: { path: { categoryId: category.id } },
-        body: { hidden: true },
-      }),
-    );
-    setBusy(false);
-    if (o.ok) onHidden();
-    else setFailure(failureOf(o));
-  };
-  const keep = t("planning.budget.cat.delete.keep");
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t("categories.delete.title", { name: category.name })}
-      text={transactions === null ? keep : transactionsText(t, locale, transactions)}
-      icon="trash"
-      tone="warning"
-      align="start"
-      closeLabel={t("shell.close")}
-      busy={busy}
-      error={failure ? <p>{t("categories.error.action")}</p> : undefined}
-      actions={[
-        { label: t("categories.form.cancel"), onClick: onClose },
-        { label: t("categories.action.hide"), onClick: () => void hide() },
-        {
-          label: t("categories.action.merge"),
-          variant: "primary",
-          onClick: () => onMerge(category),
-        },
-      ]}
-    />
-  );
-}
-
-const COUNT_FORMS = ["one", "few", "many", "other"] as const;
-
-/**
- * The explanation with the count (board PocPlanBudgetTexts, BUD-02 FR 23): «Категорія має 12 транзакцій — її не можна
- * видалити. …» — the noun in the form the language needs.
- */
-function transactionsText(t: ReturnType<typeof useT>, locale: string, count: number): string {
-  const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(count);
-  const form = (COUNT_FORMS as readonly string[]).includes(rule) ? rule : "other";
-  return t(`planning.budget.cat.delete.has.${form}` as MessageKey, { count });
 }
 
 /** The items of the «…» of a category row; «Прибрати з бюджету» only when the row has something to remove. */
@@ -258,6 +162,34 @@ export function RowMenu({
         }}
       />
     </span>
+  );
+}
+
+/**
+ * The «…» («Ще дії: {name}») of an income category row — in the wizard's «План доходу» and in the card «Дохід»
+ * (BUD-02@PoC FR 21, owner, 2026-11-26): one item, «Перейменувати», the same rename as of an expense category.
+ */
+export function IncomeRowMenu({ category, actions }: { category: Category; actions: CategoryActions }) {
+  const t = useT();
+  return (
+    <MenuButton
+      menuLabel={t("categories.menu.category", { name: category.name })}
+      ariaLabel={t("planning.budget.cat.more", { name: category.name })}
+      title={t("categories.more")}
+      placement="down"
+      align="end"
+      className="ws-icon-button"
+      items={[
+        {
+          id: "rename",
+          label: t("planning.budget.cat.rename"),
+          icon: "edit",
+          onSelect: () => actions.rename(category),
+        },
+      ]}
+    >
+      <Icon name="more" size={20} inButton />
+    </MenuButton>
   );
 }
 
