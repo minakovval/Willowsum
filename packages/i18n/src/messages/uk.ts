@@ -77,6 +77,9 @@ export const uk = {
   "transactionRow.split": "розділено",
   "transactionRow.splitMonths": "розділено на {count} міс.",
   "transactionRow.transfer": "переказ",
+  "transactionRow.type.expense": "витрата",
+  "transactionRow.type.income": "дохід",
+  "transactionRow.type.transfer": "переказ",
   "transactionRow.tags": "Теги: {tags}",
   "transactionRow.note": "є нотатка",
   "transactionRow.confirmed": "Підтверджено. Лишилось {count}",
@@ -1925,6 +1928,8 @@ export const uk = {
   "gallery.transactionRow.fop": "ФОП Іваненко",
   "gallery.transactionRow.salary": "Зарплата",
   "gallery.transactionRow.transferTo": "Переказ на картку ··9021",
+  "gallery.transactionRow.longName":
+    "Переказ власних коштів на накопичувальний рахунок «Подушка безпеки і відпустка» Верхньодніпровського відділення",
   "gallery.transactionRow.rent": "Квартплата",
   "gallery.transactionRow.catFood": "Продукти",
   "gallery.transactionRow.catFuel": "Пальне",
