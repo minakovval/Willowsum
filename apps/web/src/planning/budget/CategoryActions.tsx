@@ -261,6 +261,34 @@ export function RowMenu({
   );
 }
 
+/**
+ * The «…» («Ще дії: {name}») of an income category row — in the wizard's «План доходу» and in the card «Дохід»
+ * (BUD-02@PoC FR 21, owner, 2026-11-26): one item, «Перейменувати», the same rename as of an expense category.
+ */
+export function IncomeRowMenu({ category, actions }: { category: Category; actions: CategoryActions }) {
+  const t = useT();
+  return (
+    <MenuButton
+      menuLabel={t("categories.menu.category", { name: category.name })}
+      ariaLabel={t("planning.budget.cat.more", { name: category.name })}
+      title={t("categories.more")}
+      placement="down"
+      align="end"
+      className="ws-icon-button"
+      items={[
+        {
+          id: "rename",
+          label: t("planning.budget.cat.rename"),
+          icon: "edit",
+          onSelect: () => actions.rename(category),
+        },
+      ]}
+    >
+      <Icon name="more" size={20} inButton />
+    </MenuButton>
+  );
+}
+
 /** «Обов'язкова» of a category (BUD-02@PoC FR 7): one checkbox, saved on the category with «Зберегти». */
 function MandatoryPopover({
   category,

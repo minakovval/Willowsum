@@ -14,6 +14,7 @@ import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
 import { SpendableCard } from "./spendable/SpendableCard.tsx";
 import { PeriodSummary } from "./period/PeriodSummary.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
+import { IncomeRowMenu, useCategoryActions } from "./budget/CategoryActions.tsx";
 import { Decimal } from "@willowsum/domain-kernel";
 import {
   loadBudget,
@@ -114,7 +115,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
               )}
               {data?.kind === "ready" && settled ? (
                 <PlanRegion name="income" span={4} card>
-                  <IncomeCard view={data} />
+                  <IncomeCard view={data} onChanged={reload} />
                 </PlanRegion>
               ) : (
                 <PlanRegion name="income" span={4} />
@@ -254,8 +255,11 @@ const INCOME_ROWS = 4;
  * fact of each income category (`incomeCategories`: the ones below their plan first, the server's order). «План
  * виконано в N з M категорій» counts the categories that have a plan.
  */
-function IncomeCard({ view }: { view: BudgetView }) {
+function IncomeCard({ view, onChanged }: { view: BudgetView; onChanged: () => void }) {
   const { t, locale } = useI18n();
+  // FR 21: «Перейменувати» of an income category row, the rename of «Налаштування → Категорії».
+  const actions = useCategoryActions({ tree: view.tree, onChanged, onCreated: () => onChanged() });
+  const categories = new Map(view.tree.groups.flatMap((g) => g.categories).map((c) => [c.id, c]));
   const { incomePlan, incomeActual, incomeCategories, mode } = view.period;
   const money = (m: Money) => formatMoney(locale, m.amount, m.currency);
   const names = new Map(view.tree.groups.flatMap((g) => g.categories).map((c) => [c.id, c.name]));
@@ -296,6 +300,7 @@ function IncomeCard({ view }: { view: BudgetView }) {
       {incomeCategories.length > 0 ? (
         <ul className="bud-income-list">
           {shown.map((c) => {
+            const category = categories.get(c.categoryId);
             const mark = c.actual === null ? null : reached(c) ? "reached" : "expected";
             const label =
               mark === "reached" ? t("planning.budget.income.reached") : t("planning.budget.income.expected");
@@ -312,6 +317,7 @@ function IncomeCard({ view }: { view: BudgetView }) {
                       {mark === "reached" ? "✓" : "…"}
                     </span>
                   ) : null}
+                  {category ? <IncomeRowMenu category={category} actions={actions} /> : null}
                 </span>
               </li>
             );
@@ -334,6 +340,7 @@ function IncomeCard({ view }: { view: BudgetView }) {
           ) : null}
         </ul>
       ) : null}
+      {actions.dialogs}
     </section>
   );
 }

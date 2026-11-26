@@ -25,7 +25,14 @@ const eur = (amount: string) => ({ amount, currency: "EUR" });
 const G_DAILY = id(100);
 const G_INCOME = id(101);
 
-type Cat = { id: string; name: string; kind: "expense" | "income"; deletable: boolean; hidden?: boolean };
+type Cat = {
+  id: string;
+  name: string;
+  kind: "expense" | "income";
+  deletable: boolean;
+  hidden?: boolean;
+  essential?: boolean;
+};
 const category = (c: Cat, groupId: string) => ({
   id: c.id,
   groupId,
@@ -36,7 +43,7 @@ const category = (c: Cat, groupId: string) => ({
   icon: "tag",
   color: "#112233",
   iconTone: "white",
-  essential: null,
+  essential: c.essential ?? null,
   hidden: c.hidden ?? false,
   deletable: c.deletable,
 });
@@ -164,7 +171,9 @@ const type = (name: RegExp | string, value: string) => {
   fireEvent.change(input, { target: { value } });
   fireEvent.blur(input);
 };
-const rowOf = (name: string) => screen.getByRole("rowheader", { name }).closest("tr")!;
+// A row may carry a mark after its name («обов’язкова», «поза бюджетом», BUD-02 FR 25): the name is what the header starts with.
+const rowOf = (name: string) =>
+  screen.getByRole("rowheader", { name: (n) => n.startsWith(name) }).closest("tr")!;
 const incomeSum = () => plain(document.querySelector(".bud-wiz-income-sum")?.textContent);
 const postBody = (calls: readonly Call[], path = "/v1/budget") =>
   calls.find((c) => c.method === "POST" && c.path === path)?.body as {
@@ -302,6 +311,97 @@ describe("BUD-02@PoC i) wizard «Ліміти»: «План доходу» by in
     type(/План на місяць/, "300");
     fireEvent.click(screen.getByRole("button", { name: "Додати" }));
     expect(incomeSum()).toBe("сума категорій доходу 5 900,00 €");
+  });
+});
+
+describe("BUD-02@PoC i) wizard «Ліміти»: the owner's corrections of 2026-11-26 (row 225)", () => {
+  it("BUD-02@PoC FR 21: «Додати категорію доходу» adds the editable row first in the list — above the first income category", async () => {
+    mount();
+    await toLimits();
+    fireEvent.click(screen.getByRole("button", { name: "Додати категорію доходу" }));
+    const add = document.querySelector<HTMLElement>(".bud-wiz-income-add")!;
+    expect(add).toBeTruthy();
+    // Before the list in the page order, not after its last row.
+    expect(add.compareDocumentPosition(rowOf("Зарплата")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(add.compareDocumentPosition(rowOf("Фриланс")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(add.closest(".bud-wiz-income")!.querySelector("table")!.previousElementSibling).toBe(add);
+  });
+
+  it("BUD-02@PoC AC22: the add row of «План доходу» is above «Зарплата»; «Перейменувати» of the row «Фриланс» renames the income category, a taken name is refused", async () => {
+    const { calls, state } = mount({
+      [`PATCH /v1/categories/${FREELANCE.id}`]: (call) => {
+        const name = (call.body as { name: string }).name;
+        if (name === "Зарплата") return problem(409, "CATEGORY_NAME_TAKEN");
+        state.cats = state.cats.map((c) => (c.id === FREELANCE.id ? { ...c, name } : c));
+        return { status: 200, body: {} };
+      },
+    });
+    await toLimits();
+    fireEvent.click(screen.getByRole("button", { name: "Додати категорію доходу" }));
+    const add = document.querySelector<HTMLElement>(".bud-wiz-income-add")!;
+    expect(add.compareDocumentPosition(rowOf("Зарплата")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(within(add).getByRole("button", { name: "Скасувати" }));
+
+    expect(menuItems(openMenu("Фриланс"))).toEqual(["Перейменувати"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Перейменувати" }));
+    const dialog = await screen.findByRole("dialog", { name: "Перейменувати «Фриланс»" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Назва/ }), {
+      target: { value: "Зарплата" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Зберегти" }));
+    expect(await within(dialog).findByText("Така назва вже існує")).toBeTruthy();
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Назва/ }), {
+      target: { value: "Підробіток" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Зберегти" }));
+    await screen.findByRole("rowheader", { name: "Підробіток" });
+    expect(calls.filter((c) => c.method === "PATCH").map((c) => c.body)).toEqual([
+      { name: "Зарплата" },
+      { name: "Підробіток" },
+    ]);
+    // The plan of the row stays with the renamed category.
+    expect(incomeSum()).toBe("сума категорій доходу 5 600,00 €");
+  });
+
+  it("BUD-02@PoC FR 21: the income row menu of the wizard has only «Перейменувати»; «Прибрати» (✕) still takes the row out", async () => {
+    mount();
+    await toLimits();
+    expect(menuItems(openMenu("Зарплата"))).toEqual(["Перейменувати"]);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Прибрати: Зарплата" }));
+    expect(incomeSum()).toBe("сума категорій доходу 600,00 €");
+  });
+
+  it("BUD-02@PoC FR 25: «Прибрати з бюджету» shows «поза бюджетом» in the row at once; a limit typed again takes the mark away", async () => {
+    mount();
+    await toLimits();
+    expect(screen.queryByText("поза бюджетом")).toBeNull();
+    fireEvent.click(within(openMenu("Продукти")).getByRole("menuitem", { name: "Прибрати з бюджету" }));
+    expect(within(rowOf("Продукти")).getByText("поза бюджетом")).toBeTruthy();
+    // The other rows are not marked.
+    expect(within(rowOf("Транспорт")).queryByText("поза бюджетом")).toBeNull();
+    fireEvent.change(within(rowOf("Продукти")).getByRole("textbox"), { target: { value: "350" } });
+    fireEvent.blur(within(rowOf("Продукти")).getByRole("textbox"));
+    expect(within(rowOf("Продукти")).queryByText("поза бюджетом")).toBeNull();
+  });
+
+  it("BUD-02@PoC AC23: the wizard shows «обов’язкова» in the row once «Обов’язкова» is saved and «поза бюджетом» after «Прибрати з бюджету»", async () => {
+    const { state } = mount({
+      [`PATCH /v1/categories/${PRODUCTS.id}`]: () => {
+        state.cats = state.cats.map((c) => (c.id === PRODUCTS.id ? { ...c, essential: true } : c));
+        return { status: 200, body: {} };
+      },
+    });
+    await toLimits();
+    expect(within(rowOf("Продукти")).queryByText("обов’язкова")).toBeNull();
+    fireEvent.click(within(openMenu("Продукти")).getByRole("menuitem", { name: "Обов’язкова" }));
+    const popover = await screen.findByRole("dialog", { name: "Обов’язкова: Продукти" });
+    fireEvent.click(within(popover).getByRole("checkbox", { name: "Обов’язкова" }));
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() => expect(within(rowOf("Продукти")).getByText("обов’язкова")).toBeTruthy());
+    fireEvent.click(within(openMenu("Транспорт")).getByRole("menuitem", { name: "Прибрати з бюджету" }));
+    expect(within(rowOf("Транспорт")).getByText("поза бюджетом")).toBeTruthy();
+    expect(within(rowOf("Продукти")).queryByText("поза бюджетом")).toBeNull();
   });
 });
 
@@ -917,7 +1017,7 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     });
   });
 
-  it("BUD-02@PoC FR 7: «Додати категорію» in the heading of a group adds an editable row at its bottom — the list («Поза планом · є витрати», then the categories without a limit, then «Нова категорія…»), the limit with the 3-month average in the field, «обов’язкова», ✓ and ✕", async () => {
+  it("BUD-02@PoC FR 7: «Додати категорію» in the heading of a group adds an editable row first in the group — the list («Поза планом · є витрати», then the categories without a limit, then «Нова категорія…»), the limit with the 3-month average in the field, «обов’язкова», ✓ and ✕", async () => {
     const api = open({
       "GET /v1/categories": { status: 200, body: tree([...CATS, TRAVEL, FUN, HIDDEN]) },
       "GET /v1/budget/wizard": averages,
@@ -927,8 +1027,9 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     await screen.findByRole("table");
     fireEvent.click(screen.getByRole("button", { name: "Додати категорію: Щоденне" }));
     const row = document.querySelector<HTMLElement>(".bud-add-row")!;
-    // At the bottom of its group.
-    expect(row.parentElement!.lastElementChild).toBe(row);
+    // The first row of its group, right under its heading (FR 7, owner, 2026-11-26).
+    expect(row.previousElementSibling).toBe(row.closest("tbody")!.querySelector(".bud-group"));
+    expect(row.closest("tbody")!.querySelector("tr:not(.bud-group)")).toBe(row);
     expect(row.closest("tbody")!.getAttribute("data-group")).toBe(G_DAILY);
     const list = within(row).getByRole("combobox", { name: "Категорія" }) as HTMLSelectElement;
     const groups = [...list.querySelectorAll("optgroup")].map((g) => [
@@ -1007,6 +1108,136 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
         limits: [{ categoryId: NEW_ID, amount: money("120.00") }],
       }),
     );
+  });
+
+  it("BUD-02@PoC AC22: on «Бюджет» «Додати категорію» in the group «Щоденне» adds the editable row first in the group, under its heading; no modal dialog opens", async () => {
+    open({ "GET /v1/categories": { status: 200, body: tree([...CATS, TRAVEL, FUN]) } });
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: "Додати категорію: Щоденне" }));
+    const row = document.querySelector<HTMLElement>(".bud-add-row")!;
+    const group = row.closest("tbody")!;
+    expect(group.getAttribute("data-group")).toBe(G_DAILY);
+    expect(row.previousElementSibling).toBe(group.querySelector(".bud-group"));
+    expect(group.querySelector("tr:not(.bud-group)")).toBe(row);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("DS-01@PoC AC 16: «Додати категорію» in the table of the budget categories adds the editable row first in the group with the category, the limit, «обов’язкова», ✓ and ✕; no modal dialog opens", async () => {
+    open({ "GET /v1/categories": { status: 200, body: tree([...CATS, TRAVEL, FUN]) } });
+    await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: "Додати категорію: Щоденне" }));
+    const row = document.querySelector<HTMLElement>(".bud-add-row")!;
+    expect(row.parentElement!.querySelector("tr:not(.bud-group)")).toBe(row);
+    expect(within(row).getByRole("combobox", { name: "Категорія" })).toBeTruthy();
+    expect(within(row).getByRole("textbox", { name: "Ліміт" })).toBeTruthy();
+    expect(within(row).getByRole("checkbox", { name: "обов’язкова" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Додати" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Скасувати" })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("BUD-02@PoC FR 21: a row of the card «Дохід» has «…» with «Перейменувати» of the income category; a taken name is refused with «Така назва вже існує»", async () => {
+    const state = { name: "Фриланс" };
+    const api = open({
+      [`PATCH /v1/categories/${FREELANCE.id}`]: (call) => {
+        const name = (call.body as { name: string }).name;
+        if (name === "Зарплата") return problem(409, "CATEGORY_NAME_TAKEN");
+        state.name = name;
+        return { status: 200, body: {} };
+      },
+      "GET /v1/categories": () => ({
+        status: 200,
+        body: tree([...CATS.map((c) => (c.id === FREELANCE.id ? { ...c, name: state.name } : c)), TRAVEL]),
+      }),
+    });
+    await screen.findByRole("table");
+    const card = document.querySelector<HTMLElement>("[data-plan-region='income']")!;
+    fireEvent.click(within(card).getByRole("button", { name: "Ще дії: Фриланс" }));
+    expect(menuItems(screen.getByRole("menu", { name: "Дії категорії «Фриланс»" }))).toEqual([
+      "Перейменувати",
+    ]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Перейменувати" }));
+    const dialog = await screen.findByRole("dialog", { name: "Перейменувати «Фриланс»" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Назва/ }), {
+      target: { value: "Зарплата" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Зберегти" }));
+    expect(await within(dialog).findByText("Така назва вже існує")).toBeTruthy();
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Назва/ }), {
+      target: { value: "Підробіток" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() => expect(within(card).getByText("Підробіток")).toBeTruthy());
+    expect(api.calls.filter((c) => c.method === "PATCH").map((c) => c.body)).toEqual([
+      { name: "Зарплата" },
+      { name: "Підробіток" },
+    ]);
+  });
+
+  it("BUD-02@PoC AC23: «Обов’язкова» shows «обов’язкова» in the row at once, and «Прибрати з бюджету» moves the row to «Поза планом» with «поза бюджетом»", async () => {
+    const live = { mandatory: false, removed: false };
+    const api = open({
+      [`PATCH /v1/categories/${PRODUCTS.id}`]: () => {
+        live.mandatory = true;
+        return { status: 200, body: {} };
+      },
+      "PATCH /v1/budget/plan": () => {
+        live.removed = true;
+        return { status: 200, body: budget.budget };
+      },
+      "GET /v1/budget/periods/2026-11": () => {
+        const limited = rows
+          .filter((r) => !(live.removed && r.categoryId === PRODUCTS.id))
+          .map((r) => ({
+            ...r,
+            mandatory: r.categoryId === PRODUCTS.id && live.mandatory,
+            groupId: G_DAILY,
+          }));
+        return {
+          status: 200,
+          body: period({
+            groups: [{ groupId: G_DAILY, categories: limited }],
+            outsidePlan: {
+              categories: [
+                ...(live.removed ? [{ categoryId: PRODUCTS.id, spent: money("100.00") }] : []),
+                { categoryId: id(5), spent: money("96.00") },
+              ],
+              total: money("196.00"),
+            },
+          }),
+        };
+      },
+    });
+    await screen.findByRole("table");
+    const rowFor = (name: string) =>
+      [...document.querySelectorAll<HTMLElement>(".bud-table tbody tr")].find(
+        (r) => r.querySelector(".bud-name")?.firstChild?.textContent === name,
+      )!;
+    expect(within(rowFor("Продукти")).queryByText("обов’язкова")).toBeNull();
+    fireEvent.click(within(rowFor("Продукти")).getByRole("button", { name: "Ще дії: Продукти" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Обов’язкова" }));
+    const popover = await screen.findByRole("dialog", { name: "Обов’язкова: Продукти" });
+    fireEvent.click(within(popover).getByRole("checkbox", { name: "Обов’язкова" }));
+    fireEvent.click(within(popover).getByRole("button", { name: "Зберегти" }));
+    await waitFor(() => expect(within(rowFor("Продукти")).getByText("обов’язкова")).toBeTruthy());
+    // «Подорожі» was never limited: it is in «Поза планом» and says so.
+    expect(within(rowFor("Подорожі")).getByText("поза бюджетом")).toBeTruthy();
+    // The row of a limit has no such mark.
+    expect(within(rowFor("Транспорт")).queryByText("поза бюджетом")).toBeNull();
+
+    fireEvent.click(within(rowFor("Продукти")).getByRole("button", { name: "Ще дії: Продукти" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Прибрати з бюджету" }));
+    await waitFor(() =>
+      expect(
+        within(document.querySelector<HTMLElement>("tbody[data-group='outside']")!).getByText("Продукти"),
+      ).toBeTruthy(),
+    );
+    const outside = document.querySelector<HTMLElement>("tbody[data-group='outside']")!;
+    const moved = [...outside.querySelectorAll<HTMLElement>("tr")].find(
+      (r) => r.querySelector(".bud-name")?.firstChild?.textContent === "Продукти",
+    )!;
+    expect(within(moved).getByText("поза бюджетом")).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "PATCH" && c.path === "/v1/budget/plan")).toBe(true);
   });
 
   it("BUD-02@PoC FR 16: a past month shows the plan of its snapshot — no pencil, no «Задати ліміт», no «Додати категорію»", async () => {
