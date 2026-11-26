@@ -59,6 +59,16 @@ describe("IMP-08@PoC FR 2 (row 230b): the account of a file among several of one
       kind: "picked",
       accountId: "a-pumb-9",
     });
+    // A name typed by hand for an account («Інша установа») that is part of the printed one is no contradiction.
+    const revolut: AccountCandidate = { accountId: "a-rev-4417", institution: "Revolut", last4: "4417" };
+    expect(accountFor({ bank: "Revolut Bank UAB", mask: "…4417" }, [revolut, black])).toEqual({
+      kind: "picked",
+      accountId: "a-rev-4417",
+    });
+    expect(accountFor({ bank: MONO, mask: "…4417" }, [{ ...revolut, institution: "monobank" }])).toEqual({
+      kind: "picked",
+      accountId: "a-rev-4417",
+    });
   });
 
   it("IMP-08@PoC FR 2: a tail no account has — the bank's one account only when it has no number", () => {

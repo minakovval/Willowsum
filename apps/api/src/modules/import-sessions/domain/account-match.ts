@@ -35,6 +35,13 @@ const folded = (text: string): string =>
 
 const TAIL = /^…([A-Za-z0-9]{4})$/u;
 
+/**
+ * Two folded bank names that may name one bank: equal, or one is the other's whole words («revolut» in «revolut bank
+ * uab», «monobank» in «універсал банк monobank»). Only a clear difference contradicts a tail match.
+ */
+const mayBeSameBank = (a: string, b: string): boolean =>
+  ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `);
+
 /** Null when the file names neither a bank nor a tail: nothing to match by. */
 export function accountFor(
   detected: { readonly bank?: string | undefined; readonly mask?: string | undefined },
@@ -53,7 +60,8 @@ export function accountFor(
       // the file's, so no pick, and the file's account is not among the space's — «Оберіть рахунок» and «Створити
       // рахунок» (FR 2). `several` would hide «Створити рахунок» (web `canCreateFor`).
       const only = byTail[0]!;
-      const otherBank = bank !== "" && only.institution !== null && folded(only.institution) !== bank;
+      const otherBank =
+        bank !== "" && only.institution !== null && !mayBeSameBank(folded(only.institution), bank);
       return otherBank ? { kind: "none" } : picked(only);
     }
     if (byTail.length > 1) {
