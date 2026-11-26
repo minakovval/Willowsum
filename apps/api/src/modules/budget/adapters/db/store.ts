@@ -30,7 +30,7 @@ const budget = (r: BudgetRow): StoredBudget => ({
 
 const month = (period: string) => `${period}-01`;
 
-/** BUD-02 FR 24: a snapshot line's amount in the category's own currency (0008). */
+/** BUD-02 FR 24: a snapshot line's amount in the category's own currency (0009). */
 interface Original {
   amount: string;
   currency: string;
@@ -214,7 +214,7 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
                     ...originalOf(l.original),
                   })),
                 }),
-            // BUD-02 FR 24: the rates of its last day (0008); none — every line in the budget's currency.
+            // BUD-02 FR 24: the rates of its last day (0009); none — every line in the budget's currency.
             ...ratesOf(r.rates),
           },
         ]),
