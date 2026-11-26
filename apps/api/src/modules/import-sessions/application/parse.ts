@@ -1,4 +1,5 @@
 import type {
+  Institution,
   ReadOptions,
   StatementChecks,
   StatementOptions,
@@ -210,6 +211,11 @@ export interface ParsePorts {
   /** An active account of the space, or null. */
   account(householdId: string, accountId: string): Promise<ParseAccount | null>;
   /**
+   * IMP-08 FR 2 (row 230): the directory of banks the statement's own bank is looked up in (accounts' NBU directory);
+   * absent — no bank is detected.
+   */
+  institutions?(): readonly Institution[];
+  /**
    * The parse in the isolated worker; the binding's opener is taken only once the worker's turn has come (#624). A
    * refusal is a `ParseRefused` with the file's rejection code.
    */
@@ -297,15 +303,19 @@ export async function runParse(
 
   const account = parse.accountId ? await ports.account(householdId, parse.accountId) : null;
   const accountId = account ? parse.accountId : null;
-  const statement: StatementOptions = account
-    ? {
-        account: {
-          currencies: account.currencies,
-          multiCurrency: account.currencies.length > 1,
-          kind: account.kind,
-        },
-      }
-    : {};
+  const institutions = ports.institutions?.() ?? [];
+  const statement: StatementOptions = {
+    ...(account
+      ? {
+          account: {
+            currencies: account.currencies,
+            multiCurrency: account.currencies.length > 1,
+            kind: account.kind,
+          },
+        }
+      : {}),
+    ...(institutions.length > 0 ? { institutions } : {}),
+  };
   let parsed: StatementParse;
   let recipe: ParseRecipe | null;
   let recipeFormat: FileParse["recipeFormat"] = null;
@@ -365,11 +375,24 @@ export async function runParse(
       id: accountId,
       currency: account && account.currencies.length === 1 ? account.currencies[0]! : null,
     },
-    checks: parsed.checks,
+    checks: withDirectoryBank(parsed.checks, institutions),
   });
   handOffs.push(...recorded.handOffs);
   handOffs.push(...(await finishBatch(deps, tx, job.batchId, parse.requestedBy)));
   return handOffs;
+}
+
+/** The worker's answer is not trusted: a detected bank is kept only when it is a name of the directory it was given. */
+function withDirectoryBank(checks: StatementChecks, institutions: readonly Institution[]): StatementChecks {
+  const bank = checks.detected?.bank;
+  if (bank === undefined || institutions.some((i) => i.name === bank)) return checks;
+  return {
+    ...checks,
+    detected: {
+      ...(checks.detected?.currency !== undefined ? { currency: checks.detected.currency } : {}),
+      ...(checks.detected?.mask !== undefined ? { mask: checks.detected.mask } : {}),
+    },
+  };
 }
 
 function withRecipe(

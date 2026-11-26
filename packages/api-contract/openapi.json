@@ -38312,6 +38312,21 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "detected": {
+                            "type": "object",
+                            "properties": {
+                              "bank": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "mask": {
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": false
                           }
                         },
                         "required": [

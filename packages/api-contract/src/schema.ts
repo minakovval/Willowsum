@@ -16988,6 +16988,11 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
+                            detected?: {
+                                bank?: string;
+                                currency?: string;
+                                mask?: string;
+                            };
                             engineVersion: string;
                             /** Format: uuid */
                             fileId: string;
