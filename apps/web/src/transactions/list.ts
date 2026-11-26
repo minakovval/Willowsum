@@ -272,11 +272,13 @@ export interface FilterChoice {
 export function useFilterChoices(): {
   accounts: readonly FilterChoice[];
   tags: readonly FilterChoice[];
+  categories: readonly FilterChoice[];
   names: FilterNames;
 } {
   const api = useAuthApi();
   const [accounts, setAccounts] = useState<readonly FilterChoice[]>([]);
   const [tags, setTags] = useState<readonly FilterChoice[]>([]);
+  const [categories, setCategories] = useState<readonly FilterChoice[]>([]);
   useEffect(() => {
     let live = true;
     void accountNames(api).then((names) => {
@@ -284,6 +286,13 @@ export function useFilterChoices(): {
     });
     void outcome(api.GET("/v1/transaction-tags")).then((o) => {
       if (live && o.ok) setTags(o.data.items.map((tag) => ({ value: tag.id, label: tag.name })));
+    });
+    // «Категорії»: the named categories of the tree, hidden ones too (their old transactions stay in the list).
+    void outcome(api.GET("/v1/categories")).then((o) => {
+      if (live && o.ok)
+        setCategories(
+          o.data.groups.flatMap((g) => g.categories.map((c) => ({ value: c.id, label: c.name }))),
+        );
     });
     return () => {
       live = false;
@@ -293,8 +302,9 @@ export function useFilterChoices(): {
     () => ({
       accounts: new Map(accounts.map((a) => [a.value, a.label])),
       tags: new Map(tags.map((tag) => [tag.value, tag.label])),
+      categories: new Map(categories.map((c) => [c.value, c.label])),
     }),
-    [accounts, tags],
+    [accounts, tags, categories],
   );
-  return { accounts, tags, names };
+  return { accounts, tags, categories, names };
 }

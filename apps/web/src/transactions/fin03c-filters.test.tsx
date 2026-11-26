@@ -15,6 +15,7 @@ import { filteredTransactionsPath } from "./filters.ts";
  */
 const ACC = "00000000-0000-4000-8000-000000000001";
 const ACC2 = "00000000-0000-4000-8000-000000000002";
+const CAT = "00000000-0000-4000-8000-000000000099";
 const ACC3 = "00000000-0000-4000-8000-000000000003";
 const TAG = "00000000-0000-4000-8000-0000000000a1";
 const TAG2 = "00000000-0000-4000-8000-0000000000b2";
@@ -93,6 +94,9 @@ function matches(t: Tx, filter: string): boolean {
       return t.tags.some((tag) => value!.split(",").includes(tag.id));
     case "tag.eq":
       return t.tags.some((tag) => tag.id === value);
+    case "category.eq":
+      // The category of a transaction is not part of this fixture: a category filter shows the first six.
+      return ALL.indexOf(t) < 6;
     case "counterparty.has":
       return t.counterparty.includes(value!);
     default:
@@ -166,7 +170,19 @@ function open(hash = "#/money/transactions") {
         ],
       },
     },
-    "GET /v1/categories": { status: 200, body: { groups: [] } },
+    "GET /v1/categories": {
+      status: 200,
+      body: {
+        groups: [
+          {
+            id: "00000000-0000-4000-8000-000000000098",
+            kind: "expense",
+            name: "Харчування",
+            categories: [{ id: CAT, name: "Кава", kind: "expense", icon: "coffee", color: "#0E9161" }],
+          },
+        ],
+      },
+    },
     "GET /v1/transaction-review": { status: 200, body: { count: 0 } },
     "GET /v1/transfer-proposals": { status: 200, body: { items: [], count: 0, more: false } },
   };
@@ -279,7 +295,7 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
     );
   });
 
-  it("filter panel: one button «Фільтри» opens the panel under it with rows «підпис — випадний список» Період, Рахунки, Тип, Сума, Стан, Теги, Мерчант; unset ones say «Будь-який», «Усі» or «Будь-які» in grey; no «Умова»", async () => {
+  it("filter panel: one button «Фільтри» opens the panel under it with rows «підпис — випадний список» Період, Рахунки, Категорії, Тип, Сума, Стан, Теги, Мерчант; unset ones say «Будь-який», «Усі» or «Будь-які» in grey; no «Умова»", async () => {
     open();
     await loaded();
     const button = filtersButton();
@@ -289,6 +305,7 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
     expect([...panel().querySelectorAll(".ws-filter-row__label")].map((l) => l.textContent)).toEqual([
       "Період",
       "Рахунки",
+      "Категорії",
       "Тип",
       "Сума",
       "Стан",
@@ -299,6 +316,7 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
     expect(shown.map((b) => b.getAttribute("aria-label"))).toEqual([
       "Період: Будь-який",
       "Рахунки: Усі",
+      "Категорії: Будь-які",
       "Тип: Списання і надходження",
       "Сума: Будь-яка",
       "Стан: Будь-який",
@@ -451,6 +469,28 @@ describe("FIN-03@PoC FR 33, DAT-01@PoC FR 7: filters from a link and back", () =
     await waitFor(() => expect(range()).toBe("1–6 з 6"));
   });
 
+  it("BUD-01@PoC AC20, FIN-03@PoC FR 22: «Показати транзакції» of the delete dialog opens this page with «Категорія: Кава»; the list asks for `category.eq`, the chip's «×» takes it away", async () => {
+    expect(filteredTransactionsPath({ category: CAT })).toBe(`/money/transactions?category=${CAT}`);
+    const { lastFilters } = open(`#${filteredTransactionsPath({ category: CAT })}`);
+    await waitFor(() => expect(lastFilters()).toEqual([`category.eq:${CAT}`]));
+    await waitFor(() => expect(chips()).toEqual(["Категорія: Кава"]), { timeout: 1500 });
+    expect(filtersButton().textContent).toBe("Фільтри · 1");
+    expect(window.location.hash).toBe("#/money/transactions");
+    fireEvent.click(screen.getByRole("button", { name: "Прибрати фільтр: Категорії — Кава" }));
+    await waitFor(() => expect(lastFilters()).toEqual([]));
+  });
+
+  it("FIN-03@PoC FR 22: «Категорії» of the panel chooses categories by name", async () => {
+    const { lastFilters } = open();
+    await loaded();
+    fireEvent.click(filtersButton());
+    await waitFor(() => rowButton("Категорії"));
+    check("Категорії", "Кава");
+    apply();
+    await waitFor(() => expect(lastFilters()).toEqual([`category.eq:${CAT}`]));
+    expect(chips()).toEqual(["Категорія: Кава"]);
+  });
+
   it("DAT-01@PoC AC1, FR 7: the user opens a record from a filtered list and comes back — the filters come back with their chips", async () => {
     const { lastFilters } = open();
     await loaded();
@@ -505,6 +545,7 @@ describe("FIN-03@PoC FR 33, DAT-01@PoC FR 7: filters from a link and back", () =
           amountFrom: "",
           amountTo: "",
           state: null,
+          categories: [],
           tags: [],
           merchant: "",
           ...filters,

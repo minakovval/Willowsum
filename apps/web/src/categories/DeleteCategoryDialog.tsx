@@ -3,6 +3,8 @@ import { useI18n, formatMoney, formatNumber, type Locale, type MessageKey, type 
 import type { paths } from "@willowsum/api-contract";
 import { Dialog } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
+import { hrefFor } from "../routing/useHashPath.ts";
+import { filteredTransactionsPath } from "../transactions/filters.ts";
 import { failureOf, type ActionFailure, type Category } from "./api.ts";
 
 /**
@@ -19,14 +21,16 @@ import { failureOf, type ActionFailure, type Category } from "./api.ts";
  * The dialog is mounted only while open (a new opening reads the usage afresh, never shows the last one). If the read
  * fails, the tree's `deletable` decides: a deletable category is confirmed plainly (the server still refuses an
  * unconfirmed limit or a held category, and the dialog then reads the usage again), a held one shows no numbers.
- * «Показати транзакції» (BUD-01 AC 20) waits for the category filter of the transactions list (PR body).
+ * «Показати транзакції» (BUD-01 AC 20, BUD-02 AC 19) opens the transactions list filtered by this category. A re-read
+ * that fails right after the server said the usage changed shows an error, not the same question again.
  */
 type Usage =
   paths["/v1/categories/{categoryId}/usage"]["get"]["responses"]["200"]["content"]["application/json"];
 type Read =
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly usage: Usage }
-  | { readonly kind: "failed" };
+  | { readonly kind: "failed" }
+  | { readonly kind: "stuck" };
 
 const FORMS = ["one", "few", "many", "other"] as const;
 
@@ -73,13 +77,20 @@ function DeleteForm({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ActionFailure | null>(null);
   const running = useRef(false);
+  /** The usage is read again because the server said it changed; a failure of that read is shown, not looped on. */
+  const rereading = useRef(false);
   const id = category.id;
 
   useEffect(() => {
     let live = true;
     void outcome(api.GET("/v1/categories/{categoryId}/usage", { params: { path: { categoryId: id } } })).then(
       (o) => {
-        if (live) setRead(o.ok ? { kind: "ready", usage: o.data } : { kind: "failed" });
+        if (!live) return;
+        const again = rereading.current;
+        rereading.current = false;
+        if (o.ok) setRead({ kind: "ready", usage: o.data });
+        else if (again) setRead({ kind: "stuck" });
+        else setRead({ kind: "failed" });
       },
     );
     return () => {
@@ -104,6 +115,7 @@ function DeleteForm({
     if (o.ok) return after();
     const code = !o.ok && o.kind === "problem" ? o.problem.code : "";
     if (code === "CATEGORY_LIMIT_CONFIRM" || code === "CATEGORY_NOT_EMPTY") {
+      rereading.current = true;
       setRead({ kind: "loading" });
       setAttempt((n) => n + 1);
     } else setFailure(failureOf(o));
@@ -148,6 +160,18 @@ function DeleteForm({
       />
     );
 
+  if (read.kind === "stuck")
+    return (
+      <Dialog
+        {...common}
+        icon="trash"
+        tone="warning"
+        align="start"
+        error={<p>{t("categories.error.action")}</p>}
+        actions={[cancel]}
+      />
+    );
+
   const rules = usage?.rules ?? 0;
   if (!deletable) {
     const reasons: string[] = [];
@@ -179,6 +203,15 @@ function DeleteForm({
               <li key={r}>{r}</li>
             ))}
           </ul>
+        ) : null}
+        {usage && usage.transactions > 0 ? (
+          <a
+            className="cat-delete-link"
+            href={hrefFor(filteredTransactionsPath({ category: id }))}
+            onClick={onClose}
+          >
+            {t("categories.delete.showTransactions")}
+          </a>
         ) : null}
         {rules > 0 ? (
           <p className="cat-delete-note">

@@ -294,6 +294,7 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
         onChange={(filters) => setView((v) => ({ ...v, filters, page: 1 }))}
         accounts={choices.accounts}
         tags={choices.tags}
+        categories={choices.categories}
         names={choices.names}
       />
     </ListToolbar>
