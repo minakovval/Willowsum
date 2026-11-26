@@ -17,6 +17,7 @@ import {
   createTransfer,
   deleteTransaction,
   dismissDuplicate,
+  dismissTransfer,
   markTransfer,
   mergeDuplicate,
   removeSplit,
@@ -918,6 +919,48 @@ export const markTransferRoute = defineRoute({
   },
 });
 
+/**
+ * IMP-03@PoC FR 12 «Не пара» (wave 2 row 48): a proposed pair of «Пари · N» is never proposed again, even after
+ * «Роз'єднати»; nothing else changes. The same rights, flag and checks as «Підтвердити» (a viewer, an advisor and a
+ * scoped member: 403).
+ */
+export const dismissTransferRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/transactions/{transactionId}/not-transfer",
+  operationId: "dismissTransfer",
+  summary:
+    "«Не пара»: the pair is never proposed as a transfer again, even after «Роз'єднати» (IMP-03 FR 12); nothing else changes",
+  access: { permission: "household.data.write", feature: TRANSFERS_FLAG },
+  bodyLimitBytes: 1024,
+  problems: ["ACCOUNT_CLOSED"],
+  request: {
+    params,
+    body: z
+      .object({
+        /** The other side of the proposal: a credit for a debit and the other way round. */
+        counterpartId: z.uuid(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The transaction", schema: transactionSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = transactionsServices(ctx);
+    const result = await dismissTransfer(
+      deps,
+      inTransactions(ctx),
+      caller(ctx),
+      params.transactionId,
+      body.counterpartId,
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
+
 const positiveMoneyInput = moneyInput.extend({
   amount: z.string().max(48).meta({ description: "A positive plain decimal, e.g. 120.50" }),
 });
@@ -1127,6 +1170,7 @@ export const transactionsRoutes = [
   markTransferRoute,
   createTransferRoute,
   unmarkTransferRoute,
+  dismissTransferRoute,
   mergeDuplicateRoute,
   unmergeDuplicateRoute,
   dismissDuplicateRoute,

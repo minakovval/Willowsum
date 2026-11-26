@@ -371,6 +371,14 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       );
       return (rowCount ?? 0) > 0;
     },
+    async insertTransferDismissal(householdId, outflowId, inflowId) {
+      const { rowCount } = await q.query(
+        `INSERT INTO transfer_dismissals (household_id, outflow_id, inflow_id) VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [householdId, outflowId, inflowId],
+      );
+      return (rowCount ?? 0) > 0;
+    },
     lockAccounts: (householdId, accountIds) => lockAccounts(q, householdId, accountIds),
     async lockDuplicates(householdId) {
       await q.query(`SELECT pg_advisory_xact_lock(hashtextextended('transactions.duplicates:' || $1, 0))`, [
@@ -553,8 +561,8 @@ export interface CandidateSide {
  * The candidate pairs of a space for module transfer-matching (FIN-03 FR 5): a debit and a credit on two accounts (or,
  * IMP-03 FR 2, an exchange: on two wallets of one account in two currencies) within
  * `windowDays`, both posted, shown, not split and in no transfer; in one currency the credit at most the debit and at
- * least `sameCurrencyMinShare` of it (the rule of transfer-matching decides the rest, in two currencies by the rate).
- * Newest first; at most `limit` pairs.
+ * least `sameCurrencyMinShare` of it (the rule of transfer-matching decides the rest, in two currencies by the rate);
+ * never a pair the user called «Не пара» (IMP-03 FR 12). Newest first; at most `limit` pairs.
  */
 export async function transferCandidates(
   q: ModuleQueryRunner,
@@ -587,6 +595,8 @@ export async function transferCandidates(
         AND o.split_mode IS NULL AND i.split_mode IS NULL AND o.transfer_id IS NULL AND i.transfer_id IS NULL
         AND i.occurred_on BETWEEN o.occurred_on - $2::int AND o.occurred_on + $2::int
         AND (i.currency <> o.currency OR (i.amount <= -o.amount AND i.amount >= -o.amount * $3::numeric))
+        AND NOT EXISTS (SELECT 1 FROM transfer_dismissals d
+                         WHERE d.household_id = o.household_id AND d.outflow_id = o.id AND d.inflow_id = i.id)
       ORDER BY least(o.occurred_on, i.occurred_on) DESC, o.id, i.id
       LIMIT $4`,
     [householdId, query.windowDays, query.sameCurrencyMinShare, query.limit],
