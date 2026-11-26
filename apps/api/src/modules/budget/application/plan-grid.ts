@@ -3,6 +3,7 @@ import {
   cellPeriodIssue,
   gridMonths,
   incomePlanIssue,
+  legacyIncome,
   limitIssue,
   parseBudgetAmount,
   parseCategoryAmount,
@@ -26,6 +27,7 @@ import {
   planLines,
   planOf,
   type BudgetDeps,
+  type BudgetHandOff,
   type BudgetTx,
   type Caller,
   type Handed,
@@ -197,9 +199,24 @@ export async function setPlanCell(
   if (issues.length > 0) return none({ kind: "invalid", issues });
   if (input.period < budget.firstPeriod) return none({ kind: "before-start" });
   const after = amount as Money | null;
-  const stored = (await tx.planCells(caller.householdId, budget.id, input.period)).find(
-    (c) => c.period === input.period && c.kind === input.kind && c.lineId === input.lineId,
+  const monthCells = (await tx.planCells(caller.householdId, budget.id, input.period)).filter(
+    (c) => c.period === input.period,
   );
+  // Row 231 (lead decision 2026-11-26): the month's «План доходу» typed before, laid out on its rows when read, is stored
+  // on them before the first own value of the month changes one — the others keep what the grid showed. The budget row
+  // is locked, so two saves lay it out once.
+  const laid =
+    input.kind === "income"
+      ? (legacyIncome(
+          incomePlans.map((l) => ({ categoryId: l.categoryId, amount: l.amount })),
+          monthCells,
+          categories,
+          budget.currency,
+        )?.cells ?? [])
+      : [];
+  const stored =
+    monthCells.find((c) => c.kind === input.kind && c.lineId === input.lineId) ??
+    laid.find((c) => c.lineId === input.lineId);
   const version = stored?.version ?? 0;
   if (version !== input.version) return none({ kind: "conflict", version });
   const before = stored?.amount ?? null;
@@ -214,13 +231,18 @@ export async function setPlanCell(
     categories,
     planLines(deps, caller.householdId, budget.currency),
   );
+  const handOffs: BudgetHandOff[] = [];
+  for (const c of laid) {
+    await tx.setPlanCell(caller.householdId, budget.id, c, budget.currency);
+    handOffs.push(cellHandOff(deps, caller, budget, c, null, c.amount));
+  }
   const next = await tx.setPlanCell(
     caller.householdId,
     budget.id,
     { period: input.period, kind: input.kind, lineId: input.lineId, amount: after },
     after?.currency ?? lineCurrency,
   );
-  const h = cellHandOff(deps, caller, budget, input, before, after);
-  await tx.enqueueHandOff(h);
-  return { result: { kind: "ok", value: { amount: after, version: next } }, handOffs: [h] };
+  handOffs.push(cellHandOff(deps, caller, budget, input, before, after));
+  for (const h of handOffs) await tx.enqueueHandOff(h);
+  return { result: { kind: "ok", value: { amount: after, version: next } }, handOffs };
 }

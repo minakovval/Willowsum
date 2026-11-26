@@ -90,6 +90,71 @@ const ownCell = (cells: readonly PlanCell[], kind: PlanCellKind, lineId: string 
   cells.find((c) => c.kind === kind && c.lineId === lineId && c.amount !== null)?.amount ?? null;
 
 /**
+ * Row 231 (lead decision 2026-11-26): a month's «План доходу» typed before the rows by category (an income cell on the
+ * nil line) is laid out on those rows when read, until the month has an own value of a shown income category — then
+ * `setPlanCell` stores the laid-out values first (`legacyIncome` is null from there on). The shown categories with a
+ * plan in the budget's currency share the typed amount less the plans that count without a row (hidden or merged
+ * categories in the budget's currency): largest plan first (then by id), each takes its plan while the amount lasts,
+ * the first one also what is left — exactly, no rounding. A category in another currency keeps its own plan, on top.
+ * No such category, or the plans without a row above the typed amount: the typed amount stays the month's income plan
+ * as it is (`typed`). `plans` — the budget's income plans in their categories' currencies; `cells` — one month's.
+ */
+export function legacyIncome(
+  plans: readonly { readonly categoryId: string; readonly amount: Money }[],
+  cells: readonly PlanCell[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+  currency: string,
+): { readonly cells: readonly PlanCell[]; readonly typed: Money | null } | null {
+  const legacy = cells.find((c) => c.kind === "income" && c.lineId === null && c.amount !== null);
+  if (!legacy || plans.length === 0 || legacy.amount!.currency !== currency) return null;
+  const shown = (id: string) => shownCategory(categories.get(id), "income");
+  if (cells.some((c) => c.kind === "income" && c.lineId !== null && c.amount !== null && shown(c.lineId)))
+    return null;
+  const own = plans.filter((l) => l.amount.currency === currency);
+  const eligible = own
+    .filter((l) => shown(l.categoryId))
+    .sort((a, b) => b.amount.compare(a.amount) || (a.categoryId < b.categoryId ? -1 : 1));
+  const rest = legacy.amount!.minus(
+    sum(
+      own.filter((l) => !shown(l.categoryId)).map((l) => l.amount),
+      currency,
+    ),
+  );
+  if (eligible.length === 0 || rest.isNegative()) return { cells: [], typed: legacy.amount };
+  let left = rest;
+  const shares = eligible.map((l) => {
+    const share = left.compare(l.amount) < 0 ? left : l.amount;
+    left = left.minus(share);
+    return share;
+  });
+  shares[0] = shares[0]!.plus(left);
+  return {
+    cells: eligible.map((l, i) => ({
+      period: legacy.period,
+      kind: "income" as const,
+      lineId: l.categoryId,
+      amount: shares[i]!,
+      version: 1,
+    })),
+    typed: null,
+  };
+}
+
+/** The budget's income plans in their categories' own currencies (`original` — a category in another currency). */
+const ownPlans = (base: PeriodPlan) =>
+  (base.incomePlans ?? []).map((l) => ({ categoryId: l.categoryId, amount: l.original ?? l.amount }));
+
+/** A month's cells with its typed «План доходу» laid out (`legacyIncome`); `typed` — it counts as it is. */
+function withLegacyIncome(
+  base: PeriodPlan,
+  cells: readonly PlanCell[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+): { readonly cells: readonly PlanCell[]; readonly typed: Money | null } {
+  const legacy = legacyIncome(ownPlans(base), cells, categories, base.incomePlan.currency);
+  return legacy ? { cells: [...cells, ...legacy.cells], typed: legacy.typed } : { cells, typed: null };
+}
+
+/**
  * FR 1 (owner decision 2026-11-21, 2 б): the income plan of each category of the month — a shown income category's own
  * cell (in its own currency, BUD-02 FR 24) replaces its plan for that month; a category hidden or merged keeps the
  * budget-wide plan, as a limit does. Null — no own cell counts: the lines are the budget's as they are.
@@ -126,7 +191,9 @@ export function incomeOf(
   rates: PlanRates = ratesMap(base.rates),
 ): Money {
   if ((base.incomePlans ?? []).length === 0) return ownCell(cells, "income", null) ?? base.incomePlan;
-  const lines = incomeLinesOf(base, cells, categories, rates);
+  const legacy = withLegacyIncome(base, cells, categories);
+  if (legacy.typed) return legacy.typed;
+  const lines = incomeLinesOf(base, legacy.cells, categories, rates);
   return lines
     ? sum(
         lines.map((l) => l.amount),
@@ -165,7 +232,8 @@ export function withCells(
     .map((c) => c.amount!);
   // FR 1 (owner decision 2026-11-21, 2 б): a category's own cell is that month's plan of the category (BUD-02 FR 9,
   // FR 11: the card «Дохід» and the snapshot), and the income plan is their sum.
-  const incomePlans = incomeLinesOf(base, set, categories, rates);
+  const legacy = withLegacyIncome(base, set, categories);
+  const incomePlans = legacy.typed ? null : incomeLinesOf(base, legacy.cells, categories, rates);
   return withPlanRates(
     {
       ...base,
@@ -304,6 +372,17 @@ export function planGrid(input: GridInput): PlanGrid {
     return { amount: fallback, own: false, version: own?.version ?? 0 };
   };
   const base = (m: GridMonth) => input.base.get(m.period);
+  const byId = new Map(input.categories.map((c) => [c.id, c]));
+  const monthCells = (m: GridMonth) => input.cells.filter((c) => c.period === m.period);
+  // Row 231: a month's «План доходу» typed before is shown laid out on its rows (`legacyIncome`).
+  for (const m of months) {
+    const b = base(m);
+    const laid = m.inBudget && b ? withLegacyIncome(b, monthCells(m), byId).cells : [];
+    for (const c of laid) {
+      const key = `${c.period}/${cellKey(c.kind, c.lineId)}`;
+      if (!cells.get(key)?.amount) cells.set(key, c);
+    }
+  }
   const total = (rows: readonly (readonly { amount: Money | null }[])[], i: number): Money | null =>
     months[i]!.inBudget
       ? sum(
@@ -392,20 +471,12 @@ export function planGrid(input: GridInput): PlanGrid {
       : null;
   };
 
-  // FR 1: the section's sum is the month's income plan — the sum of the rows; a budget without income categories has no
-  // rows, and its sum is its plan without categories (`incomeOf`).
+  // FR 1, BUD-03 FR 2: the section's sum is the month's income plan (`incomeOf`, the figure of the period and «Можна
+  // витратити»), with the same categories — a row without a rate leaves the month without a sum.
   const incomeTotals = months.map((m, i) => {
-    if (!m.inBudget) return null;
-    if (incomeRows.length > 0) return known(incomeConverted, i) ? total(incomeConverted, i) : null;
     const b = base(m);
-    return b
-      ? incomeOf(
-          b,
-          input.cells.filter((c) => c.period === m.period),
-          new Map(),
-          rates,
-        )
-      : null;
+    if (!m.inBudget || !b || !known(incomeConverted, i)) return null;
+    return incomeOf(b, monthCells(m), byId, rates);
   });
   const expenseTotals = months.map((_, i) => (known(expenseRows, i) ? total(expenseRows, i) : null));
   const goalTotals = months.map((_, i) =>

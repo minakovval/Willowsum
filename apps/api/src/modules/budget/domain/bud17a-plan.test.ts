@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   cellPeriodIssue,
   gridMonths,
+  legacyIncome,
   planGrid,
   withCells,
   type BudgetCategory,
@@ -209,7 +210,8 @@ describe("BUD-17@PoC a): the grid «План»", () => {
     expect(
       withCells(plan("5600", {}), [cell("2026-12", "income", null, "4000")], shown, lines()).incomePlan,
     ).toEqual(eur("4000"));
-    // With income categories the former «План доходу» and a regular income's value (row 231) no longer count.
+    // With income categories (row 231) the former «План доходу» is laid out on the rows; a regular income's value no
+    // longer counts.
     const months = gridMonths(TODAY);
     const byCategory = planGrid(
       input({
@@ -218,7 +220,8 @@ describe("BUD-17@PoC a): the grid «План»", () => {
         cells: [cell("2026-12", "income", null, "4000"), cell("2026-12", "income", "payment-1", "900")],
       }),
     );
-    expect(byCategory.income.totals[1]).toEqual(eur("5000"));
+    expect(byCategory.income.totals[1]).toEqual(eur("4000"));
+    expect(byCategory.income.categories[0]!.cells[1]).toEqual({ amount: eur("4000"), own: true, version: 1 });
   });
 
   it("BUD-17@PoC EC2: a cell whose line the grid no longer shows stops counting — a closed goal, a hidden category, an income category hidden or out of the plan", () => {
@@ -287,5 +290,155 @@ describe("BUD-17@PoC a): the grid «План»", () => {
       }),
     );
     expect(g.expenses.groups.flatMap((x) => x.categories.map((c) => c.categoryId))).toEqual(["cafe"]);
+  });
+});
+
+describe("BUD-17@PoC FR 1: the section's sum is the month's income plan", () => {
+  it("BUD-17@PoC FR 1: «Надходження» adds up to the month's income plan also when an income category with a plan is hidden or merged", () => {
+    const months = gridMonths(TODAY);
+    const categories = [
+      income("salary"),
+      income("rent", { state: "hidden" }),
+      income("old", { mergedInto: "salary" }),
+    ];
+    const base = withIncome({ salary: "5000", rent: "1000", old: "5" });
+    const cells = [cell("2026-12", "income", "salary", "4000")];
+    const g = planGrid(input({ categories, base: new Map(months.map((p) => [p, base])), cells }));
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    for (const [i, period] of months.entries())
+      expect(g.income.totals[i]).toEqual(
+        withCells(
+          base,
+          cells.filter((c) => c.period === period),
+          byId,
+          lines(),
+        ).incomePlan,
+      );
+    const allHidden = planGrid(
+      input({
+        categories: [income("salary", { state: "hidden" })],
+        base: new Map(months.map((p) => [p, withIncome({ salary: "5000" })])),
+      }),
+    );
+    expect(allHidden.income.categories).toEqual([]);
+    expect(allHidden.income.totals[1]).toEqual(
+      withCells(
+        withIncome({ salary: "5000" }),
+        [],
+        new Map([["salary", income("salary", { state: "hidden" })]]),
+        lines(),
+      ).incomePlan,
+    );
+  });
+});
+
+describe("BUD-17@PoC FR 1 (lead decision 2026-11-26, row 231): the «План доходу» typed before is laid out on the rows", () => {
+  const uah = (a: string) => Money.of(a, "UAH");
+  const typed = (amount: string) => cell("2026-12", "income", null, amount, 3);
+  const byId = (...cs: BudgetCategory[]) => new Map(cs.map((c) => [c.id, c]));
+  const share = (r: ReturnType<typeof legacyIncome>) =>
+    Object.fromEntries((r?.cells ?? []).map((c) => [c.lineId, c.amount!.toDecimalString()]));
+
+  it("BUD-17@PoC FR 1: the shown categories in the budget's currency share it, largest plan first, the first also the excess — to the cent", () => {
+    const plans = [
+      { categoryId: "salary", amount: eur("3000") },
+      { categoryId: "rent", amount: eur("1000") },
+      { categoryId: "freelance", amount: eur("500.25") },
+    ];
+    const cs = byId(income("salary"), income("rent"), income("freelance"));
+    expect(share(legacyIncome(plans, [typed("4099.57")], cs, "EUR"))).toEqual({
+      salary: "3000",
+      rent: "1000",
+      freelance: "99.57",
+    });
+    expect(share(legacyIncome(plans, [typed("6000.01")], cs, "EUR"))).toEqual({
+      salary: "4499.76",
+      rent: "1000",
+      freelance: "500.25",
+    });
+    expect(share(legacyIncome(plans, [typed("0")], cs, "EUR"))).toEqual({
+      salary: "0",
+      rent: "0",
+      freelance: "0",
+    });
+    // Equal plans: by id.
+    const tie = legacyIncome(
+      [
+        { categoryId: "b", amount: eur("100") },
+        { categoryId: "a", amount: eur("100") },
+      ],
+      [typed("150")],
+      byId(income("a"), income("b")),
+      "EUR",
+    );
+    expect(tie?.cells.map((c) => [c.lineId, c.amount!.toDecimalString(), c.version])).toEqual([
+      ["a", "100", 1],
+      ["b", "50", 1],
+    ]);
+  });
+
+  it("BUD-17@PoC FR 1: a hidden or merged planned category keeps its plan, the shown ones share the rest — the month is the typed amount", () => {
+    const plans = [
+      { categoryId: "salary", amount: eur("3000") },
+      { categoryId: "rent", amount: eur("1000") },
+      { categoryId: "old", amount: eur("5") },
+    ];
+    const cs = byId(
+      income("salary"),
+      income("rent", { state: "hidden" }),
+      income("old", { mergedInto: "salary" }),
+    );
+    expect(share(legacyIncome(plans, [typed("3500")], cs, "EUR"))).toEqual({ salary: "2495" });
+    const base = withIncome({ salary: "3000", rent: "1000", old: "5" });
+    expect(withCells(base, [typed("3500")], cs, lines()).incomePlan).toEqual(eur("3500"));
+    const months = gridMonths(TODAY);
+    const g = planGrid(
+      input({
+        categories: [...cs.values()],
+        base: new Map(months.map((p) => [p, base])),
+        cells: [typed("3500")],
+      }),
+    );
+    expect(g.income.categories.map((r) => r.cells[1])).toEqual([
+      { amount: eur("2495"), own: true, version: 1 },
+    ]);
+    expect(g.income.totals.slice(0, 3)).toEqual([eur("4005"), eur("3500"), eur("4005")]);
+    // The plans without a row above the typed amount, or no shown category in the budget's currency: the typed
+    // amount is the month's plan as it is.
+    expect(legacyIncome(plans, [typed("500")], cs, "EUR")).toEqual({ cells: [], typed: eur("500") });
+    const onlyHidden = byId(income("salary", { state: "hidden" }), income("rent", { state: "hidden" }));
+    expect(legacyIncome(plans, [typed("3500")], onlyHidden, "EUR")).toEqual({
+      cells: [],
+      typed: eur("3500"),
+    });
+    expect(withCells(base, [typed("500")], cs, lines()).incomePlan).toEqual(eur("500"));
+  });
+
+  it("BUD-17@PoC FR 1, business rules: a category in another currency gets no share and keeps its plan on top", () => {
+    const plans = [
+      { categoryId: "salary", amount: eur("1000") },
+      { categoryId: "rent", amount: uah("20000") },
+    ];
+    const cs = byId(income("salary"), income("rent"));
+    expect(share(legacyIncome(plans, [typed("1400")], cs, "EUR"))).toEqual({ salary: "1400" });
+    // Only the rent in UAH: no category to share it — the typed amount stays.
+    expect(legacyIncome([plans[1]!], [typed("1400")], cs, "EUR")).toEqual({ cells: [], typed: eur("1400") });
+  });
+
+  it("BUD-17@PoC FR 1: only the nil income cell is the typed «План доходу» — «Заощадження без цілі», a typed value in another currency, a month with an own value of a shown category take none", () => {
+    const plans = [{ categoryId: "salary", amount: eur("3000") }];
+    const cs = byId(income("salary"), income("rent", { state: "hidden" }));
+    expect(legacyIncome(plans, [cell("2026-12", "savings", null, "4000")], cs, "EUR")).toBeNull();
+    expect(legacyIncome(plans, [{ ...typed("4000"), amount: uah("4000") }], cs, "EUR")).toBeNull();
+    expect(
+      legacyIncome(plans, [typed("4000"), cell("2026-12", "income", "salary", "10")], cs, "EUR"),
+    ).toBeNull();
+    // A hidden category's own value does not stop it: it does not count.
+    expect(
+      share(legacyIncome(plans, [typed("4000"), cell("2026-12", "income", "rent", "10")], cs, "EUR")),
+    ).toEqual({
+      salary: "4000",
+    });
+    expect(legacyIncome([], [typed("4000")], cs, "EUR")).toBeNull();
   });
 });

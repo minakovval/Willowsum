@@ -33,9 +33,11 @@ export function labelText(t: Translate, label: RowLabel): string {
 }
 
 /** «За поточним курсом: 1 UAH = 0,02 EUR (17.11.2026)» — the rates the sums with «≈» are converted at. */
-function rateHint(t: Translate, locale: Locale, view: PlanView): string {
+/** The rates of the section's own rows only (row 231 review): «Надходження» does not name a rate only «Витрати» use. */
+function rateHint(t: Translate, locale: Locale, view: PlanView, section: PlanSection): string {
+  const used = new Set(section.items.flatMap((i) => (i.type === "row" ? [i.row.currency] : [])));
   const rates = view.rates.flatMap((r) =>
-    r.rate === null || r.date === null
+    !used.has(r.currency) || r.rate === null || r.date === null
       ? []
       : t("planning.plan.approx.rate", {
           currency: r.currency,
@@ -161,7 +163,7 @@ function SectionRows({
 }) {
   const { t, locale } = useI18n();
   const name = t(`planning.plan.section.${section.id}` as MessageKey);
-  const hint = section.approximate ? rateHint(t, locale, view) : undefined;
+  const hint = section.approximate ? rateHint(t, locale, view, section) : undefined;
   return (
     <tbody id={id} data-section={section.id}>
       <tr className="plan-section">

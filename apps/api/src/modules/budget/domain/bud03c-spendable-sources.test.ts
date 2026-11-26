@@ -156,8 +156,13 @@ describe("BUD-03@PoC FR 2: the expected income of the month is the sum of «На
   it("BUD-03@PoC FR 2, BUD-17@PoC FR 1: the plan of the month is the categories' rows — a month's own value of «Фриланс» 450,55 € makes it 5 450,55 €", () => {
     expect(incomeOf(plan, [], categories)).toEqual(eur("5600"));
     expect(incomeOf(plan, [cell("freelance", "450.55")], categories)).toEqual(eur("5450.55"));
-    // The former «План доходу» (nil line) and a regular income's value no longer make the plan of a budget by category.
-    expect(incomeOf(plan, [cell(null, "9000"), cell("payment", "7000")], categories)).toEqual(eur("5600"));
+    // Row 231: the «План доходу» typed before (nil line) is the month's plan, laid out on the rows; a regular income's
+    // value no longer counts.
+    expect(incomeOf(plan, [cell(null, "9000"), cell("payment", "7000")], categories)).toEqual(eur("9000"));
+    // Once the month has an own value of a category, the typed amount is no longer read (it was stored on the rows).
+    expect(incomeOf(plan, [cell(null, "9000"), cell("freelance", "450.55")], categories)).toEqual(
+      eur("5450.55"),
+    );
   });
 });
 

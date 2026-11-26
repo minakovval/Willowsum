@@ -608,6 +608,35 @@ describe("BUD-03@PoC and BUD-17@PoC: a category's currency in «Можна ви�
     expect(wrong.json().errors).toEqual([{ in: "body", path: "amount.currency", issue: "currency" }]);
   });
 
+  it("BUD-17@PoC FR 1, business rules (lead decision 2026-11-26, row 231): a «План доходу» typed before goes only to the categories in the budget's currency — a UAH category gets no share and keeps its plan on top", async () => {
+    await rates();
+    await rate("2026-11-18", "EUR", "40.00");
+    const space = await newSpace();
+    const salary = await category(space, "Зарплата");
+    const rent = await category(space, "Дохід від оренди");
+    await createBudget(space, {
+      incomePlans: [
+        { categoryId: salary, amount: eur("1000") },
+        { categoryId: rent, amount: uah("20000") },
+      ],
+    });
+    const b = (await call(space, "GET", "/v1/budget")).json().budget as { id: string };
+    await db.owner.query(
+      `INSERT INTO budget.plan_cells (household_id, budget_id, period, kind, line_id, amount, currency, version)
+       VALUES ($1, $2, '2026-12-01', 'income', '00000000-0000-0000-0000-000000000000', 1400, 'EUR', 2)`,
+      [space.householdId, b.id],
+    );
+    const g = (await call(space, "GET", "/v1/budget/plan-grid")).json();
+    const cellOf = (id: string) =>
+      (g.income.categories as { categoryId: string; cells: unknown[] }[]).find((r) => r.categoryId === id)!
+        .cells[1];
+    expect(cellOf(salary)).toEqual({ amount: eur("1400"), own: true, version: 1 });
+    expect(cellOf(rent)).toEqual({ amount: uah("20000"), own: false, version: 0 });
+    // 1 400 € + 20 000 UAH × 0,025.
+    expect(g.income.totals[1]).toEqual(eur("1900"));
+    expect((await period(space, "2026-12")).incomePlan).toEqual(eur("1900"));
+  });
+
   it("BUD-17@PoC business rules: a cell changed from 3 000 UAH to 3 000 EUR is a change, audited with its currency", async () => {
     await rates();
     const space = await newSpace();

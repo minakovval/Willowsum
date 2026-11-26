@@ -71,7 +71,12 @@ async function newSpace(): Promise<Space> {
   return { accountId, householdId };
 }
 
-function call(space: Space, method: "GET" | "POST" | "PUT" | "DELETE", url: string, body?: unknown) {
+function call(
+  space: Space,
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  url: string,
+  body?: unknown,
+) {
   return app.inject({
     method,
     url,
@@ -459,5 +464,96 @@ describe("BUD-01@PoC FR 12: the exact reason of a held category", () => {
       await n("budget.limits WHERE household_id = $1 AND category_id = $2", space.householdId, gym),
     ).toBe(1);
     expect(subs).not.toBe(gym);
+  });
+});
+
+// P4 kills the mutants of releaseCategory / categoryEntries; P6 kills the one of budgetCategoryUsage
+describe("BUD-01@PoC FR 12, BUD-17@PoC FR 1 (row 231): an income category's cells on its delete", () => {
+  it("BUD-01@PoC FR 12: an income category's delete removes its «Надходження» cells, the usage counts them, another space's stay", async () => {
+    const space = await newSpace();
+    const other = await newSpace();
+    const mk = async (s: Space) => {
+      const res = await call(s, "GET", "/v1/categories");
+      const group = (res.json().groups as { id: string; kind: string }[]).find((g) => g.kind === "income")!;
+      const bonus = (
+        await call(s, "POST", "/v1/categories", { groupId: group.id, name: "Синтетичні премії" })
+      ).json().id as string;
+      const salary = (await names(s)).get("Зарплата")!.id;
+      const created = await call(s, "POST", "/v1/budget", {
+        firstPeriod: "2026-11",
+        incomePlans: [
+          { categoryId: salary, amount: eur("2000.00") },
+          { categoryId: bonus, amount: eur("300.00") },
+        ],
+        limits: [],
+      });
+      expect(created.statusCode, created.body).toBe(201);
+      for (const [lineId, amount] of [
+        [bonus, "450"],
+        [salary, "2100"],
+      ] as const) {
+        const set = await call(s, "PUT", "/v1/budget/plan-grid/cells", {
+          period: "2026-12",
+          kind: "income",
+          lineId,
+          amount: eur(amount),
+          version: 0,
+        });
+        expect(set.statusCode, set.body).toBe(200);
+      }
+      return bonus;
+    };
+    const bonus = await mk(space);
+    await mk(other);
+    const usage = (await call(space, "GET", `/v1/categories/${bonus}/usage`)).json();
+    expect(usage.budget.planCells).toBe(1);
+    const del = await call(space, "DELETE", `/v1/categories/${bonus}?confirmLimit=true`);
+    expect(del.statusCode, del.body).toBe(200);
+    expect(await n("budget.plan_cells WHERE household_id = $1", space.householdId)).toBe(1);
+    expect(await n("budget.plan_cells WHERE household_id = $1", other.householdId)).toBe(2);
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("2100"));
+    const cells = await audit.entriesFor(space.householdId, { type: "budget.plan-cell", id: bonus });
+    expect(cells.filter((e) => e.action === "delete")).toHaveLength(1);
+  });
+  it("BUD-01@PoC FR 12: an income category taken out of the plan with a month's value left: its delete still finds and removes the cell", async () => {
+    const space = await newSpace();
+    const res = await call(space, "GET", "/v1/categories");
+    const group = (res.json().groups as { id: string; kind: string }[]).find((g) => g.kind === "income")!;
+    const bonus = (
+      await call(space, "POST", "/v1/categories", { groupId: group.id, name: "Синтетичні премії" })
+    ).json().id as string;
+    const salary = (await names(space)).get("Зарплата")!.id;
+    const created = await call(space, "POST", "/v1/budget", {
+      firstPeriod: "2026-11",
+      incomePlans: [
+        { categoryId: salary, amount: eur("2000.00") },
+        { categoryId: bonus, amount: eur("300.00") },
+      ],
+      limits: [],
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const set = await call(space, "PUT", "/v1/budget/plan-grid/cells", {
+      period: "2026-12",
+      kind: "income",
+      lineId: bonus,
+      amount: eur("450"),
+      version: 0,
+    });
+    expect(set.statusCode, set.body).toBe(200);
+    const version = (await call(space, "GET", "/v1/budget")).json().budget.version as number;
+    const out = await call(space, "PATCH", "/v1/budget/plan", {
+      version,
+      incomePlans: [{ categoryId: bonus, amount: null }],
+    });
+    expect(out.statusCode, out.body).toBe(200);
+    expect(
+      await n("budget.plan_cells WHERE household_id = $1 AND line_id = $2", space.householdId, bonus),
+    ).toBe(1);
+    const first = await call(space, "DELETE", `/v1/categories/${bonus}`);
+    if (first.statusCode !== 200)
+      expect((await call(space, "DELETE", `/v1/categories/${bonus}?confirmLimit=true`)).statusCode).toBe(200);
+    expect(
+      await n("budget.plan_cells WHERE household_id = $1 AND line_id = $2", space.householdId, bonus),
+    ).toBe(0);
   });
 });

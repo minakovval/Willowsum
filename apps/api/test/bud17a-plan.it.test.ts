@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { Money } from "@willowsum/domain-kernel";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
@@ -152,16 +151,18 @@ async function budgetWithIncome(
   return ids as [string, string, string];
 }
 
-/** Row 231: the data step of `0010_plan_income_categories.sql`, run again on rows written after the migrations. */
-const MIGRATION_INSERT = readFileSync(
-  new URL("../src/modules/budget/adapters/db/migrations/0010_plan_income_categories.sql", import.meta.url),
-  "utf8",
-)
-  .split("CREATE INDEX")[0]!
-  .replaceAll("plan_cells", "budget.plan_cells")
-  .replaceAll("JOIN budgets", "JOIN budget.budgets")
-  .replaceAll("FROM income_plans", "FROM budget.income_plans")
-  .replace(/--[^\n]*\n/g, "");
+const NIL = "00000000-0000-0000-0000-000000000000";
+
+/** Row 231: a month's «План доходу» typed before the rows by category (the nil income line), as stored then. */
+async function typedIncome(space: Space, period: string, amount: string): Promise<string> {
+  const b = (await call(space, "GET", "/v1/budget")).json().budget as { id: string };
+  await db.owner.query(
+    `INSERT INTO budget.plan_cells (household_id, budget_id, period, kind, line_id, amount, currency, version)
+     VALUES ($1, $2, $3::date, 'income', '00000000-0000-0000-0000-000000000000', $4, 'EUR', 3)`,
+    [space.householdId, b.id, `${period}-01`, amount],
+  );
+  return b.id;
+}
 
 interface Cell {
   amount: { amount: string; currency: string } | null;
@@ -682,41 +683,122 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("5000"));
   });
 
-  it("BUD-17@PoC FR 1 (lead decision 2026-11-26, row 231): a month's «План доходу» typed before is that month's cells of the income categories, adding up to it exactly; the old row stays", async () => {
+  it("BUD-17@PoC FR 1 (lead decision 2026-11-26, row 231): a month's «План доходу» typed before is laid out on the income categories' rows, adding up to it exactly, and stored on them with the month's first own value; the old row stays", async () => {
     const space = await newSpace();
     const [salary, rent, freelance] = await budgetWithIncome(space, {
       Зарплата: "3000",
       "Дохід від оренди": "1000",
       Фриланс: "500.50",
     });
-    const b = (await call(space, "GET", "/v1/budget")).json().budget as { id: string };
-    const typed = async (period: string, amount: string) =>
-      db.owner.query(
-        `INSERT INTO budget.plan_cells (household_id, budget_id, period, kind, line_id, amount, currency, version)
-         VALUES ($1, $2, $3::date, 'income', '00000000-0000-0000-0000-000000000000', $4, 'EUR', 3)`,
-        [space.householdId, b.id, `${period}-01`, amount],
-      );
     // Above the plans' sum (4 500,50), under it, and between the second and the third plan.
-    await typed("2026-12", "5600.07");
-    await typed("2027-01", "3500.25");
-    await typed("2027-02", "4100");
-    await db.owner.query(MIGRATION_INSERT);
-    const g = await grid(space);
-    const cells = (period: string) =>
+    await typedIncome(space, "2026-12", "5600.07");
+    await typedIncome(space, "2027-01", "3500.25");
+    await typedIncome(space, "2027-02", "4100");
+    const cellsOf = (g: Grid, period: string) =>
       [salary, rent, freelance].map(
-        (id) => g.income.categories.find((r) => r.categoryId === id)!.cells[month(g, period)],
+        (id) => g.income.categories.find((r) => r.categoryId === id)!.cells[month(g, period)]!,
       );
-    expect(cells("2026-12").map((c) => c!.amount)).toEqual([eur("4099.57"), eur("1000"), eur("500.5")]);
-    expect(cells("2027-01").map((c) => c!.amount)).toEqual([eur("3000"), eur("500.25"), eur("0")]);
-    expect(cells("2027-02").map((c) => c!.amount)).toEqual([eur("3000"), eur("1000"), eur("100")]);
-    expect(cells("2027-02").every((c) => c!.own && c!.version === 1)).toBe(true);
+    const g = await grid(space);
+    expect(cellsOf(g, "2026-12").map((c) => c.amount)).toEqual([eur("4099.57"), eur("1000"), eur("500.5")]);
+    expect(cellsOf(g, "2027-01").map((c) => c.amount)).toEqual([eur("3000"), eur("500.25"), eur("0")]);
+    expect(cellsOf(g, "2027-02").map((c) => c.amount)).toEqual([eur("3000"), eur("1000"), eur("100")]);
+    expect(cellsOf(g, "2027-02").every((c) => c.own && c.version === 1)).toBe(true);
     expect(g.income.totals.slice(1, 5)).toEqual([eur("5600.07"), eur("3500.25"), eur("4100"), eur("4500.5")]);
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(
+      eur("5600.07"),
+    );
+    expect(
+      await n("budget.plan_cells WHERE household_id = $1 AND line_id <> $2", space.householdId, NIL),
+    ).toBe(0);
+    // The month's first own value: the other rows are stored as shown, the typed one changes.
+    const set = await put(space, {
+      period: "2027-02",
+      kind: "income",
+      lineId: freelance,
+      amount: eur("250"),
+      version: 1,
+    });
+    expect(set.statusCode, set.body).toBe(200);
+    expect(set.json()).toEqual({ amount: eur("250"), version: 2 });
+    const after = await grid(space);
+    expect(cellsOf(after, "2027-02").map((c) => [c.amount, c.version])).toEqual([
+      [eur("3000"), 1],
+      [eur("1000"), 1],
+      [eur("250"), 2],
+    ]);
+    expect(after.income.totals[month(after, "2027-02")]).toEqual(eur("4250"));
+    expect(cellsOf(after, "2026-12").map((c) => c.amount)).toEqual([
+      eur("4099.57"),
+      eur("1000"),
+      eur("500.5"),
+    ]);
+    // A window that still holds the laid-out value's version sees the change.
+    const stale = await put(space, {
+      period: "2027-02",
+      kind: "income",
+      lineId: freelance,
+      amount: eur("1"),
+      version: 1,
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(
+      await n("budget.plan_cells WHERE household_id = $1 AND line_id <> $2", space.householdId, NIL),
+    ).toBe(3);
     expect(
       await n(
-        "budget.plan_cells WHERE household_id = $1 AND line_id = '00000000-0000-0000-0000-000000000000'",
+        "audit.entries WHERE household_id = $1 AND entity_type = 'budget.plan-cell' AND action = 'create'",
         space.householdId,
       ),
     ).toBe(3);
+    expect(
+      await n("budget.plan_cells WHERE household_id = $1 AND line_id = $2", space.householdId, NIL),
+    ).toBe(3);
+  });
+
+  it("BUD-17@PoC FR 1 (lead decision 2026-11-26, row 231): a hidden planned category keeps its plan, the shown ones take the rest — the month stays the typed amount in the grid and the period alike", async () => {
+    const space = await newSpace();
+    const [salary, rent] = await budgetWithIncome(space, { Зарплата: "3000", "Дохід від оренди": "1000" });
+    expect((await call(space, "PATCH", `/v1/categories/${rent}`, { hidden: true })).statusCode).toBe(200);
+    await typedIncome(space, "2026-12", "3500");
+    const g = await grid(space);
+    expect(g.income.categories.map((r) => [r.categoryId, r.cells[1]!.amount])).toEqual([
+      [salary, eur("2500")],
+    ]);
+    expect(g.income.totals[1]).toEqual(eur("3500"));
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("3500"));
+    // BUD-17 FR 1, BUD-03 FR 2 (lead decision 2026-11-26): a hidden category's plan counts in the month — the grid's
+    // sum and «Не розподілено» are the period's figure.
+    const period = (await call(space, "GET", "/v1/budget/periods/2027-01")).json().incomePlan;
+    expect(period).toEqual(eur("4000"));
+    expect(g.income.totals[2]).toEqual(period);
+  });
+
+  it("BUD-17@PoC FR 1 (row 231): only a budget's own nil income cell is its typed «План доходу» — «Заощадження без цілі» on the nil line and other spaces take none", async () => {
+    const a = await newSpace();
+    const b = await newSpace();
+    const c = await newSpace();
+    const aIds = await budgetWithIncome(a, { Зарплата: "3000", Фриланс: "500" });
+    await budgetWithIncome(b, { Зарплата: "7777", Фриланс: "888" });
+    await budgetWith(c, "999", {});
+    await typedIncome(a, "2026-12", "4000");
+    await typedIncome(c, "2026-12", "1234");
+    const savings = await put(b, {
+      period: "2026-12",
+      kind: "savings",
+      lineId: null,
+      amount: eur("4000"),
+      version: 0,
+    });
+    expect(savings.statusCode, savings.body).toBe(200);
+    const ga = await grid(a);
+    expect(new Map(ga.income.categories.map((r) => [r.categoryId, r.cells[1]!.amount]))).toEqual(
+      new Map([
+        [aIds[0], eur("3500")],
+        [aIds[1], eur("500")],
+      ]),
+    );
+    expect((await grid(b)).income.totals[1]).toEqual(eur("8665"));
+    expect((await grid(c)).income.totals[1]).toEqual(eur("1234"));
   });
 
   it("BUD-17@PoC business rules (owner decision 2026-11-19, Q2): a change of the limit on «Бюджет» acts on the current and future months — a month's own value typed on «План» is kept", async () => {
