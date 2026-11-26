@@ -108,8 +108,7 @@ export function legacyIncome(
   const legacy = cells.find((c) => c.kind === "income" && c.lineId === null && c.amount !== null);
   if (!legacy || plans.length === 0 || legacy.amount!.currency !== currency) return null;
   const shown = (id: string) => shownCategory(categories.get(id), "income");
-  if (cells.some((c) => c.kind === "income" && c.lineId !== null && c.amount !== null && shown(c.lineId)))
-    return null;
+  if (cells.some((c) => c.kind === "income" && c.lineId !== null && shown(c.lineId))) return null;
   const own = plans.filter((l) => l.amount.currency === currency);
   const eligible = own
     .filter((l) => shown(l.categoryId))
@@ -232,12 +231,13 @@ export function withCells(
     .map((c) => c.amount!);
   // FR 1 (owner decision 2026-11-21, 2 б): a category's own cell is that month's plan of the category (BUD-02 FR 9,
   // FR 11: the card «Дохід» and the snapshot), and the income plan is their sum.
-  const legacy = withLegacyIncome(base, set, categories);
+  // The cleared rows too: a month whose layout was stored does not lay out again (`legacyIncome`).
+  const legacy = withLegacyIncome(base, cells, categories);
   const incomePlans = legacy.typed ? null : incomeLinesOf(base, legacy.cells, categories, rates);
   return withPlanRates(
     {
       ...base,
-      incomePlan: incomeOf(base, set, categories, rates),
+      incomePlan: incomeOf(base, cells, categories, rates),
       ...(incomePlans ? { incomePlans } : base.incomePlans ? { incomePlans: base.incomePlans } : {}),
       plannedSavings: base.plannedSavings.plus(sum(savings, base.plannedSavings.currency)),
       limits: [...limits.values()],

@@ -755,6 +755,51 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     ).toBe(3);
   });
 
+  it("BUD-17@PoC FR 2, FR 3 (lead decision 2026-11-26, row 231): once a month's typed «План доходу» is stored on its rows, clearing them takes each back to its plan — the layout does not come back and the cell stays editable", async () => {
+    const space = await newSpace();
+    const [salary] = await budgetWithIncome(space, { Зарплата: "3000" });
+    await typedIncome(space, "2027-02", "3500");
+    const body = (amount: { amount: string; currency: string } | null, version: number) => ({
+      period: "2027-02",
+      kind: "income",
+      lineId: salary,
+      amount,
+      version,
+    });
+    const first = await put(space, body(eur("2000"), 1));
+    expect(first.statusCode, first.body).toBe(200);
+    const cleared = await put(space, body(null, first.json().version));
+    expect(cleared.statusCode, cleared.body).toBe(200);
+    const g = await grid(space);
+    const i = month(g, "2027-02");
+    const cell = g.income.categories[0]!.cells[i]!;
+    expect(cell).toEqual({ amount: eur("3000"), own: false, version: cleared.json().version });
+    expect(g.income.totals[i]).toEqual(eur("3000"));
+    expect((await call(space, "GET", "/v1/budget/periods/2027-02")).json().incomePlan).toEqual(eur("3000"));
+    // The version the grid shows is the stored one: the next save is not refused as «changed in another window».
+    const again = await put(space, body(eur("2500"), cell.version));
+    expect(again.statusCode, again.body).toBe(200);
+  });
+
+  it("BUD-17@PoC FR 3 (lead decision 2026-11-26, row 231): two first saves of different rows of a typed month at once lay it out once — one «create» per row", async () => {
+    const space = await newSpace();
+    const [salary, rent] = await budgetWithIncome(space, { Зарплата: "3000", "Дохід від оренди": "1000" });
+    await typedIncome(space, "2027-02", "4500");
+    const [a, b] = await Promise.all([
+      put(space, { period: "2027-02", kind: "income", lineId: salary, amount: eur("100"), version: 1 }),
+      put(space, { period: "2027-02", kind: "income", lineId: rent, amount: eur("200"), version: 1 }),
+    ]);
+    expect([a.statusCode, b.statusCode]).toEqual([200, 200]);
+    const g = await grid(space);
+    expect(g.income.totals[month(g, "2027-02")]).toEqual(eur("300"));
+    expect(
+      await n(
+        "audit.entries WHERE household_id = $1 AND entity_type = 'budget.plan-cell' AND action = 'create'",
+        space.householdId,
+      ),
+    ).toBe(2);
+  });
+
   it("BUD-17@PoC FR 1 (lead decision 2026-11-26, row 231): a hidden planned category keeps its plan, the shown ones take the rest — the month stays the typed amount in the grid and the period alike", async () => {
     const space = await newSpace();
     const [salary, rent] = await budgetWithIncome(space, { Зарплата: "3000", "Дохід від оренди": "1000" });
