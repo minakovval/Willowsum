@@ -49,7 +49,7 @@ export interface PairCandidate {
 /**
  * IMP-03@PoC FR 2 (wave 2 row 47): the kind of a pair — «переказ між власними рахунками» (two accounts, one currency or
  * two) or «обмін валют» (the debit in one currency and the credit in another on two wallets of one multi-currency
- * account). Refunds and holds come with row 48.
+ * account). Refunds and holds are a later part of IMP-03.
  */
 export type PairKind = "transfer" | "exchange";
 
@@ -91,6 +91,11 @@ export function transferDate(c: PairCandidate): string {
 
 const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 
+/** The days between the two sides of a pair (calendar days, either order). */
+export function pairDays(c: PairCandidate): number {
+  return Math.abs(dayNumber(c.outflow.date) - dayNumber(c.inflow.date));
+}
+
 /** IMP-03@PoC FR 2: two wallets of one account in two currencies are an exchange; any other pair a transfer. */
 export function pairKindOf(c: PairCandidate): PairKind {
   return c.outflow.accountId === c.inflow.accountId && c.outflow.amount.currency !== c.inflow.amount.currency
@@ -105,7 +110,7 @@ function isPair(c: PairCandidate): boolean {
     !c.inflow.amount.isZero() &&
     // FIN-03 FR 5: two accounts; IMP-03 FR 2: or two wallets (currencies) of one account — an exchange.
     (c.outflow.accountId !== c.inflow.accountId || c.outflow.amount.currency !== c.inflow.amount.currency) &&
-    Math.abs(dayNumber(c.outflow.date) - dayNumber(c.inflow.date)) <= MATCH_WINDOW_DAYS
+    pairDays(c) <= MATCH_WINDOW_DAYS
   );
 }
 

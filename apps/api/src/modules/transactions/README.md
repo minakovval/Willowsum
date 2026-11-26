@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (IMP-02@PoC п. 5, #698: `bankFee` — комісія банку імпортованого рядка, `ImportedRowInput.fee`, подія `transaction` з `fee`, колонки `bank_fee`, `bank_fee_currency` (`0015_bank_fee.sql`)); 2026-11-21 (IMP-02@PoC п. 4, S-047: дані рядка виписки — `bankDescription`, `balanceAfter`, `importedFrom`, `originalAmount`, `exchangeRate`, `valueDate`, `bankReference` у транзакції й у списку, `ImportedRowInput.original` / `rate` / `valueDate` / `reference`, `importedRate`, колонки `0014_bank_fields.sql`); 2026-11-21 (IMP-03 a, рядок 47: обмін валют між гаманцями одного рахунку — кандидат пари і переказ; BUD-06@PoC п. 8: «Одноразова витрата» — `PUT /v1/transactions/{id}/one-off`, прапорець `transactions.one-off`, колонка `one_off` (`0013_one_off.sql`), `oneOff` у `BudgetTransactions.inPeriod`, `GoalTransactions.countedInWindow` без позначених); 2026-11-20 (IMP-08 п. 11: `ImportBatchTransactions` для кроку «Результат», `importBatchId` сторін `TransferCandidates`; IMP-04 FR 8, IMP-16, рядок 44: `ImportedTransactions.rollback` / `rolledBack` / `rolledBackSince`, порт `categories`, `rolled_back_at`, `listed_hidden`, `import_rollbacks`, дія передачі `rollback`; IMP-04 c, #654 п. 6, #658: `ImportedTransactions` — злиття з ручною (`mergeInto`: ручну злито в банківський рядок, подія `transactions.import-merged`, порт `merged`), заміна очікуваної (`replaces`), `ImportCandidates.merged`; BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11, частина b, #654: `ImportedTransactions.settle`, `import_voids`, місця очікування, блокування грошей лише навколо запису; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (IMP-03 b, рядок 48: «Не пара» — `POST /v1/transactions/{id}/not-transfer`, таблиця `transfer_dismissals` (`0016_transfer_dismissals.sql`), дія передачі `not-transfer`, `TransferCandidates` без таких пар); 2026-11-21 (IMP-02@PoC п. 5, #698: `bankFee` — комісія банку імпортованого рядка, `ImportedRowInput.fee`, подія `transaction` з `fee`, колонки `bank_fee`, `bank_fee_currency` (`0015_bank_fee.sql`)); 2026-11-21 (IMP-02@PoC п. 4, S-047: дані рядка виписки — `bankDescription`, `balanceAfter`, `importedFrom`, `originalAmount`, `exchangeRate`, `valueDate`, `bankReference` у транзакції й у списку, `ImportedRowInput.original` / `rate` / `valueDate` / `reference`, `importedRate`, колонки `0014_bank_fields.sql`); 2026-11-21 (IMP-03 a, рядок 47: обмін валют між гаманцями одного рахунку — кандидат пари і переказ; BUD-06@PoC п. 8: «Одноразова витрата» — `PUT /v1/transactions/{id}/one-off`, прапорець `transactions.one-off`, колонка `one_off` (`0013_one_off.sql`), `oneOff` у `BudgetTransactions.inPeriod`, `GoalTransactions.countedInWindow` без позначених); 2026-11-20 (IMP-08 п. 11: `ImportBatchTransactions` для кроку «Результат», `importBatchId` сторін `TransferCandidates`; IMP-04 FR 8, IMP-16, рядок 44: `ImportedTransactions.rollback` / `rolledBack` / `rolledBackSince`, порт `categories`, `rolled_back_at`, `listed_hidden`, `import_rollbacks`, дія передачі `rollback`; IMP-04 c, #654 п. 6, #658: `ImportedTransactions` — злиття з ручною (`mergeInto`: ручну злито в банківський рядок, подія `transactions.import-merged`, порт `merged`), заміна очікуваної (`replaces`), `ImportCandidates.merged`; BUD-08 b: `CashflowMovements` для `cashflow`; IMP-01 п. 11, частина b, #654: `ImportedTransactions.settle`, `import_voids`, місця очікування, блокування грошей лише навколо запису; IMP-01 п. 11: `ImportedTransactions`, `import_writes`; IMP-04 a: `ImportCandidates`, джерело «imported»; BUD-06: `BudgetTransactions.firstDate`; BUD-05 #553, #559: `GoalTransactions`; #567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -151,6 +151,11 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     `create` кожної сторони з `transfer.side` і `transfer.with`. → 201 `{ outflow, inflow }`.
   - `DELETE /v1/transactions/{transactionId}/transfer` (`unmarkTransfer`) — п. 9: обидві знову дохід і витрата; без
     позначки — нічого.
+  - `POST /v1/transactions/{transactionId}/not-transfer` (`dismissTransfer`; той самий прапорець, дозвіл і перевірки
+    сторін, що й «Підтвердити») — `{ counterpartId }`: «Не пара» пропозиції (IMP-03 п. 12) — пара більше ніколи не
+    кандидат (`TransferCandidates`), навіть після «Роз'єднати»; більше нічого не змінюється. Коди 400 — як у
+    `markTransfer` (без `rate_unavailable`); закритий рахунок транзакції — 409 `ACCOUNT_CLOSED`. Повтор — нічого. Запис
+    аудиту транзакції, на якій дія, — `notTransferOf` (п. 19).
   - Сторона переказу: `hide`, `split`, `DELETE` і зміна рахунку, суми, дати чи статусу — 409 `TRANSACTION_IN_TRANSFER`
     (тексти змінюються). Список: фільтр `transfer.eq`, поле `transfer` кожного рядка.
   - `POST /v1/transactions/{transactionId}/merge` (`mergeDuplicate`; прапорець і ключ `transactions.duplicates`, потребує
@@ -285,7 +290,7 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   limit })` — пари-кандидати для `transfer-matching`: два рахунки або (IMP-03 п. 2, обмін валют) два гаманці одного
   рахунку у двох валютах (лише читання; правило вирішує той модуль). «Позначити як переказ» / «Підтвердити»
   (`POST /v1/transactions/{id}/transfer`) так само приймає обмін між гаманцями одного рахунку; один гаманець —
-  `same_account`.
+  `same_account`. Пари «Не пара» (IMP-03 п. 12) серед кандидатів не бувають.
 - `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` — пари
   можливих дублів для `duplicate-matching`: показані,
   на одному рахунку, та сама сума й валюта, у межах `windowDays`, не сторони переказу, не «Не дубль»; `first` — раніша
@@ -367,7 +372,7 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
 `AccountDirectory` модуля accounts; поки передача створення рахунку його не відкрила, задача повторюється. Стан рахунку
 (закритий) читається окремою транзакцією модуля accounts, але під блокуванням грошей рахунку (`lockAccounts` модуля
 accounts, рядок 198; #455, #409, #240, #290): кожен запис — створення, зміна (обидва рахунки), видалення, приховування,
-розділення, переказ, позначка й зняття позначки переказу, злиття, роз'єднання, «Не дубль» — бере його для всіх своїх
+розділення, переказ, позначка й зняття позначки переказу, злиття, роз'єднання, «Не дубль», «Не пара» — бере його для всіх своїх
 рахунків разом, після блокувань рядків, і тримає до коміту. Тож закриття, «Оновити залишок» чи видалення гаманця йде
 до запису (і запис бачить рахунок закритим: 409 `ACCOUNT_CLOSED`) або після нього (і бачить запис). Закриття спершу
 доводить до журналу передачі, що вже в черзі (`createTransactionPendingPostings.settle`, FIN-01 граничний випадок 4), а
@@ -382,7 +387,8 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 злитий дубль змінюється лише через «Роз'єднати») діють і при вимкненому прапорці відповідної частини: код перевірок не за
 прапорцем (#281 п. 7). Те саме для п. 34 і 35. Блокування дублів простору змінено з `transactions.hide:<простір>:<рахунок>`
 на `transactions.duplicates:<простір>`: стара версія й нова не бачать блокувань одна одної, тож і тут — прапорці
-вимкнені, доки всі процеси не на цій версії. Зняти прапорець `transactions.states` — приховані рядки зникають зі списку (див. вище).
+вимкнені, доки всі процеси не на цій версії. Так само для «Не пара» (IMP-03, рядок 48): старий воркер не знає дії
+передачі `not-transfer`, тож нова версія розгортається на всі процеси до того, як «Не пара» стане доступною. Зняти прапорець `transactions.states` — приховані рядки зникають зі списку (див. вище).
 Атрибути (BUD-13) — за прапорцем `transactions.attributes`: стара версія не знає задачі `transactions.tag-audit`
 (задача чекає в черзі, потім `dead`, і щоденне повернення ставить її знову, коли процеси оновлено), а її `PATCH` не
 стирає `note` і `tag_ids` (не пише цих колонок). «До розбору» (BUD-12) — за прапорцем `transactions.review`: стара
@@ -415,10 +421,11 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
 | `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
 | `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |
+| `transfer_dismissals` | «Не пара» (IMP-03 п. 12): пара списання і зарахування, яку більше не пропонують; зникає з будь-якою з них (`0016_transfer_dismissals.sql`) |
 | `import_writes` | Записана партія імпорту: лічильники, хто й коли (один рядок на партію; `0010_import_rows.sql`) |
 | `import_voids` | Відкликані спроби застосування партії: партія, спроба, коли (`0011_import_voids.sql`) |
 | `import_rollbacks` | Відкати партій (IMP-16 п. 3): партія, режим, лічильники, id залишених (до 200), хто й коли; `transactions.rolled_back_at` — транзакцію відкочено з партією, `listed_hidden` — фільтр «Приховані» без відкочених (`0012_import_rollbacks.sql`) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0003_queue.sql`, дослівно `queue-tables.sql`): задачі передачі `transactions.hand-off`; подій модуль поки не публікує |
 
-Синтетичні дані: `synthetic.ts` (20 транзакцій — серед них «Очікує», прихована і розділена на 2 частини, 1 переказ, 1 пара «Не дубль», 2 теги на одній транзакції з нотаткою, 2 ключі, 3 виконані задачі передачі й 1 передана подія на простір).
+Синтетичні дані: `synthetic.ts` (20 транзакцій — серед них «Очікує», прихована і розділена на 2 частини, 1 переказ, 1 пара «Не дубль», 1 пара «Не пара», 2 теги на одній транзакції з нотаткою, 2 ключі, 3 виконані задачі передачі й 1 передана подія на простір).

@@ -2258,6 +2258,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/not-transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Не пара»: the pair is never proposed as a transfer again, even after «Роз'єднати» (IMP-03 FR 12); nothing else changes */
+        post: operations["dismissTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/{transactionId}/one-off": {
         parameters: {
             query?: never;
@@ -2403,7 +2420,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** «Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself */
+        /** «Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer, scored 0–100 (at least 55) and one-to-one; the system never marks them itself */
         get: operations["listTransferProposals"];
         put?: never;
         post?: never;
@@ -25653,6 +25670,204 @@ export interface operations {
             };
         };
     };
+    dismissTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    counterpartId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankReference: string | null;
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        exchangeRate: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual" | "imported";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        valueDate: string | null;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     setTransactionOneOff: {
         parameters: {
             query?: never;
@@ -27656,7 +27871,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow */
+            /** @description The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow, «Не пара» POST /v1/transactions/{outflow}/not-transfer with the inflow */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -27665,7 +27880,14 @@ export interface operations {
                     "application/json": {
                         count: number;
                         items: {
+                            ambiguousWith: {
+                                score: number;
+                                /** Format: uuid */
+                                transactionId: string;
+                            }[];
                             bankRate: string | null;
+                            /** @enum {string} */
+                            confidence: "high" | "medium" | "low";
                             converted: {
                                 amount: string;
                                 currency: string;
@@ -27675,6 +27897,12 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            evidence: {
+                                /** @enum {string} */
+                                code: "exact-amount" | "amount-less-fee" | "rate-within-1" | "rate-within-3" | "same-day" | "days-apart" | "same-wallet-group";
+                                days: number | null;
+                                points: number;
+                            }[];
                             fee: {
                                 amount: string;
                                 currency: string;
@@ -27711,6 +27939,7 @@ export interface operations {
                                 source: string;
                             } | null;
                             rateBand: ("within-1" | "within-3") | null;
+                            score: number;
                         }[];
                         more: boolean;
                     };

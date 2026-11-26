@@ -66,6 +66,8 @@ export const HAND_OFF_ACTIONS = [
   "merge",
   "unmerge",
   "not-duplicate",
+  // IMP-03 FR 12 (application/transfers.ts): «Не пара» of a proposed transfer.
+  "not-transfer",
   // IMP-04 FR 8, IMP-16 FR 2 (application/rollback.ts): rolled back with its import batch — its event reversed.
   "rollback",
 ] as const;

@@ -42,6 +42,8 @@ export interface TransactionsTx {
   duplicatesOf(householdId: string, id: string): Promise<string[]>;
   /** «Не дубль» (FR 12): the pair stored in the order of its ids; false — it was stored already. */
   insertDismissal(householdId: string, firstId: string, secondId: string): Promise<boolean>;
+  /** IMP-03@PoC FR 12 «Не пара»: the pair stored as (outflow, inflow); false — it was stored already. */
+  insertTransferDismissal(householdId: string, outflowId: string, inflowId: string): Promise<boolean>;
   /**
    * The space's lock of duplicates until the transaction ends (FIN-03 FR 18, FR 35): taken first — before any row's
    * lock — by hiding, by a change of the amount, account or date, by «Видалити» and by «Не дубль», so a copy is never
