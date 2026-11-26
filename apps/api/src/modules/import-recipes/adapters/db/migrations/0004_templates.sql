@@ -35,7 +35,9 @@ CREATE TABLE recipe_versions (
   saved_by uuid NOT NULL,
   saved_at timestamptz NOT NULL,
   PRIMARY KEY (household_id, recipe_id, version),
-  FOREIGN KEY (household_id, recipe_id) REFERENCES recipes (household_id, id) ON DELETE CASCADE,
+  -- Deferred like the other child tables: rows that are valid together at commit (synthetic loads, ARC-03 FR 6).
+  FOREIGN KEY (household_id, recipe_id) REFERENCES recipes (household_id, id) ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED,
   CHECK ((account_value_sealed IS NULL) = (account_value_last4 IS NULL))
 );
 -- Every recipe saved before this migration is its own version 1.
