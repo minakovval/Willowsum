@@ -169,6 +169,7 @@ export function ReviewQueue() {
         ...groups,
         items: groups.items.filter((g) => g.merchant !== null),
         count: groups.count - (noMerchant ? 1 : 0),
+        transactionCount: groups.transactionCount - (noMerchant?.count ?? 0),
       }
     : null;
   // FR 14: «Мерчанти» by default when a merchant has more than one transaction in the queue.

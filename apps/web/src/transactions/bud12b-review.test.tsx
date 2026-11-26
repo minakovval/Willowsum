@@ -557,6 +557,10 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
           .map((r) => plain(r.textContent)),
       ).toEqual(["SShell2 транзакції−50,00 €"]);
       expect(screen.queryByRole("heading", { name: /^Без мерчанта · 5/ })).toBeNull();
+      // The list header counts the merchant groups' transactions only (2), not the 5 without a merchant.
+      expect(plain(document.querySelector(".review-group-list-head")!.textContent)).toContain(
+        "за мерчантами · 2 транзакції",
+      );
       // The 5 as one card at a time, after the groups: the first (the oldest) is shown.
       const one = await screen.findByRole("region", { name: "Без мерчанта" });
       expect(screen.getByText("5 транзакцій без мерчанта розбирають по одній.")).toBeTruthy();
