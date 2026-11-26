@@ -366,7 +366,7 @@ describe("BUD-12@PoC FR 14 (server part): the mode «Мерчанти» — the 
     expect((await groupIds(space, first!.id)).sort()).toEqual([...silpo].sort());
   });
 
-  it("BUD-12@PoC FR 14: a merge of merchants joins their groups; transactions without a description are a group `none`", async () => {
+  it("BUD-12@PoC FR 14: a merge of merchants joins their groups; transactions without a description are the bucket `none` (the web reads their ids and shows them one by one, no group)", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const a = await add(space, account, "-1.00", "STARBUCKS 0042");

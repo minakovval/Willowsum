@@ -59,7 +59,7 @@ BUD-12@PoC (серверна частина режиму «Мерчанти» ч
   потребує `transactions.review`; дозвіл `household.data.read`; учасник з областю — 404; ліміту плану немає):
   - `GET /v1/transaction-review/merchant-groups` (`listTransactionReviewGroups`; `page`, `pageSize` 25 / 50 / 100, як у
     списків) → `items` — групи, від найбільшої (далі від найстарішої транзакції, за назвою): `id` (мерчант або `none` —
-    транзакції без мерчанта), `merchant` (`id`, `name`, `initials`, `intermediary` або null), `count`, `totals` (сума зі
+    транзакції без мерчанта: не група для користувача, web читає їхні id і показує по одній, BUD-12 FR 14), `merchant` (`id`, `name`, `initials`, `intermediary` або null), `count`, `totals` (сума зі
     знаком за валютами, точні десяткові рядки), `oldest`, `suggestedCategoryId` (категорія більшості транзакцій групи;
     null — жодна не має), `mixedCategories`, `counterparty` (найчастіший оригінальний опис групи — для
     `GET /v1/category-suggestions`); `count` груп, `transactionCount` (п. 15), `truncated`. Черга рахується й підсумовується

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   formatDate,
   formatLocaleOf,
@@ -35,6 +35,8 @@ import {
   loadCards,
   loadCategories,
   loadGroups,
+  loadNoMerchantCards,
+  merchantFromDescription,
   reloadCard,
   rememberRule,
   reopenCard,
@@ -55,7 +57,9 @@ import {
  * одній» (FR 14; «Мерчанти» by default when a merchant has more than one transaction), the merchant groups with
  * «Підтвердити» of a group and «Запам'ятати» (FR 14), the cards one by one with «Пропустити», «Змінити категорію»
  * and «Підтвердити» (FR 2–5), «Відмінити» of the last action in a toast (FR 6), the version conflict (FR 7), the
- * category picker (FR 16) and «Усе розібрано» (FR 13). On a page of groups read from part of the queue (`truncated`,
+ * category picker (FR 16) and «Усе розібрано» (FR 13). There is no group «Без мерчанта» (owner correction 2026-11-26,
+ * row 226): the server's group of transactions without a merchant is not shown as a group; its transactions follow the
+ * merchant groups as cards one by one, each with the merchant its bank description names (FR 14). On a page of groups read from part of the queue (`truncated`,
  * #491 security review) a group's suggestion may come from part of the group: no «Підтвердити» of a group there.
  */
 type Mode = "groups" | "cards";
@@ -158,9 +162,20 @@ export function ReviewQueue() {
   const { groups, categories } = base.data;
   const left = count ?? groups?.transactionCount ?? 0;
   const total = done + left;
+  // FR 14: the server's group of transactions without a merchant is no group here: they follow the groups as cards.
+  const noMerchant = groups?.items.find((g) => g.merchant === null) ?? null;
+  const merchantGroups: ReviewGroups | null = groups
+    ? {
+        ...groups,
+        items: groups.items.filter((g) => g.merchant !== null),
+        count: groups.count - (noMerchant ? 1 : 0),
+      }
+    : null;
   // FR 14: «Мерчанти» by default when a merchant has more than one transaction in the queue.
   const mode: Mode =
-    groups === null ? "cards" : (chosen ?? (groups.items.some((g) => g.count > 1) ? "groups" : "cards"));
+    merchantGroups === null
+      ? "cards"
+      : (chosen ?? (merchantGroups.items.some((g) => g.count > 1) ? "groups" : "cards"));
   const confirmed = (n: number) => setDone((d) => Math.max(0, d + n));
 
   const toastView = toast ? (
@@ -233,10 +248,14 @@ export function ReviewQueue() {
           <Button variant="primary" label={t("review.start")} onClick={() => setChosen("cards")} />
         ) : null}
       </div>
-      {mode === "groups" && groups ? (
+      {mode === "groups" && merchantGroups ? (
         <GroupsView
-          groups={groups}
+          groups={merchantGroups}
+          noMerchant={noMerchant}
           categories={categories}
+          onCardConfirmed={confirmed}
+          show={show}
+          reloadCount={reloadCount}
           onConfirmed={async (n, reports) => {
             confirmed(n);
             // FR 6, AC12: «Відмінити» only while the API says `undo.available`, and not after its `undo.until`.
@@ -399,71 +418,104 @@ function failureText(t: Translate, o: Exclude<Outcome<unknown>, { ok: true }>): 
 /** FR 14: the groups by merchant on the left, the chosen group on the right (canvas PocMoneyReview). */
 function GroupsView({
   groups,
+  noMerchant,
   categories,
   onConfirmed,
+  onCardConfirmed,
+  show,
+  reloadCount,
   reloadCategories,
 }: {
+  /** The merchant groups only: the server's group without a merchant is `noMerchant`, shown as cards. */
   groups: ReviewGroups;
+  noMerchant: ReviewGroup | null;
   categories: Categories;
   onConfirmed: (count: number, reports: BulkReport[]) => Promise<void>;
+  onCardConfirmed: (n: number) => void;
+  show: (text: string, undo?: () => void, tone?: ToastTone) => void;
+  reloadCount: () => void;
   reloadCategories: () => Promise<void>;
 }) {
   const { t, locale } = useI18n();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const group = groups.items.find((g) => g.id === selectedId) ?? groups.items[0];
-  const name = (g: ReviewGroup) => g.merchant?.name ?? t("review.group.noMerchant");
+  const name = (g: ReviewGroup) => g.merchant?.name ?? "";
   return (
-    <div className="review-groups">
-      <section className="ws-card review-group-list" aria-labelledby="review-queue-title">
-        <p className="review-group-list-head">
-          <span id="review-queue-title" className="review-eyebrow">
-            {t("review.queue.title")}
-          </span>{" "}
-          <span className="ws-muted">
-            {t("review.queue.byMerchant", {
-              transactions: plural(t, locale, "review.count", groups.transactionCount),
-            })}
-          </span>
-        </p>
-        <ul className="review-group-rows" aria-label={t("review.groups.label")}>
-          {groups.items.map((g) => (
-            <li key={g.id}>
-              <button
-                type="button"
-                className="review-group-row"
-                aria-current={g.id === group?.id ? "true" : undefined}
-                onClick={() => setSelectedId(g.id)}
-              >
-                <span className="review-initials" aria-hidden="true">
-                  {g.merchant?.initials ?? "··"}
-                </span>
-                <span className="review-group-name">
-                  <span>{name(g)}</span>
-                  <span className="ws-muted">{plural(t, locale, "review.count", g.count)}</span>
-                </span>
-                <span className="ws-tabular review-amount">{totalsText(locale, g.totals)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        {groups.count > groups.items.length ? (
-          <p className="ws-muted review-more">
-            {t("review.groups.more", { count: groups.count, shown: groups.items.length })}
-          </p>
-        ) : null}
-      </section>
+    <>
       {group ? (
-        <GroupDetail
-          key={group.id}
-          group={group}
-          name={name(group)}
-          truncated={groups.truncated}
-          categories={categories}
-          onConfirmed={onConfirmed}
-          reloadCategories={reloadCategories}
-        />
+        <div className="review-groups">
+          <section className="ws-card review-group-list" aria-labelledby="review-queue-title">
+            <p className="review-group-list-head">
+              <span id="review-queue-title" className="review-eyebrow">
+                {t("review.queue.title")}
+              </span>{" "}
+              <span className="ws-muted">
+                {t("review.queue.byMerchant", {
+                  transactions: plural(t, locale, "review.count", groups.transactionCount),
+                })}
+              </span>
+            </p>
+            <ul className="review-group-rows" aria-label={t("review.groups.label")}>
+              {groups.items.map((g) => (
+                <li key={g.id}>
+                  <button
+                    type="button"
+                    className="review-group-row"
+                    aria-current={g.id === group?.id ? "true" : undefined}
+                    onClick={() => setSelectedId(g.id)}
+                  >
+                    <span className="review-initials" aria-hidden="true">
+                      {g.merchant?.initials ?? "··"}
+                    </span>
+                    <span className="review-group-name">
+                      <span>{name(g)}</span>
+                      <span className="ws-muted">{plural(t, locale, "review.count", g.count)}</span>
+                    </span>
+                    <span className="ws-tabular review-amount">{totalsText(locale, g.totals)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            {groups.count > groups.items.length ? (
+              <p className="ws-muted review-more">
+                {t("review.groups.more", { count: groups.count, shown: groups.items.length })}
+              </p>
+            ) : null}
+          </section>
+          {group ? (
+            <GroupDetail
+              key={group.id}
+              group={group}
+              name={name(group)}
+              truncated={groups.truncated}
+              categories={categories}
+              onConfirmed={onConfirmed}
+              reloadCategories={reloadCategories}
+            />
+          ) : null}
+        </div>
       ) : null}
-    </div>
+      {noMerchant ? (
+        <section className="review-nomerchant" aria-labelledby="review-nomerchant-title">
+          <h2 id="review-nomerchant-title" className="review-eyebrow">
+            {t("review.noMerchant.title")}
+          </h2>
+          <p className="ws-muted review-more">
+            {t("review.noMerchant.hint", {
+              transactions: plural(t, locale, "review.count", noMerchant.count),
+            })}
+          </p>
+          <CardsView
+            source={{ groupId: noMerchant.id, count: noMerchant.count }}
+            categories={categories}
+            onConfirmed={onCardConfirmed}
+            show={show}
+            reloadCategories={reloadCategories}
+            reloadCount={reloadCount}
+          />
+        </section>
+      ) : null}
+    </>
   );
 }
 
@@ -601,12 +653,15 @@ function GroupDetail({
 
 /** FR 2–7: the cards one by one, the oldest first. */
 function CardsView({
+  source,
   categories,
   onConfirmed,
   show,
   reloadCategories,
   reloadCount,
 }: {
+  /** FR 14: only the transactions without a merchant (the server's group of them); absent — the whole queue. */
+  source?: { groupId: string; count: number };
   categories: Categories;
   onConfirmed: (n: number) => void;
   show: (text: string, undo?: () => void, tone?: ToastTone) => void;
@@ -622,10 +677,18 @@ function CardsView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  /** FR 14: the merchant the bank's text names, by transaction (null — the API names none), and the accepted ones. */
+  const [named, setNamed] = useState<ReadonlyMap<string, string | null>>(new Map());
+  const [accepted, setAccepted] = useState<ReadonlySet<string>>(new Set());
+  const groupId = source?.groupId;
+  const groupCount = useRef(source?.count ?? 0);
+  useEffect(() => {
+    groupCount.current = source?.count ?? 0;
+  }, [source?.count]);
 
   useEffect(() => {
     let live = true;
-    void loadCards(api).then(
+    void (groupId ? loadNoMerchantCards(api, groupId, groupCount.current) : loadCards(api)).then(
       (o) => {
         if (!live) return;
         setMore(o.kind === "ready" && o.data.count > o.data.cards.length);
@@ -638,9 +701,22 @@ function CardsView({
     return () => {
       live = false;
     };
-  }, [api, attempt, reloadCount]);
+  }, [api, attempt, reloadCount, groupId]);
 
   const cards = state.kind === "ready" ? state.data : null;
+  const top = cards?.[0] ?? null;
+  const topId = top?.item.id;
+  const topText = top && top.item.counterparty === null ? (top.item.description?.trim() ?? "") : "";
+  useEffect(() => {
+    if (!topId || topText === "") return;
+    let live = true;
+    void merchantFromDescription(api, topText).then((m) => {
+      if (live) setNamed((prev) => (prev.has(topId) ? prev : new Map(prev).set(topId, m)));
+    });
+    return () => {
+      live = false;
+    };
+  }, [api, topId, topText]);
 
   if (state.kind === "loading" || (cards && cards.length === 0))
     return (
@@ -742,7 +818,10 @@ function CardsView({
   };
 
   const category = card.categoryId ? (categories.byId.get(card.categoryId) ?? null) : null;
-  const merchant = card.item.counterparty ?? t("review.group.noMerchant");
+  // FR 14: a card without a merchant offers the merchant its bank description names; accepted, it is the card's merchant.
+  const suggested = card.item.counterparty === null ? (named.get(card.item.id) ?? null) : null;
+  const takenIn = suggested !== null && accepted.has(card.item.id);
+  const merchant = card.item.counterparty ?? (takenIn ? suggested : t("review.group.noMerchant"));
   // The statement's own text under the title: always without a merchant; with one, only when it says more.
   const text = card.item.description?.trim() ?? "";
   const statement =
@@ -763,6 +842,15 @@ function CardsView({
         </a>
       </h2>
       {statement ? <p className="review-card-text ws-muted">{statement}</p> : null}
+      {suggested !== null && !takenIn ? (
+        <p className="review-card-suggest">
+          <span className="ws-muted">{t("review.card.suggested")}</span> <strong>{suggested}</strong>{" "}
+          <Button
+            label={t("review.card.accept")}
+            onClick={() => setAccepted((prev) => new Set(prev).add(card.item.id))}
+          />
+        </p>
+      ) : null}
       <dl className="review-card-facts">
         <div>
           <dt className="ws-muted">{t("review.card.amount")}</dt>
@@ -808,8 +896,8 @@ function CardsView({
       </div>
       {editing ? (
         <CategoryDialog
-          merchant={merchant}
-          counterparty={card.item.counterparty}
+          merchant={card.item.counterparty === null && !takenIn ? "" : merchant}
+          counterparty={card.item.counterparty ?? (takenIn ? statement : null)}
           kind={card.item.type === "income" ? "income" : "expense"}
           categories={categories}
           reloadCategories={reloadCategories}
