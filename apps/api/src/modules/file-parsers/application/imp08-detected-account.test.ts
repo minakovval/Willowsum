@@ -90,6 +90,20 @@ describe("IMP-08@PoC FR 2 (server part): the statement's own account facts for �
     expect(p.checks.detected).toEqual({});
   });
 
+  it("IMP-08@PoC FR 2: a bank, a card or an IBAN printed only in the transaction rows is not the statement's own", () => {
+    const p = parse(
+      [
+        "Виписка за березень",
+        "Дата;Сума;Опис",
+        "01.03.2026;-12,50;Переказ ПриватБанк **** 9999",
+        `02.03.2026;-40,00;${IBAN} monobank`,
+      ],
+      { institutions: BANKS },
+    );
+    expect(p.checks.detected?.bank).toBeUndefined();
+    expect(p.checks.detected?.mask).toBeUndefined();
+  });
+
   it("IMP-08@PoC FR 2: without a directory no bank is detected; the directory is never matched by a part of a word", () => {
     expect(parse(MONOBANK).checks.detected?.bank).toBeUndefined();
     // «ПУМБ» inside another word is not the bank.
