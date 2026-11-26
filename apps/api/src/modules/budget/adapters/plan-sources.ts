@@ -2,28 +2,21 @@ import { AmountOutOfRangeError, type Money } from "@willowsum/domain-kernel";
 import type { DebtPlannedExpenses } from "../../debt-payoff/index.ts";
 import type { FxReporting } from "../../fx-rates/index.ts";
 import type { GoalPlans } from "../../goals/index.ts";
-import type { RecurringMonth } from "../../recurring/index.ts";
 import type { BudgetPlanSources } from "../application/index.ts";
 import { periodOf } from "../domain/index.ts";
 import { overBudgetCap as tooBig } from "./money-range.ts";
 
 /**
  * The port `BudgetPlanSources` of «План» (BUD-17@PoC FR 1) over modules goals (`GoalPlans`), debt-payoff
- * (`DebtPlannedExpenses`), recurring (`RecurringMonth`: the month's expected regular incomes; left out — none) and
- * fx-rates: amounts of another currency at today's rate, as `BudgetObligations` (#567).
+ * (`DebtPlannedExpenses`) and fx-rates: amounts of another currency at today's rate, as `BudgetObligations` (#567).
+ * The regular incomes are no rows of «Надходження» (owner decision 2026-11-21, 2 б; row 231): they are in their
+ * category's fact, and the expected ones still come through `BudgetObligations` (BUD-03).
  * An amount without a rate or over 15 integer digits has no figure (null), never a sum without it.
  */
 export function createBudgetPlanSources(ports: {
   readonly goals: GoalPlans;
   readonly debts: DebtPlannedExpenses;
   readonly fx: Pick<FxReporting, "total">;
-  readonly recurring?: RecurringMonth;
-  /**
-   * #613: whether «План» (release flag `budget.plan`) is on for the space. While it is off the regular incomes are not
-   * read: the month's income plan stays the budget's «План доходу» (BUD-02 FR 9, FR 14) on «Бюджет», in «Порівняння»
-   * and in a finished month's snapshot, as before «План». Left out — on.
-   */
-  readonly planEnabled?: (householdId: string) => Promise<boolean>;
 }): BudgetPlanSources {
   /**
    * Each amount in `currency`; null in its place — no rate, or out of range. `approximate` — converted at the nearest
@@ -79,36 +72,6 @@ export function createBudgetPlanSources(ports: {
         currency: g.contributedThisMonth.currency,
         // No date or past it (BUD-05 FR 5: no required contribution) — nothing is planned for the goal.
         lastPeriod: g.requiredMonthly === null || g.targetDate === null ? null : periodOf(g.targetDate),
-      }));
-    },
-    async incomes(householdId, period, currency) {
-      if (!ports.recurring) return [];
-      if (ports.planEnabled && !(await ports.planEnabled(householdId))) return [];
-      // FR 1 «джерела доходу»: each income payment's charges in the month (BUD-02 FR 1, BUD-03 and BUD-07 rules:
-      // «регулярні доходи формують очікуваний дохід»), one line per payment in the order of its first charge.
-      const charges = (await ports.recurring.chargesIn(householdId, period)).filter(
-        (c) => c.type === "income",
-      );
-      const converted = await convert(
-        charges.map((c) => c.expected),
-        currency,
-      );
-      const byPayment = new Map<string, Money | null>();
-      // BUD-03@PoC EC4 «приблизно» (#651): a charge of the payment at the nearest rate.
-      const nearest = new Set<string>();
-      charges.forEach((c, i) => {
-        const prev = byPayment.get(c.paymentId);
-        const value = converted[i]?.value ?? null;
-        if (converted[i]?.approximate === true) nearest.add(c.paymentId);
-        byPayment.set(
-          c.paymentId,
-          prev === undefined ? value : prev === null || value === null ? null : prev.plus(value),
-        );
-      });
-      return [...byPayment].map(([paymentId, amount]) => ({
-        paymentId,
-        amount,
-        approximate: amount !== null && nearest.has(paymentId),
       }));
     },
     async extraPayments(householdId, period, currency) {

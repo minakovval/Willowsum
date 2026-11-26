@@ -43,6 +43,8 @@ type Notice =
   | {
       readonly kind: "past" | "save" | "invalid" | "places" | "negative" | "tooLong";
       readonly text?: string;
+      /** The currency of the cell the text was typed in («invalid», «places»). */
+      readonly currency?: string;
     };
 
 const addressOf = (c: PlanCell) => `${c.edit?.kind}:${c.edit?.lineId ?? ""}:${c.period}`;
@@ -82,10 +84,12 @@ export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
   const commit: CommitHandler = useCallback(
     (row: PlanRow, cell: PlanCell, text: string) => {
       if (!view || !cell.edit) return;
-      const places = currencyPlaces(view.currency);
+      // BUD-17 business rules: a category's cell is typed and sent in its own currency (BUD-02 FR 24).
+      const currency = row.currency;
+      const places = currencyPlaces(currency);
       const parsed = parseAmountInput(text, locale, places);
       if (parsed.problem !== null) {
-        setNotice({ kind: parsed.problem === "places" ? "places" : "invalid" });
+        setNotice({ kind: parsed.problem === "places" ? "places" : "invalid", currency });
         return;
       }
       const value = parsed.value;
@@ -117,7 +121,7 @@ export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
               period: cell.period,
               kind: cell.edit!.kind,
               lineId: cell.edit!.lineId,
-              amount: value === null ? null : { amount: value, currency: view.currency },
+              amount: value === null ? null : { amount: value, currency },
               version: cell.edit!.version,
             },
           }),
@@ -139,7 +143,7 @@ export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
             kind: "changed",
             category: labelText(t, row.label),
             month: monthWord(t, locale, cell.period),
-            from: value === null ? NO_VALUE : formatMoney(locale, value, view.currency),
+            from: value === null ? NO_VALUE : formatMoney(locale, value, currency),
             to: now?.amount ? formatMoney(locale, now.amount.amount, now.amount.currency) : NO_VALUE,
           });
           return;
@@ -215,7 +219,13 @@ export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
             </header>
             {notice ? (
               <p className="plan-notice" role="alert">
-                <Icon name="warning" size={16} /> {noticeText(notice, t, locale, view.currency)}
+                <Icon name="warning" size={16} />{" "}
+                {noticeText(
+                  notice,
+                  t,
+                  locale,
+                  notice.kind === "changed" ? view.currency : (notice.currency ?? view.currency),
+                )}
               </p>
             ) : null}
             <PlanTable view={view} pending={pending} onCommit={commit} />

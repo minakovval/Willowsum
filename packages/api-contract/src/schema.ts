@@ -7962,10 +7962,24 @@ export interface operations {
                             } | null)[];
                         };
                         income: {
+                            categories: {
+                                /** Format: uuid */
+                                categoryId: string;
+                                cells: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    } | null;
+                                    own: boolean;
+                                    version: number;
+                                }[];
+                            }[];
+                            /** @deprecated */
                             other: ({
                                 amount: string;
                                 currency: string;
                             } | null)[];
+                            /** @deprecated */
                             plan: {
                                 amount: {
                                     amount: string;
@@ -7974,6 +7988,7 @@ export interface operations {
                                 own: boolean;
                                 version: number;
                             }[];
+                            /** @deprecated */
                             rows: {
                                 cells: {
                                     amount: {

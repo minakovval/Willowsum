@@ -195,7 +195,6 @@ describe("BUD-17@PoC: a category's cell in its currency", () => {
       categories: tree,
       base,
       cells: [],
-      incomes: new Map(),
       goals: [],
       debts: new Map(),
     };
