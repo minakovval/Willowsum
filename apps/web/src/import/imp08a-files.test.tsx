@@ -551,6 +551,212 @@ describe("IMP-08@PoC FR 2 — the account of each file", () => {
   });
 });
 
+describe("IMP-08@PoC FR 2, AC16 — «Створити рахунок» when the statement's account is not among the accounts", () => {
+  const NEW_ACCOUNT = "00000000-0000-4000-8000-000000000101";
+  // The server detects only banks of the directory (the lead's decision 2026-11-26, row 230): this directory has Revolut,
+  // as AC16 says; the real one (NBU) has not, and then the form opens with the bank empty.
+  const BANKS = [
+    { code: "305299", name: "ПриватБанк", country: "UA" },
+    { code: "399999", name: "Revolut", country: "GB" },
+  ];
+  const banks: Reply = {
+    status: 200,
+    body: {
+      items: BANKS,
+      nextCursor: null,
+      source: {
+        attribution: "Джерело: Національний банк України (bank.gov.ua)",
+        url: "https://bank.gov.ua",
+        asOf: "2026-11-16",
+      },
+    },
+  };
+  const MONO = account("00000000-0000-4000-8000-000000000009", "current", "Monobank Чорна", "1234");
+  const REVOLUT = { ...account(NEW_ACCOUNT, "current", "Revolut", "5678"), institution: "Revolut" };
+
+  /** One file whose statement is Revolut EUR with the card ••5678, when the space has only «Monobank Чорна» ••1234. */
+  function statement(detected: Record<string, unknown>, over: Record<string, Handler> = {}) {
+    let made = false;
+    return api({
+      "GET /v1/accounts": () => ({
+        status: 200,
+        body: { items: made ? [MONO, REVOLUT] : [MONO], nextCursor: null },
+      }),
+      "GET /v1/accounts/banks": banks,
+      "POST /v1/accounts/duplicate-check": { status: 200, body: { duplicate: null } },
+      "POST /v1/accounts": () => {
+        made = true;
+        return { status: 201, body: { id: NEW_ACCOUNT } };
+      },
+      "GET /v1/import/batches/{b}": {
+        status: 200,
+        body: { ...batch("parsed", 1), fileList: [file(F1, "revolut-eur.csv")] },
+      },
+      "GET /v1/import/batches/{b}/parse": () => ({
+        status: 200,
+        body: view([parsed(F1, { accountId: made ? NEW_ACCOUNT : null, detected })]),
+      }),
+      "POST /v1/import/batches/{b}/parse": { status: 200, body: batch("processing") },
+      ...over,
+    });
+  }
+  const dialog = () => screen.getByRole("dialog", { name: "Новий рахунок" });
+  const shown = () => dialog().querySelector<HTMLElement>(".ws-form-step:not([inert])")!;
+  const press = (name: string) => fireEvent.click(within(dialog()).getByRole("button", { name }));
+  const textbox = (name: RegExp) => within(shown()).getByRole("textbox", { name }) as HTMLInputElement;
+
+  it("IMP-08@PoC AC16, IMP-08@PoC v2 AC17, IMP-08@PoC FR 2: the Revolut EUR statement with ••5678 next to only «Monobank Чорна» ••1234 offers «Оберіть рахунок» and «Створити рахунок»; the form opens with the bank, the currency and the card tail; after saving the new account is the file's, and «Далі» is open", async () => {
+    const { client, of } = statement({ bank: "Revolut", currency: "EUR", mask: "…5678" });
+    renderAt(`#/import/${BATCH}`, client);
+    const select = await screen.findByRole("combobox", { name: "Рахунок для файлу revolut-eur.csv" });
+    expect(within(select).getByRole("option", { name: "Оберіть рахунок" })).toBeTruthy();
+    expect(stateOf("revolut-eur.csv").getByText("Такого рахунку ще немає")).toBeTruthy();
+    expect(disabled(nextButton())).toBe(true);
+
+    fireEvent.click(stateOf("revolut-eur.csv").getByRole("button", { name: "Створити рахунок" }));
+    await screen.findByRole("dialog", { name: "Новий рахунок" });
+    // Step 1: the bank's name as the name, the bank chosen once the directory is read.
+    expect(textbox(/^Назва/).value).toBe("Revolut");
+    await waitFor(() =>
+      expect(within(shown()).getByRole("button", { name: /Банк або установа/ }).textContent).toContain(
+        "Revolut",
+      ),
+    );
+    press("Далі");
+    // Step 2: the currency of the statement; the opening balance is the person's.
+    await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
+    expect(within(shown()).getAllByRole("button", { name: /^Валюта/ })[0]!.textContent).toContain("EUR");
+    fireEvent.change(textbox(/^Залишок/), { target: { value: "100" } });
+    press("Далі");
+    // Step 3: only the last four characters of the card.
+    await waitFor(() => expect(shown().dataset["step"]).toBe("2"));
+    expect(textbox(/^Номер/).value).toBe("5678");
+    press("Додати рахунок");
+
+    await waitFor(() => expect(of("POST", "/v1/accounts")).toHaveLength(1));
+    const body = of("POST", "/v1/accounts")[0]!.body as Record<string, unknown>;
+    expect(body).toMatchObject({
+      kind: "current",
+      name: "Revolut",
+      institution: { name: "Revolut", country: "GB" },
+      number: "5678",
+      balance: { amount: "100.00", currency: "EUR" },
+    });
+    // The new account is the file's, through the same parse request as any choice.
+    await waitFor(() => expect(of("POST", "/v1/import/batches/{b}/parse")).toHaveLength(1));
+    expect(of("POST", "/v1/import/batches/{b}/parse")[0]?.body).toEqual({
+      files: [{ fileId: F1, accountId: NEW_ACCOUNT }],
+    });
+    await waitFor(() => expect(stateOf("revolut-eur.csv").getByText("Готовий")).toBeTruthy());
+    expect(plain(stateOf("revolut-eur.csv").getByText(/створено і вибрано для файлу/).textContent)).toBe(
+      "Рахунок «Revolut ··5678» створено і вибрано для файлу",
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Створити рахунок" })).toBeNull();
+    expect(disabled(nextButton())).toBe(false);
+  });
+
+  it("IMP-08@PoC FR 2: a bank the directory does not have leaves the bank empty; the form still opens with the currency and the tail", async () => {
+    const { client } = statement(
+      { currency: "EUR", mask: "…5678" },
+      { "GET /v1/accounts/banks": { status: 200, body: { items: [BANKS[0]], nextCursor: null } } },
+    );
+    renderAt(`#/import/${BATCH}`, client);
+    fireEvent.click(await screen.findByRole("button", { name: "Створити рахунок" }));
+    await screen.findByRole("dialog", { name: "Новий рахунок" });
+    expect(textbox(/^Назва/).value).toBe("");
+    expect(within(shown()).getByRole("button", { name: /Банк або установа/ }).textContent).not.toContain(
+      "Revolut",
+    );
+    // The name is required: the next step opens once it is typed.
+    fireEvent.change(textbox(/^Назва/), { target: { value: "Revolut EUR" } });
+    press("Далі");
+    await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
+    expect(within(shown()).getAllByRole("button", { name: /^Валюта/ })[0]!.textContent).toContain("EUR");
+  });
+
+  it("IMP-08@PoC FR 2: «Скасувати» in the form creates no account and the file keeps waiting for one", async () => {
+    const { client, of } = statement({ bank: "Revolut", currency: "EUR", mask: "…5678" });
+    renderAt(`#/import/${BATCH}`, client);
+    fireEvent.click(await screen.findByRole("button", { name: "Створити рахунок" }));
+    await screen.findByRole("dialog", { name: "Новий рахунок" });
+    press("Скасувати");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(of("POST", "/v1/accounts")).toHaveLength(0);
+    expect(of("POST", "/v1/import/batches/{b}/parse")).toHaveLength(0);
+    expect(screen.getByRole("combobox", { name: "Рахунок для файлу revolut-eur.csv" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Створити рахунок" })).toBeTruthy();
+  });
+
+  it("IMP-08@PoC FR 2: when the account cannot be saved the form stays with its error and the file is not parsed for it", async () => {
+    const { client, of } = statement(
+      { bank: "Revolut", currency: "EUR", mask: "…5678" },
+      { "POST /v1/accounts": problem(422, "VALIDATION_FAILED") },
+    );
+    renderAt(`#/import/${BATCH}`, client);
+    fireEvent.click(await screen.findByRole("button", { name: "Створити рахунок" }));
+    await screen.findByRole("dialog", { name: "Новий рахунок" });
+    press("Далі");
+    await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
+    fireEvent.change(textbox(/^Залишок/), { target: { value: "100" } });
+    press("Додати рахунок");
+    await waitFor(() => expect(of("POST", "/v1/accounts")).toHaveLength(1));
+    expect(await within(dialog()).findByText(/Не вдалося зберегти\. Дані у формі збережено/)).toBeTruthy();
+    expect(of("POST", "/v1/import/batches/{b}/parse")).toHaveLength(0);
+  });
+
+  it("IMP-08@PoC FR 2: no offer when the statement's card ends like an account of the space, when it names nothing but a currency, or when the file's account is found", async () => {
+    // The tail of «Monobank Чорна» ••1234: the account exists, the person picks it.
+    const first = renderAt(
+      `#/import/${BATCH}`,
+      statement({ bank: "ПриватБанк", currency: "UAH", mask: "…1234" }).client,
+    );
+    expect(await screen.findByRole("combobox", { name: "Рахунок для файлу revolut-eur.csv" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Створити рахунок" })).toBeNull();
+    expect(screen.queryByText("Такого рахунку ще немає")).toBeNull();
+    first.unmount();
+
+    // A currency alone says too little to make an account from.
+    resetAuthState();
+    const second = renderAt(`#/import/${BATCH}`, statement({ currency: "EUR" }).client);
+    expect(await screen.findByRole("combobox", { name: "Рахунок для файлу revolut-eur.csv" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Створити рахунок" })).toBeNull();
+    second.unmount();
+
+    // A file parsed for an account of the space is a detected account: no second offer.
+    resetAuthState();
+    const found = api({
+      "GET /v1/accounts": { status: 200, body: { items: [MONO], nextCursor: null } },
+      "GET /v1/import/batches/{b}": {
+        status: 200,
+        body: { ...batch("parsed", 1), fileList: [file(F1, "mono.csv")] },
+      },
+      "GET /v1/import/batches/{b}/parse": {
+        status: 200,
+        body: view([parsed(F1, { accountId: MONO.id, detected: { bank: "ПриватБанк", mask: "…9999" } })]),
+      },
+    });
+    renderAt(`#/import/${BATCH}`, found.client);
+    expect(await screen.findByText("визначено автоматично")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Створити рахунок" })).toBeNull();
+  });
+
+  it("IMP-08@PoC FR 2: only the tail of a card or IBAN reaches the form: a longer text in `mask` is not taken", async () => {
+    const { client } = statement({ bank: "Revolut", currency: "EUR", mask: "…4111111111111111" });
+    renderAt(`#/import/${BATCH}`, client);
+    fireEvent.click(await screen.findByRole("button", { name: "Створити рахунок" }));
+    await screen.findByRole("dialog", { name: "Новий рахунок" });
+    press("Далі");
+    await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
+    fireEvent.change(textbox(/^Залишок/), { target: { value: "100" } });
+    press("Далі");
+    await waitFor(() => expect(shown().dataset["step"]).toBe("2"));
+    expect(textbox(/^Номер/).value).toBe("");
+    expect(dialog().textContent).not.toContain("4111");
+  });
+});
+
 describe("IMP-08@PoC FR 3 — the template of each file", () => {
   it("IMP-08@PoC FR 3: «Застосовано шаблон» for a match; «Формат змінився — перегляньте» with the banner for a changed format (EC1)", async () => {
     const { client } = api({
@@ -610,7 +816,7 @@ describe("IMP-08@PoC FR 16 — states of the step", () => {
       "GET /v1/accounts": () => {
         calls += 1;
         return calls === 1
-          ? problem(500, "INTERNAL")
+          ? problem(422, "VALIDATION_FAILED")
           : { status: 200, body: { items: ACCOUNTS, nextCursor: null } };
       },
     });

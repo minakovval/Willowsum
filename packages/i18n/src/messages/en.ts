@@ -3051,6 +3051,9 @@ export const en: Messages = {
   "import.account.reason.currency": "currency",
   "import.account.reasonDetail": "{reason} {file} in the file, {account} in the account",
   "import.account.saveFailed": "Could not save the account choice.",
+  "import.account.missing": "There is no such account yet",
+  "import.account.create": "Create an account",
+  "import.account.created": "Account “{account}” created and chosen for the file",
   "import.template.match": "Template applied",
   "import.template.changed": "The format changed — review it",
   "import.template.banner":
