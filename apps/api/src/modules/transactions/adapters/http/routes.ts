@@ -672,8 +672,8 @@ export const listTransactionsRoute = defineRoute({
           "Filter `<field>.<operator>:<value>` (repeatable; all must hold): `accountId` eq/in, `date` gte/lte, `type` eq " +
           "(in/out), `amount` gte/lte (without sign), `counterparty` eq/has, `search` has, `status` eq/in, `split` eq, " +
           "`hidden` eq, `transfer` eq, `tag` eq/in, `review` eq/in, `category` eq/in — FIN-03 FR 22 «Категорії»: the " +
-          "exact categories (no others); an unsplit transaction by its own category, a split one by its parts; a " +
-          `category with more than ${CATEGORY_FILTER_MAX} transactions is 422 LIMIT_REACHED`,
+          "exact categories (no others); an unsplit transaction by its own category, a split one by its parts; " +
+          `more than ${CATEGORY_FILTER_MAX} transactions in all category filters of a request is 422 LIMIT_REACHED`,
       }),
     }),
   },
