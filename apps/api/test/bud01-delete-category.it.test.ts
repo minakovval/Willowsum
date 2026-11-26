@@ -40,12 +40,12 @@ let audit: AuditLog;
 let directory: CategoryDirectory;
 let app: ReturnType<typeof buildServer>;
 const off = new Set<string>();
-/** What the modules not wired here answer: category ids their records (rules, recurring) hold. */
+/** What the module not wired here answers: category ids its records (regular payments) hold. */
 const elsewhere = new Set<string>();
 const standIn: CategoryUsage = {
   module: "recurring",
   used: async (_householdId, ids) => new Set(ids.filter((id) => elsewhere.has(id))),
-  holds: async (_householdId, id) => ({ rules: elsewhere.has(id) ? 1 : 0 }),
+  holds: async (_householdId, id) => ({ recurringPayments: elsewhere.has(id) ? 1 : 0 }),
 };
 /** Module budget's port (its real one: bud01-delete-category-limit.it.test.ts): category ids with a limit. */
 const limited = new Set<string>();
@@ -384,7 +384,7 @@ describe("BUD-01@PoC FR 12: a category in use is not deleted", () => {
     expect(merge.statusCode, merge.body).toBe(200);
   });
 
-  it.each(["the transactions' split parts", "a rule or a recurring payment"])(
+  it.each(["the transactions' split parts", "a recurring payment"])(
     "BUD-01@PoC FR 12: a category used only by %s is not deleted",
     async (by) => {
       const space = await newSpace();

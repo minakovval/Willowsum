@@ -15,7 +15,11 @@ import {
   createBudgetServices,
   type BudgetServices,
 } from "../src/modules/budget/index.ts";
-import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
+import {
+  createCategoriesServices,
+  createCategoryDirectory,
+  type CategoryUsage,
+} from "../src/modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
   createCategorizationServices,
@@ -40,7 +44,7 @@ import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./r
  * delete dialog and the category only its limit holds, through the real API on a real PostgreSQL with the real
  * categories, budget, transactions, categorization and recurring modules wired as the API process wires them. A rule
  * and a regular payment are rows of their modules written by the owner connection (their own flows are BUD-14 and
- * BUD-07). Every name and amount is synthetic; the clock is the test's own (Kyiv).
+ * BUD-07). A rule does not hold its category (lead decision 2026-11-26, row 221); a regular payment does. Every name and amount is synthetic; the clock is the test's own (Kyiv).
  */
 const WEB = "http://localhost:5173";
 const at = (date: string) => Date.parse(`${date}T10:00:00Z`);
@@ -142,6 +146,28 @@ async function subscriptions(space: Space, extra: { categoryId: string; amount: 
   return subs;
 }
 
+/**
+ * A write of module budget that lands right after budget's own commit in a confirmed delete, while the category is
+ * still in the directory (the money review of #708): set once, run after the first `release`.
+ */
+let raceOnce: ((householdId: string, categoryId: string) => Promise<void>) | null = null;
+function withRace(usage: CategoryUsage): CategoryUsage {
+  const limits = usage.limits!;
+  return {
+    ...usage,
+    limits: {
+      ...limits,
+      async release(caller, categoryId) {
+        const removed = await limits.release(caller, categoryId);
+        const race = raceOnce;
+        raceOnce = null;
+        if (race) await race(caller.householdId, categoryId);
+        return removed;
+      },
+    },
+  };
+}
+
 beforeAll(async () => {
   db = await setupRealModules(8);
   spaces = householdSpaces(db);
@@ -191,7 +217,7 @@ beforeAll(async () => {
           usage: [
             createTransactionCategoryUsage(db.databases.for("transactions")),
             createCategorizationCategoryUsage(db.databases.for("categorization"), lookup),
-            createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices),
+            withRace(createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)),
             createRecurringCategoryUsage(db.databases.for("recurring")),
           ],
         }),
@@ -318,6 +344,30 @@ describe("BUD-01@PoC FR 12: a category only its limit holds is deleted after con
     expect(limit.filter((e) => e.action === "delete")).toHaveLength(1);
   });
 
+  it("BUD-01@PoC FR 12: a limit and a «План» cell budget saved while the confirmed delete ran (after budget's commit, before the category's) are swept after the delete — no entry of the deleted category is left", async () => {
+    const space = await newSpace();
+    const subs = await subscriptions(space);
+    const budgetId = (await call(space, "GET", "/v1/budget")).json().budget.id as string;
+    raceOnce = async (householdId, categoryId) => {
+      await db.owner.query(
+        `INSERT INTO budget.limits (household_id, budget_id, category_id, amount, currency) VALUES ($1, $2, $3, 45, 'EUR')`,
+        [householdId, budgetId, categoryId],
+      );
+      await db.owner.query(
+        `INSERT INTO budget.plan_cells (household_id, budget_id, period, kind, line_id, amount, currency, version)
+         VALUES ($1, $2, '2027-02-01', 'limit', $3, 50, 'EUR', 1)`,
+        [householdId, budgetId, categoryId],
+      );
+    };
+    const res = await call(space, "DELETE", `/v1/categories/${subs}?confirmLimit=true`);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(raceOnce).toBeNull();
+    expect(await n("budget.limits WHERE household_id = $1", space.householdId)).toBe(0);
+    expect(await n("budget.plan_cells WHERE household_id = $1", space.householdId)).toBe(0);
+    const limit = await audit.entriesFor(space.householdId, { type: "budget.limit", id: subs });
+    expect(limit.filter((e) => e.action === "delete")).toHaveLength(2);
+  });
+
   it("BUD-01@PoC FR 12 «Права доступу»: another space's category with a limit — 404 for its usage and its confirmed delete; its limit and cells stay", async () => {
     const owner = await newSpace();
     const subs = await subscriptions(owner);
@@ -330,19 +380,21 @@ describe("BUD-01@PoC FR 12: a category only its limit holds is deleted after con
 });
 
 describe("BUD-01@PoC FR 12: the exact reason of a held category", () => {
-  it("BUD-01@PoC AC 23: «Спортзал» without transactions, with 1 category rule and 1 regular payment — no «Видалити»; the reasons are «1 правило категорій» and «1 регулярний платіж», not transactions; the request is refused with the same reasons and nothing changes", async () => {
+  it("BUD-01@PoC AC 23: «Спортзал» without transactions, with 1 category rule and 1 regular payment — no «Видалити»; the reason is «1 регулярний платіж» (the rule is named as information, not as a reason); the request is refused with the same reason and nothing changes; once the payment is gone the category is deleted and its rule stays, now pointing at a deleted category («Потребує уваги»)", async () => {
     const space = await newSpace();
     const gym = await addCategory(space, "Спортзал");
+    const ruleId = randomUUID();
+    const paymentId = randomUUID();
     await db.owner.query(
       `INSERT INTO categorization.rules (household_id, id, position, conditions, category_id, condition_key)
        VALUES ($1, $2, 1, '[]'::jsonb, $3, 'synthetic-gym')`,
-      [space.householdId, randomUUID(), gym],
+      [space.householdId, ruleId, gym],
     );
     await db.owner.query(
       `INSERT INTO recurring.payments (household_id, id, name, type, frequency, expected_amount, expected_currency,
          anchor_date, category_id, source, created_on)
        VALUES ($1, $2, 'Синтетичний спортзал', 'expense', 'month', 25, 'EUR', '2026-10-01', $3, 'manual', '2026-10-01')`,
-      [space.householdId, randomUUID(), gym],
+      [space.householdId, paymentId, gym],
     );
     expect((await names(space)).get("Спортзал")!.deletable).toBe(false);
     const reason = {
@@ -364,6 +416,27 @@ describe("BUD-01@PoC FR 12: the exact reason of a held category", () => {
     expect((await names(space)).has("Спортзал")).toBe(true);
     expect(await n("categorization.rules WHERE household_id = $1", space.householdId)).toBe(1);
     expect(await n("recurring.payments WHERE household_id = $1", space.householdId)).toBe(1);
+
+    // The rule alone does not hold it (lead decision 2026-11-26, row 221).
+    await db.owner.query(`DELETE FROM recurring.payments WHERE household_id = $1 AND id = $2`, [
+      space.householdId,
+      paymentId,
+    ]);
+    expect((await call(space, "GET", `/v1/categories/${gym}/usage`)).json()).toEqual({
+      ...reason,
+      recurringPayments: 0,
+      deletable: true,
+    });
+    const deleted = await call(space, "DELETE", `/v1/categories/${gym}`);
+    expect(deleted.statusCode, deleted.body).toBe(200);
+    expect(
+      await n(
+        "categorization.rules WHERE household_id = $1 AND id = $2 AND category_id = $3",
+        space.householdId,
+        ruleId,
+        gym,
+      ),
+    ).toBe(1);
   });
 
   it("BUD-01@PoC FR 12: a held category with a limit keeps its limit — the reasons are what holds it, the limit is listed among the budget entries only", async () => {
@@ -371,13 +444,17 @@ describe("BUD-01@PoC FR 12: the exact reason of a held category", () => {
     const gym = await addCategory(space, "Спортзал");
     const subs = await subscriptions(space, [{ categoryId: gym, amount: "50.00" }]);
     await db.owner.query(
-      `INSERT INTO categorization.rules (household_id, id, position, conditions, category_id, condition_key)
-       VALUES ($1, $2, 1, '[]'::jsonb, $3, 'synthetic-gym')`,
+      `INSERT INTO recurring.payments (household_id, id, name, type, frequency, expected_amount, expected_currency,
+         anchor_date, category_id, source, created_on)
+       VALUES ($1, $2, 'Синтетичний спортзал', 'expense', 'month', 25, 'EUR', '2026-10-01', $3, 'manual', '2026-10-01')`,
       [space.householdId, randomUUID(), gym],
     );
     const res = await call(space, "DELETE", `/v1/categories/${gym}?confirmLimit=true`);
     expect(res.statusCode, res.body).toBe(409);
-    expect(res.json().categoryUsage).toMatchObject({ rules: 1, budget: { limit: eur("50"), stored: true } });
+    expect(res.json().categoryUsage).toMatchObject({
+      recurringPayments: 1,
+      budget: { limit: eur("50"), stored: true },
+    });
     expect(
       await n("budget.limits WHERE household_id = $1 AND category_id = $2", space.householdId, gym),
     ).toBe(1);

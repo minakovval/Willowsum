@@ -688,6 +688,24 @@ export async function deleteCategory(
   return ok(before);
 }
 
+/**
+ * FR 12: after a delete has committed, module budget removes once more any entry of the category written while the
+ * delete ran (a limit or «План» cell saved between budget's commit and the category's: the category was still in the
+ * directory then). Budget's write takes the budget row lock, so a write that waited for it is swept too. Left: a write
+ * that read the category before the delete's commit and takes the lock only after this sweep (README «Порядок однієї
+ * зміни»; follow-up).
+ */
+export async function sweepBudgetEntries(
+  usage: readonly CategoryUsage[],
+  caller: Caller,
+  categoryId: string,
+): Promise<CategoryBudgetEntries> {
+  const limits = usage.find((u) => u.limits)?.limits;
+  if (!limits || !(await limits.held(caller.householdId, [categoryId])).has(categoryId))
+    return NO_BUDGET_ENTRIES;
+  return limits.release(caller, categoryId);
+}
+
 /** FR 12: the budget entries a delete removed, in its audit entry (П-10). */
 const budgetValues = (b: CategoryBudgetEntries): AuditValues => ({
   limit: b.limit ? `${b.limit.amount} ${b.limit.currency}` : null,

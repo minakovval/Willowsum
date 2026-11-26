@@ -71,6 +71,7 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `categoriesAudit` on a delete", () => 
 
 describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entry once, after the delete, and only when it deleted", () => {
   const entries = { limit: { amount: "30.00", currency: "EUR" }, stored: true, planCells: 2 };
+  let failDelete = false;
   function setup(category: StoredCategory | null, used: readonly string[] = [], limited = false) {
     const log: string[] = [];
     const audits: unknown[][] = [];
@@ -78,7 +79,13 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entr
       category: async () => category,
       mergeTargets: async () => new Set<string>(),
       mergedCount: async () => 0,
-      deleteCategory: async () => void log.push("delete"),
+      deleteCategory: async () => {
+        if (failDelete) {
+          failDelete = false;
+          throw new Error("injected");
+        }
+        log.push("delete");
+      },
     } as unknown as CategoriesTx;
     const deps: CategoriesDeps = {
       audit: {
@@ -103,6 +110,7 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entr
           entries: async () => entries,
           release: async () => {
             log.push("release");
+            limited = false;
             return entries;
           },
         },
@@ -159,6 +167,17 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entr
     expect((await run(true)).kind).toBe("ok");
     expect(log).toEqual(["release", "delete", "audit"]);
     expect(audits[0]![4]).toMatchObject({ name: "Синтетична категорія", limit: "30.00 EUR", planCells: "2" });
+  });
+
+  it("BUD-01@PoC FR 12: the category's delete fails after budget's commit — the request fails, `release` ran once and the category is left without its limit; a retry without `confirmLimit` deletes it", async () => {
+    const { run, log, audits } = setup(stored, [], true);
+    failDelete = true;
+    await expect(run(true)).rejects.toThrow("injected");
+    expect(log).toEqual(["release"]);
+    expect(audits).toHaveLength(0);
+    expect((await run(false)).kind).toBe("ok");
+    expect(log).toEqual(["release", "delete", "audit"]);
+    expect(audits[0]![4]).not.toHaveProperty("limit");
   });
 
   it("BUD-01@PoC AC 19: held by transactions — refused with the reason and its count, even confirmed; the limit is not removed", async () => {

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { ApiProblem, categoryUsageSchema } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import {
   createCategory,
   createGroup,
@@ -12,6 +13,7 @@ import {
   readTree,
   renameGroup,
   categoryUsage,
+  sweepBudgetEntries,
   updateCategory,
   type CategoryUsageReport,
   type Result,
@@ -446,6 +448,15 @@ export const deleteCategoryRoute = defineRoute({
         ),
       ),
     );
+    // The category is gone: an entry budget saved for it meanwhile goes too. A failure here fails no request.
+    try {
+      await sweepBudgetEntries(categoriesServices(ctx).usage, caller(ctx), params.categoryId);
+    } catch (error) {
+      logEvent("categories.budget_sweep_failed", "warn", {
+        "ws.module": "categories",
+        "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+      });
+    }
     return { deleted: true as const };
   },
 });

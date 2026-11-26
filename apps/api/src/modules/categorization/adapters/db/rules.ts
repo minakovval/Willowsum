@@ -159,21 +159,7 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
   };
 }
 
-/** BUD-01@PoC FR 12: of `ids`, the categories a category rule of the space sets (index `rules_category`). */
-export async function categoriesOfRules(
-  q: HouseholdQueryRunner,
-  householdId: string,
-  ids: readonly string[],
-): Promise<ReadonlySet<string>> {
-  if (ids.length === 0) return new Set();
-  const { rows } = await q.query<{ id: string }>(
-    `SELECT DISTINCT category_id AS id FROM rules WHERE household_id = $1 AND category_id = ANY($2::uuid[])`,
-    [householdId, ids],
-  );
-  return new Set(rows.map((r) => r.id));
-}
-
-/** BUD-01@PoC AC 23: how many category rules of the space set the category. */
+/** BUD-01@PoC AC 23: how many category rules of the space set the category (the dialog names them; they do not hold it). */
 export async function ruleCount(
   q: HouseholdQueryRunner,
   householdId: string,
