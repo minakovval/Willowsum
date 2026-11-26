@@ -32,8 +32,8 @@ import { handOffNow, importRecipesServices } from "./services.ts";
  * Parsing recipes of a space (IMP-06@PoC FR 1, FR 2, FR 3, FR 7, FR 14; wave 2 row 40 part 2): save, list, read and
  * delete a recipe. The space is the session's (П-5): another space's recipe is «not found». A scoped member sees no
  * recipe (00-general «Область доступу»: imports are the Owner's; PoC has one user). Behind the release flag
- * `data.import` under the feature key of the same name; no plan limit — only the technical ceiling of 200 recipes a space
- * (NFR-15 FR 17: 422 LIMIT_REACHED, never 402). A recipe is only checked and stored here; the parse worker applies it.
+ * `data.import` under the feature key of the same name; no plan limit — only the ceiling of 100 templates a space
+ * (IMP-07 FR 2, `RECIPES_PER_SPACE`; 422 LIMIT_REACHED, never 402). A recipe is only checked and stored here; the parse worker applies it.
  */
 const MODULE = "import-recipes";
 const FEATURE = "data.import";

@@ -31,7 +31,7 @@
 - [MVP] Спільні правила: П-10, П-11, П-12
 - Сценарії: UC-IMP-25, UC-IMP-26, UC-IMP-27, UC-IMP-28, UC-IMP-29
 - Модуль: import-recipes, import-sessions
-- Перевіряється: apps/api/test/imp07-templates.it.test.ts, apps/api/src/modules/import-recipes/domain/imp07-template-schema.test.ts
+- Перевіряється: apps/api/test/imp07-templates.it.test.ts, apps/api/src/modules/import-recipes/domain/imp07-template-schema.test.ts, apps/api/test/sec724-templates.it.test.ts
 
 **Мета.** Як користувач, що виправив розпізнавання файлу свого банку, я хочу зберегти виправлення як шаблон, щоб наступні файли цього формату розпізнавались правильно автоматично, а зміна формату банком не проходила непомітно.
 

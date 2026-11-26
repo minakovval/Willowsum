@@ -486,7 +486,8 @@ export async function restoreTemplateVersion(
     const before = await tx.find(id);
     if (!before) throw new RecipeNotFoundError();
     checkVersion(before, input.expectedVersion);
-    const old = await tx.findVersion(id, input.version);
+    // A version above the current one was never saved (and may not fit the column's integer): not found.
+    const old = input.version <= before.version ? await tx.findVersion(id, input.version) : null;
     if (!old) throw new TemplateVersionNotFoundError();
     const now = deps.now();
     const after: StoredRecipe = {
