@@ -347,6 +347,8 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   `rollback` сторнує його подію журналу (нічого не видаляється), а злиті в нього (ручна, замінена очікувана) повертаються
   передачею `unmerge` (`restored`). Результат — `mode`, `rolledBackBy`, `rolledBackAt` (першого запиту), `counts` і
   `kept` (до 200 id). `ImportedTransactions.rolledBack(householdId, batchId)` — збережений результат або null;
+  `rollbackPreview(householdId, batchId)` (IMP-16@PoC п. 4, рішення власника 2026-11-26, № 13) — без блокувань, за тим
+  самим правилом, що й відкат: `{ transactions, changed, transfers }` діалогу відкату, null — уже відкочено;
   `rolledBackSince(householdId, since, before)` — записані відкати за проміжок (до `ROLLBACK_RECOVERY_LISTED` = 200,
   найраніші першими) для щоденного відновлення модуля import-sessions. Без порту `categories` відкат кидає помилку. Відкочена транзакція поза
   будь-яким читанням і зміною модуля (`find` / `lock` її не бачать, список — за `listed_hidden`, кандидати плану імпорту

@@ -66,6 +66,7 @@ import { transactionCreated, transactionImportMerged, type TransactionImportMerg
 import {
   applyHandOff,
   ROLLBACK_RECOVERY_LISTED,
+  previewRollback,
   rollbackImport,
   rolledBackImport,
   settleImport,
@@ -78,6 +79,7 @@ import {
   type ImportRollbackInput,
   type ImportRollbackResult,
   type RollbackCategory,
+  type RollbackPreview,
 } from "./application/index.ts";
 import { logEvent } from "../../platform/telemetry/signals.ts";
 
@@ -255,6 +257,7 @@ export {
   type ImportRollbackResult,
   type RollbackCategory,
   type RollbackMode,
+  type RollbackPreview,
   type ImportCounts,
   type ImportCreated,
   type ImportedRowInput,
@@ -298,6 +301,13 @@ export interface ImportedTransactions {
   rollback(householdId: string, input: ImportRollbackInput): Promise<ImportRollbackResult>;
   /** The batch's rollback as recorded; null — not rolled back. Read only. */
   rolledBack(householdId: string, batchId: string): Promise<Omit<ImportRollbackResult, "first"> | null>;
+  /**
+   * IMP-16@PoC FR 4 (owner, 2026-11-26, decision 13): what the rollback dialog says before it is confirmed — how many
+   * transactions the rollback takes, how many the person changed after the apply (kept with «Залишити змінені вручну»)
+   * and how many are sides of a transfer; null — rolled back already. Read only, unlocked. Throws when the port
+   * `categories` was not given.
+   */
+  rollbackPreview(householdId: string, batchId: string): Promise<RollbackPreview | null>;
   /**
    * The rollbacks recorded in `[since, before)` (at most `ROLLBACK_RECOVERY_LISTED`, earliest first), for module
    * import-sessions' recovery of a request that ended before it marked its batch. Read only.
@@ -411,6 +421,13 @@ export function createImportedTransactions(
     },
     rolledBack: (householdId, batchId) =>
       db.inHousehold(householdId, (q) => rolledBackImport(importRollbackTx(q), householdId, batchId)),
+    rollbackPreview(householdId, batchId) {
+      const categories = ports.categories;
+      if (!categories) throw new Error("the rollback preview needs module categorization's categories");
+      return db.inHousehold(householdId, (q) =>
+        previewRollback({ categories }, importRollbackTx(q), householdId, batchId),
+      );
+    },
     rolledBackSince: (householdId, since, before) =>
       db.inHousehold(householdId, (q) =>
         importRollbackTx(q).rolledBackSince(householdId, since, before, ROLLBACK_RECOVERY_LISTED),

@@ -103,6 +103,8 @@ export interface ImportRollbackTx extends Pick<
   mergedInto(householdId: string, ids: readonly string[]): Promise<readonly string[]>;
   /** Step 3: `ids` locked in the order of their ids; absent — no such row. */
   lockRows(householdId: string, ids: readonly string[]): Promise<readonly RollbackRow[]>;
+  /** `ids` as `lockRows` reads them, unlocked (the preview of the dialog, `previewRollback`). */
+  readRows(householdId: string, ids: readonly string[]): Promise<readonly RollbackRow[]>;
   markRolledBack(householdId: string, id: string, at: Date): Promise<void>;
   recordRollback(
     householdId: string,
@@ -252,6 +254,43 @@ export async function rollbackImport(
   };
   await tx.recordRollback(householdId, input.batchId, result);
   return { first: true, ...result, handOffs };
+}
+
+/**
+ * IMP-16@PoC FR 4, IMP-04@PoC FR 8 (owner, 2026-11-26, decision 13): what the rollback dialog says before it is
+ * confirmed — «Буде відкочено N транзакцій; змінені вручну транзакції (M) збережуться». Read only, unlocked, by the same
+ * rule as `rollbackImport`: of the batch's transactions not rolled back, `transfers` are sides of a transfer (kept
+ * either way), `changed` the ones the person changed after the apply (kept with «Залишити змінені вручну» on), and
+ * `transactions` the ones rolled back with it on; with it off `transactions + changed` are. Null — rolled back already.
+ * A change between this read and the rollback is the rollback's to see: its result is the count that holds.
+ */
+export interface RollbackPreview {
+  readonly transactions: number;
+  readonly changed: number;
+  readonly transfers: number;
+}
+
+export async function previewRollback(
+  deps: Pick<ImportRollbackDeps, "categories">,
+  tx: Pick<ImportRollbackTx, "rolledBackBatch" | "batchRows" | "mergedInto" | "readRows">,
+  householdId: string,
+  batchId: string,
+): Promise<RollbackPreview | null> {
+  if (await tx.rolledBackBatch(householdId, batchId)) return null;
+  const batchIds = new Set((await tx.batchRows(householdId, batchId)).map((r) => r.id.toLowerCase()));
+  const merged = await tx.mergedInto(householdId, [...batchIds]);
+  const read = await tx.readRows(householdId, [...new Set([...batchIds, ...merged])].sort());
+  const rows = read.filter((r) => batchIds.has(r.id.toLowerCase()) && !r.rolledBack);
+  const into = (id: string) => read.filter((m) => m.mergedInto?.toLowerCase() === id.toLowerCase());
+  const free = rows.filter((r) => r.transfer === null);
+  const categories = await deps.categories(householdId, [
+    ...free.map((r) => r.id),
+    ...free.flatMap((r) => into(r.id).map((m) => m.id)),
+  ]);
+  const changed = free.filter((r) =>
+    changedAfterApply(r, into(r.id).find((m) => m.source === "manual") ?? null, categories),
+  ).length;
+  return { transactions: free.length - changed, changed, transfers: rows.length - free.length };
 }
 
 /** The batch's rollback as recorded (the caller finishes its own record after a crash); null — not rolled back. */

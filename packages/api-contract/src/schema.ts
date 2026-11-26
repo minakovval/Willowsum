@@ -1352,7 +1352,8 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** The rollback dialog before it is confirmed (IMP-16 FR 4): how many transactions «Відкотити» takes with «Залишити змінені вручну» on, how many the person changed after the apply (kept with it on, rolled back with it off) and how many are sides of a transfer (kept either way); null while the batch cannot be rolled back (not applied, still applying, past the 7 days or rolled back) */
+        get: operations["getImportBatchRollback"];
         put?: never;
         /** «Відкотити» (IMP-04 FR 8, IMP-16): within 7 days of the apply, every transaction of the batch is rolled back by a reversal in the journal — never deleted — and what was merged into it comes back; ones the person changed are kept with «Залишити змінені» (the default); rolling back again returns the stored result */
         post: operations["rollbackImportBatch"];
@@ -17620,6 +17621,124 @@ export interface operations {
             };
             /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getImportBatchRollback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The batch and the counts of its rollback dialog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: {
+                            applying: boolean;
+                            createdAt: string;
+                            files: {
+                                accepted: number;
+                                rejected: number;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            name: string | null;
+                            rollbackUntil: string | null;
+                            /** @enum {string} */
+                            state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
+                            version: number;
+                        };
+                        rollback: {
+                            changed: number;
+                            transactions: number;
+                            transfers: number;
+                        } | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

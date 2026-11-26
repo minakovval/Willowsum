@@ -2,6 +2,7 @@ import { Money } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
 import type { TransactionHandOff } from "./hand-off.ts";
 import {
+  previewRollback,
   rollbackImport,
   type ImportRollbackTx,
   type RollbackCategory,
@@ -79,6 +80,7 @@ function store(
       if (options.mergedMeanwhile) all.set(options.mergedMeanwhile.id, options.mergedMeanwhile);
       return locked;
     },
+    readRows: async (_h, ids) => ids.flatMap((i) => (all.has(i) ? [all.get(i)!] : [])),
     update: async (_h, next) => {
       const before = all.get(next.id)!;
       const after = { ...before, ...next } as RollbackRow;
@@ -110,7 +112,8 @@ function store(
   };
   const run = (mode: RollbackMode = "keep-changed", accountIds: string[] = [ACCOUNT]) =>
     rollbackImport(deps as never, tx, H, { batchId: BATCH, actorId: ACTOR, accountIds, mode });
-  return { all, calls, updates, marked, handOffs, run, recorded: () => recorded };
+  const preview = () => previewRollback(deps, tx, H, BATCH);
+  return { all, calls, updates, marked, handOffs, run, preview, recorded: () => recorded };
 }
 
 describe("IMP-16@PoC FR 2: each transaction of the batch is rolled back, never deleted (security review of PR 666)", () => {
@@ -247,5 +250,27 @@ describe("IMP-16@PoC FR 5: what was merged into a rolled-back transaction comes 
     const result = await s.run("all");
     expect(result.counts.restored).toBe(0);
     expect(s.all.get(id(8))).toMatchObject({ hidden: true, mergedInto: id(1) });
+  });
+});
+
+describe("IMP-16@PoC FR 4: the rollback dialog counts the changed transactions before it is confirmed", () => {
+  it("IMP-16@PoC FR 4: of 5 rows — 1 with a category «вручну», 1 with a note, 1 side of a transfer: 2 to roll back, 2 changed, 1 transfer; read only, the rollback then agrees", async () => {
+    const s = store(
+      [
+        row(1),
+        row(2, { note: "Подарунок" }),
+        row(3),
+        row(4),
+        row(5, { transfer: { id: "t", outflowId: "x", inflowId: "y", rate: null } as never }),
+      ],
+      { categories: [[id(3), { categoryId: "c", source: "manual" }]] },
+    );
+    expect(await s.preview()).toEqual({ transactions: 2, changed: 2, transfers: 1 });
+    expect(s.updates).toEqual([]);
+    expect(s.calls.filter((c) => c.startsWith("rows:") || c.startsWith("import:"))).toEqual([]);
+    const result = await s.run("keep-changed");
+    expect(result.counts).toMatchObject({ rolledBack: 2, kept: 2, transfers: 1 });
+    // Rolled back already: no dialog.
+    expect(await s.preview()).toBeNull();
   });
 });
