@@ -1,6 +1,6 @@
 # Модуль accounts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (IMP-08 п. 2, рядок 230: публічний `bankDirectory`); 2026-11-20 (BUD-08@PoC b: `CreditAccount.subaccounts[].id` і публічний `liveAdjustment` для «Грошового потоку»); 2026-11-17 (рядок 198: спільне блокування грошей рахунку `lockAccounts`, `PendingPostings.unsettled`; FIN-01 п. 20: «Обране», `PATCH …/display`, колонка `favourite`, `0007`; FIN-01 граничний випадок 4: закриття після незавершених передач транзакцій, порт `PendingPostings`; BUD-19@PoC a: `createCreditAccounts` для `debt-payoff`; BUD-05: `PostingAccount.kind` для `goals`; IMP-02@PoC a: «+ додати ще валюту» і прибрати валюту наявного рахунку; ARC-04: передача керування рахунком і аудиту «Основне»/«Реквізити», #252 п. 3; передача створення і зміни типу через задачу `accounts.hand-off`, #210; FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок»; FIN-12@PoC b: перейменування і зміна типу в межах групи — серверна частина; FIN-03@PoC a: `createAccountDirectory` для транзакцій; FIN-12@PoC b: «Реквізити» — серверна частина; FIN-01@PoC d: довідник банків НБУ, #215)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (IMP-08 п. 2, рядок 230b: `createAccountCandidates` для import-sessions); 2026-11-26 (IMP-08 п. 2, рядок 230: публічний `bankDirectory`); 2026-11-20 (BUD-08@PoC b: `CreditAccount.subaccounts[].id` і публічний `liveAdjustment` для «Грошового потоку»); 2026-11-17 (рядок 198: спільне блокування грошей рахунку `lockAccounts`, `PendingPostings.unsettled`; FIN-01 п. 20: «Обране», `PATCH …/display`, колонка `favourite`, `0007`; FIN-01 граничний випадок 4: закриття після незавершених передач транзакцій, порт `PendingPostings`; BUD-19@PoC a: `createCreditAccounts` для `debt-payoff`; BUD-05: `PostingAccount.kind` для `goals`; IMP-02@PoC a: «+ додати ще валюту» і прибрати валюту наявного рахунку; ARC-04: передача керування рахунком і аудиту «Основне»/«Реквізити», #252 п. 3; передача створення і зміни типу через задачу `accounts.hand-off`, #210; FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок»; FIN-12@PoC b: перейменування і зміна типу в межах групи — серверна частина; FIN-03@PoC a: `createAccountDirectory` для транзакцій; FIN-12@PoC b: «Реквізити» — серверна частина; FIN-01@PoC d: довідник банків НБУ, #215)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -190,6 +190,9 @@ FIN-01@PoC d) (хвиля 2, рядок 37a; #215): п. 4 — довідник �
 - `createAccountsErasure(db)` → `AccountsErasure` (див. «Власні таблиці»).
 - `createAccountsWorkerQueue(db, { ledger, liabilities, audit })` → `WorkerQueue` — черга модуля для воркера (`src/wiring.ts`):
   сховище `jobs` схеми `accounts` і обробник `HAND_OFF_JOB` (`accounts.hand-off`, див. «Події»).
+- `createAccountCandidates(db)` → `AccountCandidates.candidates(householdId)` → `{ accountId, institution, last4 }[]` —
+  активні рахунки простору (до `ACCOUNT_CANDIDATES_MAX` = 500, у порядку «Рахунки») з назвою установи й 4 останніми
+  символами номера, без запечатаного номера: import-sessions обирає за ними рахунок файлу (IMP-08 п. 2, рядок 230b).
 - `bankDirectory()` → `{ name, legalName? }[]` — вбудований довідник банків НБУ (FIN-01 п. 4) для інших модулів: назва, яку
   зберігає рахунок, і коротка юридична назва НБУ. import-sessions шукає в ньому банк виписки (IMP-08 п. 2, рядок 230).
 - `createAccountDirectory(db)` → `AccountDirectory.postingAccount(householdId, accountId)` → `PostingAccount` (`accountId`,

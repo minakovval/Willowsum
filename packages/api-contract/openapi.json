@@ -38319,11 +38319,22 @@
                               "bank": {
                                 "type": "string"
                               },
+                              "bankInDirectory": {
+                                "type": "boolean"
+                              },
                               "currency": {
                                 "type": "string"
                               },
                               "mask": {
                                 "type": "string"
+                              },
+                              "accountMatch": {
+                                "type": "string",
+                                "enum": [
+                                  "picked",
+                                  "several",
+                                  "none"
+                                ]
                               }
                             },
                             "additionalProperties": false

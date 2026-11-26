@@ -49,12 +49,22 @@ describe("IMP-08@PoC FR 2 (server part): the statement's own account facts for �
   it("IMP-08@PoC FR 2: a monobank-like statement — bank from the directory, UAH, the card as …1234", () => {
     const p = parse(MONOBANK, { institutions: BANKS });
     expect(p.events.events).toHaveLength(2);
-    expect(p.checks.detected).toEqual({ bank: "Універсал Банк (monobank)", currency: "UAH", mask: "…1234" });
+    expect(p.checks.detected).toEqual({
+      bank: "Універсал Банк (monobank)",
+      bankInDirectory: true,
+      currency: "UAH",
+      mask: "…1234",
+    });
   });
 
-  it("IMP-08@PoC FR 2: a Revolut-like EUR statement — no directory bank (left for the person), EUR, the card …5678 before the IBAN", () => {
+  it("IMP-08@PoC FR 2: a Revolut-like EUR statement — the bank outside the directory as printed, EUR, the card …5678 before the IBAN", () => {
     const p = parse(REVOLUT, { institutions: BANKS });
-    expect(p.checks.detected).toEqual({ currency: "EUR", mask: "…5678" });
+    expect(p.checks.detected).toEqual({
+      bank: "Revolut Bank UAB",
+      bankInDirectory: false,
+      currency: "EUR",
+      mask: "…5678",
+    });
   });
 
   it("IMP-08@PoC FR 2: a preamble that names no bank, card or IBAN — no bank and no mask (the person picks them)", () => {

@@ -240,6 +240,40 @@ export function createAccountList(db: ModuleDatabase): AccountList {
 }
 
 /**
+ * The space's active accounts as the import step matches a statement to one (IMP-08@PoC FR 2; owner, 2026-11-26,
+ * row 230b): each account's institution name and the last 4 characters of its number — never the sealed number. At
+ * most `ACCOUNT_CANDIDATES_MAX` accounts (in the order of «Рахунки»). Read only; every call is bound to one space.
+ */
+export interface AccountCandidates {
+  candidates(householdId: string): Promise<
+    readonly {
+      readonly accountId: string;
+      readonly institution: string | null;
+      readonly last4: string | null;
+    }[]
+  >;
+}
+
+export const ACCOUNT_CANDIDATES_MAX = 500;
+
+/** `db` is the accounts module's own database (`ModuleDatabases.for("accounts")`). */
+export function createAccountCandidates(db: ModuleDatabase): AccountCandidates {
+  return {
+    candidates: (householdId) =>
+      db.inHousehold(householdId, async (q) =>
+        (
+          await accountsListTx(q).listAccounts(householdId, {
+            includeClosed: false,
+            kinds: null,
+            after: null,
+            limit: ACCOUNT_CANDIDATES_MAX,
+          })
+        ).map((a) => ({ accountId: a.id, institution: a.institutionName, last4: a.numberLast4 })),
+      ),
+  };
+}
+
+/**
  * A debt as «Борги» reads it (BUD-19@PoC FR 11; module debt-payoff): an active credit card or loan of the space with
  * its name and each wallet with its journal account and the date of its opening balance. Read only; the debt itself is
  * the journal's balance, the rate and the payment are module liabilities'.

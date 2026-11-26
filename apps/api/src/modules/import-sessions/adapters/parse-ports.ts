@@ -1,4 +1,4 @@
-import type { AccountDirectory } from "../../accounts/index.ts";
+import type { AccountCandidates, AccountDirectory } from "../../accounts/index.ts";
 import { StatementParseError, type Institution, type StatementParser } from "../../file-parsers/index.ts";
 import { FileNotFoundError, rejection, REJECTION_CODES, type FileStorage } from "../../file-storage/index.ts";
 import type { SpaceKeys } from "../../household/index.ts";
@@ -24,6 +24,8 @@ export interface ParseModules {
   readonly parser: StatementParser;
   /** IMP-08 FR 2 (row 230): accounts' directory of banks (`bankDirectory`), for the statement's own bank. */
   readonly banks?: () => readonly Institution[];
+  /** IMP-08 FR 2 (row 230b): the space's accounts the file's account is matched among (`createAccountCandidates`). */
+  readonly candidates?: AccountCandidates;
 }
 
 const BOUND: ReadonlySet<string> = new Set(["iban", "account-number", "mask"]);
@@ -100,6 +102,9 @@ export function parsePorts(modules: ParseModules): ParsePorts {
       }
     },
     ...(modules.banks ? { institutions: modules.banks } : {}),
+    ...(modules.candidates
+      ? { candidates: (householdId: string) => modules.candidates!.candidates(householdId) }
+      : {}),
     seal: (householdId, purpose, plaintext) => modules.keys.sealBytes(householdId, purpose, plaintext),
   };
 }

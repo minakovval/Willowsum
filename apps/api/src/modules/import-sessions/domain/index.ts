@@ -22,3 +22,5 @@ export {
 } from "./parse.ts";
 export type { ParseRefusalCode, ParseState } from "./parse.ts";
 export { maskNumbers } from "./mask.ts";
+export { ACCOUNT_MATCHES, accountFor } from "./account-match.ts";
+export type { AccountCandidate, AccountMatchKind, AccountPick } from "./account-match.ts";

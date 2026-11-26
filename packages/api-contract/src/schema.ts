@@ -16989,7 +16989,10 @@ export interface operations {
                                 [key: string]: unknown;
                             }) | null;
                             detected?: {
+                                /** @enum {string} */
+                                accountMatch?: "picked" | "several" | "none";
                                 bank?: string;
+                                bankInDirectory?: boolean;
                                 currency?: string;
                                 mask?: string;
                             };

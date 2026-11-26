@@ -1,4 +1,4 @@
-import type { StatementBounds, StatementChecks } from "../../file-parsers/index.ts";
+import { bankName, type StatementBounds, type StatementChecks } from "../../file-parsers/index.ts";
 import {
   BatchNotFoundError,
   BatchStateErrorFor,
@@ -17,7 +17,7 @@ import {
   type FileReview,
   type Readiness,
 } from "./review.ts";
-import type { BatchState } from "../domain/index.ts";
+import { ACCOUNT_MATCHES, type BatchState } from "../domain/index.ts";
 
 /**
  * IMP-05@PoC part 2 (wave 2 row 42): a file's checks are recorded while its batch is «в обробці» (the parse step); the
@@ -132,6 +132,7 @@ export function maskedChecks(checks: StatementChecks): StatementChecks {
   // EC3: a file in several currencies the account does not hold names them all («EUR, USD»), up to 8 codes. Codes are
   // letters only (every code in the kernel's registry is), so no run of digits from a card or an IBAN passes.
   const code = (value: string) => (/^[A-Z]{3,10}(?:, [A-Z]{3,10}){0,7}$/.test(value) ? value : masked(value));
+  const bank = checks.detected?.bank !== undefined ? bankName(checks.detected.bank) : null;
   return {
     ...checks,
     account: {
@@ -146,16 +147,24 @@ export function maskedChecks(checks: StatementChecks): StatementChecks {
     ...(checks.detected
       ? {
           detected: {
-            // A directory name (at most a few digits, «БАНК 3/4»); a value with more digits is not kept (a card or an IBAN).
-            ...(checks.detected.bank !== undefined &&
-            checks.detected.bank.length <= 300 &&
-            (checks.detected.bank.match(/\p{Nd}/gu)?.length ?? 0) <= 4
-              ? { bank: checks.detected.bank }
+            // A directory name or the name the file prints (row 230b), checked again with the worker's own `bankName`:
+            // at most 100 characters and 4 digits («БАНК 3/4»); a value with more digits (a card, an IBAN) is not kept.
+            ...(bank !== null
+              ? {
+                  bank,
+                  ...(typeof checks.detected.bankInDirectory === "boolean"
+                    ? { bankInDirectory: checks.detected.bankInDirectory }
+                    : {}),
+                }
               : {}),
             ...(checks.detected.currency !== undefined && /^[A-Z]{3,10}$/.test(checks.detected.currency)
               ? { currency: checks.detected.currency }
               : {}),
             ...(checks.detected.mask !== undefined ? { mask: masked(checks.detected.mask) } : {}),
+            ...(checks.detected.accountMatch !== undefined &&
+            (ACCOUNT_MATCHES as readonly string[]).includes(checks.detected.accountMatch)
+              ? { accountMatch: checks.detected.accountMatch }
+              : {}),
           },
         }
       : {}),
