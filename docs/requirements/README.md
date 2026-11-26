@@ -1,6 +1,6 @@
 # Product requirements / Вимоги до продукту
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-26
 
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
@@ -265,7 +265,7 @@ Each module folder has a `README.md` with the module intro and a table of its re
 (ID, title, release, priority). Text from a specification tab that is not part of any single
 requirement is kept in the README of that module.
 
-## Modules (435 requirements)
+## Modules (436 requirements)
 
 | Code | Folder | Scope | Requirements | Release mix |
 | --- | --- | --- | --- | --- |
@@ -277,7 +277,7 @@ requirement is kept in the README of that module.
 | FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | PoC 4, PoC v2 2, MVP 3, v1 6, v2 4 |
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | MVP 1, v1 2 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
-| BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | PoC 14, PoC v2 3, MVP 3 |
+| BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 21 | PoC 15, PoC v2 3, MVP 3 |
 | FCS | [fcs/](fcs/README.md) | Forecasts: period spending forecast, pace check and warnings, pace and forecast chart | 3 | PoC v2 3 |
 | DOC | [doc/](doc/README.md) | Document storage, document types, expiry dates and links, OCR migration | 3 | MVP 2, v2 1 |
 | INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 2 |
