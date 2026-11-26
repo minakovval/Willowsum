@@ -828,17 +828,7 @@ export const uk = {
   "planning.budget.cat.unbudgeted.mark": "поза бюджетом",
   "planning.budget.cat.unbudget": "Прибрати з бюджету",
   "planning.budget.cat.delete": "Видалити категорію…",
-  "planning.budget.cat.delete.keep":
-    "Цю категорію не можна видалити: у ній є транзакції, правила або ліміти. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
   "planning.budget.cat.error": "Не вдалося змінити бюджет. Спробуйте ще раз",
-  "planning.budget.cat.delete.has.one":
-    "Категорія має {count} транзакцію — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
-  "planning.budget.cat.delete.has.few":
-    "Категорія має {count} транзакції — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
-  "planning.budget.cat.delete.has.many":
-    "Категорія має {count} транзакцій — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
-  "planning.budget.cat.delete.has.other":
-    "Категорія має {count} транзакції — її не можна видалити. Приховайте її або об’єднайте з іншою: транзакції перейдуть в обрану категорію.",
   "planning.budget.limit.edit": "Змінити ліміт",
   "planning.budget.limit.editOf": "Змінити ліміт «{name}»",
   "planning.budget.limit.set": "Задати ліміт",
@@ -2497,8 +2487,7 @@ export const uk = {
   "categories.action.show": "Показати",
   "categories.action.delete": "Видалити",
   "categories.action.newInGroup": "Нова категорія в групі",
-  "categories.notDeletable":
-    "Категорію з транзакціями, правилами або лімітами не можна видалити — приховайте або об'єднайте її",
+  "categories.notDeletable": "Категорію не можна видалити: її використовують",
   "categories.badge.hidden": "приховано",
   "categories.badge.custom": "власна",
   "categories.badge.essential": "обов'язкова",
@@ -2537,6 +2526,29 @@ export const uk = {
   "categories.delete.text": "Категорія зникне з дерева, а її назва знову стане вільною.",
   "categories.delete.confirm": "Видалити",
   "categories.delete.busy": "Видаляємо…",
+  "categories.action.why": "Чому не можна видалити…",
+  "categories.delete.checking": "Перевіряємо, що використовує категорію…",
+  "categories.delete.reasons": "Категорію не можна видалити: її використовують",
+  "categories.delete.system": "Це системна категорія — її не можна видалити.",
+  "categories.delete.advice": "Приховайте її або об’єднайте з іншою.",
+  "categories.delete.reason.transactions.one": "{count} транзакція",
+  "categories.delete.reason.transactions.few": "{count} транзакції",
+  "categories.delete.reason.transactions.many": "{count} транзакцій",
+  "categories.delete.reason.transactions.other": "{count} транзакції",
+  "categories.delete.reason.recurring.one": "{count} регулярний платіж",
+  "categories.delete.reason.recurring.few": "{count} регулярні платежі",
+  "categories.delete.reason.recurring.many": "{count} регулярних платежів",
+  "categories.delete.reason.recurring.other": "{count} регулярного платежу",
+  "categories.delete.reason.merged.one": "{count} об’єднана категорія",
+  "categories.delete.reason.merged.few": "{count} об’єднані категорії",
+  "categories.delete.reason.merged.many": "{count} об’єднаних категорій",
+  "categories.delete.reason.merged.other": "{count} об’єднаної категорії",
+  "categories.delete.rulesNote":
+    "На категорію посилаються правила категорій ({count}); вони не заважають видаленню.",
+  "categories.delete.rulesAttention":
+    "Правила категорій, що на неї посилаються ({count}), отримають позначку «Потребує уваги».",
+  "categories.delete.limit": "Ліміт {amount} теж буде видалено.",
+  "categories.delete.entries": "Ліміт і місячні значення «План» теж буде видалено.",
   // BUD-12@PoC b): S-058 «До розбору» (texts: canvas board PocMoneyReviewTexts).
   "review.progress.label": "Розібрано",
   "review.mode.label": "Показати",
