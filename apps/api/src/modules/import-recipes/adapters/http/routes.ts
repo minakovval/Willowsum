@@ -395,6 +395,7 @@ export const listImportRecipeVersionsRoute = defineRoute({
   },
   handler: async ({ params }, ctx) => {
     owner(ctx);
+    importRecipesServices(ctx);
     const versions = await guarded(() => routeTx(ctx)((tx) => templateVersions(tx, params.recipeId)));
     return { items: versions.map(presentVersion) };
   },
