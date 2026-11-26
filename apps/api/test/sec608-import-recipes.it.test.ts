@@ -160,7 +160,8 @@ describe("SEC-608: the account binding's value stays sealed", () => {
   it("SEC-608 NFR-01@PoC FR 6: a short value is not shown whole", async () => {
     const space = await newSpace();
     for (const value of ["1234", "12", "A1 B2"]) {
-      const res = await post(space, { name: "Банк", recipe: withAccount(value, "account-number") });
+      // IMP-07 FR 2: a name is unique in its scope.
+      const res = await post(space, { name: `Банк ${value}`, recipe: withAccount(value, "account-number") });
       expect(res.statusCode, res.body).toBe(201);
       expect(res.json().accountValueLast4, value).not.toBe(value.replace(/\s+/g, ""));
     }
@@ -187,7 +188,13 @@ describe("SEC-608: the row policy on every table of import_recipes", () => {
        WHERE n.nspname = 'import_recipes' AND c.relkind = 'r' ORDER BY 1`,
     );
     const tables = rows.filter((r) => !r.t.includes("migration"));
-    expect(tables.map((r) => r.t)).toEqual(["idempotency_keys", "jobs", "outbox_events", "recipes"]);
+    expect(tables.map((r) => r.t)).toEqual([
+      "idempotency_keys",
+      "jobs",
+      "outbox_events",
+      "recipe_versions",
+      "recipes",
+    ]);
     for (const r of tables) expect(r, r.t).toMatchObject({ rls: true, forced: true, policies: 1 });
 
     const mine = await newSpace();
@@ -199,7 +206,7 @@ describe("SEC-608: the row policy on every table of import_recipes", () => {
     );
     expect(res.statusCode).toBe(201);
     const moduleDb = db.databases.for("import-recipes");
-    for (const table of ["recipes", "jobs", "idempotency_keys"]) {
+    for (const table of ["recipes", "recipe_versions", "jobs", "idempotency_keys"]) {
       const seen = await moduleDb.inHousehold(other.householdId, async (q) => {
         const read = (await q.query(`SELECT 1 FROM ${table}`)).rowCount;
         const explicit = (await q.query(`SELECT 1 FROM ${table} WHERE household_id = $1`, [mine.householdId]))
