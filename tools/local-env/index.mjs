@@ -44,6 +44,7 @@ import {
 } from './lib/backup.mjs';
 import readline from 'node:readline/promises';
 import { HOLDER_PID_ENV, LOCK_DATABASE } from '../test-guards/cluster-lock.mjs';
+import { backupBesideKey, defaultKmsKeyFile, keyReminder } from './lib/kms-key.mjs';
 import {
   LOCK_NAME,
   PREFIX,
@@ -281,6 +282,8 @@ async function backup() {
   if (parsed.error) fail(parsed.error);
   const file = path.resolve(parsed.file ?? defaultBackupPath());
   if (fs.existsSync(file) || fs.existsSync(rolesFile(file))) fail(`${file} already exists; it is never overwritten. Give another file name.`);
+  // NFR-01@PoC FR 3: a copy of the database never travels with the installation's master key.
+  if (backupBesideKey(file)) fail(`${file} is in the folder of the master key file; keep backups somewhere else.`);
   const server = backupServer();
   if (!hasDevDatabase(server)) fail(`The database ${DEV_DATABASE} does not exist yet: run \`pnpm local:dev\` first.`);
   fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
@@ -312,6 +315,7 @@ async function backup() {
   console.log(fileMessage('Saved', file, fs.statSync(file).size));
   console.log(fileMessage('Roles (no passwords)', rolesFile(file), fs.statSync(rolesFile(file)).size));
   console.log(`Restore with: pnpm local:restore ${file}`);
+  console.log(keyReminder());
 }
 
 async function restore() {
@@ -362,6 +366,7 @@ async function restore() {
     fail(`Could not replace ${DEV_DATABASE} (is \`pnpm local:dev\` still running? stop it): ${stderrOf(swap)}\n${kept ? `The database ${DEV_DATABASE} is unchanged.` : `The restored copy is in ${STAGING_DATABASE}; run the restore again.`}`);
   }
   console.log(`Restored ${DEV_DATABASE} from ${file}. Start the app: pnpm local:dev`);
+  console.log(`Its encrypted fields open only with the master key file of the installation that made the backup (${defaultKmsKeyFile()}).`);
 }
 
 const commands = {

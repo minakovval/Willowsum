@@ -42,6 +42,7 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
       path: "/bin",
       files: { kind: "directory", dir: "/state/files" },
       fileLinkKey: LINK_KEY,
+      kmsKeyFile: "/home/owner/.config/willowsum/local-kms-key.json",
     });
     expect(env).toMatchObject({
       WS_PORT: "41001",
@@ -83,6 +84,7 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
               path: "/bin",
               files,
               fileLinkKey: LINK_KEY,
+              kmsKeyFile: "/home/owner/.config/willowsum/local-kms-key.json",
             }),
           ).filter(([k]) => /^WS_(S3_|FILE)/.test(k)),
         ),

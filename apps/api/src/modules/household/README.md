@@ -1,6 +1,6 @@
 # Модуль household
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-19 (ARC-06@PoC п. 2: відкривач поля для ізольованого воркера, хвиля 2, рядок 41, частина 3; раніше, 2026-11-17: `sealBytes` / `openBytes` для файлів)
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-26 (NFR-01@PoC п. 3: `rewrapFrom`, `unopenable` — разове переобгортання з ключа фіксованої мітки на ключ екземпляра; раніше, 2026-11-19: ARC-06@PoC п. 2: відкривач поля для ізольованого воркера, хвиля 2, рядок 41, частина 3; раніше, 2026-11-17: `sealBytes` / `openBytes` для файлів)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -56,6 +56,14 @@ AC1, AC2 — серверна частина (валюта звітності �
   - `rewrapAll()` → `{ rewrapped, provisioned, failed }` — щоденна задача `household.space-keys` (`src/wiring.ts`); нова
     обгортка перевіряється розгортанням до збереження; кожне переобгортання — запис `household.space-key`/`update`
     (`masterKeyVersion`) у журналі простору;
+  - `rewrapFrom(source, { dryRun })` → `{ found, rewrapped, failed }` — разове переобгортання з іншого KMS (NFR-01@PoC п. 3,
+    NFR-15@PoC п. 26; безпековий огляд #722): кожен ключ, обгорнутий версією, що її `source.owns(version)`, розгортається
+    `source.kms` і обгортається поточною версією KMS модуля (перевірка розгортанням, запис `household.space-key`/`update`
+    у журналі простору, як у `rewrapAll`). Ідемпотентне; `dryRun` лише рахує. Лише лічильники — без ключів, обгорток чи
+    id просторів. Викликає команда `scripts/kms-rewrap.ts` (її запускає й `pnpm local:dev`).
+  - `unopenable(source)` → кількість ключів просторів, не обгорнутих версіями `source`, які KMS модуля не розгортає
+    (NFR-01@PoC п. 3; огляд #726): більше нуля — файл ключа загублено й створено знову або він іншої інсталяції.
+    Команда переобгортання перевіряє це першою і тоді нічого не змінює (`KeyFileMismatchError`, вихід 1). Лише лічильник.
   - `destroy(householdId)` → `{ destroyed }` — спершу запис `household.space-key`/`delete` у журналі платформи, потім
     знищення ключа; простір `pending:` позначається `destroyed:<id простору>` і ключа вже не отримає.
   - `fieldOpener(householdId, field)` → `FieldOpener` `{ householdId, field, key }` — відкривач одного запечатаного поля
@@ -72,7 +80,7 @@ AC1, AC2 — серверна частина (валюта звітності �
   `data-erasure`.
 - `firstSpaceName`, `spaceName` (перевірка нової назви), `SPACE_NAME_MAX`, `SPACE_REPORTING_CURRENCY` (`EUR` — валюта звітності
   кожного простору в PoC; суми у валюті звітності — `createFxReporting` модуля fx-rates із цією валютою), `SPACE_ROLES`, `SPACE_KEY_ERROR_CODES`, `SEAL_MAX_LENGTH`, `SpaceKeyError`, типи
-  `SpaceRole`, `SpaceMembership`, `SpaceKeyErrorCode`, `RewrapResult`.
+  `SpaceRole`, `SpaceMembership`, `SpaceKeyErrorCode`, `RewrapResult`, `RewrapSource`, `RewrapFromResult`.
 
 Хто викликає: `main.ts` передає `createHouseholdServices({ audit })` у `mountApi`; `ensureFirstSpace` модулю identity (порт `FirstSpace`), `membershipOf` — у `src/api.ts`,
 який будує того, хто викликає захищені маршрути, а `spaceIds` — щоденній перевірці журналу (ledger), прибиранню черги за строком і воркеру (ARC-04, `main.ts`); `createSpaceKeys` — щоденній задачі ключів (`schedulerDailyTasks`).
@@ -81,6 +89,11 @@ AC1, AC2 — серверна частина (валюта звітності �
 
 Шар: platform. Модулі: audit (`apps/api/module-rules.json`) — записи про створення простору і власника, про ключі.
 Зовнішні сервіси: KMS лише через порт `key-management` (`src/platform/adapters/kms`; робочий адаптер OCI Vault — до деплою).
+Локально (NFR-01@PoC п. 3, NFR-15@PoC п. 26) головний ключ екземпляра з реальними даними (`WS_REAL_DATA=true`, так запускає
+`pnpm local:dev`) — випадковий 256-бітний ключ інсталяції у файлі `WS_KMS_KEY_FILE` (`kms/key-file.ts`: створюється при
+першому запуску, режим 0600, поза репозиторієм, базою даних і змінними середовища; процес не стартує, якщо файл можуть
+читати інші користувачі або він у git-дереві). Ключ фіксованої мітки (`kms/local.ts`, версії `local-N`) — лише для тестів і
+CI; екземпляр із реальними даними з ним не стартує.
 
 ## Події
 

@@ -315,6 +315,27 @@ async function waitReady(url: string, entry: Running, timeoutMs = 60_000): Promi
   }
 }
 
+/**
+ * NFR-01@PoC FR 3: the one-time re-wrap off the fixed-label test key (scripts/kms-rewrap.ts) with a role's
+ * environment. It prints counts only; the report is shown only when there was something to move. A failure stops the
+ * start: a process with keys it cannot unwrap would refuse every sealed field.
+ */
+async function rewrapOffFixedLabelKey(env: NodeJS.ProcessEnv): Promise<void> {
+  const child = spawn(process.execPath, [path.join(apiDir, "scripts/kms-rewrap.ts")], {
+    cwd: apiDir,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let out = "";
+  child.stdout!.on("data", (d: Buffer) => (out += d.toString()));
+  child.stderr!.on("data", (d: Buffer) => (out += d.toString()));
+  const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+  if (code !== 0) throw new Error(`The master key re-wrap failed (exit ${code}):\n${lastLines(out)}`);
+  const lines = out.trim().split("\n");
+  const counts = JSON.parse(lines.at(-1) ?? "{}") as { found?: number };
+  if ((counts.found ?? 0) > 0) console.log(lines[0]);
+}
+
 let stopRequested = false;
 let releaseLock: () => Promise<void> = async () => {};
 async function doStop(code: number): Promise<void> {
@@ -386,6 +407,22 @@ try {
   }
   const fileLinkKey = randomBytes(32).toString("base64");
 
+  // NFR-01@PoC FR 3: keys made before this installation had its own key file move off the fixed-label test key
+  // first (scripts/kms-rewrap.ts; makes the key file on the first start). Idempotent: nothing to move prints nothing.
+  await rewrapOffFixedLabelKey(
+    roleEnv({
+      port: ports.api,
+      webOrigin: web,
+      databaseUrl: devUrl,
+      password,
+      modules,
+      path: process.env["PATH"] ?? "",
+      files,
+      fileLinkKey,
+      kmsKeyFile: settings.kmsKeyFile,
+    }),
+  );
+
   for (const role of ROLES) {
     const env = roleEnv({
       port: ports[role],
@@ -396,6 +433,7 @@ try {
       path: process.env["PATH"] ?? "",
       files,
       fileLinkKey,
+      kmsKeyFile: settings.kmsKeyFile,
     });
     const entry = start(role, [path.join(apiDir, "src/main.ts"), "--role", role], apiDir, env);
     await waitReady(`http://${LOCAL_HOST}:${ports[role]}/health/ready`, entry);

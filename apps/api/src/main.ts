@@ -92,7 +92,12 @@ import {
 import { createDuplicateCheck, createDuplicateMatchingServices } from "./modules/duplicate-matching/index.ts";
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
-import { keyManagement } from "./platform/adapters/kms/index.ts";
+import {
+  keyManagement,
+  KmsKeyFileError,
+  RealDataKmsError,
+  type KeyManagement,
+} from "./platform/adapters/kms/index.ts";
 import {
   directoryObjectStorage,
   ensureBucket,
@@ -136,6 +141,24 @@ try {
 } catch (error) {
   // The message names variables only (ConfigError); nothing else is printed.
   console.error(error instanceof ConfigError ? error.message : "Configuration error");
+  process.exit(1);
+}
+
+// The master key through the KMS port (ARC-06 FR 1; NFR-01@PoC FR 3): locally the installation's key file, opened (or
+// made) before anything else. A key file that may not be used, or a real-data instance without one, stops the process;
+// the message names the file and the reason only, never a key.
+let kms: KeyManagement;
+try {
+  // A process never makes the key file: only the checked re-wrap step does (`pnpm local:dev` runs it first).
+  kms = keyManagement(config.providerMode, () => ({}), {
+    deployed: config.deployed,
+    ...config.kms,
+    createKeyFile: false,
+  });
+} catch (error) {
+  console.error(
+    error instanceof KmsKeyFileError || error instanceof RealDataKmsError ? error.message : "KMS error",
+  );
   process.exit(1);
 }
 
@@ -199,9 +222,8 @@ const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
 
 const audit = createAuditLog(databases.for("audit"));
 // Spaces (ACC-01 part c): the first space on the first sign-in, and the space of a session.
-// Keys of spaces (ARC-06 FR 1; ADR-0012): the master key only through the KMS port, chosen by WS_PROVIDER_MODE. The live
-// adapter (OCI Vault) is not built yet and fails closed: a deployed process makes no space without a key.
-const kms = keyManagement(config.providerMode, () => ({}), { deployed: config.deployed });
+// Keys of spaces (ARC-06 FR 1; ADR-0012): the master key only through the KMS port, chosen by WS_PROVIDER_MODE (kms,
+// opened right after the configuration). The live adapter (OCI Vault) is not built yet and fails closed.
 const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 
 // Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01 b): the S3-compatible storage and the key of signed links from the
