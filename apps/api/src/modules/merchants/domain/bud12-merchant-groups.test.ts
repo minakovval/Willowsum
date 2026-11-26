@@ -58,7 +58,7 @@ describe("BUD-12@PoC FR 14 (server part): the queue grouped by merchant", () => 
     });
   });
 
-  it("BUD-12@PoC FR 14: transactions without a merchant are one group of their own; equal groups — the oldest first", () => {
+  it("BUD-12@PoC FR 14: transactions without a merchant are one bucket of their own (the web shows them as cards one by one, no group, owner 2026-11-26); equal groups — the oldest first", () => {
     const groups = groupReviewQueue(
       [
         { counterparty: null, currency: "EUR", count: 2, total: "-3.00", oldest: "2026-11-09" },
