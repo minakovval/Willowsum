@@ -11,6 +11,7 @@ import {
   type ProposalDeps,
   type RecurringAudit,
   type RecurringHandOff,
+  type CalendarDeps,
   type TrackingDeps,
 } from "../../application/index.ts";
 
@@ -26,8 +27,18 @@ export interface RecurringServices {
   readonly deps: ProposalDeps;
   readonly payments: PaymentDeps;
   readonly tracking: TrackingDeps;
+  readonly calendar: CalendarDeps;
   readonly audit: RecurringAudit;
 }
+
+/** FR 16: no «Кредит» accounts — a wiring without modules accounts, liabilities and ledger (unit tests). */
+const NO_LOANS: CalendarDeps["loans"] = {
+  list: async () => [],
+  inflows: async () => [],
+  debt: async () => {
+    throw new Error("recurring: no loans wired");
+  },
+};
 
 /** The payments' entries in the space's own log (BUD-07 «Права доступу», П-10): who, when, each field before and after. */
 export function recurringAudit(audit: Pick<AuditLog, "record">): RecurringAudit {
@@ -62,6 +73,11 @@ export function createRecurringServices(options: {
   readonly transactionCategories: TrackingDeps["categories"];
   /** Module fx-rates' `FxReporting`: a charge in another currency at the rate of its date (FR 12, row 26). */
   readonly fx: Pick<FxReporting, "total">;
+  /**
+   * FR 16: the space's «Кредит» accounts with their terms (modules accounts and liabilities), the payments to them
+   * (module transactions) and their debt (module ledger) — wired in src/main.ts; none when left out.
+   */
+  readonly loans?: CalendarDeps["loans"];
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
@@ -111,6 +127,25 @@ export function createRecurringServices(options: {
       },
       today,
       newId: options.newId,
+    },
+    calendar: {
+      loans: options.loans ?? NO_LOANS,
+      async report(amounts, currency) {
+        // FR 7: «за поточним курсом»; without today's rate the nearest earlier one, «приблизно».
+        const reported = await options.fx.total(
+          amounts.map((amount) => ({ amount, date: null })),
+          currency,
+        );
+        let approximate = false;
+        const values = reported.items.map((item) => {
+          if (item.kind === "rate-unavailable") return null;
+          if (item.kind === "converted" && item.conversion.approximate && !item.value.isZero())
+            approximate = true;
+          return item.value;
+        });
+        return { values, approximate };
+      },
+      today,
     },
     audit: recurringAudit(options.audit),
   };

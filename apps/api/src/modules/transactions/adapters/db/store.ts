@@ -860,6 +860,31 @@ export async function accountsPaidIn(
 }
 
 /**
+ * BUD-07@PoC FR 16 as module recurring reads it: the payments to these accounts (a loan's) in the dates (YYYY-MM-DD, both
+ * included) — shown transactions with a positive amount, a side of a transfer too, as `accountsPaidIn` counts them —
+ * oldest first; at most the newest `PAYMENTS_TO_ACCOUNTS_MAX` (a bound on the read: the caller reads 430 days at most).
+ */
+export const PAYMENTS_TO_ACCOUNTS_MAX = 5000;
+
+export async function paymentsToAccounts(
+  q: ModuleQueryRunner,
+  householdId: string,
+  accountIds: readonly string[],
+  from: string,
+  to: string,
+): Promise<{ accountId: string; transactionId: string; date: string }[]> {
+  if (accountIds.length === 0) return [];
+  const { rows } = await q.query<{ id: string; account_id: string; occurred_on: string }>(
+    `SELECT id, account_id, occurred_on::text AS occurred_on FROM transactions
+      WHERE household_id = $1 AND account_id = ANY($2::uuid[]) AND NOT hidden AND merged_into IS NULL
+        AND amount > 0 AND occurred_on BETWEEN $3::date AND $4::date
+      ORDER BY occurred_on DESC, id LIMIT ${PAYMENTS_TO_ACCOUNTS_MAX}`,
+    [householdId, [...accountIds], from, to],
+  );
+  return rows.map((r) => ({ accountId: r.account_id, transactionId: r.id, date: r.occurred_on })).reverse();
+}
+
+/**
  * What module categorization asks of the space's transactions before it changes one's category (BUD-01@PoC FR 5, FR 6;
  * FIN-03 FR 7, FR 11): whether each of `ids` exists (hidden too), is a side of a transfer, is split or is a merged
  * duplicate. Missing ids are absent from the map.
@@ -940,7 +965,7 @@ export async function recurringHistory(
     currency: string;
     counterparty: string;
   }>(
-    `SELECT id, account_id, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, amount::text AS amount, currency,
+    `SELECT id, account_id, occurred_on::text AS occurred_on, amount::text AS amount, currency,
             counterparty
        FROM transactions
       WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date
@@ -986,7 +1011,7 @@ export async function recurringMatching(
     currency: string;
     counterparty: string | null;
   }>(
-    `SELECT id, account_id, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, amount::text AS amount, currency,
+    `SELECT id, account_id, occurred_on::text AS occurred_on, amount::text AS amount, currency,
             counterparty
        FROM transactions
       WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date
