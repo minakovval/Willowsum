@@ -16,6 +16,7 @@ import {
   createBudgetPlanSources,
   createBudgetServices,
   type BudgetObligations,
+  type BudgetServices,
 } from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -34,6 +35,9 @@ import {
 } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * sec697 (security review of PR #697): «План доходу» by income category — space isolation and roles, the amount rules,
@@ -178,11 +182,11 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
         goals: goalsServices,
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: (householdId) => fakeFlags().isEnabled(householdId, "budget.plan"),
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -219,7 +223,7 @@ beforeAll(async () => {
                   })),
             },
           }),
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });

@@ -98,6 +98,11 @@ export interface BudgetTx {
     cell: Omit<PlanCell, "version">,
     currency: string,
   ): Promise<number>;
+  /**
+   * BUD-01@PoC FR 12, AC22: removes every month's own value of the line (`kind` «limit», the category) and returns the
+   * cells removed.
+   */
+  deletePlanCells(householdId: string, budgetId: string, kind: "limit", lineId: string): Promise<PlanCell[]>;
   enqueueHandOff(handOff: BudgetHandOff): Promise<void>;
 }
 
@@ -1017,6 +1022,135 @@ export async function deleteBudget(
   ];
   for (const h of handOffs) await tx.enqueueHandOff(h);
   return { result: { kind: "ok", value: null }, handOffs };
+}
+
+/** BUD-01@PoC FR 12 (owner decision 2026-11-26): a category's entries in the budget, which a delete removes with it. */
+export interface CategoryEntries {
+  /** The limit (an income category: its plan) of the current period; null — none then. */
+  readonly limit: Money | null;
+  /** The budget keeps a limit or an income plan of the category. */
+  readonly stored: boolean;
+  /** Months of «План» with the category's own value. */
+  readonly planCells: number;
+}
+
+const NO_ENTRIES: CategoryEntries = { limit: null, stored: false, planCells: 0 };
+
+/** BUD-02 FR 24 (#709): a plan line's amount in its own currency. */
+const planAmount = (
+  l: { readonly amount: Money; readonly original?: Money } | undefined,
+): Money | undefined => (l === undefined ? undefined : (l.original ?? l.amount));
+
+/**
+ * BUD-01@PoC FR 12, AC22: the category's entries — the confirmation «ліміт N теж буде видалено» names the current
+ * period's limit (lead decision 2026-11-26: N is the current period's), with the month's own value of «План» if any.
+ */
+export async function categoryEntries(
+  deps: Pick<BudgetDeps, "today" | "planSources" | "planEnabled" | "rates">,
+  tx: BudgetTx,
+  householdId: string,
+  categoryId: string,
+  categories: ReadonlyMap<string, BudgetCategory>,
+  budget?: StoredBudget,
+): Promise<CategoryEntries> {
+  const b = budget ?? (await tx.budget(householdId));
+  if (!b) return NO_ENTRIES;
+  const limit = (await tx.limits(householdId, b.id)).find((l) => l.categoryId === categoryId);
+  const income = (await tx.incomePlans(householdId, b.id)).find((l) => l.categoryId === categoryId);
+  const planCells = (await tx.planCells(householdId, b.id)).filter(
+    (c) => c.kind === "limit" && c.lineId === categoryId && c.amount !== null,
+  ).length;
+  const period = periodOf(deps.today());
+  const plan = period < b.firstPeriod ? null : await periodPlan(deps, tx, householdId, b, period, categories);
+  const current =
+    plan === null
+      ? (limit?.amount ?? income?.amount ?? null)
+      : // BUD-02 FR 24 (#709): the limit in the category's own currency, as it was typed.
+        (planAmount(plan.limits.find((l) => l.categoryId === categoryId)) ??
+        planAmount(plan.incomePlans?.find((l) => l.categoryId === categoryId)) ??
+        null);
+  return { limit: current, stored: limit !== undefined || income !== undefined, planCells };
+}
+
+/**
+ * BUD-01@PoC FR 12, AC22; BUD-02@PoC FR 23 (owner decision 2026-11-26): a category deleted with its budget entries —
+ * its limit (an income category: its plan; the income plan becomes the sum of the others) and every «План» cell of
+ * its line go, each with its audit entry, under the budget's row lock. Finished periods get their snapshots first, as
+ * on every change, so they keep the category as it was (lead decision 2026-11-26: snapshots are history). Returns
+ * what it removed (the limit — the current period's). Module categories calls it under its own row lock.
+ */
+export async function releaseCategory(
+  deps: BudgetDeps,
+  tx: BudgetTx,
+  caller: Caller,
+  categoryId: string,
+  categories: ReadonlyMap<string, BudgetCategory>,
+): Promise<Handed<CategoryEntries>> {
+  const budget = await tx.budget(caller.householdId, true);
+  if (!budget) return { result: NO_ENTRIES, handOffs: [] };
+  await ensureSnapshots(
+    deps,
+    tx,
+    caller.householdId,
+    budget,
+    deps.today(),
+    categories,
+    planLines(deps, caller.householdId, budget.currency),
+  );
+  const entries = await categoryEntries(deps, tx, caller.householdId, categoryId, categories, budget);
+  const handOffs: BudgetHandOff[] = [];
+  const limit = (await tx.limits(caller.householdId, budget.id)).find((l) => l.categoryId === categoryId);
+  if (limit) {
+    await tx.setLimit(caller.householdId, budget.id, categoryId, null);
+    handOffs.push(
+      handOff(
+        deps,
+        caller,
+        "budget.limit",
+        categoryId,
+        "delete",
+        limitChange(categoryId, limit.amount, null, budget.currency),
+      ),
+    );
+  }
+  let income = budget.incomePlan;
+  const plans = await tx.incomePlans(caller.householdId, budget.id);
+  const plan = plans.find((l) => l.categoryId === categoryId);
+  if (plan) {
+    await tx.setIncomePlan(caller.householdId, budget.id, categoryId, null);
+    handOffs.push(
+      handOff(
+        deps,
+        caller,
+        "budget.income-plan",
+        categoryId,
+        "delete",
+        incomePlanChange(categoryId, plan.amount, null, budget.currency),
+      ),
+    );
+    // FR 21: the income plan by category is the sum of the categories' plans; BUD-02 FR 24 (#709): at today's rates,
+    // as `updatePlan` stores it.
+    const rest = plans.filter((l) => l.categoryId !== categoryId);
+    income = convertedTotal(rest, budget.currency, await linesRates(deps, budget, rest, deps.today()));
+    if (!income.equals(budget.incomePlan))
+      handOffs.push(
+        handOff(deps, caller, "budget.budget", budget.id, "update", [
+          {
+            field: "incomePlan",
+            before: budget.incomePlan.toDecimalString(),
+            after: income.toDecimalString(),
+          },
+        ]),
+      );
+  }
+  const cells = await tx.deletePlanCells(caller.householdId, budget.id, "limit", categoryId);
+  for (const c of cells)
+    if (c.amount !== null) handOffs.push(cellHandOff(deps, caller, budget, c, c.amount, null));
+  if (!limit && !plan && cells.length === 0) return { result: NO_ENTRIES, handOffs: [] };
+  // A page open in another window sees the new version (VERSION_CONFLICT) instead of writing the category back.
+  await tx.updateBudget(caller.householdId, budget.id, income);
+  for (const h of handOffs) await tx.enqueueHandOff(h);
+  return { result: entries, handOffs };
 }
 
 /**

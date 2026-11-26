@@ -12,7 +12,11 @@ import {
   createAccountsServices,
 } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
-import { createBudgetCategoryUsage, createBudgetServices } from "../src/modules/budget/index.ts";
+import {
+  createBudgetCategoryUsage,
+  createBudgetServices,
+  type BudgetServices,
+} from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
   createCategorizationServices,
@@ -179,6 +183,9 @@ async function rate(date: string, currency: string, uah: string) {
   );
 }
 
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
+
 beforeAll(async () => {
   db = await setupRealModules(8);
   spaces = householdSpaces(db);
@@ -224,10 +231,10 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -237,7 +244,7 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -608,5 +615,52 @@ describe("BUD-03@PoC and BUD-17@PoC: a category's currency in «Можна ви�
       scoped: true,
     });
     expect(scoped.statusCode).toBe(404);
+  });
+});
+
+describe("BUD-02@PoC FR 24 with BUD-01@PoC FR 12: a category of another currency deleted with its budget entries", () => {
+  it("BUD-02@PoC FR 24: the delete names the limit in the category's currency and audits it; the income plan of the others is their sum at today's rate", async () => {
+    await rates();
+    const space = await newSpace();
+    const tree = await call(space, "GET", "/v1/categories");
+    const incomeGroup = (tree.json().groups as { id: string; kind: string }[]).find(
+      (g) => g.kind === "income",
+    )!;
+    const income = async (name: string) => {
+      const res = await call(space, "POST", "/v1/categories", { groupId: incomeGroup.id, name });
+      expect(res.statusCode, res.body).toBe(201);
+      return res.json().id as string;
+    };
+    const salary = await category(space, "Зарплата");
+    const bonus = await income("Синтетичні премії");
+    const rent = await income("Синтетична оренда");
+    const clubs = await newCategory(space, "Родина", "Гуртки дітей");
+    const b = await createBudget(space, {
+      incomePlans: [
+        { categoryId: salary, amount: eur("1000") },
+        { categoryId: bonus, amount: eur("300") },
+        { categoryId: rent, amount: uah("10000") },
+      ],
+      limits: [{ categoryId: clubs, amount: uah("2000") }],
+    });
+    expect(b.incomePlan).toEqual(eur("1500"));
+
+    // «ліміт N теж буде видалено»: N as it was typed — 2 000 UAH, not its ≈ 40 €.
+    const usage = await call(space, "GET", `/v1/categories/${clubs}/usage`);
+    expect(usage.statusCode, usage.body).toBe(200);
+    expect(usage.json().budget).toEqual({ limit: uah("2000"), stored: true, planCells: 0 });
+    const del = await call(space, "DELETE", `/v1/categories/${clubs}?confirmLimit=true`);
+    expect(del.statusCode, del.body).toBe(200);
+    const { rows } = await db.owner.query<{ changes: { field: string; before: unknown; after: unknown }[] }>(
+      `SELECT changes FROM audit.entries WHERE household_id = $1 AND entity_type = 'budget.limit' AND action = 'delete'`,
+      [space.householdId],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.changes).toContainEqual({ field: "currency", before: "UAH", after: null });
+
+    // The other plans are 1 000 € and 10 000 UAH (≈ 200 € today): the income plan becomes 1 200 €.
+    const gone = await call(space, "DELETE", `/v1/categories/${bonus}?confirmLimit=true`);
+    expect(gone.statusCode, gone.body).toBe(200);
+    expect((await call(space, "GET", "/v1/budget")).json().budget.incomePlan).toEqual(eur("1200"));
   });
 });

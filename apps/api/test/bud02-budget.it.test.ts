@@ -17,6 +17,7 @@ import {
   createBudgetCategoryUsage,
   createBudgetErasure,
   createBudgetServices,
+  type BudgetServices,
 } from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -34,6 +35,9 @@ import {
 } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * BUD-02@PoC a) (wave 2 row 29), the server part of the module `budget`, through the real API on a real PostgreSQL with
@@ -241,10 +245,10 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -254,7 +258,7 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -680,16 +684,15 @@ describe("BUD-02@PoC: deletion, the space's boundary, audit", () => {
     expect(await n("budget.budgets WHERE household_id = $1", stranger.householdId)).toBe(0);
   });
 
-  it("BUD-01@PoC FR 12: a category with a limit is in use for module categories", async () => {
+  it("BUD-01@PoC FR 12: a limit does not hold a category — module budget names it among the budget entries a delete removes, and holds none", async () => {
     const space = await newSpace();
     const cafes = await category(space, "Кафе і ресторани");
     const travel = await category(space, "Подорожі");
     await createBudget(space, { limits: [{ categoryId: cafes, amount: eur("300.00") }] });
-    const used = await createBudgetCategoryUsage(db.databases.for("budget")).used(space.householdId, [
-      cafes,
-      travel,
-    ]);
-    expect([...used]).toEqual([cafes]);
+    const usage = createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices);
+    expect(usage.used).toBeUndefined();
+    const held = await usage.limits!.held(space.householdId, [cafes, travel]);
+    expect([...held]).toEqual([cafes]);
   });
 
   it("ARC-04@PoC FR 4: a budget audit job in state dead goes back to the budget queue with the daily recovery", async () => {

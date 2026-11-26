@@ -10,7 +10,11 @@ import {
   createAccountsServices,
 } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
-import { createBudgetCategoryUsage, createBudgetServices } from "../src/modules/budget/index.ts";
+import {
+  createBudgetCategoryUsage,
+  createBudgetServices,
+  type BudgetServices,
+} from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
   createCategorizationServices,
@@ -125,6 +129,9 @@ async function rate(date: string, currency: string, uah: string) {
   );
 }
 
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
+
 beforeAll(async () => {
   db = await setupRealModules(8);
   spaces = householdSpaces(db);
@@ -170,10 +177,10 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -183,7 +190,7 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });

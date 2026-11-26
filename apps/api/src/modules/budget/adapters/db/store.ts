@@ -323,6 +323,29 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
       );
       return rows[0]!.version;
     },
+    async deletePlanCells(householdId, budgetId, kind, lineId) {
+      const { rows } = await q.query<{
+        period: string;
+        kind: PlanCellKind;
+        line_id: string;
+        amount: string | null;
+        currency: string;
+        version: number;
+      }>(
+        `DELETE FROM plan_cells WHERE household_id = $1 AND budget_id = $2 AND kind = $3 AND line_id = $4
+         RETURNING to_char(period, 'YYYY-MM') AS period, kind, line_id, amount::text AS amount, currency, version`,
+        [householdId, budgetId, kind, lineId],
+      );
+      return rows
+        .map((r): PlanCell => ({
+          period: r.period,
+          kind: r.kind,
+          lineId: r.line_id,
+          amount: r.amount === null ? null : Money.of(r.amount, r.currency),
+          version: r.version,
+        }))
+        .sort((a, b) => a.period.localeCompare(b.period));
+    },
     enqueueHandOff: (handOff) => enqueueHandOff(q, handOff),
   };
 }

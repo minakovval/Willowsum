@@ -2457,6 +2457,15 @@ button.ws-stepper-step[aria-disabled="true"] {
   color: var(--ws-ink-muted);
 }
 
+/* FIN-03@PoC FR 13: the type tag («витрата», «дохід», «переказ») under the amount, on the row's right edge. */
+.ws-tx-type {
+  max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: lowercase;
+}
+
 .ws-tx-actions {
   position: relative;
   z-index: var(--ws-layer-local-1);

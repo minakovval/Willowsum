@@ -1,6 +1,6 @@
 # Модуль categories
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-21 (BUD-02@PoC п. 23: `getCategoryUsage`, `CategoryUsage.transactions`); 2026-11-15 (BUD-01@PoC п. 12: видалення порожньої власної категорії, серверна частина; BUD-01 b: споживач `categories.merged` і відповідь `categorization`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (BUD-01@PoC п. 12, AC 22, 23, рядок 221: точна причина видалення — `categoryUsage` у `/usage` і відмовах, `CATEGORY_LIMIT_CONFIRM`, `confirmLimit`; ліміт не тримає категорію і видаляється з нею через порт `CategoryUsage.limits`); 2026-11-21 (BUD-02@PoC п. 23: `getCategoryUsage`, `CategoryUsage.transactions`); 2026-11-15 (BUD-01@PoC п. 12: видалення порожньої власної категорії, серверна частина; BUD-01 b: споживач `categories.merged` і відповідь `categorization`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -39,9 +39,12 @@ FLW-34@PoC лише читає дерево («типові групи без с
     службових), `hidden`, `deletable` (п. 12: меню має «Видалити» — власна і порожня; так само в кожній відповіді з
     категорією).
   - `GET /v1/categories/{categoryId}` (`getCategory`) — одна категорія; виведена з ужитку — 404.
-  - `GET /v1/categories/{categoryId}/usage` (`getCategoryUsage`) — `{ transactions }`: скільки транзакцій простору в
-    категорії, для «N транзакцій» діалогу «Видалити категорію…» (BUD-02@PoC п. 23, AC 19); сума відповідей
-    `CategoryUsage.transactions`; інший простір, невідома чи виведена з ужитку — 404.
+  - `GET /v1/categories/{categoryId}/usage` (`getCategoryUsage`) — точна причина діалогу «Видалити категорію…»
+    (BUD-01@PoC п. 12, 13, AC 19, 22, 23; BUD-02@PoC п. 23): `transactions` (сума `CategoryUsage.transactions`),
+    `rules`, `recurringPayments` (суми `CategoryUsage.holds`), `mergedCategories` (об'єднані в неї), `budget` —
+    `{ limit, stored, planCells }` (ліміт поточного періоду десятковим рядком, чи є ліміт або план доходу, кількість
+    місяців «План» із власним значенням; видаляються разом із категорією) і `deletable`; інший простір, невідома чи
+    виведена з ужитку — 404.
   - `POST /v1/category-groups` (`createCategoryGroup`, `Idempotency-Key`) — `name` (1–60, один рядок), `kind`
     (`expense` / `income`); тон — тони свого типу по черзі. → 201 група.
   - `PATCH /v1/category-groups/{groupId}` (`renameCategoryGroup`) — `name`. → 200 група з категоріями.
@@ -56,24 +59,32 @@ FLW-34@PoC лише читає дерево («типові групи без с
     ціль та сама, прихована чи невідома — 400 `targetId: same | hidden | not_found`. Системна стає прихованою, власна —
     виведеною з ужитку (`retired`, назва звільняється); категорії, раніше об'єднані з джерелом, тепер вказують на ціль.
     → `sourceId`, `targetId`, `sourceState`. Подія `categories.merged` — у тій самій транзакції.
-  - `DELETE /v1/categories/{categoryId}` (`deleteCategory`) — п. 12: власна порожня категорія (прихована теж) зникає
-    з дерева, назва вільна, довідник її більше не знає; запис аудиту `delete` з полями «до». → `{ deleted: true }`.
-    Системна — 409 `CATEGORY_SYSTEM_FIXED`; непорожня — 409 `CATEGORY_NOT_EMPTY` («Категорію з транзакціями,
-    правилами або лімітами не можна видалити — приховайте або об'єднайте її»), дані не змінюються; виведена з ужитку —
-    404. «Порожня»: жоден модуль із `usage` не відповів, що її використовує, і з нею не об'єднано іншу категорію.
+  - `DELETE /v1/categories/{categoryId}[?confirmLimit=true]` (`deleteCategory`) — п. 12: власна категорія, яку не
+    тримають дані (прихована теж), зникає з дерева, назва вільна, довідник її більше не знає; запис аудиту `delete` з
+    полями «до» (і `limit`, `planCells` видалених записів бюджету). → `{ deleted: true }`. Системна — 409
+    `CATEGORY_SYSTEM_FIXED`; яку тримають дані (транзакції чи частини, регулярні платежі, об'єднана в неї категорія;
+    правила категорій не тримають — їх кількість лише в причині, а правило після видалення «Потребує уваги») — 409 `CATEGORY_NOT_EMPTY` з `categoryUsage` (кожна причина з кількістю, як `/usage`), дані не
+    змінюються, навіть із `confirmLimit`; виведена з ужитку — 404. Ліміт, план доходу і клітинки «План» не тримають
+    категорію (рішення власника 2026-11-26, AC 22): без `confirmLimit=true` — 409 `CATEGORY_LIMIT_CONFIRM` з
+    `categoryUsage.budget`, нічого не змінено; з ним `budget` видаляє їх у своїй транзакції (зі своїми записами аудиту;
+    знімки завершених періодів лишаються), потім рядок категорії; після коміту — ще одне прибирання записів бюджету
+    категорії (`sweepBudgetEntries`: запис, збережений бюджетом за цей час).
   Дубль назви категорії (серед категорій в ужитку) чи групи (серед груп), без урахування регістру, — 409
   `CATEGORY_NAME_TAKEN` («Така назва вже існує»); перевірка в коді й унікальний індекс.
 - `createCategoriesServices({ audit, clock, newId, usage })` → `CategoriesServices` — порти маршрутів (`src/api.ts` →
   `ctx.services`; `main.ts`). `usage` (обов'язковий) — `CategoryUsage[]`: кожен модуль, що зберігає ідентифікатори
-  категорій, відповідає `used(householdId, ids)` → які з них використовують його записи простору (п. 12). Сьогодні —
-  `createTransactionCategoryUsage` модуля `transactions` (частини розділених) і `createCategorizationCategoryUsage`
-  модуля `categorization` (категорія транзакції, BUD-01 b), `createRecurringCategoryUsage` модуля `recurring` (регулярні платежі, BUD-07 a2). **Модуль, що починає зберігати
-  категорію (`categorization` — категорія транзакції й правила, `budget` — ліміти й клітинки «План», `recurring` —
-  регулярні платежі), додає свою відповідь у `src/main.ts` у тому ж PR**, інакше категорію з його записами можна
-  буде видалити.
+  категорій, відповідає `used(householdId, ids)` → які з них тримають його записи простору (п. 12). Сьогодні —
+  `createTransactionCategoryUsage` модуля `transactions` (частини розділених), `createCategorizationCategoryUsage`
+  модуля `categorization` (категорія транзакції, BUD-01 b; правила лише рахує — `holds.rules`), `createRecurringCategoryUsage`
+  модуля `recurring` (регулярні платежі, BUD-07 a2) і `createBudgetCategoryUsage(db, budgetServices)` модуля `budget`
+  (порт `limits`: не тримає категорію). **Модуль, що починає зберігати категорію, додає свою відповідь у
+  `src/main.ts` у тому ж PR**, інакше категорію з його записами можна буде видалити.
 - `CategoryUsage` — тип цього порту. Необов'язковий `transactions(householdId, categoryId)` → кількість транзакцій
   простору в категорії відповідають лише модулі, що зберігають категорію транзакції (`categorization` — власна категорія
   нерозділеної, `transactions` — розділені за частинами); одна транзакція рахується одним модулем (BUD-02@PoC п. 23).
+  Необов'язковий `holds(householdId, categoryId)` → `{ rules?, recurringPayments? }` — кількості для причини (AC 23).
+  Необов'язковий `limits` (лише `budget`) — `CategoryLimits`: `held(householdId, ids)`, `entries(householdId, id)` →
+  `{ limit, stored, planCells }`, `release(caller, id)` — видаляє їх і повертає видалене (AC 22).
 - `createCategoryDirectory({ db, audit, newId })` → `CategoryDirectory` (п. 9) — для `categorization`, `budget`,
   `recurring`, `transfer-matching`: `category(householdId, id)` → `CategoryRef` (`kind`, `state`, `mergedInto`,
   `essential`, `systemKey`) або null (іншого простору чи невідома); `serviceCategory(householdId, "transfer" |
@@ -88,7 +99,11 @@ FLW-34@PoC лише читає дерево («типові групи без с
 запис аудиту системи `categories.tree`/`create` (кількість категорій). Видалення (п. 12) тримає рядок категорії під
 блокуванням, поки модулі з `usage` відповідають, тож об'єднання в неї чекає і потім її не знаходить. Залишковий ризик:
 запис іншого модуля, збережений з категорією між його перевіркою в довіднику і комітом видалення, лишиться з
-ідентифікатором видаленої категорії (у PoC один користувач; follow-up).
+ідентифікатором видаленої категорії (у PoC один користувач; follow-up). Видалення з лімітом: `budget.release` комітить
+свою транзакцію до коміту видалення категорії; збій між ними лишає категорію без ліміту — як після «Прибрати з бюджету».
+Запис ліміту чи клітинки, збережений бюджетом між цими комітами, прибирає `sweepBudgetEntries` після коміту (запис
+бюджету бере блокування бюджету, тож той, що чекав, теж прибирається). Лишається вузьке вікно: запис, що прочитав
+категорію в довіднику до коміту видалення, а блокування бюджету взяв лише після прибирання (follow-up).
 
 ## Залежності
 
