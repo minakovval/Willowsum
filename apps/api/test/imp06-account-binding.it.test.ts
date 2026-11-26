@@ -51,6 +51,8 @@ async function newSpace(): Promise<Space> {
   return { accountId, householdId };
 }
 
+let saved = 0;
+
 async function saveRecipe(space: Space, account: { by: string; value: string }): Promise<string> {
   const res = await app.inject({
     method: "POST",
@@ -60,7 +62,8 @@ async function saveRecipe(space: Space, account: { by: string; value: string }):
       "content-type": "application/json",
       ...principalHeader({ userId: space.accountId, householdId: space.householdId }),
     },
-    payload: JSON.stringify({ name: "Банк", recipe: { schemaVersion: 1, account } }),
+    // IMP-07 FR 2: a name is unique in its scope.
+    payload: JSON.stringify({ name: `Банк ${++saved}`, recipe: { schemaVersion: 1, account } }),
   });
   expect(res.statusCode, res.body).toBe(201);
   return res.json().id as string;

@@ -725,7 +725,7 @@ export const parseImportBatchRoute = defineRoute({
     params: batchParams,
     body: z.strictObject({ files: z.array(parseRequestSchema).max(BATCH_LIMITS.files).optional() }),
   },
-  problems: ["BATCH_STATE_CONFLICT", "IMPORT_PARSE_INVALID"],
+  problems: ["BATCH_STATE_CONFLICT", "IMPORT_PARSE_INVALID", "TEMPLATE_STALE"],
   response: { status: 200, description: "The batch, «в обробці»", schema: batchSchema },
   handler: async ({ params, body }, ctx) => {
     owner(ctx);
@@ -735,8 +735,12 @@ export const parseImportBatchRoute = defineRoute({
     const requests = (body.files ?? []) as ParseRequest[];
     // Another space's recipe or account is the same answer as an unknown one; a closed account is not offered (FR 2).
     for (const [i, r] of requests.entries()) {
-      if (r.recipeId && !(await parse.recipes.forParse(householdId, r.recipeId)))
-        throw refusal(new ParseRequestRefused("UNKNOWN_RECIPE", i, "recipeId"));
+      if (r.recipeId) {
+        const recipe = await parse.recipes.forParse(householdId, r.recipeId);
+        if (!recipe) throw refusal(new ParseRequestRefused("UNKNOWN_RECIPE", i, "recipeId"));
+        // IMP-07 FR 5, EC1: a stale template is applied only after it is saved again from the editor.
+        if (recipe.stale) throw new ApiProblem("TEMPLATE_STALE", { detail: `files[${i}].recipeId` });
+      }
       if (r.accountId) {
         const account = await parse.accounts.postingAccount(householdId, r.accountId);
         if (account?.status !== "active")
