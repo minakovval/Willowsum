@@ -283,9 +283,11 @@ describe("ACC-08@PoC FR 4: a space always has exactly one Owner; no transfer of 
     expect(transfer).toEqual([]);
     // Transfers of money between own accounts (FIN-03 FR 7, FR 27; FIN-03 b, row 16b) are no transfer of ownership:
     // exactly these paths are let through, and they need household.data.read / write, never household.transfer.
-    // «Переказ між рахунками» in one action (FIN-03 FR 1, FR 28; #437) is one of them.
+    // «Переказ між рахунками» in one action (FIN-03 FR 1, FR 28; #437) is one of them, and so is «Не пара» of a
+    // proposed transfer (IMP-03 FR 12, row 48).
     const moneyTransfers = new Set([
       "/v1/transactions/{transactionId}/transfer",
+      "/v1/transactions/{transactionId}/not-transfer",
       "/v1/transactions/transfers",
       "/v1/transfer-proposals",
     ]);

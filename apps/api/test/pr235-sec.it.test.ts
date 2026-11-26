@@ -224,6 +224,8 @@ describe("PR #235 security: isolation, whitelists, idempotency, erasure", () => 
       // The parts of a split (FIN-03 b, migrations/0004_states_and_splits.sql).
       { relname: "transaction_parts", relrowsecurity: true, relforcerowsecurity: true },
       { relname: "transactions", relrowsecurity: true, relforcerowsecurity: true },
+      // «Не пара» pairs (IMP-03 b, migrations/0016_transfer_dismissals.sql).
+      { relname: "transfer_dismissals", relrowsecurity: true, relforcerowsecurity: true },
       // The pairs of transfers between own accounts (FIN-03 b, migrations/0005_transfers.sql).
       { relname: "transfers", relrowsecurity: true, relforcerowsecurity: true },
     ]);
