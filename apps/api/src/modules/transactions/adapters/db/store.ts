@@ -965,7 +965,7 @@ export async function recurringHistory(
     currency: string;
     counterparty: string;
   }>(
-    `SELECT id, account_id, occurred_on::text AS occurred_on, amount::text AS amount, currency,
+    `SELECT id, account_id, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, amount::text AS amount, currency,
             counterparty
        FROM transactions
       WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date
@@ -1011,7 +1011,7 @@ export async function recurringMatching(
     currency: string;
     counterparty: string | null;
   }>(
-    `SELECT id, account_id, occurred_on::text AS occurred_on, amount::text AS amount, currency,
+    `SELECT id, account_id, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, amount::text AS amount, currency,
             counterparty
        FROM transactions
       WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date

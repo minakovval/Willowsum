@@ -68,6 +68,18 @@ describe("BUD-07@PoC FR 16: the monthly payment of a «Кредит» account (d
     ).toEqual([["2026-11-01", "overdue", 17, null]]);
   });
 
+  it("BUD-07@PoC FR 16: no payment is due before the account was opened", () => {
+    expect(
+      loanCharges("loan", eur("250"), [], "2025-10-01", "2026-01-31", "2026-11-18", "2026-01-01").map((c) => [
+        c.dueOn,
+        c.status,
+      ]),
+    ).toEqual([["2026-01-01", "overdue"]]);
+    expect(
+      loanCharges("loan", eur("250"), [], "2026-11-01", "2026-11-30", "2026-11-18", "2026-11-10"),
+    ).toEqual([]);
+  });
+
   it("BUD-07@PoC FR 16: only the charges within the range", () => {
     const payments = [{ transactionId: "t", date: "2026-10-20" }];
     expect(

@@ -156,6 +156,7 @@ export function createRecurringLoans(ports: {
           monthlyPayment: payment,
           annualRate: terms?.annualRate ?? null,
           ledgerAccountId: wallet?.ledgerAccountId ?? null,
+          openedOn: a.subaccounts.map((s) => s.balanceDate).sort()[0] ?? null,
         });
       }
       return out;

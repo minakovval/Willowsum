@@ -62,6 +62,8 @@ export function loanCharges(
   from: string,
   to: string,
   today: string,
+  /** The account's opening date (its wallet's balance date): no payment is due before it. */
+  openedOn: string | null = null,
 ): LoanCharge[] {
   const sorted = [...inflows].sort(
     (a, b) => a.date.localeCompare(b.date) || a.transactionId.localeCompare(b.transactionId),
@@ -71,7 +73,7 @@ export function loanCharges(
   const out: LoanCharge[] = [];
   for (let month = from.slice(0, 7); month <= to.slice(0, 7); month = nextMonth(month)) {
     const dueOn = `${month}-${String(Math.min(day, lastDayOf(month))).padStart(2, "0")}`;
-    if (dueOn < from || dueOn > to) continue;
+    if (dueOn < from || dueOn > to || (openedOn !== null && dueOn < openedOn)) continue;
     const first = sorted.find((p) => p.date.slice(0, 7) === month && p.date <= today);
     const open = addDays(dueOn, WINDOW_DAYS) >= today;
     out.push({

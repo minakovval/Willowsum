@@ -5,6 +5,7 @@ import {
   CHARGES_A_YEAR,
   loanCharges,
   monthlyInterest,
+  scheduleBetween,
   type ChargeStatus,
   type LoanInflow,
   type PaymentType,
@@ -30,6 +31,8 @@ export interface LoanAccount {
   readonly annualRate: string | null;
   /** The journal account of the wallet in the payment's currency (module ledger); null — none. */
   readonly ledgerAccountId: string | null;
+  /** The account's opening date — the earliest balance date of its wallets; null — not known. */
+  readonly openedOn: string | null;
 }
 
 export interface CalendarDeps {
@@ -166,7 +169,7 @@ async function loanItems(
   for (const loan of loans) {
     if (loan.monthlyPayment === null) continue;
     const own = inflows.filter((i) => i.accountId === loan.accountId);
-    for (const c of loanCharges(loan.accountId, loan.monthlyPayment, own, from, to, today)) {
+    for (const c of loanCharges(loan.accountId, loan.monthlyPayment, own, from, to, today, loan.openedOn)) {
       // The interest of a month up to this one: the debt before its first payment, or today's while unpaid.
       let interest: Money | null = null;
       if (
@@ -241,14 +244,16 @@ export async function buildCalendar(
 
   const loans = await deps.loans.list(householdId);
   const planned = loans.filter((l) => l.monthlyPayment !== null);
+  // From the 1st of the month of the earliest day read: a payment earlier in that month pays it (FR 16).
   const earliest = [range.from, monthFrom, addDays(today, -(HISTORY_DAYS - 1))].sort()[0]!;
+  const earliestMonthStart = `${earliest.slice(0, 7)}-01`;
   const inflows =
     planned.length === 0
       ? []
       : await deps.loans.inflows(
           householdId,
           planned.map((l) => l.accountId),
-          earliest,
+          earliestMonthStart,
           today,
         );
 
@@ -267,6 +272,7 @@ export async function buildCalendar(
       monthFrom,
       monthTo,
       today,
+      l.openedOn,
     ),
   );
   const counted = monthCharges.filter((c) => c.counted && c.status !== "skipped");
@@ -278,9 +284,15 @@ export async function buildCalendar(
     const t = tracking.byPayment.get(p.id);
     return t && t.state === "active" && t.hold === null && (p.endDate === null || p.endDate >= today);
   });
+  // A payment that ends within the year counts only its charges from today to its end date.
+  const yearEnd = addDays(today, 364);
   const perYear = (p: StoredPayment) => {
     const t = tracking.byPayment.get(p.id)!;
-    return Money.of(t.expected.amount.times(CHARGES_A_YEAR[p.frequency]), t.expected.currency);
+    const count =
+      p.endDate !== null && p.endDate < yearEnd
+        ? scheduleBetween(p.anchorDate, p.frequency, today, p.endDate).length
+        : CHARGES_A_YEAR[p.frequency];
+    return Money.of(t.expected.amount.times(count), t.expected.currency);
   };
 
   const periodCharges = [...monthCharges.filter((c) => c.counted && c.type === "expense"), ...monthLoans];

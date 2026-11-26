@@ -528,6 +528,15 @@ describe("BUD-07@PoC FR 16: the monthly payments of «Кредит» accounts", 
   });
 });
 
+describe("BUD-07@PoC FR 16: no payment before the account was opened", () => {
+  it("BUD-07@PoC FR 16: the months before the «Кредит» account's opening have no payment, so none is «Прострочено»", async () => {
+    const space = await newSpace();
+    await loan(space);
+    const c = await calendar(space, "?from=2025-10-01&days=123");
+    expect(c.items.filter((i) => i.kind === "loan").map((i) => i.dueOn)).toEqual(["2026-01-01"]);
+  });
+});
+
 describe("BUD-07@PoC FR 19: the budget card «Регулярні платежі» — «сплачено N з M · K прострочено · лишилось X €»", () => {
   it("BUD-07@PoC FR 19: the current month's expense charges with the loan's payment: paid, overdue and what is left", async () => {
     const space = await newSpace();

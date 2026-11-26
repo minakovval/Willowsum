@@ -33,6 +33,7 @@ describe("BUD-07@PoC FR 16: «Кредит» accounts in the calendar (applicati
         monthlyPayment: null,
         annualRate: null,
         ledgerAccountId: null,
+        openedOn: null,
       },
     ];
     const c = await buildCalendar(deps(loans), "h", [], empty, range, "EUR");
@@ -48,6 +49,7 @@ describe("BUD-07@PoC FR 16: «Кредит» accounts in the calendar (applicati
       name: "Кредит",
       monthlyPayment: eur("250"),
       ledgerAccountId: "ledger-1",
+      openedOn: null,
     };
     let c = await buildCalendar(deps([{ ...base, annualRate: null }]), "h", [], empty, range, "EUR");
     expect(c.items.map((i) => [i.kind, i.dueOn, i.status, i.interest])).toEqual([
@@ -69,6 +71,7 @@ describe("BUD-07@PoC FR 16: «Кредит» accounts in the calendar (applicati
         monthlyPayment: eur("250"),
         annualRate: null,
         ledgerAccountId: null,
+        openedOn: null,
       },
     ];
     const d = deps(loans);
@@ -88,5 +91,79 @@ describe("BUD-07@PoC FR 16: «Кредит» accounts in the calendar (applicati
     ]);
     // A figure without any amount is a zero, not «no figure».
     expect(c.totals.incomes?.toDecimalString()).toBe("0");
+  });
+});
+
+describe("BUD-07@PoC FR 16, FR 7: the start of the read and «За рік» (review round 1)", () => {
+  it("BUD-07@PoC FR 16: from the oldest day allowed, the payments of that whole month are read, so an earlier one still pays its month", async () => {
+    const asked: string[] = [];
+    const inflows = [
+      { accountId: "loan-1", transactionId: "t-sep", date: "2025-09-05" },
+      { accountId: "loan-1", transactionId: "t-oct", date: "2025-10-20" },
+    ];
+    const d: CalendarDeps = {
+      ...deps([]),
+      loans: {
+        list: async () => [
+          {
+            accountId: "loan-1",
+            name: "Кредит",
+            monthlyPayment: eur("250"),
+            annualRate: null,
+            ledgerAccountId: null,
+            openedOn: "2025-01-01",
+          },
+        ],
+        async inflows(_h, _ids, from, to) {
+          asked.push(`${from}..${to}`);
+          return inflows.filter((i) => i.date >= from && i.date <= to);
+        },
+        debt: async () => eur("0"),
+      },
+    };
+    const c = await buildCalendar(d, "h", [], empty, { from: "2025-09-15", to: "2025-09-30" }, "EUR");
+    expect(asked).toEqual([`2025-09-01..${TODAY}`]);
+    // The day is the 20th (the latest payment); September's first payment, on the 5th, pays it.
+    expect(c.items.map((i) => [i.dueOn, i.status, i.transactionId])).toEqual([
+      ["2025-09-20", "paid", "t-sep"],
+    ]);
+  });
+
+  it("BUD-07@PoC FR 7: «За рік» of a payment ending within the year counts only its charges up to the end date", async () => {
+    const p = {
+      id: "p",
+      name: "Синтетичний курс",
+      expected: eur("40"),
+      frequency: "month" as const,
+      anchorDate: "2026-11-25",
+      categoryId: null,
+      accountId: null,
+      endDate: "2027-02-10",
+      type: "expense" as const,
+      subscription: false,
+      variable: false,
+      merchantId: null,
+      source: "manual" as const,
+      createdOn: "2026-11-01",
+      version: 1,
+      current: null,
+      keptOn: null,
+    };
+    const t = {
+      charges: [],
+      expected: eur("40"),
+      amountChange: null,
+      changes: [],
+      missesInRow: 0,
+      state: "active" as const,
+      approximate: false,
+      used: [],
+      holds: [],
+      hold: null,
+    };
+    const space = { byPayment: new Map([["p", t]]), used: new Map(), history: new Map() };
+    const c = await buildCalendar(deps([]), "h", [p], space, range, "EUR");
+    // 25 November, 25 December, 25 January — not 12 × 40.
+    expect(c.totals.yearExpenses?.toDecimalString()).toBe("120");
   });
 });
