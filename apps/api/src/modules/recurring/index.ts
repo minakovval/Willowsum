@@ -16,7 +16,8 @@ import {
   requeueDeadRecurringJobs,
   type RecurringServices,
 } from "./adapters/index.ts";
-import { trackSpace } from "./application/index.ts";
+import { trackSpace, type CalendarDeps } from "./application/index.ts";
+import type { CreditAccounts } from "../accounts/index.ts";
 import { chargesInMonth, chargesOfFinishedMonth, type ChargeStatus } from "./domain/index.ts";
 
 export const recurringModule = defineModule({
@@ -28,6 +29,7 @@ export const recurringModule = defineModule({
 
 export { createRecurringServices, type RecurringServices } from "./adapters/index.ts";
 export { HISTORY_DAYS } from "./application/index.ts";
+export type { CalendarDeps, LoanAccount } from "./application/index.ts";
 export { detectSeries, FREQUENCIES, isFresh, nextDate, scheduleDate } from "./domain/index.ts";
 export type { Charge, ChargeStatus, Frequency, Series } from "./domain/index.ts";
 
@@ -120,6 +122,47 @@ export function createRecurringHistory(db: ModuleDatabase, services: RecurringSe
         })
         .sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.paymentId.localeCompare(b.paymentId));
     },
+  };
+}
+
+/**
+ * BUD-07@PoC FR 16: the «Кредит» accounts of the calendar (`createRecurringServices({ loans })`, src/main.ts) — module
+ * accounts' active loans, each with its liability's monthly payment and rate (module liabilities), the payments to it
+ * (module transactions' `AccountInflows`) and its debt — the journal balance of its wallet in the payment's currency
+ * (module ledger's `balanceAt`). The ports of liabilities, transactions and ledger are typed here by their shape.
+ */
+export function createRecurringLoans(ports: {
+  readonly credit: Pick<CreditAccounts, "list">;
+  readonly liabilities: {
+    forAccount(
+      householdId: string,
+      accountId: string,
+    ): Promise<{ readonly monthlyPayment: Money | null; readonly annualRate: string | null } | null>;
+  };
+  readonly inflows: { inflows: CalendarDeps["loans"]["inflows"] };
+  readonly ledger: { balanceAt(householdId: string, accountId: string, date: string): Promise<Money> };
+}): CalendarDeps["loans"] {
+  return {
+    async list(householdId) {
+      const out = [];
+      for (const a of await ports.credit.list(householdId)) {
+        if (a.kind !== "loan") continue;
+        const terms = await ports.liabilities.forAccount(householdId, a.accountId);
+        const payment = terms?.monthlyPayment ?? null;
+        const wallet = payment ? a.subaccounts.find((s) => s.currency === payment.currency) : undefined;
+        out.push({
+          accountId: a.accountId,
+          name: a.name,
+          monthlyPayment: payment,
+          annualRate: terms?.annualRate ?? null,
+          ledgerAccountId: wallet?.ledgerAccountId ?? null,
+          openedOn: a.subaccounts.map((s) => s.balanceDate).sort()[0] ?? null,
+        });
+      }
+      return out;
+    },
+    inflows: (householdId, accountIds, from, to) => ports.inflows.inflows(householdId, accountIds, from, to),
+    debt: (householdId, ledgerAccountId, date) => ports.ledger.balanceAt(householdId, ledgerAccountId, date),
   };
 }
 

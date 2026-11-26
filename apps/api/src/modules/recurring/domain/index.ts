@@ -66,9 +66,20 @@ export {
   type Tracking,
 } from "./tracking.ts";
 export {
+  chargesBetween,
   chargesInMonth,
   chargesOfFinishedMonth,
   scheduleBetween,
   type FinishedMonthCharge,
   type MonthCharge,
+  type RangeCharge,
 } from "./month.ts";
+export {
+  CALENDAR_DAYS,
+  CALENDAR_MAX_DAYS,
+  CHARGES_A_YEAR,
+  loanCharges,
+  monthlyInterest,
+  type LoanCharge,
+  type LoanInflow,
+} from "./calendar.ts";
