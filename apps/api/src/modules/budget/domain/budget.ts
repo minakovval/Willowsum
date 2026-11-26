@@ -1,4 +1,12 @@
-import { currencyInfo, Decimal, DomainError, isCurrencyCode, Money } from "@willowsum/domain-kernel";
+import {
+  convert,
+  currencyInfo,
+  Decimal,
+  DomainError,
+  exchangeRate,
+  isCurrencyCode,
+  Money,
+} from "@willowsum/domain-kernel";
 
 /**
  * Pure rules of the space's budget (BUD-02@PoC a; wave 2 row 29): the calendar month as the only period (FR 4, FR 6),
@@ -84,6 +92,68 @@ export function parseBudgetAmount(
   }
 }
 
+/**
+ * BUD-02@PoC FR 24 («Валюта категорії»; owner decision 2026-11-26): the rate of a category's currency into the budget's
+ * — 1 unit of `currency` is `rate` of the budget's currency, of `date` (a cross rate through the hryvnia, as the
+ * rates give it). The current and future periods take today's rate, a finished one the rate of its last day, kept in
+ * its snapshot (FR 11).
+ */
+export interface PlanRate {
+  readonly currency: string;
+  readonly rate: Decimal;
+  readonly date: string;
+  readonly source: string;
+}
+
+/** The rates a plan converts at, by currency; a currency left out has no rate. */
+export type PlanRates = ReadonlyMap<string, PlanRate>;
+
+const integerDigits = (m: Money): number => m.amount.abs().truncated().toFixed(0).replace(/^0$/, "").length;
+
+/**
+ * FR 24: an amount of a category's currency in the budget's at the plan's rate — unrounded, as every conversion of the
+ * budget (rounding is for display). Null — no rate, or more than 15 integer digits after the conversion (#565: a sum
+ * of a plan stays within NUMERIC(38,18)).
+ */
+export function inBudgetCurrency(amount: Money, currency: string, rates: PlanRates): Money | null {
+  if (amount.currency === currency) return amount;
+  const r = rates.get(amount.currency);
+  if (!r) return null;
+  try {
+    const rate = exchangeRate({
+      base: amount.currency,
+      quote: currency,
+      rate: r.rate,
+      date: r.date,
+      source: r.source,
+    });
+    const value = convert(amount, rate, r.date).to;
+    return integerDigits(value) > AMOUNT_INTEGER_DIGITS_MAX ? null : value;
+  } catch (error) {
+    if (error instanceof DomainError) return null;
+    throw error;
+  }
+}
+
+/**
+ * FR 24: a limit or an income category's plan as typed — ≥ 0 in the budget's currency (the default) or in another
+ * currency that has a rate today (`rates`), at most that currency's minor units; 15 integer digits at most before and
+ * after the conversion. Another currency without a rate — 400 `….currency: currency`.
+ */
+export function parseCategoryAmount(
+  field: string,
+  input: { readonly amount: string; readonly currency: string },
+  currency: string,
+  rates: PlanRates,
+): Money | BudgetIssue {
+  if (input.currency === currency) return parseBudgetAmount(field, input, currency);
+  if (!isCurrencyCode(input.currency) || !rates.has(input.currency))
+    return { field: `${field}.currency`, issue: "currency" };
+  const amount = parseBudgetAmount(field, input, input.currency);
+  if (!(amount instanceof Money)) return amount;
+  return inBudgetCurrency(amount, currency, rates) === null ? { field, issue: "invalid" } : amount;
+}
+
 /** A category as the budget reads the space's tree (module categories). */
 export interface BudgetCategory {
   readonly id: string;
@@ -107,7 +177,10 @@ export function limitIssue(category: BudgetCategory | undefined): string | null 
  */
 export interface IncomePlanLine {
   readonly categoryId: string;
+  /** In the budget's currency: the category's plan converted at the plan's rate (FR 24). */
   readonly amount: Money;
+  /** FR 24: the plan in the category's own currency; left out — the category is in the budget's currency. */
+  readonly original?: Money;
 }
 
 /** FR 21: an income plan belongs to an active income category of the space; a hidden one is out of the plan. */
@@ -132,11 +205,70 @@ export interface PeriodPlan {
   readonly incomePlans?: readonly IncomePlanLine[];
   /** FR 11: planned contributions to goals and «Заощадження без цілі» — planned by «Розподіл» (row 31); 0 until then. */
   readonly plannedSavings: Money;
-  readonly limits: readonly {
-    readonly categoryId: string;
-    readonly amount: Money;
-    readonly mandatory: boolean;
-  }[];
+  readonly limits: readonly PlanLimit[];
+  /**
+   * FR 24: the rates the lines of other currencies are converted at (today's; a snapshot's — its last day's); left out
+   * or empty — every line is in the budget's currency: no «≈».
+   */
+  readonly rates?: readonly PlanRate[];
+  /** FR 24: currencies of lines without any rate — such a line counts 0 in the budget's currency («Курс недоступний»). */
+  readonly missingRates?: readonly string[];
+}
+
+/** FR 7, FR 24: a limit of the plan — `amount` in the budget's currency, `original` in the category's own. */
+export interface PlanLimit {
+  readonly categoryId: string;
+  readonly amount: Money;
+  readonly mandatory: boolean;
+  /** FR 24: the limit in the category's currency; left out — the category is in the budget's currency. */
+  readonly original?: Money;
+}
+
+/** FR 24: the plan's lines in the budget's currency at `rates`; a line of another currency keeps it as `original`. */
+export function convertLines<L extends { readonly categoryId: string; readonly amount: Money }>(
+  lines: readonly L[],
+  currency: string,
+  rates: PlanRates,
+): (L & { readonly original?: Money })[] {
+  return lines.map((l) =>
+    l.amount.currency === currency
+      ? l
+      : {
+          ...l,
+          amount: inBudgetCurrency(l.amount, currency, rates) ?? Money.zero(currency),
+          original: l.amount,
+        },
+  );
+}
+
+export const ratesMap = (rates: readonly PlanRate[] | undefined): PlanRates =>
+  new Map((rates ?? []).map((r) => [r.currency, r]));
+
+/**
+ * FR 24: the plan's `rates` and `missingRates` from its lines as they are — the rate of each currency a line of another
+ * currency was converted at, or that currency without one (the line counts 0).
+ */
+export function withPlanRates(plan: PeriodPlan, rates: PlanRates): PeriodPlan {
+  const currency = plan.incomePlan.currency;
+  const used = new Map<string, PlanRate>();
+  const missing = new Set<string>();
+  for (const l of [...plan.limits, ...(plan.incomePlans ?? [])]) {
+    const o = l.original;
+    if (!o || o.currency === currency) continue;
+    const rate = rates.get(o.currency);
+    if (rate && inBudgetCurrency(o, currency, rates) !== null) used.set(o.currency, rate);
+    else missing.add(o.currency);
+  }
+  const rest: PeriodPlan = { ...plan };
+  delete (rest as { rates?: unknown }).rates;
+  delete (rest as { missingRates?: unknown }).missingRates;
+  return {
+    ...rest,
+    ...(used.size > 0
+      ? { rates: [...used.values()].sort((a, b) => (a.currency < b.currency ? -1 : 1)) }
+      : {}),
+    ...(missing.size > 0 ? { missingRates: [...missing].sort() } : {}),
+  };
 }
 
 /**
@@ -153,10 +285,23 @@ export interface LimitLine {
   readonly categoryId: string;
   readonly groupId: string | null;
   readonly mandatory: boolean;
+  /** In the budget's currency: what the totals and the summary add up (FR 24). */
   readonly limit: Money;
   readonly spent: Money | null;
   readonly remaining: Money | null;
+  /**
+   * FR 24: the line in the category's own currency — the limit as typed, spent with each transaction at the rate of its
+   * date, and what is left. Left out — the category is in the budget's currency.
+   */
+  readonly original?: {
+    readonly limit: Money;
+    readonly spent: Money | null;
+    readonly remaining: Money | null;
+  };
 }
+
+/** FR 24: the period's amounts counted in each category currency of the plan (`BudgetReads.amounts` per currency). */
+export type AmountsByCurrency = ReadonlyMap<string, readonly CountedAmount[]>;
 
 export interface PeriodFigures {
   readonly lines: readonly LimitLine[];
@@ -232,6 +377,8 @@ export function periodFigures(
   plan: PeriodPlan,
   categories: ReadonlyMap<string, BudgetCategory>,
   amounts: readonly CountedAmount[] | null,
+  /** FR 24: the amounts in the currencies of the plan's lines; a line whose currency is not here has spent null. */
+  originals: AmountsByCurrency = new Map(),
 ): PeriodFigures {
   const currency = plan.incomePlan.currency;
   const zero = Money.zero(currency);
@@ -239,8 +386,11 @@ export function periodFigures(
   const spent = new Map([...totals.spent].map(([k, t]) => [k, t.amount]));
   const income = [...totals.income.values()].reduce((t, x) => t.plus(x.amount), zero);
   const limited = new Set(plan.limits.map((l) => l.categoryId));
+  const spentIn = ownTotals(categories, amounts, originals, (t) => t.spent);
   const lines = plan.limits.map((l): LimitLine => {
     const s = amounts === null ? null : (spent.get(l.categoryId) ?? zero);
+    const o = l.original;
+    const os = o ? spentIn(o.currency, l.categoryId) : null;
     return {
       categoryId: l.categoryId,
       groupId: categories.get(l.categoryId)?.groupId ?? null,
@@ -248,6 +398,7 @@ export function periodFigures(
       limit: l.amount,
       spent: s,
       remaining: s === null ? null : l.amount.minus(s),
+      ...(o ? { original: { limit: o, spent: os, remaining: os === null ? null : o.minus(os) } } : {}),
     };
   });
   const outsidePlan = [...spent.entries()]
@@ -266,11 +417,34 @@ export function periodFigures(
   };
 }
 
+/**
+ * FR 24: a category's tally in its own currency — from the period's amounts in that currency (null — a future month, or
+ * the currency was not read).
+ */
+function ownTotals(
+  categories: ReadonlyMap<string, BudgetCategory>,
+  amounts: readonly CountedAmount[] | null,
+  originals: AmountsByCurrency,
+  side: (t: CategoryTotals) => ReadonlyMap<string | null, Tally>,
+): (currency: string, categoryId: string) => Money | null {
+  const cache = new Map<string, ReadonlyMap<string | null, Tally>>();
+  return (currency, categoryId) => {
+    const own = originals.get(currency);
+    if (amounts === null || own === undefined) return null;
+    let totals = cache.get(currency);
+    if (!totals) cache.set(currency, (totals = side(categoryTotals(categories, own, currency))));
+    return totals.get(categoryId)?.amount ?? Money.zero(currency);
+  };
+}
+
 /** FR 9: a line of the card «Дохід» — an income category's plan and fact (null — a future month). */
 export interface IncomeLine {
   readonly categoryId: string;
+  /** In the budget's currency (FR 24). */
   readonly plan: Money;
   readonly actual: Money | null;
+  /** FR 24: the plan and the fact in the category's own currency; left out — the budget's currency. */
+  readonly original?: { readonly plan: Money; readonly actual: Money | null };
 }
 
 /**
@@ -284,22 +458,41 @@ export function incomeLines(
   plan: PeriodPlan,
   categories: ReadonlyMap<string, BudgetCategory>,
   amounts: readonly CountedAmount[] | null,
+  /** FR 24: the amounts in the currencies of the plan's income categories. */
+  originals: AmountsByCurrency = new Map(),
 ): IncomeLine[] {
   const currency = plan.incomePlan.currency;
   const zero = Money.zero(currency);
   const planned = new Map<string, Money>();
+  // FR 24: a category's own plan — one currency per category; a merged one of another currency keeps the budget's.
+  const own = new Map<string, Money | null>();
   for (const l of plan.incomePlans ?? []) {
     const id = resolveCategory(categories, l.categoryId)?.id ?? l.categoryId;
     planned.set(id, (planned.get(id) ?? zero).plus(l.amount));
+    const o = l.original ?? null;
+    const before = own.get(id);
+    own.set(
+      id,
+      before === undefined
+        ? o
+        : before !== null && o !== null && before.currency === o.currency
+          ? before.plus(o)
+          : null,
+    );
   }
+  const incomeIn = ownTotals(categories, amounts, originals, (t) => t.income);
   const actual = amounts === null ? null : categoryTotals(categories, amounts, currency).income;
   const ids = new Set([...planned.keys()]);
   for (const [id, t] of actual ?? []) if (!t.amount.isZero()) ids.add(id);
-  const lines = [...ids].map((categoryId): IncomeLine => ({
-    categoryId,
-    plan: planned.get(categoryId) ?? zero,
-    actual: actual === null ? null : (actual.get(categoryId)?.amount ?? zero),
-  }));
+  const lines = [...ids].map((categoryId): IncomeLine => {
+    const o = own.get(categoryId) ?? null;
+    return {
+      categoryId,
+      plan: planned.get(categoryId) ?? zero,
+      actual: actual === null ? null : (actual.get(categoryId)?.amount ?? zero),
+      ...(o ? { original: { plan: o, actual: incomeIn(o.currency, categoryId) } } : {}),
+    };
+  });
   const reached = (l: IncomeLine) => (l.actual !== null && l.actual.compare(l.plan) >= 0 ? 1 : 0);
   return lines.sort(
     (a, b) =>

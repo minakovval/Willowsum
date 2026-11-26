@@ -1,13 +1,18 @@
 import { Money } from "@willowsum/domain-kernel";
 import {
+  convertLines,
   firstPeriodChoices,
+  withPlanRates,
+  inBudgetCurrency,
   incomePlanIssue,
   incomePlansTotal,
   includedByDefault,
   isPeriod,
   limitIssue,
+  periodDays,
   periodOf,
   parseBudgetAmount,
+  parseCategoryAmount,
   periodMode,
   periodsToSnapshot,
   scalePlan,
@@ -22,6 +27,7 @@ import {
   type PeriodObligations,
   type PeriodPlan,
   type PlanCell,
+  type PlanRates,
   type PlanIncome,
   type PlanLines,
 } from "../domain/index.ts";
@@ -191,6 +197,14 @@ export interface BudgetChargeHistory {
   >;
 }
 
+/**
+ * BUD-02@PoC FR 24 («Валюта категорії»): the rate of each currency into `to` on `date` — the date's or the nearest
+ * earlier one (module fx-rates, adapters/plan-rates.ts). A currency left out of the map has no rate at all.
+ */
+export interface BudgetRates {
+  rates(currencies: readonly string[], to: string, date: string): Promise<PlanRates>;
+}
+
 export interface BudgetDeps {
   readonly newId: () => string;
   /** «Сьогодні» — the Kyiv date. */
@@ -198,6 +212,11 @@ export interface BudgetDeps {
   /** The space's reporting currency (ACC-06): the budget's, fixed when it is created (FR 1). */
   readonly reportingCurrency: string;
   readonly reads: BudgetReads;
+  /**
+   * FR 24: the rates the limits and income plans of other currencies are converted at; null or left out — not wired (a
+   * test's server): such a currency is refused and a stored line of one counts 0 («Курс недоступний»).
+   */
+  readonly rates?: BudgetRates | null;
   /** Null — not wired (a test's server only; the API process wires it). */
   readonly obligations: BudgetObligations | null;
   /** BUD-17: the goals and the debts' extra payments of the grid; null — not wired (a test's server only). */
@@ -324,9 +343,18 @@ const budgetFields = (b: StoredBudget) => ({
   ...(b.firstDay === null ? {} : { firstDay: b.firstDay }),
 });
 
-const limitChange = (categoryId: string, before: Money | null, after: Money | null) => [
+const limitChange = (
+  categoryId: string,
+  before: Money | null,
+  after: Money | null,
+  /** FR 24: the budget's currency — a line of another currency on either side also names its currency. */
+  currency?: string,
+) => [
   { field: "categoryId", before: before ? categoryId : null, after: after ? categoryId : null },
   { field: "amount", before: before?.toDecimalString() ?? null, after: after?.toDecimalString() ?? null },
+  ...(currency !== undefined && [before, after].some((m) => m !== null && m.currency !== currency)
+    ? [{ field: "currency", before: before?.currency ?? null, after: after?.currency ?? null }]
+    : []),
 ];
 
 /** The most limits one request sets. */
@@ -346,6 +374,8 @@ export function checkIncomePlans(
   inputs: readonly IncomePlanInput[],
   categories: ReadonlyMap<string, BudgetCategory>,
   currency: string,
+  /** FR 24: today's rates of the other currencies the request names (`inputRates`). */
+  rates: PlanRates = new Map(),
 ): { rows: { categoryId: string; amount: Money | null }[]; issues: BudgetIssue[] } {
   const issues: BudgetIssue[] = [];
   const rows: { categoryId: string; amount: Money | null }[] = [];
@@ -359,7 +389,7 @@ export function checkIncomePlans(
     if (problem && (duplicate || l.amount !== null))
       return issues.push({ field: `${field}.categoryId`, issue: problem });
     if (l.amount === null) return rows.push({ categoryId: l.categoryId, amount: null });
-    const amount = parseBudgetAmount(`${field}.amount`, l.amount, currency);
+    const amount = parseCategoryAmount(`${field}.amount`, l.amount, currency, rates);
     if (amount instanceof Money) rows.push({ categoryId: l.categoryId, amount });
     else issues.push(amount);
   });
@@ -377,13 +407,14 @@ export function checkIncome(
   },
   categories: ReadonlyMap<string, BudgetCategory>,
   currency: string,
+  rates: PlanRates = new Map(),
 ): {
   total: Money | null;
   rows: { categoryId: string; amount: Money }[];
   issues: BudgetIssue[];
 } {
   if (input.incomePlans !== undefined) {
-    const checked = checkIncomePlans(input.incomePlans, categories, currency);
+    const checked = checkIncomePlans(input.incomePlans, categories, currency, rates);
     const issues = [...checked.issues];
     if (input.incomePlan !== undefined) issues.push({ field: "incomePlan", issue: "with_income_plans" });
     // A new plan has nothing to remove: «Прибрати» is leaving the row out.
@@ -391,7 +422,7 @@ export function checkIncome(
       if (r.amount === null) issues.push({ field: `incomePlans.${i}.amount`, issue: "invalid" });
     });
     const rows = checked.rows.flatMap((r) => (r.amount === null ? [] : [{ ...r, amount: r.amount }]));
-    return { total: issues.length > 0 ? null : incomePlansTotal(rows, currency), rows, issues };
+    return { total: issues.length > 0 ? null : convertedTotal(rows, currency, rates), rows, issues };
   }
   const income = input.incomePlan
     ? parseBudgetAmount("incomePlan", input.incomePlan, currency)
@@ -401,8 +432,8 @@ export function checkIncome(
     : { total: null, rows: [], issues: [income] };
 }
 
-const incomePlanChange = (categoryId: string, before: Money | null, after: Money | null) =>
-  limitChange(categoryId, before, after);
+const incomePlanChange = (categoryId: string, before: Money | null, after: Money | null, currency?: string) =>
+  limitChange(categoryId, before, after, currency);
 
 export interface LimitInput {
   readonly categoryId: string;
@@ -415,6 +446,8 @@ export function checkLimits(
   inputs: readonly LimitInput[],
   categories: ReadonlyMap<string, BudgetCategory>,
   currency: string,
+  /** FR 24: today's rates of the other currencies the request names (`inputRates`). */
+  rates: PlanRates = new Map(),
 ): { limits: { categoryId: string; amount: Money | null }[]; issues: BudgetIssue[] } {
   const issues: BudgetIssue[] = [];
   const limits: { categoryId: string; amount: Money | null }[] = [];
@@ -428,7 +461,7 @@ export function checkLimits(
     if (problem && (duplicate || l.amount !== null))
       return issues.push({ field: `${field}.categoryId`, issue: problem });
     if (l.amount === null) return limits.push({ categoryId: l.categoryId, amount: null });
-    const amount = parseBudgetAmount(`${field}.amount`, l.amount, currency);
+    const amount = parseCategoryAmount(`${field}.amount`, l.amount, currency, rates);
     if (amount instanceof Money) limits.push({ categoryId: l.categoryId, amount });
     else issues.push(amount);
   });
@@ -436,12 +469,80 @@ export function checkLimits(
 }
 
 /**
+ * FR 24: the lines' sum in the budget's currency at `rates` (a line without a rate counts 0, as in the plan). The
+ * budget's stored `income_plan` is this sum at today's rate when the plan is saved; a read converts again.
+ */
+export function convertedTotal(
+  lines: readonly { readonly categoryId: string; readonly amount: Money }[],
+  currency: string,
+  rates: PlanRates,
+): Money {
+  return incomePlansTotal(
+    lines.map((l) => ({
+      categoryId: l.categoryId,
+      amount: inBudgetCurrency(l.amount, currency, rates) ?? Money.zero(currency),
+    })),
+    currency,
+  );
+}
+
+/** FR 24: the rates of the currencies other than the budget's on `date`; none needed — no call. */
+export async function ratesOn(
+  deps: Pick<BudgetDeps, "rates">,
+  currencies: Iterable<string>,
+  currency: string,
+  date: string,
+): Promise<PlanRates> {
+  const other = [...new Set(currencies)].filter((c) => c !== currency).sort();
+  if (other.length === 0 || !deps.rates) return new Map();
+  return deps.rates.rates(other, currency, date);
+}
+
+/** FR 24: today's rates of the other currencies a request's limits and income plans name (before they are checked). */
+export function inputRates(
+  deps: Pick<BudgetDeps, "rates" | "today">,
+  currency: string,
+  input: {
+    readonly incomePlans?: readonly IncomePlanInput[] | undefined;
+    readonly limits?: readonly LimitInput[] | undefined;
+  },
+): Promise<PlanRates> {
+  const named = [...(input.limits ?? []), ...(input.incomePlans ?? [])].flatMap((l) =>
+    l.amount === null ? [] : [l.amount.currency],
+  );
+  return ratesOn(deps, named, currency, deps.today());
+}
+
+/** FR 24: the rates a plan of these stored lines needs on `date` (today, or a finished period's last day). */
+export const linesRates = (
+  deps: Pick<BudgetDeps, "rates">,
+  budget: StoredBudget,
+  lines: readonly StoredLimit[],
+  date: string,
+): Promise<PlanRates> => planRatesOn(deps, budget, lines, [], date);
+
+/** FR 24, BUD-17: the rates of the lines' and the cells' currencies on `date`. */
+export const planRatesOn = (
+  deps: Pick<BudgetDeps, "rates">,
+  budget: StoredBudget,
+  lines: readonly StoredLimit[],
+  cells: readonly PlanCell[],
+  date: string,
+): Promise<PlanRates> =>
+  ratesOn(
+    deps,
+    [...lines.map((l) => l.amount.currency), ...cells.flatMap((c) => (c.amount ? [c.amount.currency] : []))],
+    budget.currency,
+    date,
+  );
+
+/**
  * FR 11: before any change of the budget, and on the first view of a finished period, every finished period without a
  * snapshot keeps the plan it had — the plan as it is now, since a change acts only from the current period on. Called
  * under the budget's row lock. «Обов'язкова» is the categories' attribute (BUD-01 FR 11) as it is at that moment.
  */
 export async function ensureSnapshots(
-  deps: Pick<BudgetDeps, "planEnabled">,
+  deps: Pick<BudgetDeps, "planEnabled" | "rates">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
@@ -455,20 +556,21 @@ export async function ensureSnapshots(
     new Set((await tx.snapshots(householdId, budget.id)).keys()),
   );
   if (missing.length === 0) return;
-  const plan = livePlan(
-    budget,
-    await tx.limits(householdId, budget.id),
-    categories,
-    await tx.incomePlans(householdId, budget.id),
-  );
+  const limits = await tx.limits(householdId, budget.id);
+  const incomePlans = await tx.incomePlans(householdId, budget.id);
   const cells = await planCellsInEffect(deps, tx, householdId, budget.id);
-  for (const p of missing)
+  // FR 24: a finished period converts at the rate of its last day, and its snapshot keeps that rate.
+  for (const p of missing) {
+    const own = cells.filter((c) => c.period === p);
+    const rates = await planRatesOn(deps, budget, [...limits, ...incomePlans], own, periodDays(p).to);
+    const plan = livePlan(budget, limits, categories, incomePlans, rates);
     await tx.insertSnapshot(
       householdId,
       budget.id,
       p,
-      monthPlan(budget, p, plan, cells, categories, await lines(p)),
+      monthPlan(budget, p, plan, cells, categories, await lines(p), rates),
     );
+  }
 }
 
 /**
@@ -519,12 +621,15 @@ export function monthPlan(
   cells: readonly PlanCell[],
   categories: ReadonlyMap<string, BudgetCategory>,
   lines: PlanLines | null,
+  /** FR 24: the rates of the lines' and the cells' currencies (a cell of another currency converted at them). */
+  rates?: PlanRates,
 ): PeriodPlan {
   return withCells(
     planOf(budget, period, live),
     cells.filter((c) => c.period === period),
     categories,
     lines,
+    rates,
   );
 }
 
@@ -543,15 +648,42 @@ export function livePlan(
   budget: StoredBudget,
   limits: readonly StoredLimit[],
   categories: ReadonlyMap<string, BudgetCategory>,
-  /** FR 21: the income plan by category; the budget's `incomePlan` is their sum (written with them). */
+  /** FR 21: the income plan by category; the income plan is their sum. */
   incomePlans: readonly StoredLimit[] = [],
+  /** FR 24: the rates of the lines' other currencies (`linesRates`); a currency without one counts 0. */
+  rates: PlanRates = new Map(),
 ): PeriodPlan {
-  return {
-    incomePlan: budget.incomePlan,
-    incomePlans,
-    plannedSavings: Money.zero(budget.currency),
-    limits: limits.map((l) => ({ ...l, mandatory: categories.get(l.categoryId)?.essential ?? false })),
-  };
+  const currency = budget.currency;
+  const income = convertLines(incomePlans, currency, rates);
+  return withPlanRates(
+    {
+      // FR 21, FR 24: the sum of the categories' plans at the plan's rates; without categories — the stored plan.
+      incomePlan: income.length > 0 ? incomePlansTotal(income, currency) : budget.incomePlan,
+      incomePlans: income,
+      plannedSavings: Money.zero(currency),
+      limits: convertLines(limits, currency, rates).map((l) => ({
+        ...l,
+        mandatory: categories.get(l.categoryId)?.essential ?? false,
+      })),
+    },
+    rates,
+  );
+}
+
+/**
+ * FR 24: the plan as it is now at today's rates (the current and future periods, GET /v1/budget) and those rates — of
+ * the lines' currencies and of the cells' (BUD-17: a month's own value in a category's currency).
+ */
+export async function livePlanToday(
+  deps: Pick<BudgetDeps, "rates" | "today">,
+  budget: StoredBudget,
+  limits: readonly StoredLimit[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+  incomePlans: readonly StoredLimit[] = [],
+  cells: readonly PlanCell[] = [],
+): Promise<PeriodPlan & { readonly allRates: PlanRates }> {
+  const rates = await planRatesOn(deps, budget, [...limits, ...incomePlans], cells, deps.today());
+  return { ...livePlan(budget, limits, categories, incomePlans, rates), allRates: rates };
 }
 
 export const byId = (categories: readonly BudgetCategory[]): ReadonlyMap<string, BudgetCategory> =>
@@ -587,10 +719,11 @@ export async function createBudget(
   const proportional = startChoices(today).choices.find((c) => c.start === "proportional");
   if (input.proportional === true && proportional?.firstPeriod !== input.firstPeriod)
     issues.push({ field: "proportional", issue: "invalid" });
-  const incomeChecked = checkIncome(input, categories, currency);
+  const rates = await inputRates(deps, currency, input);
+  const incomeChecked = checkIncome(input, categories, currency, rates);
   issues.push(...incomeChecked.issues);
   const income = incomeChecked.total;
-  const checked = checkLimits(input.limits ?? [], categories, currency);
+  const checked = checkLimits(input.limits ?? [], categories, currency, rates);
   issues.push(...checked.issues);
   if (issues.length > 0 || income === null) return { result: { kind: "invalid", issues }, handOffs: [] };
   const budget: StoredBudget = {
@@ -625,7 +758,7 @@ export async function createBudget(
           "budget.limit",
           l.categoryId,
           "create",
-          limitChange(l.categoryId, null, l.amount),
+          limitChange(l.categoryId, null, l.amount, budget.currency),
         ),
       );
     }
@@ -639,7 +772,7 @@ export async function createBudget(
         "budget.income-plan",
         r.categoryId,
         "create",
-        incomePlanChange(r.categoryId, null, r.amount),
+        incomePlanChange(r.categoryId, null, r.amount, budget.currency),
       ),
     );
   }
@@ -679,7 +812,6 @@ export async function updatePlan(
   const storedIncome = new Map(
     (await tx.incomePlans(caller.householdId, budget.id)).map((l) => [l.categoryId, l.amount]),
   );
-  const byCategory = storedIncome.size > 0;
   let income: Money | BudgetIssue = patch.incomePlan
     ? parseBudgetAmount("incomePlan", patch.incomePlan, budget.currency)
     : budget.incomePlan;
@@ -689,9 +821,10 @@ export async function updatePlan(
   // FR 21: a plan by category is the sum of its categories — it is changed through them.
   else if (patch.incomePlan && storedIncome.size > 0)
     issues.push({ field: "incomePlan", issue: "by_category" });
-  const incomeRows = checkIncomePlans(patch.incomePlans ?? [], categories, budget.currency);
+  const rates = await inputRates(deps, budget.currency, patch);
+  const incomeRows = checkIncomePlans(patch.incomePlans ?? [], categories, budget.currency, rates);
   issues.push(...incomeRows.issues);
-  const checked = checkLimits(patch.limits ?? [], categories, budget.currency);
+  const checked = checkLimits(patch.limits ?? [], categories, budget.currency, rates);
   issues.push(...checked.issues);
   if (issues.length > 0 || !(income instanceof Money))
     return { result: { kind: "invalid", issues }, handOffs: [] };
@@ -720,14 +853,16 @@ export async function updatePlan(
         "budget.limit",
         l.categoryId,
         action,
-        limitChange(l.categoryId, before, l.amount),
+        limitChange(l.categoryId, before, l.amount, budget.currency),
       ),
     );
   }
+  let incomeChanged = false;
   for (const r of incomeRows.rows) {
     const before = storedIncome.get(r.categoryId) ?? null;
     if (before === null ? r.amount === null : r.amount !== null && before.equals(r.amount)) continue;
     await tx.setIncomePlan(caller.householdId, budget.id, r.categoryId, r.amount);
+    incomeChanged = true;
     if (r.amount === null) storedIncome.delete(r.categoryId);
     else storedIncome.set(r.categoryId, r.amount);
     handOffs.push(
@@ -737,17 +872,18 @@ export async function updatePlan(
         "budget.income-plan",
         r.categoryId,
         before === null ? "create" : r.amount === null ? "delete" : "update",
-        incomePlanChange(r.categoryId, before, r.amount),
+        incomePlanChange(r.categoryId, before, r.amount, budget.currency),
       ),
     );
   }
   // FR 21: the income plan is the sum of the income categories' plans. A change that touches no category of a plan
   // without categories (an empty list, «Прибрати» for a category that has no plan) leaves that plan as it is.
-  if (patch.incomePlans !== undefined && (byCategory || storedIncome.size > 0))
-    income = incomePlansTotal(
-      [...storedIncome].map(([categoryId, amount]) => ({ categoryId, amount })),
-      budget.currency,
-    );
+  // FR 24: only when a category's plan changed — today's rate alone changes nothing that is stored.
+  if (patch.incomePlans !== undefined && incomeChanged) {
+    const lines = [...storedIncome].map(([categoryId, amount]) => ({ categoryId, amount }));
+    // FR 24: the stored income plan is the sum at today's rates (a read converts again at its own).
+    income = convertedTotal(lines, budget.currency, await linesRates(deps, budget, lines, deps.today()));
+  }
   if (!income.equals(budget.incomePlan))
     handOffs.push(
       handOff(deps, caller, "budget.budget", budget.id, "update", [
@@ -856,7 +992,7 @@ export async function deleteBudget(
         "budget.limit",
         l.categoryId,
         "delete",
-        limitChange(l.categoryId, l.amount, null),
+        limitChange(l.categoryId, l.amount, null, budget.currency),
       ),
     ),
     ...incomePlans.map((l) =>
@@ -866,7 +1002,7 @@ export async function deleteBudget(
         "budget.income-plan",
         l.categoryId,
         "delete",
-        incomePlanChange(l.categoryId, l.amount, null),
+        incomePlanChange(l.categoryId, l.amount, null, budget.currency),
       ),
     ),
   ];
@@ -879,7 +1015,7 @@ export async function deleteBudget(
  * current and future ones — the plan as it is. Null — a period before the first one (edge case 5).
  */
 export async function periodPlan(
-  deps: Pick<BudgetDeps, "today" | "planSources" | "planEnabled">,
+  deps: Pick<BudgetDeps, "today" | "planSources" | "planEnabled" | "rates">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
@@ -888,20 +1024,26 @@ export async function periodPlan(
 ): Promise<PeriodPlan | null> {
   if (period < budget.firstPeriod) return null;
   const today = deps.today();
-  if (periodMode(period, today) !== "past")
+  if (periodMode(period, today) !== "past") {
+    const cells = await planCellsInEffect(deps, tx, householdId, budget.id, period);
+    const live = await livePlanToday(
+      deps,
+      budget,
+      await tx.limits(householdId, budget.id),
+      categories,
+      await tx.incomePlans(householdId, budget.id),
+      cells.filter((c) => c.period === period),
+    );
     return monthPlan(
       budget,
       period,
-      livePlan(
-        budget,
-        await tx.limits(householdId, budget.id),
-        categories,
-        await tx.incomePlans(householdId, budget.id),
-      ),
-      await planCellsInEffect(deps, tx, householdId, budget.id, period),
+      live,
+      cells,
       categories,
       await planLines(deps, householdId, budget.currency)(period),
+      live.allRates,
     );
+  }
   let snapshot = (await tx.snapshots(householdId, budget.id)).get(period);
   if (!snapshot) {
     const locked = await tx.budget(householdId, true);
@@ -925,7 +1067,7 @@ export async function periodPlan(
  * pass (under the budget's row lock) when a finished month has none yet. Null — a month before the first one.
  */
 export async function periodPlans(
-  deps: Pick<BudgetDeps, "today" | "planSources" | "planEnabled">,
+  deps: Pick<BudgetDeps, "today" | "planSources" | "planEnabled" | "rates">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
@@ -943,13 +1085,15 @@ export async function periodPlans(
     if (locked) await ensureSnapshots(deps, tx, householdId, locked, today, categories, lines);
     snapshots = await tx.snapshots(householdId, budget.id);
   }
-  const live = livePlan(
+  const cells = await planCellsInEffect(deps, tx, householdId, budget.id, periodOf(today));
+  const live = await livePlanToday(
+    deps,
     budget,
     await tx.limits(householdId, budget.id),
     categories,
     limitsOnly ? [] : await tx.incomePlans(householdId, budget.id),
+    cells,
   );
-  const cells = await planCellsInEffect(deps, tx, householdId, budget.id, periodOf(today));
   const out = new Map<Period, PeriodPlan | null>();
   for (const p of periods)
     out.set(
@@ -958,7 +1102,7 @@ export async function periodPlans(
         ? null
         : periodMode(p, today) === "past"
           ? (snapshots.get(p) ?? null)
-          : monthPlan(budget, p, live, cells, categories, limitsOnly ? null : await lines(p)),
+          : monthPlan(budget, p, live, cells, categories, limitsOnly ? null : await lines(p), live.allRates),
     );
   return out;
 }

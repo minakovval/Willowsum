@@ -5,6 +5,7 @@ import { defineRoute } from "../../../../platform/http/route.ts";
 import { byId, planLines, readPlanGrid, setPlanCell, type CellResult } from "../../application/index.ts";
 import { gridMonths, isPeriod, PLAN_LINE_KINDS, type GridCell } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
+import { planRatesSchema, ratesOut } from "./rates.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
 /**
@@ -84,6 +85,12 @@ const gridSchema = z.object({
     ),
     totals: totalsSchema,
   }),
+  /**
+   * BUD-17 business rules (owner decision 2026-11-26): a category's cells are in its currency (BUD-02 FR 24); the sums
+   * of the sections and «Не розподілено» are in the budget's, such a cell at today's rate — these rates; not empty — those
+   * sums are shown with «≈» and the hint names the rate.
+   */
+  rates: planRatesSchema,
   /** «Не розподілено N €» or «Дефіцит N €» (`deficit`, the absolute value); null — a section has no figure (no rate). */
   unallocated: z.array(
     z.object({ kind: z.enum(["unallocated", "deficit"]), amount: moneySchema }).nullable(),
@@ -154,6 +161,7 @@ export const getPlanGridRoute = defineRoute({
         })),
         totals: totals(grid.debts.totals),
       },
+      rates: ratesOut({ rates: grid.rates }),
       unallocated: grid.unallocated.map((u) => (u ? { kind: u.kind, amount: u.amount.toJSON() } : null)),
     };
   },

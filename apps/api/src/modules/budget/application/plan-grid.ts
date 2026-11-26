@@ -4,6 +4,7 @@ import {
   gridMonths,
   limitIssue,
   parseBudgetAmount,
+  parseCategoryAmount,
   planGrid,
   type BudgetCategory,
   type BudgetIssue,
@@ -20,7 +21,8 @@ import {
   cellHandOff,
   countsFrom,
   ensureSnapshots,
-  livePlan,
+  livePlanToday,
+  ratesOn,
   planLines,
   planOf,
   type BudgetDeps,
@@ -47,7 +49,8 @@ export async function readPlanGrid(
   const today = deps.today();
   const months = gridMonths(today);
   const byId = new Map(categories.map((c) => [c.id, c]));
-  const live = livePlan(budget, stored.limits, byId);
+  // BUD-02 FR 24: a limit of another currency at today's rate, as on «Бюджет».
+  const live = await livePlanToday(deps, budget, stored.limits, byId, [], stored.cells);
   const base = new Map<Period, PeriodPlan>(months.map((p) => [p, planOf(budget, p, live)]));
   const cells = stored.cells;
   const goals = deps.planSources ? await deps.planSources.goals(householdId, budget.currency) : null;
@@ -96,6 +99,7 @@ export async function readPlanGrid(
     incomes,
     goals,
     debts,
+    rates: live.allRates,
   });
 }
 
@@ -166,7 +170,23 @@ export async function setPlanCell(
   if (periodIssue) issues.push({ field: "period", issue: periodIssue });
   const line = lineIssue(input, categories, lines);
   if (line) issues.push({ field: "lineId", issue: line });
-  const amount = input.amount ? parseBudgetAmount("amount", input.amount, budget.currency) : null;
+  // BUD-17 business rules (owner decision 2026-11-26): a category's cell is in the currency of its limit (BUD-02 FR 24).
+  const lineCurrency =
+    input.kind === "limit"
+      ? ((await tx.limits(caller.householdId, budget.id)).find((l) => l.categoryId === input.lineId)?.amount
+          .currency ?? budget.currency)
+      : budget.currency;
+  const rates =
+    lineCurrency === budget.currency
+      ? new Map()
+      : await ratesOn(deps, [lineCurrency], budget.currency, today);
+  const amount = input.amount
+    ? lineCurrency === budget.currency
+      ? parseBudgetAmount("amount", input.amount, budget.currency)
+      : input.amount.currency === lineCurrency
+        ? parseCategoryAmount("amount", input.amount, budget.currency, rates)
+        : { field: "amount.currency", issue: "currency" }
+    : null;
   if (amount !== null && !(amount instanceof Money)) issues.push(amount);
   if (issues.length > 0) return none({ kind: "invalid", issues });
   if (input.period < budget.firstPeriod) return none({ kind: "before-start" });
@@ -192,7 +212,7 @@ export async function setPlanCell(
     caller.householdId,
     budget.id,
     { period: input.period, kind: input.kind, lineId: input.lineId, amount: after },
-    budget.currency,
+    after?.currency ?? lineCurrency,
   );
   const h = cellHandOff(deps, caller, budget, input, before, after);
   await tx.enqueueHandOff(h);
