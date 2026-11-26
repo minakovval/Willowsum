@@ -1689,6 +1689,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/recurring/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The calendar of regular payments: the charges from a date over 1–366 days with the loans' monthly payments, the month's and the year's totals, the current period (BUD-07 FR 7, FR 16, FR 19) */
+        get: operations["listRecurringCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recurring/payments": {
         parameters: {
             query?: never;
@@ -20629,6 +20646,184 @@ export interface operations {
                 };
             };
             /** @description Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listRecurringCalendar: {
+        parameters: {
+            query?: {
+                /** @description How many days, 1–366; 30 by default (FR 7 «горизонт») */
+                days?: string;
+                /** @description The first day, today by default; from 429 days before today to 366 days after it */
+                from?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The charges in the range, the loans, the totals and the period, at today's rates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        from: string;
+                        items: {
+                            accountId: string | null;
+                            counted: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            interest: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "payment" | "loan";
+                            name: string;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            paymentId: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            subscription: boolean;
+                            transactionId: string | null;
+                            /** @enum {string} */
+                            type: "expense" | "income";
+                            variable: boolean;
+                        }[];
+                        loans: {
+                            /** Format: uuid */
+                            accountId: string;
+                            annualRate: string | null;
+                            monthlyPayment: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            name: string;
+                        }[];
+                        period: {
+                            approximate: boolean;
+                            charges: number;
+                            month: string;
+                            overdue: number;
+                            paid: number;
+                            remaining: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                        };
+                        to: string;
+                        totals: {
+                            approximate: boolean;
+                            currency: string;
+                            expenses: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            incomes: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            loans: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            month: string;
+                            subscriptions: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            yearExpenses: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            yearIncomes: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
             429: {
                 headers: {
                     /** @description Seconds until the current one-minute window ends */

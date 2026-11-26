@@ -9,6 +9,7 @@ import type { CategoryUsage } from "../categories/index.ts";
 import { ApiProblem } from "../../platform/http/problem.ts";
 import {
   accountsPaidIn,
+  paymentsToAccounts,
   budgetFirstDate,
   budgetRows,
   categoriesInParts,
@@ -610,6 +611,29 @@ export function createAccountPayments(db: ModuleDatabase): AccountPayments {
   return {
     paidIn: (householdId, accountIds, from, to) =>
       db.inHousehold(householdId, (q) => accountsPaidIn(q, householdId, accountIds, from, to)),
+  };
+}
+
+/**
+ * BUD-07@PoC FR 16 as module recurring reads it: the payments to these accounts (a loan's) in the dates (YYYY-MM-DD,
+ * both included) — as `AccountPayments` counts them — oldest first. Read only; bound to one space.
+ */
+export interface AccountInflows {
+  inflows(
+    householdId: string,
+    accountIds: readonly string[],
+    from: string,
+    to: string,
+  ): Promise<
+    readonly { readonly accountId: string; readonly transactionId: string; readonly date: string }[]
+  >;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createAccountInflows(db: ModuleDatabase): AccountInflows {
+  return {
+    inflows: (householdId, accountIds, from, to) =>
+      db.inHousehold(householdId, (q) => paymentsToAccounts(q, householdId, accountIds, from, to)),
   };
 }
 
