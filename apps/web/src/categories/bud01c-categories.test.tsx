@@ -87,7 +87,7 @@ function tree(): Tree {
   };
 }
 
-type Handler = Reply | ((call: Call) => Reply | Promise<Reply>);
+type Handler = Reply | ((call: Call, url: URL) => Reply | Promise<Reply>);
 
 function api(over: Record<string, Handler> = {}, data: Tree = tree()) {
   return { data, ...fakeApi({ "GET /v1/categories": { status: 200, body: data }, ...over }) };
