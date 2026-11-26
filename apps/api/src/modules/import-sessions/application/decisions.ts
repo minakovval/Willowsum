@@ -142,6 +142,18 @@ export function maskedChecks(checks: StatementChecks): StatementChecks {
           : { kind: r.kind, file: masked(r.file), account: masked(r.account) },
       ),
     },
+    // IMP-08 FR 2 (row 230): the detected number is stored as «…» and its last 4 characters, the currency as a code.
+    ...(checks.detected
+      ? {
+          detected: {
+            ...(checks.detected.bank !== undefined ? { bank: checks.detected.bank } : {}),
+            ...(checks.detected.currency !== undefined && /^[A-Z0-9]{3,10}$/.test(checks.detected.currency)
+              ? { currency: checks.detected.currency }
+              : {}),
+            ...(checks.detected.mask !== undefined ? { mask: masked(checks.detected.mask) } : {}),
+          },
+        }
+      : {}),
   };
 }
 

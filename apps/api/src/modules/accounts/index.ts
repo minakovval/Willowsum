@@ -8,6 +8,7 @@ import type { AuditLog } from "../audit/index.ts";
 import {
   accountAudit,
   accountKinds,
+  bankRegistry,
   accountsListTx,
   accountsRoutes,
   accountsTx,
@@ -152,6 +153,17 @@ export function createAccountStatements(db: ModuleDatabase, services: AccountsSe
  * never across it.
  */
 export { lockAccounts } from "./adapters/index.ts";
+
+/**
+ * The built-in directory of banks (FIN-01@PoC FR 4) as other modules read it: each bank's name — the one an account
+ * keeps — and the NBU's legal name. IMP-08 FR 2 (row 230): import-sessions looks a statement's own bank up in it.
+ */
+export function bankDirectory(): readonly { readonly name: string; readonly legalName?: string }[] {
+  return bankRegistry().banks.map((b) => ({
+    name: b.name,
+    ...(b.legalName !== undefined ? { legalName: b.legalName } : {}),
+  }));
+}
 
 /**
  * An account as another module posts money to it (FIN-03@PoC FR 2, edge case 2; module transactions): its state and

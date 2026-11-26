@@ -156,3 +156,20 @@ export const hasCardMask = (preamble: readonly (readonly string[])[]): boolean =
     .flat()
     .map(compact)
     .some((cell) => maskedIn(cell).length > 0);
+
+/**
+ * The masked number the statement names for its own account (IMP-08@PoC FR 2, «Створити рахунок»; row 230): a single
+ * masked card in the rows before the table, else a single IBAN there, as its last 4 characters behind «…»
+ * (`maskLast4`) — the only form that leaves the worker. Two different cards or IBANs (or none) — null: the person
+ * types the number. A full number is held only while the cells are read here, never returned.
+ */
+export function detectedMask(preamble: readonly (readonly string[])[]): string | null {
+  const cells = preamble.flat();
+  const one = (found: readonly string[]): string | null => {
+    const last4 = new Set(found.map(maskLast4));
+    return last4.size === 1 ? [...last4][0]! : null;
+  };
+  const cards = cells.map(compact).flatMap(maskedIn);
+  if (cards.length > 0) return one(cards);
+  return one(cells.flatMap(ibans));
+}

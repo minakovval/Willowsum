@@ -1,4 +1,5 @@
 import type {
+  Institution,
   ReadOptions,
   StatementChecks,
   StatementOptions,
@@ -210,6 +211,11 @@ export interface ParsePorts {
   /** An active account of the space, or null. */
   account(householdId: string, accountId: string): Promise<ParseAccount | null>;
   /**
+   * IMP-08 FR 2 (row 230): the directory of banks the statement's own bank is looked up in (accounts' NBU directory);
+   * absent — no bank is detected.
+   */
+  institutions?(): readonly Institution[];
+  /**
    * The parse in the isolated worker; the binding's opener is taken only once the worker's turn has come (#624). A
    * refusal is a `ParseRefused` with the file's rejection code.
    */
@@ -297,15 +303,19 @@ export async function runParse(
 
   const account = parse.accountId ? await ports.account(householdId, parse.accountId) : null;
   const accountId = account ? parse.accountId : null;
-  const statement: StatementOptions = account
-    ? {
-        account: {
-          currencies: account.currencies,
-          multiCurrency: account.currencies.length > 1,
-          kind: account.kind,
-        },
-      }
-    : {};
+  const institutions = ports.institutions?.() ?? [];
+  const statement: StatementOptions = {
+    ...(account
+      ? {
+          account: {
+            currencies: account.currencies,
+            multiCurrency: account.currencies.length > 1,
+            kind: account.kind,
+          },
+        }
+      : {}),
+    ...(institutions.length > 0 ? { institutions } : {}),
+  };
   let parsed: StatementParse;
   let recipe: ParseRecipe | null;
   let recipeFormat: FileParse["recipeFormat"] = null;
