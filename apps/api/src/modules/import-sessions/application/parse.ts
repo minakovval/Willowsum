@@ -435,7 +435,10 @@ async function readFile(
  * The worker's answer is not trusted (#711 security review, row 230b): the bank is kept only as `bankName` gives it,
  * and whether it is the directory's is decided here, against the directory the worker was given.
  */
-function checkedDetected(checks: StatementChecks, institutions: readonly Institution[]): DetectedAccount {
+export function checkedDetected(
+  checks: StatementChecks,
+  institutions: readonly Institution[],
+): DetectedAccount {
   const d = checks.detected ?? {};
   const bank = d.bank !== undefined ? bankName(d.bank) : null;
   return {

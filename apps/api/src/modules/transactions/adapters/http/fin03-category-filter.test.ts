@@ -44,6 +44,19 @@ describe("FIN-03@PoC FR 22 «Категорії»: the category filters of the l
     expect(taken.categories).toEqual([[A], [B, A]]);
   });
 
+  it("FIN-03@PoC FR 22 (security review of #714): only the same set is read once — two different sets that share an id stay two filters, in any order", () => {
+    // B sorts before A, so both sets below start with B: the dedupe must compare the whole set.
+    expect(takeCategoryFilters([`category.in:${A},${B}`, `category.eq:${B}`]).categories).toEqual([
+      [B, A],
+      [B],
+    ]);
+    expect(takeCategoryFilters([`category.eq:${B}`, `category.in:${A},${B}`]).categories).toEqual([
+      [B],
+      [B, A],
+    ]);
+    expect(takeCategoryFilters([`category.eq:${A}`, `category.eq:${B}`]).categories).toEqual([[A], [B]]);
+  });
+
   it("FIN-03@PoC FR 22 (security review of #714): the bound is the request's — two filters of 15 000 each are 422, each source is asked only for what is left", async () => {
     const asked: number[] = [];
     const port = {
