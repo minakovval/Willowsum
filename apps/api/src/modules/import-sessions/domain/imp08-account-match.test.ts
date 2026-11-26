@@ -40,6 +40,27 @@ describe("IMP-08@PoC FR 2 (row 230b): the account of a file among several of one
     expect(accountFor({ mask: "…5678" }, [white, pumb])).toEqual({ kind: "several" });
   });
 
+  it("IMP-08@PoC FR 2 (review of #718): the one account with the tail is of another bank than the file names — no pick, «Створити рахунок»", () => {
+    const pumbOther: AccountCandidate = { accountId: "a-pumb-9", institution: "ПУМБ", last4: "9999" };
+    // A ПУМБ statement ••1234 next to «Monobank Чорна» ••1234: the tail does not make it Monobank's.
+    expect(accountFor({ bank: "ПУМБ", mask: "…1234" }, [black, pumbOther])).toEqual({ kind: "none" });
+    // An account with no bank recorded is no contradiction; a file with no bank neither.
+    const noBank: AccountCandidate = { accountId: "a-nobank", institution: null, last4: "1234" };
+    expect(accountFor({ bank: "ПУМБ", mask: "…1234" }, [noBank])).toEqual({
+      kind: "picked",
+      accountId: "a-nobank",
+    });
+    expect(accountFor({ mask: "…1234" }, [black, pumbOther])).toEqual({
+      kind: "picked",
+      accountId: "a-black",
+    });
+    // The same bank written otherwise is the same bank.
+    expect(accountFor({ bank: "«пумб»", mask: "…9999" }, [black, pumbOther])).toEqual({
+      kind: "picked",
+      accountId: "a-pumb-9",
+    });
+  });
+
   it("IMP-08@PoC FR 2: a tail no account has — the bank's one account only when it has no number", () => {
     const unnumbered: AccountCandidate = { accountId: "a-rev", institution: "Revolut Bank UAB", last4: null };
     const numbered: AccountCandidate = { ...unnumbered, last4: "4417" };

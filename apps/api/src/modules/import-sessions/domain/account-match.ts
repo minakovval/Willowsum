@@ -3,7 +3,8 @@
  * 230b: «У користувача може бути багато рахунків в одному банку»). The one place of the rule; the parse step picks the
  * account with it and the step «Рахунок і файли» offers «Створити рахунок» by its outcome:
  * 1. the card or IBAN tail the file shows (`detected.mask`, «…» and 4 characters) — one account ending in it is the
- *    file's account; several — the one of the file's bank among them, else the person picks;
+ *    file's account, unless the file names a bank and that account is of another one (no account fits); several —
+ *    the one of the file's bank among them, else the person picks;
  * 2. no tail on the file — the bank: the one account of that bank is the file's; several — the person picks;
  * 3. a tail no account ends in — the bank's one account only when it has no number (a number that differs is another
  *    account), else no account fits: «Створити рахунок».
@@ -47,7 +48,14 @@ export function accountFor(
   const picked = (c: AccountCandidate): AccountPick => ({ kind: "picked", accountId: c.accountId });
   if (tail !== null) {
     const byTail = candidates.filter((c) => c.last4 !== null && c.last4.toUpperCase() === tail);
-    if (byTail.length === 1) return picked(byTail[0]!);
+    if (byTail.length === 1) {
+      // The one account with the tail is of another bank than the file names (review of #718): that account is not
+      // the file's, so no pick, and the file's account is not among the space's — «Оберіть рахунок» and «Створити
+      // рахунок» (FR 2). `several` would hide «Створити рахунок» (web `canCreateFor`).
+      const only = byTail[0]!;
+      const otherBank = bank !== "" && only.institution !== null && folded(only.institution) !== bank;
+      return otherBank ? { kind: "none" } : picked(only);
+    }
     if (byTail.length > 1) {
       const both = byTail.filter((c) => ofBank.includes(c));
       return both.length === 1 ? picked(both[0]!) : { kind: "several" };

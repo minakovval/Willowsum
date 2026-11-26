@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectedMask, type Institution, type StatementOptions } from "../domain/index.ts";
+import { detectedMask, hasCardMask, type Institution, type StatementOptions } from "../domain/index.ts";
 import { parseStatement } from "./parse-statement.ts";
 
 /**
@@ -136,5 +136,18 @@ describe("IMP-08@PoC FR 2 (server part): the statement's own account facts for �
     expect(detectedMask([["Card", "xxxx xxxx xxxx 4321"]])).toBe("…4321");
     expect(detectedMask([["Картка", "XXXX 4321"]])).toBe("…4321");
     expect(detectedMask([["Box 2024"]])).toBeNull();
+  });
+
+  it("IMP-05@PoC: a masked card in the rows before the table is still a card when its marks are x, and «Box 2024» is not (#711)", () => {
+    for (const cell of [
+      "4149 49xx xxxx 1234",
+      "Картка 4149**1234",
+      "Номер414949XXXXXX1234",
+      "Карткаxxxx1234",
+      "Card XXXX 1234",
+    ])
+      expect(hasCardMask([["Картка", cell]]), cell).toBe(true);
+    for (const cell of ["Box 2024", "Fax 044 123 4567", "Index 01001"])
+      expect(hasCardMask([["Адреса", cell]]), cell).toBe(false);
   });
 });
