@@ -1,5 +1,4 @@
 import { formatNumber, type Locale, type MessageKey, type Translate } from "@willowsum/i18n";
-import { maskTail } from "../accounts/newAccount.ts";
 import type { AccountItem, AccountRefusal, BatchDetail, FileParse } from "./api.ts";
 
 /**
@@ -173,13 +172,12 @@ export const rowsText = (t: Translate, locale: string, count: number): string =>
 };
 
 /**
- * IMP-08@PoC FR 2, AC 16: «Створити рахунок» is offered for a file that waits for an account when it names a bank or a
- * card or IBAN and no account of the space ends in that tail (a currency alone says too little). The same tail on an
- * account of the space means the account exists: the person picks it.
+ * IMP-08@PoC FR 2, AC 16, AC 17: «Створити рахунок» is offered for a file that waits for an account when no account of
+ * the space fits what the statement names (`detected.accountMatch` «none»). The rule is the server's one
+ * (import-sessions `accountFor`, row 230b): the card or IBAN tail first, the bank only when it has one account; the
+ * step does not match accounts itself. A tail one account ends in is that account; several accounts that fit — the
+ * person picks among them, no offer.
  */
-export function canCreateFor(row: FileRow, accounts: readonly AccountItem[]): boolean {
-  if (row.phase !== "needs-account" || row.fileId === null || row.detected === null) return false;
-  const tail = maskTail(row.detected.mask);
-  if (tail === "" && !row.detected.bank) return false;
-  return tail === "" || !accounts.some((a) => a.number?.last4 === tail);
+export function canCreateFor(row: FileRow): boolean {
+  return row.phase === "needs-account" && row.fileId !== null && row.detected?.accountMatch === "none";
 }

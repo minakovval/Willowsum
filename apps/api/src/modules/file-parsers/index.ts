@@ -40,6 +40,7 @@ export {
 } from "./domain/index.ts";
 export {
   ACCOUNT_BINDINGS,
+  bankName,
   CHECK_KINDS,
   EVENT_LIMITS,
   FLAG_SEVERITY,

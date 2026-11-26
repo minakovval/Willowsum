@@ -15,7 +15,6 @@ import { NewAccountDialog } from "../accounts/NewAccountDialog.tsx";
 import { kyivToday } from "../recurring/data.ts";
 import { childPath, importPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
-import { type AccountItem } from "./api.ts";
 import {
   canCreateFor,
   choiceLabel,
@@ -231,11 +230,10 @@ export function FilesStep({ batchId, onClose }: { batchId: string | null; onClos
                 key={row.key}
                 row={row}
                 choices={choices}
-                accounts={accounts.accounts}
                 byId={byId}
                 editing={editing.has(row.key)}
                 saveFailed={step.saveFailed === row.fileId}
-                canCreate={canCreateFor(row, accounts.accounts)}
+                canCreate={canCreateFor(row)}
                 createdAccount={row.fileId ? byId.get(created.get(row.fileId) ?? "") : undefined}
                 onCreate={() =>
                   row.fileId && row.detected && setCreating({ fileId: row.fileId, detected: row.detected })
@@ -314,7 +312,6 @@ export function FilesStep({ batchId, onClose }: { batchId: string | null; onClos
 interface LineProps {
   row: FileRow;
   choices: readonly Choice[];
-  accounts: readonly AccountItem[];
   byId: ReadonlyMap<string, Choice>;
   editing: boolean;
   saveFailed: boolean;

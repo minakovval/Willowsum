@@ -46,7 +46,14 @@ export {
   maskLast4,
   matchAccount,
 } from "./account.ts";
-export { detectAccount, detectedBank, INSTITUTION_LIMITS } from "./detect.ts";
+export {
+  bankName,
+  detectAccount,
+  detectedBank,
+  INSTITUTION_LIMITS,
+  PRINTED_BANK_LIMITS,
+  printedBank,
+} from "./detect.ts";
 export type { DetectedAccount, Institution } from "./detect.ts";
 export { readFigures } from "./figures.ts";
 export type { DeclaredFigures } from "./figures.ts";

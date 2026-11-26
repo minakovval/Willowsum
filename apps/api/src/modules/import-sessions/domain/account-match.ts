@@ -1,0 +1,59 @@
+/**
+ * The account of a statement among the space's accounts (IMP-08@PoC FR 2; Рішення власника (2026-11-26, чат), row
+ * 230b: «У користувача може бути багато рахунків в одному банку»). The one place of the rule; the parse step picks the
+ * account with it and the step «Рахунок і файли» offers «Створити рахунок» by its outcome:
+ * 1. the card or IBAN tail the file shows (`detected.mask`, «…» and 4 characters) — one account ending in it is the
+ *    file's account; several — the one of the file's bank among them, else the person picks;
+ * 2. no tail on the file — the bank: the one account of that bank is the file's; several — the person picks;
+ * 3. a tail no account ends in — the bank's one account only when it has no number (a number that differs is another
+ *    account), else no account fits: «Створити рахунок».
+ * Pure: the caller gives the detected facts and the accounts (their institution name and last 4 characters only).
+ */
+export const ACCOUNT_MATCHES = ["picked", "several", "none"] as const;
+export type AccountMatchKind = (typeof ACCOUNT_MATCHES)[number];
+
+export interface AccountCandidate {
+  readonly accountId: string;
+  readonly institution: string | null;
+  readonly last4: string | null;
+}
+
+export type AccountPick =
+  | { readonly kind: "picked"; readonly accountId: string }
+  | { readonly kind: "several" }
+  | { readonly kind: "none" };
+
+/** A bank's name compared without case, quotes, punctuation and extra spaces («АТ “ПУМБ”» = «ат пумб»). */
+const folded = (text: string): string =>
+  text
+    .normalize("NFKC")
+    .toLocaleLowerCase("uk")
+    .replace(/["'«»„“”’ʼ`]/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+
+const TAIL = /^…([A-Za-z0-9]{4})$/u;
+
+/** Null when the file names neither a bank nor a tail: nothing to match by. */
+export function accountFor(
+  detected: { readonly bank?: string | undefined; readonly mask?: string | undefined },
+  candidates: readonly AccountCandidate[],
+): AccountPick | null {
+  const tail = TAIL.exec(detected.mask ?? "")?.[1]?.toUpperCase() ?? null;
+  const bank = detected.bank ? folded(detected.bank) : "";
+  if (tail === null && bank === "") return null;
+  const ofBank =
+    bank === "" ? [] : candidates.filter((c) => c.institution !== null && folded(c.institution) === bank);
+  const picked = (c: AccountCandidate): AccountPick => ({ kind: "picked", accountId: c.accountId });
+  if (tail !== null) {
+    const byTail = candidates.filter((c) => c.last4 !== null && c.last4.toUpperCase() === tail);
+    if (byTail.length === 1) return picked(byTail[0]!);
+    if (byTail.length > 1) {
+      const both = byTail.filter((c) => ofBank.includes(c));
+      return both.length === 1 ? picked(both[0]!) : { kind: "several" };
+    }
+    return ofBank.length === 1 && ofBank[0]!.last4 === null ? picked(ofBank[0]!) : { kind: "none" };
+  }
+  if (ofBank.length === 1) return picked(ofBank[0]!);
+  return ofBank.length > 1 ? { kind: "several" } : { kind: "none" };
+}

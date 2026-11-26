@@ -5,7 +5,12 @@ import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { memoryObjectStorage } from "../src/platform/adapters/object-storage/index.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { createWorker } from "../src/platform/queue/index.ts";
-import { bankDirectory, type AccountDirectory, type PostingAccount } from "../src/modules/accounts/index.ts";
+import {
+  bankDirectory,
+  type AccountCandidates,
+  type AccountDirectory,
+  type PostingAccount,
+} from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { isolatedStatementParser } from "../src/modules/file-parsers/index.ts";
 import { createFileStorage, linkKey, type FileStorage } from "../src/modules/file-storage/index.ts";
@@ -50,6 +55,36 @@ const accounts: Pick<AccountDirectory, "postingAccount"> = {
     return found ?? null;
   },
 };
+
+/** The space's accounts as accounts' `AccountCandidates` gives them (institution and last 4 characters). */
+const candidatesOf = new Map<
+  string,
+  { accountId: string; institution: string | null; last4: string | null }[]
+>();
+const candidates: AccountCandidates = {
+  candidates: async (householdId) => candidatesOf.get(householdId) ?? [],
+};
+
+/** Adds an active account to the space: both ports see it. */
+function addAccount(
+  space: Space,
+  institution: string | null,
+  last4: string | null,
+  currency = "EUR",
+): string {
+  const id = randomUUID();
+  accountsOf.set(`${space.householdId}/${id}`, {
+    accountId: id,
+    kind: "current",
+    status: "active",
+    subaccounts: [{ subaccountId: randomUUID(), currency, ledgerAccountId: randomUUID() }],
+  });
+  candidatesOf.set(space.householdId, [
+    ...(candidatesOf.get(space.householdId) ?? []),
+    { accountId: id, institution, last4 },
+  ]);
+  return id;
+}
 
 interface Space {
   readonly accountId: string;
@@ -146,6 +181,7 @@ async function work(householdId: string): Promise<void> {
           recipes: createImportRecipesReader(db.databases.for("import-recipes")),
           accounts,
           banks: bankDirectory,
+          candidates,
           parser: isolatedStatementParser(),
         },
         now: clock.now,
@@ -237,7 +273,7 @@ const PLAIN = text([
 ]);
 
 describe("IMP-08@PoC FR 2 (server part): the parse gives each file what it says about its account", () => {
-  it("IMP-08@PoC FR 2: a monobank-like and a Revolut-like statement without an account — bank, currency and card masked; no directory bank for Revolut", async () => {
+  it("IMP-08@PoC FR 2: a monobank-like and a Revolut-like statement without an account — bank, currency and card masked; Revolut's bank as printed", async () => {
     const space = await newSpace();
     const batch = await batchWith(space, [
       { name: "mono.csv", bytes: MONOBANK },
@@ -257,8 +293,20 @@ describe("IMP-08@PoC FR 2 (server part): the parse gives each file what it says 
     );
     const [mono, revolut, plain] = batch.fileIds.map((id) => byId.get(id)!);
     expect(mono!.state).toBe("parsed");
-    expect(mono!.detected).toEqual({ bank: "Універсал Банк (monobank)", currency: "UAH", mask: "…1234" });
-    expect(revolut!.detected).toEqual({ currency: "EUR", mask: "…5678" });
+    expect(mono!.detected).toEqual({
+      bank: "Універсал Банк (monobank)",
+      bankInDirectory: true,
+      currency: "UAH",
+      mask: "…1234",
+      accountMatch: "none",
+    });
+    expect(revolut!.detected).toEqual({
+      bank: "Revolut Bank UAB",
+      bankInDirectory: false,
+      currency: "EUR",
+      mask: "…5678",
+      accountMatch: "none",
+    });
     expect(plain!.detected).toEqual({});
     // Only the masked form leaves the API: no full IBAN and no visible card digits but the last 4; `detected` is
     // its own field, not repeated in the checks.
@@ -288,5 +336,74 @@ describe("IMP-08@PoC FR 2 (server part): the parse gives each file what it says 
     expect(res.statusCode).toBe(404);
     expect(leakText(res.body)).not.toContain("…1234");
     expect((await view(owner, batch.batchId)).json().files[0].detected.mask).toBe("…1234");
+  });
+
+  it("IMP-08@PoC AC 17: a Revolut-like statement (bank not in the directory) prefills the bank as printed", async () => {
+    const space = await newSpace();
+    const batch = await batchWith(space, [{ name: "revolut.csv", bytes: REVOLUT }]);
+    await parse(space, batch.batchId);
+    await work(space.householdId);
+    const [file] = (await view(space, batch.batchId)).json().files;
+    expect(file.detected).toMatchObject({ bank: "Revolut Bank UAB", bankInDirectory: false });
+    expect(file.accountId).toBeNull();
+  });
+
+  it("IMP-08@PoC AC 17: two accounts in one bank, the mask matches the second — the second is picked", async () => {
+    const space = await newSpace();
+    addAccount(space, "Revolut Bank UAB", "1190");
+    const second = addAccount(space, "Revolut Bank UAB", "5678");
+    const batch = await batchWith(space, [{ name: "revolut.csv", bytes: REVOLUT }]);
+    await parse(space, batch.batchId);
+    await work(space.householdId);
+    const [file] = (await view(space, batch.batchId)).json().files;
+    expect(file.state).toBe("parsed");
+    expect(file.accountId).toBe(second);
+    expect(file.detected.accountMatch).toBe("picked");
+  });
+
+  it("IMP-08@PoC AC 17: two accounts in one bank, no mask match — no account picked, «Створити рахунок» (none fits)", async () => {
+    const space = await newSpace();
+    addAccount(space, "Revolut Bank UAB", "1190");
+    addAccount(space, "Revolut Bank UAB", "4417");
+    const batch = await batchWith(space, [{ name: "revolut.csv", bytes: REVOLUT }]);
+    await parse(space, batch.batchId);
+    await work(space.householdId);
+    const [file] = (await view(space, batch.batchId)).json().files;
+    expect(file.accountId).toBeNull();
+    expect(file.detected.accountMatch).toBe("none");
+  });
+
+  it("IMP-08@PoC FR 2: an account the person chose stays the file's, whatever the file's facts fit", async () => {
+    const space = await newSpace();
+    addAccount(space, "Revolut Bank UAB", "5678");
+    const batch = await batchWith(space, [{ name: "revolut.csv", bytes: REVOLUT }]);
+    await parse(space, batch.batchId, { files: [{ fileId: batch.fileIds[0], accountId: space.eur }] });
+    await work(space.householdId);
+    const [file] = (await view(space, batch.batchId)).json().files;
+    expect(file.accountId).toBe(space.eur);
+  });
+
+  it("IMP-08@PoC FR 2 (row 230b): a printed bank name with a long digit run never reaches the API beyond 4 digits", async () => {
+    const space = await newSpace();
+    const digits = ["4149", "4999", "1234", "5678"];
+    const bytes = text([
+      `Bank;Revolut ${digits.join(" ")}`,
+      "Date;Amount;Currency;Description",
+      "01.03.2026;-12.50;EUR;Coffee",
+      "02.03.2026;-40.00;EUR;Groceries",
+    ]);
+    const batch = await batchWith(space, [{ name: "digits.csv", bytes }]);
+    await parse(space, batch.batchId);
+    await work(space.householdId);
+    const res = await view(space, batch.batchId);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().files[0].detected.bank).toBeUndefined();
+    expect(leakText(res.body)).not.toContain(digits.slice(0, 2).join(" "));
+    expect(leakText(res.body)).not.toContain(digits.slice(0, 2).join(""));
+    const { rows } = await db.owner.query<{ checks: string }>(
+      "SELECT checks::text AS checks FROM import_sessions.file_checks WHERE household_id = $1",
+      [space.householdId],
+    );
+    expect(rows[0]!.checks).not.toContain(digits.slice(0, 2).join(" "));
   });
 });

@@ -28,4 +28,28 @@ describe("SEC #711: detected facts at the import boundary", () => {
     const d = { bank: "БАНК 3/4", currency: "UAH", mask: "…1234" };
     expect(maskedChecks({ ...base, detected: d }).detected).toEqual(d);
   });
+
+  it("IMP-08@PoC FR 2 (row 230b): a printed bank name with a long digit run never reaches the stored checks", () => {
+    const out = maskedChecks({
+      ...base,
+      detected: { bank: `Revolut Bank ${IBAN.slice(4, 20)}`, bankInDirectory: false, mask: "…1234" },
+    });
+    expect(out.detected).toEqual({ mask: "…1234" });
+    expect(JSON.stringify(out)).not.toContain(IBAN.slice(4, 12));
+  });
+
+  it("IMP-08@PoC FR 2 (row 230b): a printed bank passes with its mark; an unknown match outcome is dropped", () => {
+    const out = maskedChecks({
+      ...base,
+      detected: {
+        bank: "Revolut Bank UAB",
+        bankInDirectory: false,
+        accountMatch: "everything" as unknown as "none",
+      },
+    });
+    expect(out.detected).toEqual({ bank: "Revolut Bank UAB", bankInDirectory: false });
+    expect(
+      maskedChecks({ ...base, detected: { bank: "Revolut Bank UAB", accountMatch: "none" } }).detected,
+    ).toEqual({ bank: "Revolut Bank UAB", accountMatch: "none" });
+  });
 });
