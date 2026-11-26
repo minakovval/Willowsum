@@ -1,4 +1,5 @@
 import { formatNumber, type Locale, type MessageKey, type Translate } from "@willowsum/i18n";
+import { maskTail } from "../accounts/newAccount.ts";
 import type { AccountItem, AccountRefusal, BatchDetail, FileParse } from "./api.ts";
 
 /**
@@ -24,7 +25,12 @@ export interface FileRow {
   readonly message: { readonly uk: string; readonly en: string } | null;
   /** «Підтвердіть рахунок» (readiness): what the file shows against the chosen account and the best guess. */
   readonly refusal: AccountRefusal | null;
+  /** What the statement says about its own account (bank, currency, «…» and 4 characters): `null` before the parse. */
+  readonly detected: Detected | null;
 }
+
+/** `files[].detected` of the parse: the facts only when the file names them; the mask is already cut to 4 characters. */
+export type Detected = NonNullable<FileParse["detected"]>;
 
 /** A file that has no row on the server (yet or at all): being uploaded, refused by the picker or lost on the way. */
 export interface Local {
@@ -58,6 +64,7 @@ export function rowsOf(s: Snapshot): FileRow[] {
     code: l.code,
     message: l.message,
     refusal: null,
+    detected: null,
   }));
   const server: FileRow[] = s.files.map((f) => {
     const base = {
@@ -71,6 +78,7 @@ export function rowsOf(s: Snapshot): FileRow[] {
       code: null,
       message: null,
       refusal: null,
+      detected: null,
     };
     if (f.status === "rejected") return { ...base, phase: "rejected" as const, code: f.rejectionCode };
     const p = s.parse.get(f.id);
@@ -89,6 +97,7 @@ export function rowsOf(s: Snapshot): FileRow[] {
       accountId: p.accountId,
       recipeFormat: p.recipe?.format ?? null,
       refusal,
+      detected: p.detected ?? null,
       phase: p.accountId === null || refusal !== null ? ("needs-account" as const) : ("ready" as const),
     };
   });
@@ -162,3 +171,15 @@ export const rowsText = (t: Translate, locale: string, count: number): string =>
   const form = rule === "one" || rule === "few" || rule === "many" ? rule : "other";
   return t(`import.rows.${form}` as MessageKey, { count });
 };
+
+/**
+ * IMP-08@PoC FR 2, AC 16: «Створити рахунок» is offered for a file that waits for an account when it names a bank or a
+ * card or IBAN and no account of the space ends in that tail (a currency alone says too little). The same tail on an
+ * account of the space means the account exists: the person picks it.
+ */
+export function canCreateFor(row: FileRow, accounts: readonly AccountItem[]): boolean {
+  if (row.phase !== "needs-account" || row.fileId === null || row.detected === null) return false;
+  const tail = maskTail(row.detected.mask);
+  if (tail === "" && !row.detected.bank) return false;
+  return tail === "" || !accounts.some((a) => a.number?.last4 === tail);
+}
