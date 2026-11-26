@@ -433,6 +433,53 @@ describe("BUD-02@PoC FR 24: the currency of a category", () => {
   });
 });
 
+describe("BUD-02@PoC FR 24, FR 11: a snapshot written without a rate (lead decision 2026-11-26, #709)", () => {
+  it("BUD-02@PoC FR 24: a finished period whose line had no rate keeps its own amount and takes the first rate that appears after — for good", async () => {
+    await rates();
+    // CHF has a rate when the budget is made, none on the period's last day or before (the history is lost, then back).
+    await rate("2026-10-20", "EUR", "50.00");
+    await rate("2026-10-20", "CHF", "55.00");
+    now = at("2026-10-20");
+    const space = await newSpace();
+    const clubs = await newCategory(space, "Родина", "Гуртки дітей");
+    await createBudget(space, {
+      firstPeriod: "2026-10",
+      limits: [{ categoryId: clubs, amount: { amount: "100", currency: "CHF" } }],
+    });
+    await db.owner.query(`DELETE FROM fx_rates.rates WHERE currency = 'CHF'`);
+    now = at(TODAY);
+    const missing = await period(space, "2026-10");
+    expect(missing.rates).toEqual([{ currency: "CHF", rate: null, date: null }]);
+    expect(line(missing, clubs)).toMatchObject({
+      limit: { amount: "100", currency: "CHF" },
+      inBudgetCurrency: { limit: eur("0") },
+    });
+    const stored = await db.owner.query<{ limits: unknown }>(
+      `SELECT limits FROM budget.period_snapshots WHERE household_id = $1`,
+      [space.householdId],
+    );
+    expect(stored.rows[0]!.limits).toEqual([
+      { categoryId: clubs, amount: "0", mandatory: false, original: { amount: "100", currency: "CHF" } },
+    ]);
+    // The first rate that appears after the snapshot (1 CHF = 55 UAH, 1 € = 50 UAH: 1.1 €) converts the line…
+    await rate("2026-11-10", "EUR", "50.00");
+    await rate("2026-11-10", "CHF", "55.00");
+    const resolved = await period(space, "2026-10");
+    expect(line(resolved, clubs)).toMatchObject({ inBudgetCurrency: { limit: eur("110") } });
+    expect(resolved.rates).toEqual([{ currency: "CHF", rate: "1.1", date: "2026-11-10" }]);
+    expect(resolved.totals.limits).toEqual(eur("110"));
+    // …and stays in the snapshot: a later rate changes nothing.
+    await rate("2026-11-17", "CHF", "60.00");
+    expect(await period(space, "2026-10")).toEqual(resolved);
+    const { rows } = await db.owner.query<{ rates: unknown }>(
+      `SELECT rates FROM budget.period_snapshots WHERE household_id = $1`,
+      [space.householdId],
+    );
+    expect(rows).toEqual([{ rates: [{ currency: "CHF", rate: "1.1", date: "2026-11-10", source: "NBU" }] }]);
+    await db.owner.query(`DELETE FROM fx_rates.rates WHERE currency = 'CHF'`);
+  });
+});
+
 describe("BUD-03@PoC and BUD-17@PoC: a category's currency in «Можна витратити» and «План»", () => {
   it("BUD-03@PoC business rules: «Можна витратити» counts a UAH limit at today's rate and names the rate for «≈»", async () => {
     await rates();
@@ -492,6 +539,60 @@ describe("BUD-03@PoC and BUD-17@PoC: a category's currency in «Можна ви�
     });
     expect(wrong.statusCode).toBe(400);
     expect(wrong.json().errors).toEqual([{ in: "body", path: "amount.currency", issue: "currency" }]);
+  });
+
+  it("BUD-17@PoC business rules: «План доходу» of the grid converts a UAH income plan at today's rate, as «Бюджет», and names the rate", async () => {
+    await rates();
+    const space = await newSpace();
+    const salary = await category(space, "Зарплата");
+    const b = await createBudget(space, { incomePlans: [{ categoryId: salary, amount: uah("50000") }] });
+    expect(b.incomePlan).toEqual(eur("1000"));
+    // Today's rate moves after the plan was saved: every read converts at its own rate.
+    await rate("2026-11-18", "EUR", "40.00");
+    expect((await period(space, "2026-11")).incomePlan).toEqual(eur("1250"));
+    const res = await call(space, "GET", "/v1/budget/plan-grid");
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().income.totals[0]).toEqual(eur("1250"));
+    expect(res.json().rates).toEqual([{ currency: "UAH", rate: "0.025", date: "2026-11-18" }]);
+  });
+
+  it("BUD-17@PoC business rules: a cell changed from 3 000 UAH to 3 000 EUR is a change, audited with its currency", async () => {
+    await rates();
+    const space = await newSpace();
+    const clubs = await newCategory(space, "Родина", "Гуртки дітей");
+    const b = await createBudget(space, { limits: [{ categoryId: clubs, amount: uah("2000") }] });
+    const put = (amount: unknown, version: number) =>
+      call(space, "PUT", "/v1/budget/plan-grid/cells", {
+        period: "2026-12",
+        kind: "limit",
+        lineId: clubs,
+        amount,
+        version,
+      });
+    const first = await put(uah("3000"), 0);
+    expect(first.statusCode, first.body).toBe(200);
+    // The limit moves to EUR; the cell is rewritten with the same digits in EUR.
+    expect(
+      (await patch(space, { version: b.version, limits: [{ categoryId: clubs, amount: eur("40") }] }))
+        .statusCode,
+    ).toBe(200);
+    const second = await put(eur("3000"), first.json().version as number);
+    expect(second.statusCode, second.body).toBe(200);
+    expect(second.json().version).toBe((first.json().version as number) + 1);
+    const { rows } = await db.owner.query<{
+      action: string;
+      changes: { field: string; before: unknown; after: unknown }[];
+    }>(
+      `SELECT action, changes FROM audit.entries WHERE household_id = $1 AND entity_type = 'budget.plan-cell' ORDER BY occurred_at, action`,
+      [space.householdId],
+    );
+    expect(rows.map((r) => r.action)).toEqual(["create", "update"]);
+    expect(rows[1]!.changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "amount", before: "3000", after: "3000" }),
+        expect.objectContaining({ field: "currency", before: "UAH", after: "EUR" }),
+      ]),
+    );
   });
 
   it("BUD-02@PoC FR 24: another space never sees the budget; a scoped member is refused", async () => {

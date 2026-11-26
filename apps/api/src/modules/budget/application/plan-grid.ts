@@ -44,13 +44,18 @@ export async function readPlanGrid(
   budget: StoredBudget,
   categories: readonly BudgetCategory[],
   /** The budget's own rows, read in one budget transaction before the other modules are read (their pools). */
-  stored: { readonly limits: readonly StoredLimit[]; readonly cells: readonly PlanCell[] },
+  stored: {
+    readonly limits: readonly StoredLimit[];
+    /** BUD-02 FR 21, FR 24: the income categories' plans — «План доходу» is their sum at today's rate. */
+    readonly incomePlans?: readonly StoredLimit[];
+    readonly cells: readonly PlanCell[];
+  },
 ): Promise<PlanGrid> {
   const today = deps.today();
   const months = gridMonths(today);
   const byId = new Map(categories.map((c) => [c.id, c]));
   // BUD-02 FR 24: a limit of another currency at today's rate, as on «Бюджет».
-  const live = await livePlanToday(deps, budget, stored.limits, byId, [], stored.cells);
+  const live = await livePlanToday(deps, budget, stored.limits, byId, stored.incomePlans ?? [], stored.cells);
   const base = new Map<Period, PeriodPlan>(months.map((p) => [p, planOf(budget, p, live)]));
   const cells = stored.cells;
   const goals = deps.planSources ? await deps.planSources.goals(householdId, budget.currency) : null;

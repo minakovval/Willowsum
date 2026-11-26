@@ -378,6 +378,12 @@ export function planGrid(input: GridInput): PlanGrid {
     }),
   );
   const expensesKnown = (i: number) => expenseRows.every((r) => !r[i]!.unknown);
+  // BUD-02 FR 24: «План доходу» holds an income category's plan of another currency at today's rate — named for «≈».
+  for (const m of months)
+    for (const l of base(m)?.incomePlans ?? []) {
+      const r = l.original ? rates.get(l.original.currency) : undefined;
+      if (r) used.set(r.currency, r);
+    }
 
   const goalRows = (input.goals ?? []).map((g) => ({
     goalId: g.goalId,

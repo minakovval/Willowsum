@@ -251,6 +251,36 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
         ],
       );
     },
+    async updateSnapshotRates(householdId, budgetId, period, plan) {
+      await q.query(
+        `UPDATE period_snapshots SET income_plan = $4, limits = $5, income_plans = $6, rates = $7
+          WHERE household_id = $1 AND budget_id = $2 AND period = $3`,
+        [
+          householdId,
+          budgetId,
+          month(period),
+          plan.incomePlan.toDecimalString(),
+          JSON.stringify(
+            plan.limits.map((l) => ({
+              categoryId: l.categoryId,
+              amount: l.amount.toDecimalString(),
+              mandatory: l.mandatory,
+              ...originalJson(l.original),
+            })),
+          ),
+          plan.incomePlans === undefined
+            ? null
+            : JSON.stringify(
+                plan.incomePlans.map((l) => ({
+                  categoryId: l.categoryId,
+                  amount: l.amount.toDecimalString(),
+                  ...originalJson(l.original),
+                })),
+              ),
+          ratesJson(plan),
+        ],
+      );
+    },
     async planCells(householdId, budgetId, from) {
       const { rows } = await q.query<{
         period: string;

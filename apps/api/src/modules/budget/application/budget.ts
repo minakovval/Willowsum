@@ -1,7 +1,8 @@
-import { Money } from "@willowsum/domain-kernel";
+import { isCurrencyCode, Money } from "@willowsum/domain-kernel";
 import {
   convertLines,
   firstPeriodChoices,
+  withLateRates,
   withPlanRates,
   inBudgetCurrency,
   incomePlanIssue,
@@ -83,6 +84,11 @@ export interface BudgetTx {
   /** The snapshots of the given periods (all when omitted). */
   snapshots(householdId: string, budgetId: string): Promise<ReadonlyMap<Period, PeriodPlan>>;
   insertSnapshot(householdId: string, budgetId: string, period: Period, plan: PeriodPlan): Promise<void>;
+  /**
+   * FR 11, FR 24 (#709): writes the lines and rates of a snapshot whose missing rate has appeared (`withLateRates`);
+   * nothing else of it changes.
+   */
+  updateSnapshotRates(householdId: string, budgetId: string, period: Period, plan: PeriodPlan): Promise<void>;
   /** BUD-17 FR 2: the months' own values of the grid's lines (from `from` on when given), oldest first. */
   planCells(householdId: string, budgetId: string, from?: Period): Promise<PlanCell[]>;
   /** Writes a cell (`amount` null — back to the line's default) and returns its new version. */
@@ -493,7 +499,8 @@ export async function ratesOn(
   currency: string,
   date: string,
 ): Promise<PlanRates> {
-  const other = [...new Set(currencies)].filter((c) => c !== currency).sort();
+  // A code the registry does not know has no rate: never asked for (a request names it before it is checked — 400).
+  const other = [...new Set(currencies)].filter((c) => c !== currency && isCurrencyCode(c)).sort();
   if (other.length === 0 || !deps.rates) return new Map();
   return deps.rates.rates(other, currency, date);
 }
@@ -921,6 +928,8 @@ export function cellHandOff(
       { field: "period", before: cell.period, after: cell.period },
       { field: "kind", before: cell.kind, after: cell.kind },
       { field: "amount", before: before?.toDecimalString() ?? null, after: after?.toDecimalString() ?? null },
+      // BUD-02 FR 24 (#709): the same digits in another currency are a change too.
+      { field: "currency", before: before?.currency ?? null, after: after?.currency ?? null },
     ],
   );
 }
@@ -1059,7 +1068,39 @@ export async function periodPlan(
     );
     snapshot = (await tx.snapshots(householdId, budget.id)).get(period);
   }
-  return snapshot ?? null;
+  if (!snapshot) return null;
+  return (await lateRates(deps, tx, householdId, budget, new Map([[period, snapshot]]))).get(period) ?? null;
+}
+
+/**
+ * FR 11, FR 24 (lead decision 2026-11-26, #709): the snapshots of finished periods whose line had no rate on the last
+ * day — converted at the first rate of that currency that appears after, written into the snapshot under the budget's
+ * row lock (once: later reads find it there). The rate asked is the one of today (the latest known).
+ */
+export async function lateRates(
+  deps: Pick<BudgetDeps, "today" | "rates">,
+  tx: BudgetTx,
+  householdId: string,
+  budget: StoredBudget,
+  snapshots: ReadonlyMap<Period, PeriodPlan>,
+): Promise<ReadonlyMap<Period, PeriodPlan>> {
+  const waiting = [...snapshots].filter(([, plan]) => (plan.missingRates ?? []).length > 0);
+  if (waiting.length === 0) return snapshots;
+  const currencies = new Set(waiting.flatMap(([, plan]) => plan.missingRates ?? []));
+  const rates = await ratesOn(deps, currencies, budget.currency, deps.today());
+  if (rates.size === 0) return snapshots;
+  if (!(await tx.budget(householdId, true))) return snapshots;
+  // Under the lock: another request may have written the rate in between — read the snapshots again.
+  const fresh = await tx.snapshots(householdId, budget.id);
+  const out = new Map(snapshots);
+  for (const [period] of waiting) {
+    const current = fresh.get(period);
+    if (!current) continue;
+    const resolved = withLateRates(current, rates);
+    if (resolved !== current) await tx.updateSnapshotRates(householdId, budget.id, period, resolved);
+    out.set(period, resolved);
+  }
+  return out;
 }
 
 /**
@@ -1085,6 +1126,14 @@ export async function periodPlans(
     if (locked) await ensureSnapshots(deps, tx, householdId, locked, today, categories, lines);
     snapshots = await tx.snapshots(householdId, budget.id);
   }
+  // FR 24 (#709): a finished month whose currency had no rate takes the first one that appeared after.
+  snapshots = await lateRates(
+    deps,
+    tx,
+    householdId,
+    budget,
+    new Map([...snapshots].filter(([p]) => periods.includes(p))),
+  );
   const cells = await planCellsInEffect(deps, tx, householdId, budget.id, periodOf(today));
   const live = await livePlanToday(
     deps,

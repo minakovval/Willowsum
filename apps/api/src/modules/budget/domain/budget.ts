@@ -272,6 +272,38 @@ export function withPlanRates(plan: PeriodPlan, rates: PlanRates): PeriodPlan {
 }
 
 /**
+ * FR 11, FR 24 (lead decision 2026-11-26, #709): a finished period's snapshot written while a line's currency had no
+ * rate keeps that line's own amount; once a rate of it appears, the line is converted at it — the first rate that
+ * appears after the snapshot, written into it for good (never 0 for good). `rates` — the rates now, of the snapshot's
+ * `missingRates` only; a currency still without one stays missing. The income plan gains the converted income lines.
+ */
+export function withLateRates(plan: PeriodPlan, rates: PlanRates): PeriodPlan {
+  const missing = new Set(plan.missingRates ?? []);
+  const late = new Map([...rates].filter(([c]) => missing.has(c)));
+  if (late.size === 0) return plan;
+  const currency = plan.incomePlan.currency;
+  const convert = <L extends { amount: Money; original?: Money }>(l: L): L => {
+    if (!l.original || !late.has(l.original.currency)) return l;
+    const value = inBudgetCurrency(l.original, currency, late);
+    return value === null ? l : { ...l, amount: value };
+  };
+  const incomePlans = plan.incomePlans?.map(convert);
+  const added = (incomePlans ?? []).reduce(
+    (t, l, i) => t.plus(l.amount.minus(plan.incomePlans![i]!.amount)),
+    Money.zero(currency),
+  );
+  return withPlanRates(
+    {
+      ...plan,
+      incomePlan: plan.incomePlan.plus(added),
+      ...(incomePlans ? { incomePlans } : {}),
+      limits: plan.limits.map(convert),
+    },
+    new Map([...ratesMap(plan.rates), ...late]),
+  );
+}
+
+/**
  * One amount the budget counts, in the budget's currency (FR 12; business rules: converted at the rate of its date):
  * a transaction of a budget account or one part of a split one, with its category (null — «Без категорії»).
  */

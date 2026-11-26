@@ -124,6 +124,7 @@ export const getPlanGridRoute = defineRoute({
     if (!budget) throw new ApiProblem("NOT_FOUND");
     const stored = await ctx.inHousehold(async (q) => ({
       limits: await budgetTx(q).limits(householdId, budget.id),
+      incomePlans: await budgetTx(q).incomePlans(householdId, budget.id),
       cells: await budgetTx(q).planCells(householdId, budget.id, gridMonths(deps.today())[0]),
     }));
     const grid = await readPlanGrid(deps, householdId, budget, categories, stored);
