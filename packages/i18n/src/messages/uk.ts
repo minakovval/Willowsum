@@ -822,6 +822,7 @@ export const uk = {
   "planning.budget.cat.more": "Ще дії: {name}",
   "planning.budget.cat.mandatory.title": "Обов’язкова: {name}",
   "planning.budget.cat.rename": "Перейменувати",
+  "planning.budget.cat.unbudgeted.mark": "поза бюджетом",
   "planning.budget.cat.unbudget": "Прибрати з бюджету",
   "planning.budget.cat.delete": "Видалити категорію…",
   "planning.budget.cat.delete.keep":

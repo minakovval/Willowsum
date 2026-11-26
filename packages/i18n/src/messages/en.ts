@@ -825,6 +825,7 @@ export const en: Messages = {
   "planning.budget.cat.more": "More actions: {name}",
   "planning.budget.cat.mandatory.title": "Mandatory: {name}",
   "planning.budget.cat.rename": "Rename",
+  "planning.budget.cat.unbudgeted.mark": "off budget",
   "planning.budget.cat.unbudget": "Remove from the budget",
   "planning.budget.cat.delete": "Delete category…",
   "planning.budget.cat.delete.keep":
