@@ -9,13 +9,22 @@ export {
   openBytes,
   openField,
   openWithFieldOpener,
+  rewrapFromSource,
   rewrapSpaceKeys,
+  unopenableSpaceKeys,
   sealBytes,
   sealField,
   SEAL_BYTES_MAX,
   SEAL_MAX_LENGTH,
   wipeFieldOpener,
 } from "./space-keys.ts";
-export type { FieldOpener, RewrapResult, SpaceKeyAudit, SpaceKeysDeps } from "./space-keys.ts";
+export type {
+  FieldOpener,
+  RewrapFromResult,
+  RewrapResult,
+  RewrapSource,
+  SpaceKeyAudit,
+  SpaceKeysDeps,
+} from "./space-keys.ts";
 export { renameSpace } from "./settings.ts";
 export type { RenameResult, SpaceRenameAudit, SpaceSettings, SpaceSettingsTx } from "./settings.ts";

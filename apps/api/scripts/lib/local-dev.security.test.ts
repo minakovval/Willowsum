@@ -24,6 +24,7 @@ describe("CICD-04 security: pnpm local:dev role processes", () => {
         path: "/bin",
         files: { kind: "directory", dir: "/state/files" },
         fileLinkKey: Buffer.alloc(32, 1).toString("base64"),
+        kmsKeyFile: "/home/owner/.config/willowsum/local-kms-key.json",
       });
       for (const [k, v] of Object.entries(env)) {
         if (v.includes(PW)) expect(k).toMatch(/^WS_DB_[A-Z_]*PASSWORD[A-Z_]*$/);

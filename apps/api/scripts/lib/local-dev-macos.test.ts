@@ -313,10 +313,11 @@ describe("#363: a readiness timeout says why", () => {
 
 describe("#363: settings a person never sets (only the integration test of the script)", () => {
   it("defaults: ws_dev, the repository's state directory, web port 5173", () => {
-    expect(localDevSettings({}, "/repo/infra/local/.state/dev")).toEqual({
+    expect(localDevSettings({}, "/repo/infra/local/.state/dev", "/home/o/.config/willowsum/k.json")).toEqual({
       database: "ws_dev",
       stateDir: "/repo/infra/local/.state/dev",
       webPort: 5173,
+      kmsKeyFile: "/home/o/.config/willowsum/k.json",
     });
   });
 
@@ -330,7 +331,7 @@ describe("#363: settings a person never sets (only the integration test of the s
         },
         "/d",
       ),
-    ).toEqual({ database: "ws_t_ld_0a1b2c3d", stateDir: "/tmp/x", webPort: 41005 });
+    ).toMatchObject({ database: "ws_t_ld_0a1b2c3d", stateDir: "/tmp/x", webPort: 41005 });
     expect(() => localDevSettings({ WS_LOCAL_DEV_DATABASE: "willowsum" }, "/d")).toThrow(/ws_t_/);
     expect(() => localDevSettings({ WS_LOCAL_DEV_DATABASE: "ws_t_x; DROP" }, "/d")).toThrow();
     expect(() => localDevSettings({ WS_LOCAL_DEV_STATE_DIR: "rel" }, "/d")).toThrow(/absolute/);
