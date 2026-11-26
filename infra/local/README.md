@@ -78,9 +78,14 @@ CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machin
   never in the repository, the database or an environment variable, and the app does not start if other users may
   read it (`chmod 600 ~/.config/willowsum/local-kms-key.json`) or if it lies inside a git checkout. Spaces made before this
   key existed are moved to it once, by itself, on the next start («Re-wrapped N of N space key(s)…»); the same by hand:
-  `pnpm --filter @willowsum/api kms:rewrap [--dry-run]` with the processes' configuration. The fixed-label test key
+  `pnpm --filter @willowsum/api kms:rewrap [--dry-run]` with the processes' configuration. The move changes the wrap,
+  not the space's data key: **a copy of the database made before the move (an earlier `pnpm local:backup` file, any
+  other copy) is still protected only by the fixed-label test key — and with it the values sealed later.** Delete such
+  copies everywhere they are kept and make a new one after the move. The fixed-label test key
   (`local-N`) is for tests and CI only. **Lose the file and the encrypted fields (IBANs, policy numbers, stored files)
-  cannot be opened again**: keep a copy of it (below).
+  cannot be opened again**: keep a copy of it (below). A missing or wrong key file never becomes a new key over your
+  data: `pnpm local:dev` stops with «… space key(s) in this database do not open with the installation's key file …»
+  and changes nothing; put the saved copy back and start again.
 - **Confirming an email.** The synthetic mail adapter keeps letters inside the API process. After signing up, type
   the email in the terminal and press Enter: it prints the confirmation link. `limits` clears the sign-up limits.
 - **Data is kept** between runs (`ws_dev`). `pnpm local:dev --fresh` drops it and starts empty; `pnpm local:reset`
@@ -118,8 +123,11 @@ Docker стирає її без вороття, тому час від часу 
    вона не перезаписує. Файл не зашифрований і містить усе з `ws_dev` (облікові записи, хеші паролів, сесії):
    тримайте його лише на своєму комп'ютері, не завантажуйте в хмару і не діліться ним, поки самі його не зашифрували.
 4. **Головного ключа в копії немає — так і задумано** (NFR-01@PoC п. 3). Файл ключа
-   `~/.config/willowsum/local-kms-key.json` лежить поза базою, тож копія бази сама не відкриває жодного зашифрованого поля
-   (IBAN, номери полісів, збережені файли). Збережіть копію файлу ключа один раз (і після ротації) **окремо** від копій
+   `~/.config/willowsum/local-kms-key.json` лежить поза базою, тож копія бази, зроблена після переобгортання, сама не
+   відкриває жодного зашифрованого поля (IBAN, номери полісів, збережені файли). **Копії, зроблені до переобгортання**
+   (до першого старту, на якому `pnpm local:dev` написав «Re-wrapped N of N space key(s)…»), захищені лише ключем
+   фіксованої мітки з репозиторію — разом зі значеннями, запечатаними пізніше: видаліть їх усюди, де вони є, і зробіть
+   нову копію. Збережіть копію файлу ключа один раз (і після ротації) **окремо** від копій
    бази — наприклад, у менеджері паролів або на іншому диску; ніколи не в одній папці чи одному архіві з `.dump`.
    Команда відмовляється писати копію в папку файлу ключа і після кожної копії нагадує про це.
 
@@ -135,6 +143,10 @@ Docker стирає її без вороття, тому час від часу 
    Збережіть обидва файли разом.
 5. Відновлена база відкривається лише з файлом ключа тієї інсталяції, що зробила копію. Новий комп'ютер: спершу покладіть
    збережену копію файлу ключа в `~/.config/willowsum/local-kms-key.json` (`chmod 600`), потім `pnpm local:dev`.
+   Файлу немає або він від іншої інсталяції: `pnpm local:dev` зупиняється з «… do not open with the installation's key
+   file …» і нічого не змінює (нового ключа поверх ваших даних не створює) — покладіть правильний файл і запустіть
+   знову. Копії файлу ключа немає зовсім: зашифровані поля цієї бази не відкриються ніколи; почати з порожньої бази —
+   `pnpm local:dev --fresh` (стирає `ws_dev`).
 
 Без Docker: ті самі команди з `WS_TEST_PG_ADMIN_URL=postgres://<superuser>@127.0.0.1:5432/postgres` і клієнтами
 `pg_dump`, `pg_restore`, `psql` у PATH. Помилка «database is being accessed by other users» — `pnpm local:dev` ще

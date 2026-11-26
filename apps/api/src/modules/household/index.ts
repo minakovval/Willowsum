@@ -15,6 +15,7 @@ import {
   openField,
   rewrapFromSource,
   rewrapSpaceKeys,
+  unopenableSpaceKeys,
   sealBytes,
   sealField,
   type FieldOpener,
@@ -82,6 +83,8 @@ export interface SpaceKeys {
    * this KMS's current version; `dryRun` only counts. Idempotent. The re-wrap command's work (scripts/kms-rewrap.ts).
    */
   rewrapFrom(source: RewrapSource, options: { readonly dryRun: boolean }): Promise<RewrapFromResult>;
+  /** Space keys not wrapped by `source` that this KMS cannot unwrap: a lost or wrong key file (NFR-01@PoC FR 3). */
+  unopenable(source: RewrapSource): Promise<number>;
   /** Destroys the space's key (ARC-06 FR 5, NFR-12 FR 3): its sealed values can no longer be opened. */
   destroy(householdId: string): Promise<{ readonly destroyed: boolean }>;
 }
@@ -207,6 +210,7 @@ export function createSpaceKeys(
     fieldOpener: (householdId, field) => fieldOpener(keyDeps, householdId, field),
     rewrapAll: () => rewrapSpaceKeys(keyDeps),
     rewrapFrom: (source, options) => rewrapFromSource(keyDeps, source, options),
+    unopenable: (source) => unopenableSpaceKeys(keyDeps, source),
     destroy: (householdId) => destroySpaceKey(keyDeps, householdId),
   };
 }

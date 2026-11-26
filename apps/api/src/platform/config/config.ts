@@ -289,9 +289,11 @@ export function loadConfig(
       .regex(/^\/[^\0\r\n]{1,500}$/)
       .optional(),
     WS_REAL_DATA: z.enum(["true", "false"]).default("false"),
+    // Only a path: a value shaped like a key (base64 of 32 bytes, which may start with «/») is refused.
     WS_KMS_KEY_FILE: z
       .string()
       .regex(/^\/[^\0\r\n]{1,500}$/)
+      .refine((v) => !/^[A-Za-z0-9+/]{43}=$/.test(v))
       .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),

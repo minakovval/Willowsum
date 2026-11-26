@@ -348,6 +348,25 @@ export async function rewrapFromSource(
 }
 
 /**
+ * NFR-01@PoC FR 3 (a lost or wrong key file): how many space keys, not wrapped by `source`, the installation's KMS
+ * cannot unwrap. More than none means the key file is not the one this database's keys were wrapped by (lost and made
+ * again, or another installation's): nothing may be moved or sealed with it. Counts only.
+ */
+export async function unopenableSpaceKeys(deps: SpaceKeysDeps, source: RewrapSource): Promise<number> {
+  let unopenable = 0;
+  for (const householdId of await deps.store.spaceIds()) {
+    try {
+      const key = await deps.store.inSpace(householdId, (tx) => tx.spaceKey(householdId));
+      if (!key || source.owns(key.masterKeyVersion)) continue;
+      (await unwrapStored(deps.kms, householdId, key)).fill(0);
+    } catch {
+      unopenable += 1;
+    }
+  }
+  return unopenable;
+}
+
+/**
  * ARC-06 FR 3: the daily task. Every space's key wrapped by an older master key version is unwrapped and wrapped
  * again with the current one; the data key stays the same, so sealed values open before, during and after (no
  * downtime). The new wrap is unwrapped and compared before it is stored, each rewrap is recorded in the space's

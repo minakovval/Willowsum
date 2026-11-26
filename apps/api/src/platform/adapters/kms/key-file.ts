@@ -187,6 +187,27 @@ function read(file: string): { state: KeyFileState; stamp: Stamp } {
   }
 }
 
+/**
+ * Makes the directory entry of a new or replaced key file durable. Without it a power loss just after the first start
+ * can keep the database's new wraps and lose the file that opens them. A file system that cannot sync a directory is
+ * left as it is.
+ */
+function syncDirectory(file: string): void {
+  let fd: number;
+  try {
+    fd = openSync(path.dirname(file), constants.O_RDONLY);
+  } catch {
+    return;
+  }
+  try {
+    fsyncSync(fd);
+  } catch {
+    // Not supported here (some network and FUSE file systems).
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /** Writes `state` to a new file beside `file` (mode 0600) and moves it into place (`create`: only if none is there). */
 function write(file: string, state: KeyFileState, create: boolean): boolean {
   const tmp = `${file}.${process.pid}.${randomUUID()}.tmp`;
@@ -215,6 +236,7 @@ function write(file: string, state: KeyFileState, create: boolean): boolean {
     }
   } finally {
     rmSync(tmp, { force: true });
+    syncDirectory(file);
   }
 }
 
@@ -223,6 +245,11 @@ export interface FileKeyManagementOptions {
   readonly file: string;
   /** The repository the key file must stay out of; this code's own checkout unless a test names another. */
   readonly repoRoot?: string;
+  /**
+   * Make the file when it is not there (default true). The role processes pass false (main.ts): only the checked
+   * re-wrap step (scripts/kms-rewrap.ts) makes a key file, so a lost file never silently becomes a new key over data.
+   */
+  readonly create?: boolean;
 }
 
 /**
@@ -238,6 +265,11 @@ export function fileKeyManagement(options: FileKeyManagementOptions): LocalKeyMa
   } catch {
     exists = false;
   }
+  if (!exists && options.create === false)
+    throw new KmsKeyFileError(
+      file,
+      "does not exist; put your saved copy of the key file there, or start with `pnpm local:dev` (it makes the file)",
+    );
   if (!exists) {
     mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     const first: KeyFileState = {

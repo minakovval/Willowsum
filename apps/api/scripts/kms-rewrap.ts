@@ -6,7 +6,7 @@
  * Idempotent; `--dry-run` only counts. Prints counts only, never a key, a wrap or a space id.
  *   node scripts/kms-rewrap.ts [--dry-run]
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import {
   fileKeyManagement,
   KmsKeyFileError,
@@ -17,6 +17,7 @@ import { CONTEXT_ROLE } from "../src/platform/db/isolation.ts";
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "../src/platform/modules/rules.ts";
 import {
+  KeyFileMismatchError,
   KMS_REWRAP_USAGE,
   kmsRewrapReport,
   parseKmsRewrapArgs,
@@ -38,12 +39,14 @@ try {
 
 let databases: ModuleDatabases;
 let kms: KeyManagement;
+let madeKeyFile: string | undefined;
 try {
   const config = loadConfig(process.env, "worker", modules);
   if (config.kms.keyFile === undefined) {
     console.error("WS_KMS_KEY_FILE (the installation's key file) is not set: there is no key to re-wrap to");
     process.exit(2);
   }
+  if (!existsSync(config.kms.keyFile)) madeKeyFile = config.kms.keyFile;
   kms = fileKeyManagement({ file: config.kms.keyFile });
   const { database } = config;
   const connection = { host: database.host, port: database.port, database: database.name, ssl: database.ssl };
@@ -68,9 +71,15 @@ try {
   console.log(kmsRewrapReport(command, result));
   console.log(JSON.stringify({ dryRun: command.dryRun, ...result }));
   if (result.failed > 0) process.exitCode = 1;
-} catch {
-  // Nothing from the error: database errors may hold connection details.
-  console.error("The re-wrap failed; nothing after the last moved key changed. Run it again.");
+} catch (error) {
+  if (error instanceof KeyFileMismatchError) {
+    // A key file this run just made opens nothing here: removed, so the next start does not take it for the real one.
+    if (madeKeyFile !== undefined) rmSync(madeKeyFile, { force: true });
+    console.error(error.message);
+  } else {
+    // Nothing from the error: database errors may hold connection details.
+    console.error("The re-wrap failed; nothing after the last moved key changed. Run it again.");
+  }
   process.exitCode = 1;
 } finally {
   await databases.end();

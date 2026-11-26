@@ -238,3 +238,48 @@ describe("NFR-01@PoC criterion «Шифрування при зберіганн�
     }
   });
 });
+
+describe("NFR-01@PoC FR 3: a lost or wrong key file stops the start with a clear error, never a silent new key", () => {
+  it("NFR-01@PoC FR 3: the key file lost after the move — the command exits 1, says so, leaves no new key file and changes nothing", async () => {
+    expect((await versions()).every((v) => v.startsWith("inst-"))).toBe(true);
+    const saved = `${keyFile}.saved`;
+    const { renameSync, existsSync } = await import("node:fs");
+    renameSync(keyFile, saved);
+    try {
+      const before = await owner.query(
+        "SELECT key_id, master_key_version, wrapped_key FROM household.space_keys ORDER BY 1",
+      );
+      const res = await run("scripts/kms-rewrap.ts", [], scriptEnv());
+      expect(res.code).toBe(1);
+      expect(res.out).toContain("do not open with the installation's key file");
+      expect(res.out).toContain("saved copy of the key file");
+      expect(existsSync(keyFile)).toBe(false);
+      const after = await owner.query(
+        "SELECT key_id, master_key_version, wrapped_key FROM household.space_keys ORDER BY 1",
+      );
+      expect(after.rows).toEqual(before.rows);
+    } finally {
+      rmSync(keyFile, { force: true });
+      renameSync(saved, keyFile);
+    }
+    const back = await run("scripts/kms-rewrap.ts", [], scriptEnv());
+    expect(back.code).toBe(0);
+  });
+
+  it("NFR-01@PoC FR 3: another installation's key file — the command exits 1 and keeps that file; the message holds no key", async () => {
+    const otherDir = mkdtempSync(path.join(os.tmpdir(), "ws-kms-other-"));
+    const other = path.join(otherDir, "k", "local-kms-key.json");
+    try {
+      fileKeyManagement({ file: other });
+      const res = await run("scripts/kms-rewrap.ts", [], { ...scriptEnv(), WS_KMS_KEY_FILE: other });
+      expect(res.code).toBe(1);
+      expect(res.out).toContain("do not open with the installation's key file");
+      const keyB64 = (JSON.parse(readFileSync(other, "utf8")) as { versions: Record<string, string> })
+        .versions["inst-1"]!;
+      expect(res.out).not.toContain(keyB64);
+      expect(readFileSync(other, "utf8")).toContain(keyB64);
+    } finally {
+      rmSync(otherDir, { recursive: true, force: true });
+    }
+  });
+});

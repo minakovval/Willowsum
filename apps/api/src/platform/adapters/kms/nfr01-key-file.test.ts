@@ -128,6 +128,10 @@ describe("NFR-01@PoC FR 3: the installation's random master key in a file", () =
     expect(JSON.stringify(config)).not.toContain(keyB64);
     // The variable itself never takes a key: it is an absolute path, and a key in its place is refused.
     expect(configError({ WS_KMS_KEY_FILE: keyB64 })?.variables).toEqual(["WS_KMS_KEY_FILE"]);
+    // Deterministic: a key-shaped value that starts with «/» (1 random key in 64) is refused too.
+    const slashKey = `/${"A".repeat(42)}=`;
+    expect(configError({ WS_KMS_KEY_FILE: slashKey })?.variables).toEqual(["WS_KMS_KEY_FILE"]);
+    expect(configError({ WS_KMS_KEY_FILE: `${"B".repeat(43)}=` })?.variables).toEqual(["WS_KMS_KEY_FILE"]);
     // Another installation's file with the same environment does not open this wrap.
     const other = keyManagement("test", () => ({}), {
       deployed: false,
@@ -286,6 +290,31 @@ describe("NFR-01@PoC criterion «Шифрування при зберіганн�
     expect(() =>
       keyManagement("test", () => ({}), { deployed: false, realData: true, keyFile: file }),
     ).toThrow(KmsKeyFileError);
+  });
+});
+
+describe("NFR-01@PoC FR 3: only the checked re-wrap step makes a key file (review of #726)", () => {
+  it("NFR-01@PoC FR 3: a process (createKeyFile: false) with a missing key file does not start and makes no file", () => {
+    const file = fresh();
+    expect(() =>
+      keyManagement("test", () => ({}), {
+        deployed: false,
+        realData: true,
+        keyFile: file,
+        createKeyFile: false,
+      }),
+    ).toThrow(/does not exist; put your saved copy/);
+    expect(() => statSync(file)).toThrow();
+    // The re-wrap step (create allowed) makes it; then the process opens it.
+    fileKeyManagement({ file });
+    expect(() =>
+      keyManagement("test", () => ({}), {
+        deployed: false,
+        realData: true,
+        keyFile: file,
+        createKeyFile: false,
+      }),
+    ).not.toThrow();
   });
 });
 

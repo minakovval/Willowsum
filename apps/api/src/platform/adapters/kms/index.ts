@@ -26,6 +26,8 @@ export interface KmsPlacement {
   readonly realData?: boolean;
   /** The installation's key file (`WS_KMS_KEY_FILE`), local only. */
   readonly keyFile?: string;
+  /** Make the key file when it is missing (default true); the role processes pass false (main.ts). */
+  readonly createKeyFile?: boolean;
 }
 
 /** A real-data instance without its installation's key file: it does not start (NFR-01@PoC FR 3). */
@@ -51,7 +53,8 @@ export function keyManagement(
 ): KeyManagement {
   if (where.deployed && mode !== "live") return unavailableKeyManagement({});
   if (mode === "live") return selectImplementation(mode, KMS_IMPLEMENTATIONS, liveOptions);
-  if (where.keyFile !== undefined) return fileKeyManagement({ file: where.keyFile });
+  if (where.keyFile !== undefined)
+    return fileKeyManagement({ file: where.keyFile, create: where.createKeyFile !== false });
   if (where.realData) throw new RealDataKmsError();
   return selectImplementation(mode, KMS_IMPLEMENTATIONS, liveOptions);
 }

@@ -11,6 +11,7 @@ export {
   openWithFieldOpener,
   rewrapFromSource,
   rewrapSpaceKeys,
+  unopenableSpaceKeys,
   sealBytes,
   sealField,
   SEAL_BYTES_MAX,

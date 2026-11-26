@@ -148,7 +148,12 @@ try {
 // the message names the file and the reason only, never a key.
 let kms: KeyManagement;
 try {
-  kms = keyManagement(config.providerMode, () => ({}), { deployed: config.deployed, ...config.kms });
+  // A process never makes the key file: only the checked re-wrap step does (`pnpm local:dev` runs it first).
+  kms = keyManagement(config.providerMode, () => ({}), {
+    deployed: config.deployed,
+    ...config.kms,
+    createKeyFile: false,
+  });
 } catch (error) {
   console.error(
     error instanceof KmsKeyFileError || error instanceof RealDataKmsError ? error.message : "KMS error",
