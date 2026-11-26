@@ -29,7 +29,7 @@ import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./r
  * IMP-07@PoC a) (wave 2 row 49) on a real PostgreSQL through the real API and the real parse worker: a saved recipe is
  * a template of scope «простір» or «рахунок» (FR 1), its name unique in its scope, at most 100 a space, the last 20
  * versions kept and restorable (FR 2); a save names the version it was made from (FR 3); a file of the template's format
- * is parsed with it automatically — the file's account's template first, then the space's (FR 6, FR 7) — and its usage
+ * is parsed with it automatically — the file's account's template first, then the space's (FR 6) — and its usage
  * is counted (FR 13). The accounts module is the test's port. Every name, file and number is synthetic; the clock is
  * the test's.
  */
@@ -479,7 +479,7 @@ describe("IMP-07@PoC FR 3: a save names the version it was made from", () => {
   });
 });
 
-describe("IMP-07@PoC FR 6, FR 7: a file of a template's format is parsed with it", () => {
+describe("IMP-07@PoC FR 6: a file of a template's format is parsed with it (user templates; the library is a later part)", () => {
   it("IMP-07@PoC AC1: a template of scope «рахунок» is applied to the next file of its format in that account; its use is counted", async () => {
     const space = await newSpace();
     const { id } = await saveTemplate(space, { fingerprint, accountId: space.eur });
