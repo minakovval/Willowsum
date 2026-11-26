@@ -193,3 +193,15 @@
 .cat-more .ws-menu {
   min-width: calc(var(--ws-space-8) * 4 - var(--ws-space-4));
 }
+
+/* «Видалити категорію…» (BUD-01 FR 12): the reasons a category cannot be deleted, each with its count; long names wrap. */
+.cat-reasons {
+  margin: 0;
+  padding-left: var(--ws-space-5);
+  overflow-wrap: anywhere;
+}
+
+.cat-delete-note {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

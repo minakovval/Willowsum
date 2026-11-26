@@ -2,7 +2,7 @@ import { z } from "zod";
 import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platform/http/pagination.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, DOWNLOAD_RESPONSE, type ProtectedContext } from "../../../../platform/http/route.ts";
-import { FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
+import { bankName, FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
 import { PlanTooLargeError, planImport } from "../../../duplicate-matching/index.ts";
 import { FileNotFoundError } from "../../../file-storage/index.ts";
 import {
@@ -61,7 +61,7 @@ import {
   type FileReview,
   type ParseRequest,
 } from "../../application/index.ts";
-import { BATCH_LIMITS, BATCH_STATES, BatchStateError } from "../../domain/index.ts";
+import { ACCOUNT_MATCHES, BATCH_LIMITS, BATCH_STATES, BatchStateError } from "../../domain/index.ts";
 import { applyTx, batchesTx } from "../db/store.ts";
 import { maskNumbers } from "../../domain/index.ts";
 
@@ -767,7 +767,50 @@ const parseFileSchema = z.object({
   checks: z.looseObject({ currency: z.string().nullable(), flags: z.array(flagSchema) }).nullable(),
   history: z.looseObject({ status: z.enum(["continuous", "gap", "overlap", "unknown"]) }).nullable(),
   previousFileId: z.uuid().nullable(),
+  /**
+   * IMP-08 FR 2 (rows 230, 230b): what the file says about its own account, for «Створити рахунок» — the bank as the
+   * directory names it (GET /v1/accounts/banks), else as the file prints it (`bankInDirectory` false; at most 100
+   * characters and 4 digits), the statement's one currency and the card or IBAN as «…» and its last 4 characters. Each
+   * part only when the file names it unambiguously; absent until the file is parsed (optional: the clients of the base
+   * contract keep compiling). `accountMatch`: how the facts fit the space's accounts when the file was parsed —
+   * `picked` (one account; the file's `accountId` unless the person chose another), `several` (the person picks among
+   * them), `none` (no account fits: «Створити рахунок»); absent when the file names neither a bank nor a number.
+   */
+  detected: z
+    .object({
+      bank: z.string().optional(),
+      bankInDirectory: z.boolean().optional(),
+      currency: z.string().optional(),
+      mask: z.string().optional(),
+      accountMatch: z.enum(ACCOUNT_MATCHES).optional(),
+    })
+    .optional(),
 });
+
+/** Only the three facts, each a short text; anything else a stored check holds is dropped (masked values only). */
+function presentDetected(
+  checks: FileReview["checks"],
+): NonNullable<z.input<typeof parseFileSchema>["detected"]> {
+  const d = checks.detected ?? {};
+  const text = (v: unknown, max: number) => (typeof v === "string" && v.length <= max ? v : undefined);
+  const bank = typeof d.bank === "string" ? (bankName(d.bank) ?? undefined) : undefined;
+  const currency = text(d.currency, 10);
+  const mask = typeof d.mask === "string" && /^…[A-Za-z0-9]{4}$/.test(d.mask) ? d.mask : undefined;
+  const match = ACCOUNT_MATCHES.find((m) => m === d.accountMatch);
+  return {
+    ...(bank !== undefined
+      ? { bank, ...(typeof d.bankInDirectory === "boolean" ? { bankInDirectory: d.bankInDirectory } : {}) }
+      : {}),
+    ...(match !== undefined ? { accountMatch: match } : {}),
+    ...(currency !== undefined ? { currency } : {}),
+    ...(mask !== undefined ? { mask } : {}),
+  };
+}
+
+/** The checks without `detected`: it is its own field (`detected`). */
+function checksWithout(checks: FileReview["checks"]): unknown {
+  return Object.fromEntries(Object.entries(checks).filter(([key]) => key !== "detected"));
+}
 
 function presentParse(
   fileId: string,
@@ -786,9 +829,10 @@ function presentParse(
     accountId: p?.accountId ?? null,
     engineVersion: p?.engineVersion ?? "",
     rowCount: p?.rowCount ?? null,
-    checks: review ? (review.checks as unknown as z.input<typeof parseFileSchema>["checks"]) : null,
+    checks: review ? (checksWithout(review.checks) as z.input<typeof parseFileSchema>["checks"]) : null,
     history: review ? { ...review.history } : null,
     previousFileId: review?.previousFileId ?? null,
+    ...(review ? { detected: presentDetected(review.checks) } : {}),
   };
 }
 

@@ -1,3 +1,4 @@
+import type { DetectedAccount } from "./detect.ts";
 import type { AccountBindingKind, AccountMatch } from "./account.ts";
 import type { StatementAnalysis } from "./analysis.ts";
 import type { CardDebt } from "./card-debt.ts";
@@ -74,6 +75,11 @@ export interface StatementChecks {
   readonly flags: readonly BatchFlag[];
   /** A credit card's printed debt (Рішення власника (2026-11-20), п. 6, `readCardDebt`): null — the rule did not apply. */
   readonly cardDebt?: CardDebt | null;
+  /**
+   * IMP-08@PoC FR 2 (row 230): what the file says about its own account — bank, currency, number masked to its last 4
+   * characters — for «Створити рахунок». Absent in checks recorded before it.
+   */
+  readonly detected?: DetectedAccount;
 }
 
 export interface ReviewInput {

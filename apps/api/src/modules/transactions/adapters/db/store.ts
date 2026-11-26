@@ -476,7 +476,8 @@ export type BankFields = { readonly [K in keyof typeof BANK_FIELDS]: unknown } &
  * numbered pages of 25, 50 or 100, and the amounts by currency, date and sign for the totals of income, expenses and
  * the difference at the official rate of each transaction's date. «Стан» (FR 22): `status` («Очікує»), `split`
  * («Розділені»), `transfer` («Переказ») and `hidden` («Приховані»; without a `hidden` filter the route lists the shown ones only);
- * «Теги» — `tag` (BUD-13 FR 2); «До розбору» — `review` (BUD-12 FR 2). The filters of categories and merchants come with the parts that bring them (BUD-01, BUD-14).
+ * «Теги» — `tag` (BUD-13 FR 2); «До розбору» — `review` (BUD-12 FR 2). «Категорії» — `category` — is not a column of this
+ * table: the route resolves it through module categorization (`adapters/http/category-filter.ts`).
  */
 export const transactionsList = defineList({
   table: "transactions",
@@ -760,6 +761,26 @@ export async function transactionsWithPartIn(
     [householdId, categoryId],
   );
   return rows[0]?.n ?? 0;
+}
+
+/**
+ * FIN-03@PoC FR 22 «Категорії» (BUD-01@PoC AC 20, BUD-02@PoC AC 19 «Показати транзакції»): the split transactions of
+ * the space with a part in one of `categoryIds` — each once — at most `limit` (index `transaction_parts_category`). Read
+ * only; the list's own conditions (shown, not rolled back) are the list query's.
+ */
+export async function splitTransactionsIn(
+  q: ModuleQueryRunner,
+  householdId: string,
+  categoryIds: readonly string[],
+  limit: number,
+): Promise<string[]> {
+  if (categoryIds.length === 0) return [];
+  const { rows } = await q.query<{ id: string }>(
+    `SELECT DISTINCT transaction_id AS id FROM transaction_parts
+      WHERE household_id = $1 AND category_id = ANY($2::uuid[]) LIMIT $3::int`,
+    [householdId, categoryIds, limit],
+  );
+  return rows.map((r) => r.id);
 }
 
 /**

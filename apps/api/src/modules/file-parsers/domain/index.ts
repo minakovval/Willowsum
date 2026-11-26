@@ -38,7 +38,23 @@ export { amountMark, headerCurrency, ISO_NUMERIC, recognizeCurrency } from "./cu
 export type { CurrencyHints, CurrencyRecognition } from "./currency.ts";
 export { EVENT_LIMITS, readEvents } from "./events.ts";
 export type { EventFlag, EventLeg, StatementEvent, StatementEvents, StatementOptions } from "./events.ts";
-export { ACCOUNT_BINDINGS, hasCardMask, maskedMismatch, maskLast4, matchAccount } from "./account.ts";
+export {
+  ACCOUNT_BINDINGS,
+  detectedMask,
+  hasCardMask,
+  maskedMismatch,
+  maskLast4,
+  matchAccount,
+} from "./account.ts";
+export {
+  bankName,
+  detectAccount,
+  detectedBank,
+  INSTITUTION_LIMITS,
+  PRINTED_BANK_LIMITS,
+  printedBank,
+} from "./detect.ts";
+export type { DetectedAccount, Institution } from "./detect.ts";
 export { readFigures } from "./figures.ts";
 export type { DeclaredFigures } from "./figures.ts";
 export { CHECK_KINDS, checkControls, historyGap } from "./checks.ts";

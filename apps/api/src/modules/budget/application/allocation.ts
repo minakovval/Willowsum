@@ -3,7 +3,9 @@ import {
   allocationBalance,
   allocationChoice,
   checkAllocation,
+  convertLines,
   goalContributions,
+  withPlanRates,
   plannedContributions,
   firstPeriodChoices,
   isPeriod,
@@ -30,6 +32,7 @@ import {
 import {
   checkIncome,
   checkLimits,
+  inputRates,
   type BudgetDeps,
   type IncomePlanInput,
   type LimitInput,
@@ -107,7 +110,7 @@ async function allocationLines(
  * /v1/budget saves them with. Read only.
  */
 export async function planAllocation(
-  deps: Pick<BudgetDeps, "today" | "reportingCurrency" | "obligations" | "planSources">,
+  deps: Pick<BudgetDeps, "today" | "reportingCurrency" | "obligations" | "planSources" | "rates">,
   householdId: string,
   input: AllocationInput,
   categories: ReadonlyMap<string, BudgetCategory>,
@@ -120,10 +123,12 @@ export async function planAllocation(
   const proportional = startChoices(today).choices.find((c) => c.start === "proportional");
   if (input.proportional === true && proportional?.firstPeriod !== input.firstPeriod)
     issues.push({ field: "proportional", issue: "invalid" });
-  const incomeChecked = checkIncome(input, categories, currency);
+  // BUD-02 FR 24: a limit or an income plan in another currency — at today's rate, as the saved budget.
+  const rates = await inputRates(deps, currency, input);
+  const incomeChecked = checkIncome(input, categories, currency, rates);
   issues.push(...incomeChecked.issues);
   const income = incomeChecked.total;
-  const checked = checkLimits(input.limits ?? [], categories, currency);
+  const checked = checkLimits(input.limits ?? [], categories, currency, rates);
   issues.push(...checked.issues);
   const chosen: Money[] = [];
   (input.chosen ?? []).forEach((c, i) => {
@@ -137,12 +142,18 @@ export async function planAllocation(
   const limits = checked.limits.flatMap((l) => (l.amount === null ? [] : [{ ...l, amount: l.amount }]));
   // FR 14: a proportional first period — the plan × (days left, today included) ÷ (days in the period).
   const share = input.proportional === true ? shareFrom(today) : null;
-  const whole: PeriodPlan = {
-    incomePlan: income,
-    incomePlans: incomeChecked.rows,
-    plannedSavings: Money.zero(currency),
-    limits: limits.map((l) => ({ ...l, mandatory: categories.get(l.categoryId)?.essential ?? false })),
-  };
+  const whole: PeriodPlan = withPlanRates(
+    {
+      incomePlan: income,
+      incomePlans: convertLines(incomeChecked.rows, currency, rates),
+      plannedSavings: Money.zero(currency),
+      limits: convertLines(limits, currency, rates).map((l) => ({
+        ...l,
+        mandatory: categories.get(l.categoryId)?.essential ?? false,
+      })),
+    },
+    rates,
+  );
   const plan = share ? scalePlan(whole, share) : whole;
   const limitsTotal = plan.limits.reduce((t, l) => t.plus(l.amount), Money.zero(currency));
   const period = input.firstPeriod;

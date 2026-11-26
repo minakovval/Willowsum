@@ -65,6 +65,8 @@ export interface RecurringTx {
   /** BUD-01 FR 8: the payments of `sourceId` get `targetId`; returns the payments moved. */
   moveCategory(householdId: string, sourceId: string, targetId: string): Promise<StoredPayment[]>;
   categoriesInUse(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
+  /** BUD-01@PoC AC 23: how many regular payments of the space have the category. */
+  categoryPayments(householdId: string, categoryId: string): Promise<number>;
   enqueueHandOff(handOff: RecurringHandOff): Promise<void>;
   /** The payment, locked until the commit: the actions on one payment's charges run one after another. */
   lockPayment(householdId: string, id: string): Promise<StoredPayment | null>;

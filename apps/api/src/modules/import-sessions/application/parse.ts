@@ -1,17 +1,23 @@
-import type {
-  ReadOptions,
-  StatementChecks,
-  StatementOptions,
-  StatementParse,
-  StatementEvent,
+import {
+  bankName,
+  type DetectedAccount,
+  type Institution,
+  type ReadOptions,
+  type StatementChecks,
+  type StatementOptions,
+  type StatementParse,
+  type StatementEvent,
 } from "../../file-parsers/index.ts";
 import {
+  accountFor,
   batchStateAfterParse,
   move,
   PARSE_FILES_PER_HOUR,
   PARSE_REFUSALS,
   takesParse,
   type BatchState,
+  type AccountCandidate,
+  type AccountPick,
   type ParseRefusalCode,
   type ParseState,
 } from "../domain/index.ts";
@@ -210,6 +216,16 @@ export interface ParsePorts {
   /** An active account of the space, or null. */
   account(householdId: string, accountId: string): Promise<ParseAccount | null>;
   /**
+   * IMP-08 FR 2 (row 230): the directory of banks the statement's own bank is looked up in (accounts' NBU directory);
+   * absent — no bank is detected.
+   */
+  institutions?(): readonly Institution[];
+  /**
+   * IMP-08 FR 2 (row 230b): the space's active accounts with their institution and last 4 characters (accounts'
+   * `AccountCandidates`), the file's account is matched among; absent — no account is picked for a file.
+   */
+  candidates?(householdId: string): Promise<readonly AccountCandidate[]>;
+  /**
    * The parse in the isolated worker; the binding's opener is taken only once the worker's turn has come (#624). A
    * refusal is a `ParseRefused` with the file's rejection code.
    */
@@ -295,45 +311,47 @@ export async function runParse(
   const bytes = await ports.original(householdId, file.fileId);
   if (!bytes) return refuse("FILE_MISSING");
 
-  const account = parse.accountId ? await ports.account(householdId, parse.accountId) : null;
-  const accountId = account ? parse.accountId : null;
-  const statement: StatementOptions = account
-    ? {
-        account: {
-          currencies: account.currencies,
-          multiCurrency: account.currencies.length > 1,
-          kind: account.kind,
-        },
-      }
-    : {};
-  let parsed: StatementParse;
-  let recipe: ParseRecipe | null;
-  let recipeFormat: FileParse["recipeFormat"] = null;
+  const chosen = parse.accountId ? await ports.account(householdId, parse.accountId) : null;
+  const institutions = ports.institutions?.() ?? [];
+  const statementFor = (account: ParseAccount | null): StatementOptions => ({
+    ...(account
+      ? {
+          account: {
+            currencies: account.currencies,
+            multiCurrency: account.currencies.length > 1,
+            kind: account.kind,
+          },
+        }
+      : {}),
+    ...(institutions.length > 0 ? { institutions } : {}),
+  });
+  let account = chosen;
+  let accountId = chosen ? parse.accountId : null;
+  let read: Read;
+  let match: AccountPick | null = null;
   try {
-    recipe = parse.recipeId ? await ports.recipe(householdId, parse.recipeId) : null;
-    if (recipe) {
-      parsed = await withRecipe(ports, householdId, bytes, statement, recipe);
-      const fp = parsed.reading.format?.fingerprint ?? null;
-      recipeFormat =
-        recipe.fingerprint === null || fp === null
-          ? "unknown"
-          : fp === recipe.fingerprint
-            ? "match"
-            : "changed";
-    } else {
-      // IMP-06 FR 7: the space's recipe made for this format, matched by the file's fingerprint.
-      parsed = await ports.parse(householdId, bytes, {}, statement, null);
-      const fp = parsed.reading.format?.fingerprint;
-      recipe = fp ? await ports.recipeForFormat(householdId, fp) : null;
-      if (recipe) {
-        parsed = await withRecipe(ports, householdId, bytes, statement, recipe);
-        recipeFormat = "match";
+    read = await readFile(ports, householdId, parse, bytes, statementFor(chosen));
+    // IMP-08 FR 2 (row 230b): the file's account among the space's accounts (`accountFor`). A file the person chose no
+    // account for gets the one that fits, and is parsed again for it (its currencies and kind change the checks).
+    if (ports.candidates) {
+      match = accountFor(
+        checkedDetected(read.parsed.checks, institutions),
+        await ports.candidates(householdId),
+      );
+      if (!chosen && match?.kind === "picked") {
+        const found = await ports.account(householdId, match.accountId);
+        if (found) {
+          account = found;
+          accountId = match.accountId;
+          read = await readFile(ports, householdId, parse, bytes, statementFor(found));
+        } else match = { kind: "none" };
       }
     }
   } catch (error) {
     if (error instanceof ParseRefused) return refuse(error.code);
     throw error;
   }
+  const { parsed, recipe, recipeFormat } = read;
   if (parsed.events.events.length === 0) return refuse("NO_TRANSACTIONS");
 
   const sealed: SealedParse = {
@@ -365,11 +383,81 @@ export async function runParse(
       id: accountId,
       currency: account && account.currencies.length === 1 ? account.currencies[0]! : null,
     },
-    checks: parsed.checks,
+    checks: withMatch(parsed.checks, institutions, match),
   });
   handOffs.push(...recorded.handOffs);
   handOffs.push(...(await finishBatch(deps, tx, job.batchId, parse.requestedBy)));
   return handOffs;
+}
+
+/** One read of the file: with the chosen recipe, or the space's recipe for the file's format (IMP-06 FR 7). */
+interface Read {
+  readonly parsed: StatementParse;
+  readonly recipe: ParseRecipe | null;
+  readonly recipeFormat: FileParse["recipeFormat"];
+}
+
+async function readFile(
+  ports: ParsePorts,
+  householdId: string,
+  parse: FileParse,
+  bytes: Uint8Array,
+  statement: StatementOptions,
+): Promise<Read> {
+  const recipe = parse.recipeId ? await ports.recipe(householdId, parse.recipeId) : null;
+  if (recipe) {
+    const parsed = await withRecipe(ports, householdId, bytes, statement, recipe);
+    const fp = parsed.reading.format?.fingerprint ?? null;
+    return {
+      parsed,
+      recipe,
+      recipeFormat:
+        recipe.fingerprint === null || fp === null
+          ? "unknown"
+          : fp === recipe.fingerprint
+            ? "match"
+            : "changed",
+    };
+  }
+  // IMP-06 FR 7: the space's recipe made for this format, matched by the file's fingerprint.
+  const parsed = await ports.parse(householdId, bytes, {}, statement, null);
+  const fp = parsed.reading.format?.fingerprint;
+  const found = fp ? await ports.recipeForFormat(householdId, fp) : null;
+  if (!found) return { parsed, recipe: null, recipeFormat: null };
+  return {
+    parsed: await withRecipe(ports, householdId, bytes, statement, found),
+    recipe: found,
+    recipeFormat: "match",
+  };
+}
+
+/**
+ * The worker's answer is not trusted (#711 security review, row 230b): the bank is kept only as `bankName` gives it,
+ * and whether it is the directory's is decided here, against the directory the worker was given.
+ */
+export function checkedDetected(
+  checks: StatementChecks,
+  institutions: readonly Institution[],
+): DetectedAccount {
+  const d = checks.detected ?? {};
+  const bank = d.bank !== undefined ? bankName(d.bank) : null;
+  return {
+    ...(bank !== null ? { bank, bankInDirectory: institutions.some((i) => i.name === bank) } : {}),
+    ...(d.currency !== undefined ? { currency: d.currency } : {}),
+    ...(d.mask !== undefined ? { mask: d.mask } : {}),
+  };
+}
+
+/** The checks with the checked facts and how they fit the space's accounts (`accountFor`; none — no field). */
+function withMatch(
+  checks: StatementChecks,
+  institutions: readonly Institution[],
+  match: AccountPick | null,
+): StatementChecks {
+  return {
+    ...checks,
+    detected: { ...checkedDetected(checks, institutions), ...(match ? { accountMatch: match.kind } : {}) },
+  };
 }
 
 function withRecipe(

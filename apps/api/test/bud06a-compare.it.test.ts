@@ -14,7 +14,11 @@ import {
 } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { FLAGS } from "../src/modules/feature-flags/index.ts";
-import { createBudgetCategoryUsage, createBudgetServices } from "../src/modules/budget/index.ts";
+import {
+  createBudgetCategoryUsage,
+  createBudgetServices,
+  type BudgetServices,
+} from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
   createCategorizationServices,
@@ -32,6 +36,9 @@ import {
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * BUD-06@PoC a) (wave 2 row 36), the server part of «Порівняння»: spending and income of the budget's accounts by
@@ -208,10 +215,10 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           planEnabled: async () => true,
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
@@ -221,7 +228,7 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });

@@ -268,6 +268,46 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     expect(split.closest(".ws-tx-row")!.textContent).toContain("Кредитна ··9021");
   });
 
+  it("FIN-03@PoC FR 13, FIN-03@PoC AC 23: a type tag stands next to the amount of every row: «витрата» for a debit −12,50 €, «дохід» for a credit +1 200,00 €, «переказ» for a side of a transfer (the type the list returns; no extra request)", async () => {
+    const rows = [
+      tx(3, { counterparty: "Кав’ярня", amount: eur("-12.50") }),
+      tx(4, { counterparty: "Зарплата", amount: eur("1200.00"), type: "income" }),
+      tx(5, {
+        counterparty: "На накопичення",
+        amount: eur("-300.00"),
+        transfer: {
+          id: txId(950),
+          counterpartId: txId(6),
+          side: "outflow",
+          date: "2026-10-30",
+          fee: null,
+          rate: null,
+        },
+      }),
+    ];
+    open(handlers(rows));
+    await screen.findByRole("link", { name: /^Кав’ярня,/ });
+    const tagOf = (name: RegExp) => {
+      const row = screen.getByRole("link", { name }).closest<HTMLElement>(".ws-tx-row")!;
+      const money = row.querySelector(".ws-row-money")!;
+      return {
+        tag: money.querySelector(".ws-tx-type")?.textContent,
+        amount: plain(money.querySelector(".ws-row-money-main")?.textContent),
+        row,
+      };
+    };
+    const spend = tagOf(/^Кав’ярня,/);
+    expect(spend.tag).toBe("витрата");
+    expect(spend.amount).toContain("12,50 €");
+    expect(tagOf(/^Зарплата,/).tag).toBe("дохід");
+    expect(tagOf(/^Зарплата,/).amount).toContain("1 200,00 €");
+    const moved = tagOf(/^На накопичення,/);
+    expect(moved.tag).toBe("переказ");
+    // The type is not drawn by colour alone and is read with the row.
+    expect(screen.getByRole("link", { name: /^Кав’ярня,/ }).getAttribute("aria-label")).toContain("витрата");
+    expect(screen.getByRole("link", { name: /^Зарплата,/ }).getAttribute("aria-label")).toContain("дохід");
+  });
+
   it("DAT-01@PoC FR 3: a press on a header sorts by it ascending, the next press descending; the arrow follows", async () => {
     const { lastQuery } = open();
     await loaded();

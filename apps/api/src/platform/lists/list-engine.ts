@@ -87,7 +87,22 @@ export interface ListRequest {
   readonly sort?: string | undefined;
   readonly page?: number | undefined;
   readonly pageSize?: number | undefined;
+  /**
+   * One more condition the route builds in code from what another module answered through its port (FIN-03@PoC FR 22:
+   * «Категорії» — the transactions whose category lives in module categorization); never text of the request. Added
+   * with AND to the whitelisted filters, so the page, the count and the totals keep one set of records.
+   */
+  readonly condition?: ListCondition | undefined;
 }
+
+/**
+ * The SQL of a `condition` with its placeholders numbered from `firstParam` on (`$n::uuid[]`), and their values in
+ * order. Column names in it come from the route's code only.
+ */
+export type ListCondition = (firstParam: number) => {
+  readonly sql: string;
+  readonly params: readonly unknown[];
+};
 
 /** The amounts of matching records in one currency and on one rate date (null: the day of display). */
 export interface AmountGroup {
@@ -215,8 +230,11 @@ export function defineList(spec: ListSpec): List {
         if (problem !== null) throw new Error(`list: ${problem}`);
         checked = true;
       }
-      const where = `${quote(HOUSEHOLD_COLUMN)} = $1::uuid AND (${compiled.where})`;
-      const params = [q.householdId, ...compiled.params];
+      const extra = request.condition?.(compiled.params.length + 2);
+      const where =
+        `${quote(HOUSEHOLD_COLUMN)} = $1::uuid AND (${compiled.where})` +
+        (extra === undefined ? "" : ` AND (${extra.sql})`);
+      const params = [q.householdId, ...compiled.params, ...(extra?.params ?? [])];
 
       let count: number;
       let groups: AmountGroup[] = [];

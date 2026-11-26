@@ -418,6 +418,38 @@ describe("DAT-01@PoC FR 3: the sortable header of the transactions table", () =>
     expect(screen.getByText("Категорія").getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("FIN-03@PoC FR 13: `type` puts a tag next to the amount («витрата», «дохід», «переказ»), in the table and in the list form, and in the row's name; without `type` there is none", () => {
+    const { container, rerender } = render(
+      wrap(
+        <TransactionRow layout="table" merchant="Сільпо" date="2026-11-02" amount={spend} type="expense" />,
+      ),
+    );
+    const tag = () => container.querySelector(".ws-row-money .ws-tx-type");
+    expect(tag()?.textContent).toBe("витрата");
+    expect(container.querySelector(".ws-row-money")?.contains(tag())).toBe(true);
+    rerender(
+      wrap(
+        <TransactionRow
+          merchant="Зарплата"
+          date="2026-11-02"
+          amount={{ value: "1200.00", currency: "EUR" }}
+          type="income"
+          onOpen={() => undefined}
+        />,
+      ),
+    );
+    expect(tag()?.textContent).toBe("дохід");
+    expect(screen.getByRole("button", { name: /дохід$/ })).toBeTruthy();
+    rerender(
+      wrap(
+        <TransactionRow merchant="Накопичення" date="2026-11-02" amount={spend} type="transfer" transfer />,
+      ),
+    );
+    expect(tag()?.textContent).toBe("переказ");
+    rerender(wrap(<TransactionRow merchant="Сільпо" date="2026-11-02" amount={spend} />));
+    expect(tag()).toBeNull();
+  });
+
   it("FIN-03@PoC FR 13: without «Актив» the header runs Контрагент, Категорія, Рахунок, Дата і час, Сума and the row has no «Актив» cell", () => {
     const { container } = render(
       wrap(

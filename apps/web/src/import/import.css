@@ -155,6 +155,15 @@
   align-self: flex-start;
 }
 
+/* «Такого рахунку ще немає» and «Створити рахунок» beside «Оберіть рахунок» (IMP-08 FR 2, AC 16); a long text wraps. */
+.imp-create {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-width: 0;
+}
+
 .imp-state {
   align-items: flex-end;
 }

@@ -130,6 +130,7 @@ export type {
   TransactionColumn,
   TransactionRowProps,
   TransactionSort,
+  TransactionType,
 } from "./list/TransactionRow.tsx";
 export { ListToolbar } from "./toolbar/ListToolbar.tsx";
 export { SelectionBar } from "./toolbar/SelectionBar.tsx";

@@ -8,6 +8,7 @@ import type { AuditLog } from "../audit/index.ts";
 import {
   accountAudit,
   accountKinds,
+  bankRegistry,
   accountsListTx,
   accountsRoutes,
   accountsTx,
@@ -154,6 +155,17 @@ export function createAccountStatements(db: ModuleDatabase, services: AccountsSe
 export { lockAccounts } from "./adapters/index.ts";
 
 /**
+ * The built-in directory of banks (FIN-01@PoC FR 4) as other modules read it: each bank's name — the one an account
+ * keeps — and the NBU's legal name. IMP-08 FR 2 (row 230): import-sessions looks a statement's own bank up in it.
+ */
+export function bankDirectory(): readonly { readonly name: string; readonly legalName?: string }[] {
+  return bankRegistry().banks.map((b) => ({
+    name: b.name,
+    ...(b.legalName !== undefined ? { legalName: b.legalName } : {}),
+  }));
+}
+
+/**
  * An account as another module posts money to it (FIN-03@PoC FR 2, edge case 2; module transactions): its state and
  * each currency (subaccount) with its journal account. Read only; another space's account is null, like an unknown one.
  */
@@ -223,6 +235,40 @@ export function createAccountList(db: ModuleDatabase): AccountList {
             limit: null,
           })
         ).map((a) => ({ accountId: a.id, kind: a.kind, status: a.status })),
+      ),
+  };
+}
+
+/**
+ * The space's active accounts as the import step matches a statement to one (IMP-08@PoC FR 2; owner, 2026-11-26,
+ * row 230b): each account's institution name and the last 4 characters of its number — never the sealed number. At
+ * most `ACCOUNT_CANDIDATES_MAX` accounts (in the order of «Рахунки»). Read only; every call is bound to one space.
+ */
+export interface AccountCandidates {
+  candidates(householdId: string): Promise<
+    readonly {
+      readonly accountId: string;
+      readonly institution: string | null;
+      readonly last4: string | null;
+    }[]
+  >;
+}
+
+export const ACCOUNT_CANDIDATES_MAX = 500;
+
+/** `db` is the accounts module's own database (`ModuleDatabases.for("accounts")`). */
+export function createAccountCandidates(db: ModuleDatabase): AccountCandidates {
+  return {
+    candidates: (householdId) =>
+      db.inHousehold(householdId, async (q) =>
+        (
+          await accountsListTx(q).listAccounts(householdId, {
+            includeClosed: false,
+            kinds: null,
+            after: null,
+            limit: ACCOUNT_CANDIDATES_MAX,
+          })
+        ).map((a) => ({ accountId: a.id, institution: a.institutionName, last4: a.numberLast4 })),
       ),
   };
 }
