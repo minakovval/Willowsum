@@ -4,8 +4,10 @@ import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import type { CategoryUsage } from "../categories/index.ts";
+import type { BudgetServices } from "./adapters/index.ts";
 import {
   budgetAudit,
+  budgetCategoryUsage,
   budgetRoutes,
   budgetWorkerQueue,
   eraseHouseholdBudget,
@@ -57,24 +59,16 @@ export function createBudgetHandOffRecovery(
 }
 
 /**
- * BUD-01@PoC FR 12: the categories that have a limit or an income plan (BUD-02@PoC FR 21) in the space's budget, for
- * module categories («порожня» категорія). Read only; `db` is the budget module's own database
- * (`ModuleDatabases.for("budget")`).
+ * BUD-01@PoC FR 12, AC22 (owner decision 2026-11-26): the budget's entries of a category (limit, income plan, «План»
+ * cells) for module categories — they do not hold a category; a confirmed delete removes them with their audit
+ * entries. `db` is the budget module's own database (`ModuleDatabases.for("budget")`), `services` the API's budget
+ * services (`createBudgetServices`).
  */
-export function createBudgetCategoryUsage(db: ModuleDatabase): CategoryUsage {
-  return {
-    module: "budget",
-    used: (householdId, ids) =>
-      db.inHousehold(householdId, async (q) => {
-        if (ids.length === 0) return new Set<string>();
-        const { rows } = await q.query<{ id: string }>(
-          `SELECT category_id AS id FROM limits WHERE household_id = $1 AND category_id = ANY($2::uuid[])
-           UNION SELECT category_id FROM income_plans WHERE household_id = $1 AND category_id = ANY($2::uuid[])`,
-          [householdId, ids],
-        );
-        return new Set(rows.map((r) => r.id));
-      }),
-  };
+export function createBudgetCategoryUsage(
+  db: ModuleDatabase,
+  services: BudgetServices | (() => BudgetServices),
+): CategoryUsage {
+  return budgetCategoryUsage(db, services);
 }
 
 /** Erasure of a space's budget (NFR-12@PoC FR 3): the owner's erasure script only (module data-erasure). */

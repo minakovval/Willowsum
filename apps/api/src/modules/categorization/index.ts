@@ -30,6 +30,8 @@ import {
   setCategoryAction,
   TRANSACTION_CREATED_JOB,
   transactionsCategoryTarget,
+  categoriesOfRules,
+  ruleCount,
 } from "./adapters/index.ts";
 import { carryImportMerged, categoriesInUse, countWithCategory, type RuleDeps } from "./application/index.ts";
 
@@ -134,9 +136,10 @@ export function categorizationRulePorts(deps: {
 }
 
 /**
- * BUD-01@PoC FR 12: the categories that existing transactions of the space have as their own category, for module
- * categories («порожня» категорія); BUD-02@PoC FR 23: how many they are, for the dialog «Видалити категорію…». Read only; `db` is the categorization database, `transactions` module
- * transactions' lookup (a row of a deleted transaction is no use).
+ * BUD-01@PoC FR 12: the categories that existing transactions of the space have as their own category, or a category
+ * rule sets, for module categories (what holds a category); BUD-02@PoC FR 23: how many transactions they are, for the
+ * dialog «Видалити категорію…»; BUD-01@PoC AC 23: how many rules. Read only; `db` is the categorization database,
+ * `transactions` module transactions' lookup (a row of a deleted transaction is no use).
  */
 export function createCategorizationCategoryUsage(
   db: ModuleDatabase,
@@ -145,14 +148,18 @@ export function createCategorizationCategoryUsage(
   return {
     module: "categorization",
     used: (householdId, ids) =>
-      db.inHousehold(householdId, (q) =>
-        categoriesInUse(categorizationTx(q), transactions, householdId, ids),
-      ),
+      db.inHousehold(householdId, async (q) => {
+        const held = new Set(await categoriesInUse(categorizationTx(q), transactions, householdId, ids));
+        for (const id of await categoriesOfRules(q, householdId, ids)) held.add(id);
+        return held;
+      }),
     // BUD-02@PoC FR 23: the transactions with the category as their own (a split one counts by its parts).
     transactions: (householdId, categoryId) =>
       db.inHousehold(householdId, (q) =>
         countWithCategory(categorizationTx(q), transactions, householdId, categoryId),
       ),
+    holds: (householdId, categoryId) =>
+      db.inHousehold(householdId, async (q) => ({ rules: await ruleCount(q, householdId, categoryId) })),
   };
 }
 

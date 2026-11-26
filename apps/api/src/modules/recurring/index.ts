@@ -145,6 +145,11 @@ export function createRecurringCategoryUsage(db: ModuleDatabase): CategoryUsage 
     module: "recurring",
     used: (householdId, ids) =>
       db.inHousehold(householdId, (q) => recurringTx(q).categoriesInUse(householdId, ids)),
+    // BUD-01@PoC AC 23: «N регулярних платежів» of the delete dialog.
+    holds: (householdId, categoryId) =>
+      db.inHousehold(householdId, async (q) => ({
+        recurringPayments: await recurringTx(q).categoryPayments(householdId, categoryId),
+      })),
   };
 }
 

@@ -238,6 +238,13 @@ export function categoriesTx(q: HouseholdQueryRunner): CategoriesTx {
       );
       return new Set(rows.map((r) => r.id));
     },
+    async mergedCount(householdId, id) {
+      const { rows } = await q.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM categories WHERE household_id = $1 AND merged_into = $2`,
+        [householdId, id],
+      );
+      return rows[0]?.n ?? 0;
+    },
     async deleteCategory(householdId, id) {
       await q.query(`DELETE FROM categories WHERE household_id = $1 AND id = $2 AND system_key IS NULL`, [
         householdId,

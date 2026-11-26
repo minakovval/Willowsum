@@ -17,6 +17,7 @@ import {
   createBudgetPlanSources,
   createBudgetServices,
   type BudgetObligations,
+  type BudgetServices,
 } from "../src/modules/budget/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import {
@@ -36,6 +37,9 @@ import {
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+
+/** BUD-01 FR 12: the budget services the category delete removes limits with (created with the server). */
+let budgetServices: BudgetServices;
 
 /**
  * Security review of PR #613 (BUD-17@PoC a, «Бюджет → План», the server part): space isolation of `budget.plan_cells`
@@ -232,11 +236,11 @@ beforeAll(async () => {
           audit,
           clock,
           newId: randomUUID,
-          usage: [createBudgetCategoryUsage(db.databases.for("budget"))],
+          usage: [createBudgetCategoryUsage(db.databases.for("budget"), () => budgetServices)],
         }),
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
         goals: goalsServices,
-        budget: createBudgetServices({
+        budget: (budgetServices = createBudgetServices({
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
           transactions: createBudgetTransactions(db.databases.for("transactions")),
@@ -256,7 +260,7 @@ beforeAll(async () => {
           }),
           // As main.ts: «План» off — the months' typed values act nowhere (owner decision 2026-11-20, batch 2, item 2).
           planEnabled: (householdId) => FLAGS_UNDER_TEST.isEnabled(householdId, "budget.plan"),
-        }),
+        })),
         allowedOrigins: new Set([WEB]),
       }),
   });
