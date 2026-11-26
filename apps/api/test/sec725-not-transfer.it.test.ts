@@ -301,7 +301,10 @@ describe("PR #725 security: «Не пара» and scored proposals", () => {
     expect(entry).toHaveLength(1);
     expect(entry[0]!.changes).toHaveLength(1);
     expect(entry[0]!.changes[0]).toMatchObject({ field: "notTransferOf", before: null, after: out.id });
-    const text = JSON.stringify(entry[0]);
+    // Ids and timestamps are random (a uuid or the milliseconds may hold «500» by chance): blanked, the rest is checked.
+    const text = JSON.stringify(entry[0])
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<id>")
+      .replace(/\d{4}-\d{2}-\d{2}T[\d:.]+Z/g, "<time>");
     expect(text).not.toContain("500");
     expect(text).not.toContain("Синтетичний");
     // The other side has no entry and is unchanged.
