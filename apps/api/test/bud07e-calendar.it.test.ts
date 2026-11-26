@@ -66,13 +66,19 @@ async function newSpace(): Promise<Space> {
   return { accountId, householdId };
 }
 
-function call(space: Space, method: "GET" | "POST", url: string, body?: unknown, scoped = false) {
+function call(
+  space: Space,
+  method: "GET" | "POST" | "PUT",
+  url: string,
+  body?: unknown,
+  principal: { role?: string; scoped?: boolean } = {},
+) {
   return app.inject({
     method,
     url,
     headers: {
       origin: WEB,
-      ...principalHeader({ userId: space.accountId, householdId: space.householdId, scoped }),
+      ...principalHeader({ userId: space.accountId, householdId: space.householdId, ...principal }),
       ...(body !== undefined ? { "content-type": "application/json" } : {}),
     },
     ...(body !== undefined ? { payload: JSON.stringify(body) } : {}),
@@ -285,14 +291,30 @@ afterEach(async () => {
 });
 
 /** Rent paid on the 5th, a cinema subscription and a gym still expected, a yearly insurance, a salary not received. */
+/** A category of the space's tree by its name. */
+async function category(space: Space, name: string): Promise<string> {
+  const res = await call(space, "GET", "/v1/categories");
+  expect(res.statusCode, res.body).toBe(200);
+  const found = (res.json().groups as { categories: { id: string; name: string }[] }[])
+    .flatMap((g) => g.categories)
+    .find((c) => c.name === name);
+  expect(found, name).toBeDefined();
+  return found!.id;
+}
+
 async function household(space: Space) {
   const acc = await current(space);
+  // A payment without a merchant is paid by a transaction of its category (FR 8).
+  const housing = await category(space, "Продукти");
   const rent = await payment(space, {
     name: "Синтетична оренда",
     amount: eur("700.00"),
     anchorDate: "2026-11-05",
+    categoryId: housing,
   });
   const paid = await transaction(space, acc, "-700.00", "2026-11-05", "Синтетичний орендодавець");
+  const categorised = await call(space, "PUT", `/v1/transactions/${paid}/category`, { categoryId: housing });
+  expect(categorised.statusCode, categorised.body).toBe(200);
   await payment(space, {
     name: "Синтетичне кіно",
     amount: eur("11.99"),
@@ -383,7 +405,7 @@ describe("BUD-07@PoC FR 7: the calendar and the list of «Регулярні п�
       { name: "Синтетичний басейн", amount: eur("35.00"), anchorDate: "2026-09-05" },
       "2026-09-01",
     );
-    const c = await calendar(space, "?from=2026-11-01");
+    const c = await calendar(space, "?from=2026-11-01&days=40");
     expect(c.items.map((i) => [i.dueOn, i.status, i.counted])).toEqual([
       ["2026-11-05", "overdue", false],
       ["2026-12-05", "expected", false],
@@ -536,6 +558,9 @@ describe("BUD-07@PoC AC9: another space and a scoped member", () => {
     for (const leaked of ["Синтетична оренда", "Синтетичний чужий кредит", "751.99", "9119.88", "2000"])
       expect(text).not.toContain(leaked);
     expect(res.json()).toMatchObject({ items: [], loans: [], period: { charges: 0 } });
-    expect((await call(space, "GET", "/v1/recurring/calendar", undefined, true)).statusCode).toBe(404);
+    expect(
+      (await call(space, "GET", "/v1/recurring/calendar", undefined, { role: "editor", scoped: true }))
+        .statusCode,
+    ).toBe(404);
   });
 });
