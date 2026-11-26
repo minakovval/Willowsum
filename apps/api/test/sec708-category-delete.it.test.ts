@@ -34,6 +34,7 @@ import {
   createTransactionsServices,
 } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -261,7 +262,7 @@ describe("sec708: `confirmLimit=true` removes a limit only for who may delete an
       scoped: true,
     });
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain("30");
+    expect(leakText(res.body)).not.toContain("30");
   });
 
   it("sec708: the flag categories.tree off — a confirmed delete is 404 and the limit stays", async () => {
