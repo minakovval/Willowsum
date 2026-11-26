@@ -107,9 +107,12 @@ interface Link {
 /**
  * The order of the chain through rows given oldest first (FR 1, AC «ланцюжок залишків у будь-якому порядку рядків»):
  * rows of one day may be printed in any order — a bank prints operations of the same moment as it likes (#698 owner
- * report). Within each run of rows of the same date the next row is the first one, in the printed order, whose balance
- * before it (balance − amount) is the balance reached so far; where none is, the rest of the run keeps its printed
- * order (the chain breaks there, as printed). The printed order is kept wherever its links hold.
+ * report). Each row of a day is a link from the balance before it (balance − amount) to its balance; the day is put
+ * in an order that walks every link once from the balance reached so far (`dayPath`), so a purchase and its refund
+ * of the same moment never dead-end the walk where a path through all the rows exists (#703 money check). Where no
+ * such path exists (a real break), each next row is the first one, in the printed order, whose balance before it is
+ * the balance reached so far, and the rest of the run keeps its printed order (the chain breaks there, as printed).
+ * The printed order is kept wherever its links hold; equal rows keep their printed order. Linear per day.
  */
 function chainOrder(links: readonly Link[]): Link[] {
   const ordered: Link[] = [];
@@ -137,14 +140,35 @@ function chainOrder(links: readonly Link[]): Link[] {
       return rest[k]!.balance;
     };
     let reached = ordered.at(-1)?.balance ?? null;
+    let start = -1;
     if (reached === null) {
       // The first day: it starts at the row no other row of the day leads to (else as printed).
       const balances = new Map<string, number>();
       for (const l of rest) balances.set(key(l.balance), (balances.get(key(l.balance)) ?? 0) + 1);
       const ledTo = (l: Link) => (balances.get(key(before(l))) ?? 0) - (l.balance.eq(before(l)) ? 1 : 0) > 0;
-      const start = rest.findIndex((l) => !ledTo(l));
-      reached = take(start < 0 ? 0 : start);
+      start = Math.max(
+        0,
+        rest.findIndex((l) => !ledTo(l)),
+      );
     }
+    // A walk through every link starts where one more link leaves than arrives (out − in = 1); with none (every
+    // balance balanced, a cycle) it may start anywhere, here at the row chosen above.
+    let from = reached;
+    if (from === null) {
+      const surplus = new Map<string, number>();
+      for (const l of rest) {
+        surplus.set(key(before(l)), (surplus.get(key(before(l))) ?? 0) + 1);
+        surplus.set(key(l.balance), (surplus.get(key(l.balance)) ?? 0) - 1);
+      }
+      const first = rest.find((l) => surplus.get(key(before(l))) === 1);
+      from = first ? before(first) : before(rest[start]!);
+    }
+    const path = dayPath(rest, byBefore, from);
+    if (path) {
+      for (const k of path) ordered.push(rest[k]!);
+      continue;
+    }
+    if (reached === null) reached = take(start);
     for (let left = rest.length - used.filter(Boolean).length; left > 0; left -= 1) {
       const list = byBefore.get(key(reached!));
       while (list && list.length > 0 && used[list[0]!]) list.shift();
@@ -158,6 +182,42 @@ function chainOrder(links: readonly Link[]): Link[] {
     }
   }
   return ordered;
+}
+
+/**
+ * A walk through every row of one day, each once, from the balance `from` (Hierholzer's algorithm on the links
+ * balance before → balance after): the rows' indices in the walk's order, or null where no such walk exists. Each
+ * balance's rows are tried in the printed order, so a printed order whose links hold comes back as it is. Linear in
+ * the day's rows. `byBefore` lists each balance's rows in the printed order (read, not changed).
+ */
+function dayPath(rest: readonly Link[], byBefore: ReadonlyMap<string, readonly number[]>, from: Decimal) {
+  const key = (d: Decimal) => d.toFixed();
+  const next = new Map<string, number>();
+  // Each entry: the balance reached and the row that reached it (-1 — the start).
+  const stack: { at: string; row: number }[] = [{ at: key(from), row: -1 }];
+  const walk: number[] = [];
+  while (stack.length > 0) {
+    const top = stack[stack.length - 1]!;
+    const list = byBefore.get(top.at);
+    const k = next.get(top.at) ?? 0;
+    if (list && k < list.length) {
+      next.set(top.at, k + 1);
+      stack.push({ at: key(rest[list[k]!]!.balance), row: list[k]! });
+    } else {
+      stack.pop();
+      if (top.row >= 0) walk.push(top.row);
+    }
+  }
+  if (walk.length !== rest.length) return null;
+  walk.reverse();
+  // A walk that uses every row is a path only where each row starts where the one before it ended.
+  let at = from;
+  for (const k of walk) {
+    const l = rest[k]!;
+    if (!l.balance.minus(l.amount).eq(at)) return null;
+    at = l.balance;
+  }
+  return walk;
 }
 
 /**
