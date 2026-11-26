@@ -71,6 +71,15 @@ describe("IMP-08@PoC FR 2 (row 230b): the account of a file among several of one
     });
   });
 
+  it("IMP-08@PoC FR 2: a short or generic hand-typed name is not «the same bank» as every printed one", () => {
+    for (const typed of ["А", "Банк", "Bank", "АТ", "UAB"]) {
+      const acc: AccountCandidate = { accountId: "a-x-4417", institution: typed, last4: "4417" };
+      for (const printed of ["Універсал Банк (monobank)", "АТ «ПУМБ»", "Revolut Bank UAB"]) {
+        expect(accountFor({ bank: printed, mask: "…4417" }, [acc])).toEqual({ kind: "none" });
+      }
+    }
+  });
+
   it("IMP-08@PoC FR 2: a tail no account has — the bank's one account only when it has no number", () => {
     const unnumbered: AccountCandidate = { accountId: "a-rev", institution: "Revolut Bank UAB", last4: null };
     const numbered: AccountCandidate = { ...unnumbered, last4: "4417" };

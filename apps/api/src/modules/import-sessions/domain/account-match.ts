@@ -35,12 +35,44 @@ const folded = (text: string): string =>
 
 const TAIL = /^…([A-Za-z0-9]{4})$/u;
 
+/** Words that name a kind of company, not a bank: they never make two names one bank («Банк», «АТ», «UAB»). */
+const GENERIC = new Set([
+  "банк",
+  "bank",
+  "ат",
+  "пат",
+  "прат",
+  "ао",
+  "тов",
+  "uab",
+  "ag",
+  "sa",
+  "ltd",
+  "llc",
+  "of",
+  "the",
+  "and",
+  "і",
+  "та",
+]);
+
+const distinctive = (name: string): string[] =>
+  name.split(" ").filter((w) => w.length >= 2 && !GENERIC.has(w));
+
 /**
- * Two folded bank names that may name one bank: equal, or one is the other's whole words («revolut» in «revolut bank
- * uab», «monobank» in «універсал банк monobank»). Only a clear difference contradicts a tail match.
+ * Two folded bank names that may name one bank: equal, or the distinctive words (generic ones like «банк», «АТ», «UAB»
+ * and one-letter words dropped) of one are all among the other's («revolut» in «revolut bank uab», «monobank» in
+ * «універсал банк monobank»). A name with no distinctive word («Банк», «А») matches only an equal name. Only a clear
+ * difference contradicts a tail match.
  */
-const mayBeSameBank = (a: string, b: string): boolean =>
-  ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `);
+const mayBeSameBank = (a: string, b: string): boolean => {
+  if (a === b) return true;
+  const wa = distinctive(a);
+  const wb = distinctive(b);
+  if (wa.length === 0 || wb.length === 0) return false;
+  const [small, big] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
+  return small.every((w) => big.includes(w));
+};
 
 /** Null when the file names neither a bank nor a tail: nothing to match by. */
 export function accountFor(
