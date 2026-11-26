@@ -409,9 +409,9 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
     expect(nov.incomePlan).toEqual(eur("5700"));
     // FR 9: first the categories still below the plan (the larger plan first), then those that reached it.
     expect(nov.incomeCategories).toEqual([
-      { categoryId: rent, plan: eur("400"), actual: eur("150") },
-      { categoryId: tutoring, plan: eur("300"), actual: eur("0") },
-      { categoryId: salary, plan: eur("5000"), actual: eur("5000") },
+      { categoryId: rent, plan: eur("400"), actual: eur("150"), inBudgetCurrency: null },
+      { categoryId: tutoring, plan: eur("300"), actual: eur("0"), inBudgetCurrency: null },
+      { categoryId: salary, plan: eur("5000"), actual: eur("5000"), inBudgetCurrency: null },
     ]);
   });
 
@@ -430,11 +430,11 @@ describe("BUD-02@PoC FR 21: «План доходу» by income category", () =>
     ).toBe(201);
     await transaction(space, acc, "12.50", "2026-11-04", "Кешбек");
     expect((await period(space, "2026-11")).incomeCategories).toEqual([
-      { categoryId: salary, plan: eur("3000"), actual: eur("0") },
-      { categoryId: cashback, plan: eur("0"), actual: eur("12.5") },
+      { categoryId: salary, plan: eur("3000"), actual: eur("0"), inBudgetCurrency: null },
+      { categoryId: cashback, plan: eur("0"), actual: eur("12.5"), inBudgetCurrency: null },
     ]);
     expect((await period(space, "2026-12")).incomeCategories).toEqual([
-      { categoryId: salary, plan: eur("3000"), actual: null },
+      { categoryId: salary, plan: eur("3000"), actual: null, inBudgetCurrency: null },
     ]);
   });
 

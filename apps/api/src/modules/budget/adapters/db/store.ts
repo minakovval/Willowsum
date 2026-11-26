@@ -1,4 +1,4 @@
-import { Money } from "@willowsum/domain-kernel";
+import { Decimal, Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { BudgetTx, StoredBudget } from "../../application/index.ts";
 import type { PeriodPlan, PlanCell, PlanCellKind } from "../../domain/index.ts";
@@ -29,6 +29,48 @@ const budget = (r: BudgetRow): StoredBudget => ({
 });
 
 const month = (period: string) => `${period}-01`;
+
+/** BUD-02 FR 24: a snapshot line's amount in the category's own currency (0009). */
+interface Original {
+  amount: string;
+  currency: string;
+}
+/** BUD-02 FR 24: a rate a snapshot converted at; `rate` null — the currency had no rate (its lines count 0). */
+interface SnapshotRate {
+  currency: string;
+  rate: string | null;
+  date: string | null;
+  source: string | null;
+}
+
+const originalOf = (o: Original | undefined) =>
+  o === undefined ? {} : { original: Money.of(o.amount, o.currency) };
+const originalJson = (m: Money | undefined) =>
+  m === undefined ? {} : { original: { amount: m.toDecimalString(), currency: m.currency } };
+
+function ratesOf(rows: readonly SnapshotRate[] | null): Pick<PeriodPlan, "rates" | "missingRates"> {
+  if (rows === null) return {};
+  const rates = rows.flatMap((r) =>
+    r.rate === null || r.date === null
+      ? []
+      : [{ currency: r.currency, rate: new Decimal(r.rate), date: r.date, source: r.source ?? "" }],
+  );
+  const missing = rows.filter((r) => r.rate === null).map((r) => r.currency);
+  return { ...(rates.length > 0 ? { rates } : {}), ...(missing.length > 0 ? { missingRates: missing } : {}) };
+}
+
+function ratesJson(plan: PeriodPlan): string | null {
+  const rows: SnapshotRate[] = [
+    ...(plan.rates ?? []).map((r) => ({
+      currency: r.currency,
+      rate: r.rate.toFixed(),
+      date: r.date,
+      source: r.source,
+    })),
+    ...(plan.missingRates ?? []).map((currency) => ({ currency, rate: null, date: null, source: null })),
+  ];
+  return rows.length === 0 ? null : JSON.stringify(rows);
+}
 
 /** A line without its own id («Інші надходження», «Заощадження без цілі») is stored under the nil id (0005). */
 const NIL = "00000000-0000-0000-0000-000000000000";
@@ -88,7 +130,8 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
       else
         await q.query(
           `INSERT INTO limits (household_id, budget_id, category_id, amount, currency) VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (household_id, budget_id, category_id) DO UPDATE SET amount = EXCLUDED.amount`,
+           ON CONFLICT (household_id, budget_id, category_id)
+           DO UPDATE SET amount = EXCLUDED.amount, currency = EXCLUDED.currency`,
           [householdId, budgetId, categoryId, amount.toDecimalString(), amount.currency],
         );
     },
@@ -109,7 +152,8 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
       else
         await q.query(
           `INSERT INTO income_plans (household_id, budget_id, category_id, amount, currency) VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (household_id, budget_id, category_id) DO UPDATE SET amount = EXCLUDED.amount`,
+           ON CONFLICT (household_id, budget_id, category_id)
+           DO UPDATE SET amount = EXCLUDED.amount, currency = EXCLUDED.currency`,
           [householdId, budgetId, categoryId, amount.toDecimalString(), amount.currency],
         );
     },
@@ -139,11 +183,12 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
         currency: string;
         income_plan: string;
         planned_savings: string;
-        limits: { categoryId: string; amount: string; mandatory: boolean }[];
-        income_plans: { categoryId: string; amount: string }[] | null;
+        limits: { categoryId: string; amount: string; mandatory: boolean; original?: Original }[];
+        income_plans: { categoryId: string; amount: string; original?: Original }[] | null;
+        rates: SnapshotRate[] | null;
       }>(
         `SELECT to_char(period, 'YYYY-MM') AS period, currency, income_plan::text AS income_plan,
-                planned_savings::text AS planned_savings, limits, income_plans
+                planned_savings::text AS planned_savings, limits, income_plans, rates
            FROM period_snapshots WHERE household_id = $1 AND budget_id = $2`,
         [householdId, budgetId],
       );
@@ -153,7 +198,12 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
           {
             incomePlan: Money.of(r.income_plan, r.currency),
             plannedSavings: Money.of(r.planned_savings, r.currency),
-            limits: r.limits.map((l) => ({ ...l, amount: Money.of(l.amount, r.currency) })),
+            limits: r.limits.map((l) => ({
+              categoryId: l.categoryId,
+              amount: Money.of(l.amount, r.currency),
+              mandatory: l.mandatory,
+              ...originalOf(l.original),
+            })),
             // FR 11: a snapshot written before 0007 has no income plan by category.
             ...(r.income_plans === null
               ? {}
@@ -161,8 +211,11 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
                   incomePlans: r.income_plans.map((l) => ({
                     categoryId: l.categoryId,
                     amount: Money.of(l.amount, r.currency),
+                    ...originalOf(l.original),
                   })),
                 }),
+            // BUD-02 FR 24: the rates of its last day (0009); none — every line in the budget's currency.
+            ...ratesOf(r.rates),
           },
         ]),
       );
@@ -170,8 +223,8 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
     async insertSnapshot(householdId, budgetId, period, plan) {
       await q.query(
         `INSERT INTO period_snapshots
-           (household_id, budget_id, period, currency, income_plan, planned_savings, limits, income_plans)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
+           (household_id, budget_id, period, currency, income_plan, planned_savings, limits, income_plans, rates)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT DO NOTHING`,
         [
           householdId,
           budgetId,
@@ -184,14 +237,47 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
               categoryId: l.categoryId,
               amount: l.amount.toDecimalString(),
               mandatory: l.mandatory,
+              ...originalJson(l.original),
             })),
           ),
           JSON.stringify(
             (plan.incomePlans ?? []).map((l) => ({
               categoryId: l.categoryId,
               amount: l.amount.toDecimalString(),
+              ...originalJson(l.original),
             })),
           ),
+          ratesJson(plan),
+        ],
+      );
+    },
+    async updateSnapshotRates(householdId, budgetId, period, plan) {
+      await q.query(
+        `UPDATE period_snapshots SET income_plan = $4, limits = $5, income_plans = $6, rates = $7
+          WHERE household_id = $1 AND budget_id = $2 AND period = $3`,
+        [
+          householdId,
+          budgetId,
+          month(period),
+          plan.incomePlan.toDecimalString(),
+          JSON.stringify(
+            plan.limits.map((l) => ({
+              categoryId: l.categoryId,
+              amount: l.amount.toDecimalString(),
+              mandatory: l.mandatory,
+              ...originalJson(l.original),
+            })),
+          ),
+          plan.incomePlans === undefined
+            ? null
+            : JSON.stringify(
+                plan.incomePlans.map((l) => ({
+                  categoryId: l.categoryId,
+                  amount: l.amount.toDecimalString(),
+                  ...originalJson(l.original),
+                })),
+              ),
+          ratesJson(plan),
         ],
       );
     },
@@ -222,7 +308,8 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
         `INSERT INTO plan_cells (household_id, budget_id, period, kind, line_id, amount, currency, version)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
          ON CONFLICT (household_id, budget_id, period, kind, line_id)
-           DO UPDATE SET amount = EXCLUDED.amount, version = plan_cells.version + 1, updated_at = now()
+           DO UPDATE SET amount = EXCLUDED.amount, currency = EXCLUDED.currency, version = plan_cells.version + 1,
+             updated_at = now()
          RETURNING version`,
         [
           householdId,

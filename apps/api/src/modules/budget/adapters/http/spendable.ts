@@ -22,6 +22,7 @@ import {
   spendable,
 } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
+import { planRatesSchema, ratesOut } from "./rates.ts";
 import { budgetServices } from "./services.ts";
 
 /**
@@ -128,6 +129,11 @@ const spendableSchema = z.object({
    * complete; #651 — the enum stays as /v1 published it).
    */
   unavailable: z.array(z.enum(SOURCES)),
+  /**
+   * BUD-03@PoC business rules, BUD-02 FR 24: the rates the period's limits and income plans of other currencies are
+   * converted at (today's); not empty — the sum is shown with «≈» and the hint names the rate and its date.
+   */
+  rates: planRatesSchema,
   /**
    * «приблизно» (EC4, «Стани»): transactions at the nearest rate (`nearestRateCount`) or without any (`unavailableCount`
    * — then `figures` is null), as the period's; `obligations` — a regular payment or loan at the nearest rate; `incomes`
@@ -237,7 +243,12 @@ export const getSpendableRoute = defineRoute({
         }) ?? false,
       plannedExpenses: expenses?.approximate ?? extra?.some((e) => e.approximate === true) ?? false,
     };
-    const base = { period, currency: budget.currency, daysLeft: daysLeft(today, period) };
+    const base = {
+      period,
+      currency: budget.currency,
+      daysLeft: daysLeft(today, period),
+      rates: ratesOut(plan),
+    };
     // EC4: a transaction without any rate (or out of range) — no sum, never a partial one shown as complete; the
     // client reads it from `approximate.unavailableCount` (#651: `unavailable` keeps its published values).
     if (unavailable.length > 0 || counted.unavailableCount > 0 || !obligations || !contributions || !expenses)

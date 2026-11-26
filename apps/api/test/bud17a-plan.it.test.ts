@@ -319,6 +319,7 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
       "goals",
       "income",
       "months",
+      "rates",
       "unallocated",
     ]);
   });

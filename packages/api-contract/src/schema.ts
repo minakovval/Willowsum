@@ -5364,6 +5364,12 @@ export interface operations {
                                 from: string;
                                 to: string;
                             } | null;
+                            /** @description BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈» */
+                            rates: {
+                                currency: string;
+                                date: string | null;
+                                rate: string | null;
+                            }[];
                             version: number;
                         } | null;
                     };
@@ -5463,7 +5469,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -5474,7 +5480,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -5487,7 +5493,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -5496,7 +5502,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -5507,7 +5513,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -5518,7 +5524,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -5529,7 +5535,7 @@ export interface operations {
                     incomePlan?: {
                         /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
-                        /** @description The budget's currency (the space's reporting currency) */
+                        /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                         currency: string;
                     };
                     /** @description «План доходу» by income category (FR 21): active income categories of the space, each once (400 `incomePlans.<i>.categoryId`: `not_found`, `not_income`, `hidden`, `duplicate`); the income plan is their sum. Not with `incomePlan` (400 `incomePlan: with_income_plans`) */
@@ -5537,7 +5543,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -5547,7 +5553,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -5598,6 +5604,12 @@ export interface operations {
                             from: string;
                             to: string;
                         } | null;
+                        /** @description BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈» */
+                        rates: {
+                            currency: string;
+                            date: string | null;
+                            rate: string | null;
+                        }[];
                         version: number;
                     };
                 };
@@ -6011,7 +6023,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -6022,7 +6034,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -6035,7 +6047,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -6044,7 +6056,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -6055,7 +6067,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -6066,7 +6078,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** @constant */
@@ -6076,7 +6088,7 @@ export interface operations {
                     chosen?: {
                         /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
-                        /** @description The budget's currency (the space's reporting currency) */
+                        /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                         currency: string;
                     }[];
                     /** @description A calendar month, YYYY-MM */
@@ -6084,7 +6096,7 @@ export interface operations {
                     incomePlan?: {
                         /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
-                        /** @description The budget's currency (the space's reporting currency) */
+                        /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                         currency: string;
                     };
                     /** @description «План доходу» by income category (FR 21): active income categories of the space, each once (400 `incomePlans.<i>.categoryId`: `not_found`, `not_income`, `hidden`, `duplicate`); the income plan is their sum. Not with `incomePlan` (400 `incomePlan: with_income_plans`) */
@@ -6092,7 +6104,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -6102,7 +6114,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         };
                         /** Format: uuid */
@@ -7035,6 +7047,20 @@ export interface operations {
                                 /** Format: uuid */
                                 categoryId: string;
                                 groupId: string | null;
+                                inBudgetCurrency: {
+                                    limit: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    remaining: {
+                                        amount: string;
+                                        currency: string;
+                                    } | null;
+                                    spent: {
+                                        amount: string;
+                                        currency: string;
+                                    } | null;
+                                } | null;
                                 limit: {
                                     amount: string;
                                     currency: string;
@@ -7063,6 +7089,16 @@ export interface operations {
                             } | null;
                             /** Format: uuid */
                             categoryId: string;
+                            inBudgetCurrency: {
+                                actual: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | null;
                             plan: {
                                 amount: string;
                                 currency: string;
@@ -7098,6 +7134,12 @@ export interface operations {
                             from: string;
                             to: string;
                         } | null;
+                        /** @description BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈» */
+                        rates: {
+                            currency: string;
+                            date: string | null;
+                            rate: string | null;
+                        }[];
                         /** @description FR 19: the totals row. Null — a future month (plan only, no fact) */
                         summary: {
                             /** @description E «Вільний залишок» = limits − spent − D, negative with «−». Null with D: show «—», never 0 */
@@ -7405,6 +7447,12 @@ export interface operations {
                             };
                         } | null;
                         period: string;
+                        /** @description BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈» */
+                        rates: {
+                            currency: string;
+                            date: string | null;
+                            rate: string | null;
+                        }[];
                         unavailable: ("obligations" | "incomes" | "goals" | "plannedExpenses")[];
                     };
                 };
@@ -7662,7 +7710,7 @@ export interface operations {
                     incomePlan?: {
                         /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
-                        /** @description The budget's currency (the space's reporting currency) */
+                        /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                         currency: string;
                     };
                     /** @description FR 21: set, change or remove (`amount` null — «Прибрати») the plan of income categories; the income plan becomes the sum of the categories' plans */
@@ -7670,7 +7718,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         } | null;
                         /** Format: uuid */
@@ -7680,7 +7728,7 @@ export interface operations {
                         amount: {
                             /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
-                            /** @description The budget's currency (the space's reporting currency) */
+                            /** @description The budget's currency (the space's reporting currency); a limit or an income category's plan may name another currency with a rate today (BUD-02 FR 24; else 400 `….currency: currency`) */
                             currency: string;
                         } | null;
                         /** Format: uuid */
@@ -7729,6 +7777,12 @@ export interface operations {
                             from: string;
                             to: string;
                         } | null;
+                        /** @description BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈» */
+                        rates: {
+                            currency: string;
+                            date: string | null;
+                            rate: string | null;
+                        }[];
                         version: number;
                     };
                 };
@@ -7943,6 +7997,12 @@ export interface operations {
                             /** @enum {string} */
                             mode: "current" | "future";
                             period: string;
+                        }[];
+                        /** @description BUD-02 FR 24: the rates the limits and income plans of other currencies are converted into the budget's currency at — today's for the current and future periods, the last day's of a finished one (kept in its snapshot). 1 unit of `currency` is `rate` of the budget's currency, of `date`; null — no rate (the lines count 0). Not empty — the totals that hold such a line are shown with «≈» and the hint names the rate and its date; empty — no «≈» */
+                        rates: {
+                            currency: string;
+                            date: string | null;
+                            rate: string | null;
                         }[];
                         unallocated: ({
                             amount: {
