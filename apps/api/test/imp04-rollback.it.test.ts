@@ -414,7 +414,7 @@ describe("IMP-16@PoC FR 2: the rollback reverses each transaction in the journal
 });
 
 describe("IMP-16@PoC FR 4: transactions the person changed after the apply", () => {
-  it("IMP-16@PoC AC2: two transactions of the batch with a category set by hand — «Залишити змінені»: 78 rolled back, 2 kept and named", async () => {
+  it("IMP-16@PoC AC2: two transactions of the batch with a category set by hand — the rollback with «Залишити змінені вручну» on (`keep-changed`): 78 rolled back, 2 kept and named", async () => {
     nowMs = start;
     const space = await newSpace();
     const batchId = await applied(space, "berezen.csv", purchases(80));

@@ -1,6 +1,6 @@
 # Модуль categories
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (BUD-01@PoC п. 12, AC 22, 23, рядок 221: точна причина видалення — `categoryUsage` у `/usage` і відмовах, `CATEGORY_LIMIT_CONFIRM`, `confirmLimit`; ліміт не тримає категорію і видаляється з нею через порт `CategoryUsage.limits`); 2026-11-21 (BUD-02@PoC п. 23: `getCategoryUsage`, `CategoryUsage.transactions`); 2026-11-15 (BUD-01@PoC п. 12: видалення порожньої власної категорії, серверна частина; BUD-01 b: споживач `categories.merged` і відповідь `categorization`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (FIN-03@PoC п. 8: `FEE_CATEGORY_KEY`; BUD-01@PoC п. 12, AC 23, 24 — до перенумерації 2026-11-26 AC 22, 23, рядок 221: точна причина видалення — `categoryUsage` у `/usage` і відмовах, `CATEGORY_LIMIT_CONFIRM`, `confirmLimit`; ліміт не тримає категорію і видаляється з нею через порт `CategoryUsage.limits`); 2026-11-21 (BUD-02@PoC п. 23: `getCategoryUsage`, `CategoryUsage.transactions`); 2026-11-15 (BUD-01@PoC п. 12: видалення порожньої власної категорії, серверна частина; BUD-01 b: споживач `categories.merged` і відповідь `categorization`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -91,7 +91,7 @@ FLW-34@PoC лише читає дерево («типові групи без с
   "adjustment")`. Записує системне дерево, якщо його ще немає.
 - `createCategoriesErasure(db)` → `eraseHousehold(householdId)` → `{ categories, groups, idempotencyKeys, events, jobs }`
   — видалення простору (NFR-12@PoC п. 3); викликає лише `data-erasure` (крок `categories.records`).
-- `categoryMerged`, `CATEGORY_KINDS`, `CATEGORY_STATES`, `SERVICE_CATEGORY_KEYS` і їхні типи.
+- `categoryMerged`, `CATEGORY_KINDS`, `CATEGORY_STATES`, `SERVICE_CATEGORY_KEYS` і їхні типи; `FEE_CATEGORY_KEY` (`bank-fees`, «Комісії банку») — категорія, в якій бюджет рахує комісію переказу і валютну різницю (FIN-03@PoC п. 8, рішення власника 2026-11-26, № 11).
 
 Порядок однієї зміни (`application/categories.ts`): у транзакції модуля з рядками під блокуванням — перевірки → рядки →
 для об'єднання подія в outbox модуля → запис аудиту (`categories.group` / `categories.category`, `create` · `update` ·

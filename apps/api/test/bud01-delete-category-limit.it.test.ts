@@ -40,7 +40,7 @@ import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
- * BUD-01@PoC FR 12, AC22, AC23; BUD-02@PoC FR 23 (wave 2 row 221; owner decision 2026-11-26): the exact reason of the
+ * BUD-01@PoC FR 12, AC23, AC24; BUD-02@PoC FR 23 (wave 2 row 221; owner decision 2026-11-26): the exact reason of the
  * delete dialog and the category only its limit holds, through the real API on a real PostgreSQL with the real
  * categories, budget, transactions, categorization and recurring modules wired as the API process wires them. A rule
  * and a regular payment are rows of their modules written by the owner connection (their own flows are BUD-14 and
@@ -250,7 +250,7 @@ afterAll(async () => {
 });
 
 describe("BUD-01@PoC FR 12: a category only its limit holds is deleted after confirmation", () => {
-  it("BUD-01@PoC AC 22: «Абонементи» with a limit of 30 € and «План» cells for December and January, a finished October — the confirmation names 30 €; confirmed, the category, its limit and cells go, the name is free again, October's snapshot keeps it and the deletion is in the audit log", async () => {
+  it("BUD-01@PoC AC 23: «Абонементи» with a limit of 30 € and «План» cells for December and January, a finished October — the confirmation names 30 €; confirmed, the category, its limit and cells go, the name is free again, October's snapshot keeps it and the deletion is in the audit log", async () => {
     const space = await newSpace();
     const subs = await subscriptions(space);
     expect((await names(space)).get("Абонементи")!.deletable).toBe(true);
@@ -385,7 +385,7 @@ describe("BUD-01@PoC FR 12: a category only its limit holds is deleted after con
 });
 
 describe("BUD-01@PoC FR 12: the exact reason of a held category", () => {
-  it("BUD-01@PoC AC 23: «Спортзал» without transactions, with 1 category rule and 1 regular payment — no «Видалити»; the reason is «1 регулярний платіж» (the rule is named as information, not as a reason); the request is refused with the same reason and nothing changes; once the payment is gone the category is deleted and its rule stays, now pointing at a deleted category («Потребує уваги»)", async () => {
+  it("BUD-01@PoC AC 24: «Спортзал» without transactions, with 1 category rule and 1 regular payment — no «Видалити»; the reason is «1 регулярний платіж» (the rule is named as information, not as a reason); the request is refused with the same reason and nothing changes; once the payment is gone the category is deleted and its rule stays, now pointing at a deleted category («Потребує уваги»)", async () => {
     const space = await newSpace();
     const gym = await addCategory(space, "Спортзал");
     const ruleId = randomUUID();

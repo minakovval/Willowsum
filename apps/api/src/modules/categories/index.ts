@@ -23,7 +23,7 @@ export const categoriesModule = defineModule({
 
 export { createCategoriesServices, type CategoriesServices } from "./adapters/index.ts";
 export { categoryMerged, type CategoryMerged } from "./events.ts";
-export { CATEGORY_KINDS, CATEGORY_STATES, SERVICE_CATEGORY_KEYS } from "./domain/index.ts";
+export { CATEGORY_KINDS, CATEGORY_STATES, FEE_CATEGORY_KEY, SERVICE_CATEGORY_KEYS } from "./domain/index.ts";
 export type { CategoryKind, CategoryState, ServiceCategoryKey } from "./domain/index.ts";
 
 /** A category of a space as other modules check it (BUD-01@PoC FR 9). */

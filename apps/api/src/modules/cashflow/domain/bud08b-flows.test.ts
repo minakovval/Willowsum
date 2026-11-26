@@ -138,7 +138,7 @@ describe("BUD-08@PoC: «Залишилось на рахунках»", () => {
     goalId,
   });
 
-  it("BUD-08@PoC AC1, FR 4: income 6 000, spending 4 500, goals 500, brokerage 400 — net flow 1 500, 900 to goals and investments, 600 left", () => {
+  it("BUD-08@PoC FR 4: income 6 000, spending 4 500, goals 500, brokerage 400 — net flow 1 500, 900 to goals and investments, 600 left", () => {
     const figures = monthFigures(
       ["2026-09"],
       [
@@ -165,6 +165,23 @@ describe("BUD-08@PoC: «Залишилось на рахунках»", () => {
     // FR 6: the withdrawal is shown apart and not taken off.
     expect(m!.investmentWithdrawals.toDecimalString()).toBe("150");
     expect(m!.leftOnAccounts.toDecimalString()).toBe("600");
+  });
+
+  it("BUD-08@PoC AC1: income 6 000, spending 4 500, goals 500 and no investments — net flow 1 500, 500 to goals, 1 000 left", () => {
+    const figures = monthFigures(
+      ["2026-09"],
+      [
+        { month: "2026-09", categoryId: "salary", amount: eur("6000") },
+        { month: "2026-09", categoryId: "food", amount: eur("-4500") },
+      ],
+      cats,
+      "EUR",
+    );
+    const [m] = monthFlows(figures, [line("2026-09", "goal", "500", "cushion")], "EUR");
+    expect(figures[0]!.netFlow.toDecimalString()).toBe("1500");
+    expect(m!.goalContributions.toDecimalString()).toBe("500");
+    expect(m!.investmentContributions.isZero()).toBe(true);
+    expect(m!.leftOnAccounts.toDecimalString()).toBe("1000");
   });
 
   it("BUD-08@PoC FR 4: what is left may be negative; the period's flows add up its months", () => {

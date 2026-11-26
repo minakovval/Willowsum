@@ -233,8 +233,10 @@ describe("BUD-08@PoC FR 1: the period and the view", () => {
 });
 
 describe("BUD-08@PoC FR 2: the view «Місяць»", () => {
-  it("BUD-08@PoC AC1: shows income 6 000 €, spending 4 500 €, net flow 1 500 €, savings rate 25,0 %, 900 € to goals and investments, 600 € left on the accounts", async () => {
-    open();
+  it("BUD-08@PoC AC1: shows income 6 000 €, spending 4 500 €, net flow 1 500 €, savings rate 25,0 %, 500 € to goals, 1 000 € left on the accounts and no investments row", async () => {
+    open({
+      cashflow: { status: 200, body: reportOf({}, [monthOf({ investments: "0.00", left: "1000.00" })]) },
+    });
     await ready();
     const kpis = plain(document.querySelector(".flow-kpis")!.textContent);
     expect(kpis).toContain("6 000,00 €");
@@ -242,10 +244,10 @@ describe("BUD-08@PoC FR 2: the view «Місяць»", () => {
     expect(kpis).toContain("1 500,00 €");
     expect(kpis).toContain("25,0 %");
     expect(plain(legend("goals").textContent)).toContain("500,00 €");
-    expect(plain(legend("investments").textContent)).toContain("400,00 €");
-    expect(plain(legend("left").textContent)).toContain("600,00 €");
+    expect(legend("investments")).toBeNull();
+    expect(plain(legend("left").textContent)).toContain("1 000,00 €");
     expect(plain(row("left").textContent)).toContain("Залишилось на рахунках");
-    expect(plain(row("left").textContent)).toContain("600,00 €");
+    expect(plain(row("left").textContent)).toContain("1 000,00 €");
     expect(plain(document.querySelector(".flow-band-total")!.textContent)).toContain("Усього6 000,00 €");
   });
 

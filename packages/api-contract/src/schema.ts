@@ -23469,6 +23469,10 @@ export interface operations {
                             transfer: {
                                 /** Format: uuid */
                                 counterpartId: string;
+                                currencyDifference: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
                                 date: string;
                                 fee: {
                                     amount: string;
@@ -23713,6 +23717,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -23904,6 +23912,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -24213,6 +24225,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -24411,6 +24427,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -24841,6 +24861,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -25270,6 +25294,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -25461,6 +25489,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -25659,6 +25691,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -25856,6 +25892,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -26054,6 +26094,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -26252,6 +26296,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -26443,6 +26491,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -26654,6 +26706,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -26845,6 +26901,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -27043,6 +27103,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -27234,6 +27298,10 @@ export interface operations {
                         transfer: {
                             /** Format: uuid */
                             counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             date: string;
                             fee: {
                                 amount: string;
@@ -27565,6 +27633,10 @@ export interface operations {
                             transfer: {
                                 /** Format: uuid */
                                 counterpartId: string;
+                                currencyDifference: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
                                 date: string;
                                 fee: {
                                     amount: string;
@@ -27652,6 +27724,10 @@ export interface operations {
                             transfer: {
                                 /** Format: uuid */
                                 counterpartId: string;
+                                currencyDifference: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
                                 date: string;
                                 fee: {
                                     amount: string;
