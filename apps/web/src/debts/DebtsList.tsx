@@ -64,7 +64,7 @@ export function DebtsList({ debts }: { debts: readonly Debt[] }) {
 function DebtRow({ debt }: { debt: Debt }) {
   const { t, locale } = useI18n();
   // FLW-44@PoC FR 1 (owner, 2026-11-27): a credit card has no rate and no regular payment; its payment is the amount
-  // «Зменшувати на … / міс.» the user gave, and its end date follows from it. Without the amount — the balance and the hint.
+  // «Гасити щомісяця: …» the user gave, and its end date follows from it. Without the amount — the balance and the hint.
   const card = debt.kind === "credit-card";
   const amount = card ? debt.cardMonthlyAmount : null;
   const balanceOnly = card && amount === null;

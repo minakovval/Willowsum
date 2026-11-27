@@ -279,3 +279,17 @@ test('PRC-02 (owner, 2026-11-19): the progress page headlines coverage.json, sho
   // The old fallback for the plan estimate is gone: no number stands in for missing data.
   assert.doesNotMatch(page, /FALLBACK|\b251\b/);
 });
+
+test('PRC-02 (owner, 2026-11-27): the progress page shows «немає пунктів для підрахунку» for a requirement without numbered items and leaves it out of «Готово N з M» and block percentages', () => {
+  const page = read('tools/progress-dashboard/index.html');
+  assert.match(page, /var NO_ITEMS = 'немає пунктів для підрахунку';/);
+  assert.match(page, /var NO_ITEMS_NOTE = 'У тексті вимоги немає нумерованих пунктів, готовність не вимірюється\.';/);
+  // coverage.json with the new status passes the shape check.
+  assert.match(page, /\['готово', 'у роботі', 'не почато', NO_ITEMS\]\.indexOf\(f\.status\) >= 0/);
+  // Excluded from the block counts and the page total; the note line says so.
+  assert.match(page, /if \(x\.f\.status === NO_ITEMS\) \{ unmeasured \+= 1; return; \}/);
+  assert.match(page, / Готово ' \+ ready \+ ' з ' \+ measured \+ ' функцій\.'/);
+  assert.match(page, /не враховано ні в «Готово», ні у відсотках блоків/);
+  // An open PR never turns it into «у роботі»: only «не почато» is raised.
+  assert.match(page, /var st = f\.status === 'не почато' && pr \? 'у роботі' : f\.status;/);
+});

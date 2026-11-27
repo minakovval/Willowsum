@@ -6,7 +6,7 @@ import path from 'node:path';
 import { parseTag, formatTag, splitTag, joinTag, numberLines, parseSource, renderViews, viewReleases, convertToSource, convertRequirement, viewHeader, SOURCE_MARKER } from '../lib/source.mjs';
 import { moveItems } from '../lib/move.mjs';
 import { itemsOf } from '../lib/items.mjs';
-import { findMentions, computeCoverage, renderCoverage, danglingMentions, coverageSummary, featuresSummary, IGNORE_MENTION } from '../lib/coverage.mjs';
+import { findMentions, computeCoverage, renderCoverage, danglingMentions, coverageSummary, featuresSummary, NO_ITEMS, IGNORE_MENTION } from '../lib/coverage.mjs';
 import { runChecks } from '../lib/run.mjs';
 import { makeRegistries } from '../lib/registries.mjs';
 import { main } from '../index.mjs';
@@ -543,6 +543,16 @@ test('PRC-02 features: a fingerprint error keeps a fully covered requirement «�
   const f = featuresOf(text, new Map([['BUD-16', 2]]));
   assert.deepEqual([f[0].status, f[0].fingerprintErrors], ['у роботі', 2]);
   assert.ok(!f.some((x) => x.id === 'BUD-01'));
+});
+
+test('PRC-02 features (owner, 2026-11-27): a PoC view with no numbered FR, AC or EC is «немає пунктів для підрахунку», never «не почато» or «готово», even with a fingerprint error', () => {
+  const zero = { covered: 0, total: 0 };
+  const cov = { rows: [{ sid: 'ARC-11@PoC', id: 'ARC-11', release: 'PoC', FR: zero, AC: zero, EC: zero }, { sid: 'JRN-05@PoC', id: 'JRN-05', release: 'PoC', FR: zero, AC: zero, EC: zero }] };
+  const f = featuresSummary(cov, { titles: new Map(), fingerprintErrors: new Map([['JRN-05', 1]]) });
+  assert.equal(NO_ITEMS, 'немає пунктів для підрахунку');
+  assert.deepEqual(f.map((x) => [x.id, x.status, x.items.total]), [['ARC-11', NO_ITEMS, 0], ['JRN-05', NO_ITEMS, 0]]);
+  // One numbered item keeps the usual statuses.
+  assert.equal(featuresOf(null)[0].status, 'не почато');
 });
 
 test('PRC-02 features: --coverage-json writes version 2 with the features and counts a fingerprint file error per requirement; the totals keep their shape', () => {
