@@ -5,6 +5,7 @@ import {
   reviewOnCreate,
   transferRateRequest,
   creditFitsJournal,
+  pairedOneSided,
   transferReceived,
   type FieldIssue,
   type TransferLink,
@@ -97,7 +98,14 @@ async function changeBoth(
   const rows: StoredTransaction[] = [];
   const handOffs: TransactionHandOff[] = [];
   for (const [current, transfer] of pairs) {
-    const row = await tx.update(caller.householdId, { ...current, transfer, version: current.version + 1 });
+    // IMP-03 FR 14, AC11: a side of a pair is no one-sided transfer any more (a dismissed one stays dismissed).
+    const oneSided = transfer === null ? current.oneSided : pairedOneSided(current.oneSided);
+    const row = await tx.update(caller.householdId, {
+      ...current,
+      transfer,
+      oneSided,
+      version: current.version + 1,
+    });
     const handOff: TransactionHandOff = {
       transactionId: row.id,
       actorAccountId: caller.accountId,
@@ -114,6 +122,12 @@ async function changeBoth(
 }
 
 /**
+ * IMP-03@PoC FR 21: whether `categoryId` may take a pair's fee — a category of the space (module categories'
+ * directory; another space's answers null), not merged away and not a service one («Переказ», «Коригування»).
+ */
+export type FeeCategoryCheck = (householdId: string, categoryId: string) => Promise<boolean>;
+
+/**
  * «Позначити як переказ» (FR 27) and «Підтвердити» (FR 6) on `id` with `counterpartId`: both of the space, posted,
  * shown, not split, in no transfer, on two active accounts (or two wallets of one in two currencies — an exchange,
  * IMP-03 FR 2), one a debit and the other a credit (domain orderPair). In
@@ -125,8 +139,12 @@ export async function markTransfer(
   caller: Caller,
   id: string,
   counterpartId: string,
+  /** IMP-03 FR 21: the fee category chosen with «Змінити категорію» before «Підтвердити»; absent — «Комісії банку». */
+  fee: { readonly categoryId: string; readonly check: FeeCategoryCheck } | null = null,
 ): Promise<TransferResult> {
   const householdId = caller.householdId;
+  if (fee && !(await fee.check(householdId, fee.categoryId)))
+    return { kind: "invalid", issues: [{ field: "feeCategoryId", issue: "not_found" }] };
   const read = await inTransactions(async (tx) => [
     await tx.find(householdId, id),
     await tx.find(householdId, counterpartId),
@@ -164,6 +182,7 @@ export async function markTransfer(
       outflowId: pair.outflow.id,
       inflowId: pair.inflow.id,
       rate,
+      feeCategoryId: fee?.categoryId ?? null,
     };
     await tx.insertTransfer(householdId, link);
     // The inflow first: its own event goes before the outflow's turns into the fee and the transfer (hand-off.ts).
@@ -445,5 +464,54 @@ export async function dismissTransfer(
     };
     await tx.enqueueHandOff(householdId, handOff);
     return { kind: "ok", transaction: row, handOffs: [handOff] };
+  });
+}
+
+/**
+ * IMP-03@PoC FR 21 «Змінити категорію» of a confirmed pair's fee (one currency) or currency difference (two): the budget
+ * counts it in `categoryId` (null — «Комісії банку» again). `id` is either side. The category as `check` allows (400
+ * `categoryId: not_found`); not a side of a pair — 400 `transactionId: not_transfer`; its accounts active (409). The audit
+ * entry is the outflow's (`transfer.feeCategory`); the journal does not change (its fee and «Валютна різниця» stay).
+ * The same category again — nothing changes.
+ */
+export async function setTransferFeeCategory(
+  deps: TransactionsDeps,
+  inTransactions: InTransactions,
+  caller: Caller,
+  id: string,
+  categoryId: string | null,
+  check: FeeCategoryCheck,
+): Promise<TransferResult> {
+  const householdId = caller.householdId;
+  if (categoryId !== null && !(await check(householdId, categoryId)))
+    return { kind: "invalid", issues: [{ field: "categoryId", issue: "not_found" }] };
+  return inTransactions(async (tx) => {
+    const seen = await tx.find(householdId, id);
+    if (!seen) return { kind: "not-found" };
+    const link = seen.transfer;
+    if (link === null)
+      return { kind: "invalid", issues: [{ field: "transactionId", issue: "not_transfer" }] };
+    const otherId = link.outflowId === id ? link.inflowId : link.outflowId;
+    const [current, counterpart] = await lockBoth(tx, householdId, id, otherId);
+    if (current?.transfer?.id !== link.id || counterpart?.transfer?.id !== link.id)
+      return { kind: "conflict" };
+    if ((current.transfer.feeCategoryId ?? null) === categoryId)
+      return { kind: "ok", transaction: current, handOffs: [] };
+    if (await anyClosed(deps, tx, householdId, [current, counterpart])) return { kind: "closed" };
+    await tx.setTransferFeeCategory(householdId, link.id, categoryId);
+    const outflow = current.id === link.outflowId ? current : counterpart;
+    const changed = { ...outflow, transfer: { ...link, feeCategoryId: categoryId } };
+    const row = await tx.update(householdId, { ...changed, version: outflow.version + 1 });
+    const handOff: TransactionHandOff = {
+      transactionId: row.id,
+      actorAccountId: caller.accountId,
+      action: "transfer-fee-category",
+      version: row.version,
+      transferId: link.id,
+      audit: transactionAuditValues("transfer-fee-category", outflow, row),
+    };
+    await tx.enqueueHandOff(householdId, handOff);
+    const shown = row.id === id ? row : { ...current, transfer: changed.transfer };
+    return { kind: "ok", transaction: shown, handOffs: [handOff] };
   });
 }

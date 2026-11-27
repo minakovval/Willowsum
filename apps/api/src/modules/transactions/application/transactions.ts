@@ -36,6 +36,8 @@ export interface TransactionsTx {
   remove(householdId: string, id: string): Promise<void>;
   /** FIN-03 FR 7: the pair of a transfer, written before its two rows point at it. */
   insertTransfer(householdId: string, link: TransferLink): Promise<void>;
+  /** IMP-03 FR 21: the category the budget counts the pair's fee or difference in; null — «Комісії банку». */
+  setTransferFeeCategory(householdId: string, id: string, categoryId: string | null): Promise<void>;
   /** FR 9: the pair removed, once neither row points at it. */
   removeTransfer(householdId: string, id: string): Promise<void>;
   /** FIN-03 FR 11: the transactions merged into `id` as its duplicates, in the order of their ids. */

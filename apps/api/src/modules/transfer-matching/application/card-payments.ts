@@ -1,4 +1,5 @@
 import { cardPaymentsOf } from "../domain/index.ts";
+import type { OneSidedDeps } from "./one-sided.ts";
 import { listProposals, type ProposalDeps } from "./proposals.ts";
 
 /**
@@ -22,6 +23,11 @@ export interface CardPaymentDeps extends ProposalDeps {
     outflowId: string,
     inflowId: string,
   ) => Promise<boolean>;
+  /**
+   * IMP-03@PoC FR 1, FR 14, FR 15 (row 139a): the one-sided check, run after the card payments over the space's free
+   * transactions (index.ts `createCardPaymentTransfers`); left out — none.
+   */
+  readonly oneSided?: OneSidedDeps;
 }
 
 /** Which sides are new: the ids given, or the sides an import batch wrote. */

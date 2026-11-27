@@ -1,6 +1,6 @@
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
-import type { CounterpartDeps } from "../../application/index.ts";
+import type { CounterpartDeps, OneSidedDeps } from "../../application/index.ts";
 
 const BRAND = Symbol("willowsum-transfer-matching-services");
 
@@ -11,11 +11,22 @@ const BRAND = Symbol("willowsum-transfer-matching-services");
 export interface TransferMatchingServices {
   readonly [BRAND]: true;
   readonly deps: CounterpartDeps;
+  /**
+   * IMP-03@PoC FR 14, FR 18, FR 23 (row 139a): «Односторонні», «Підтверджені» and «Шукати пари знову»; null when not
+   * wired — those routes answer 500.
+   */
+  readonly oneSided: OneSidedDeps | null;
 }
 
-/** `deps`: the proposals' (`ProposalDeps`), the candidates with IMP-03 FR 24's `counterpartsOf`. */
-export function createTransferMatchingServices(deps: CounterpartDeps): TransferMatchingServices {
-  return { [BRAND]: true, deps };
+/**
+ * `deps`: the proposals' (`ProposalDeps`), the candidates with IMP-03 FR 24's `counterpartsOf`, and the one-sided
+ * transfers' ports (`oneSided`).
+ */
+export function createTransferMatchingServices(
+  deps: CounterpartDeps & { readonly oneSided?: OneSidedDeps },
+): TransferMatchingServices {
+  const { oneSided, ...rest } = deps;
+  return { [BRAND]: true, deps: rest, oneSided: oneSided ?? null };
 }
 
 /** The services of a transfer-matching route; without them (never in the API process) the route answers 500. */

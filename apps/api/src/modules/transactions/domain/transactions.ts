@@ -50,7 +50,9 @@ export type FieldIssue = {
     // The attributes (attributes.ts, BUD-13 FR 2): more than 20 tags on a transaction — «Досягнуто 20 тегів».
     | "too_many"
     // «Одноразова витрата» (attributes.ts, BUD-06 FR 8): only an expense is marked.
-    | "not_expense";
+    | "not_expense"
+    // IMP-03 FR 21 (transfers.ts): «Змінити категорію» of a fee on a transaction that is no side of a pair.
+    | "not_transfer";
 };
 
 const AMOUNT_RE = /^-?\d{1,20}(?:\.\d{1,18})?$/;

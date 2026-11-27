@@ -15,6 +15,7 @@ import {
   applyHandOff,
   createTransaction,
   createTransfer,
+  decideOneSided,
   deleteTransaction,
   dismissDuplicate,
   dismissTransfer,
@@ -23,6 +24,7 @@ import {
   removeSplit,
   setHidden,
   setSplit,
+  setTransferFeeCategory,
   splitCategoryKinds,
   unmarkTransfer,
   unmergeDuplicate,
@@ -135,7 +137,28 @@ const transferSchema = z.object({
   currencyDifference: moneySchema.nullable(),
   /** FR 8: two currencies — 1 unit of the inflow's currency in the outflow's, the official rate of the date. */
   rate: z.object({ rate: z.string(), date: z.string(), source: z.string() }).nullable(),
+  /**
+   * IMP-03@PoC FR 21: the category the budget counts `fee` or `currencyDifference` in, chosen with «Змінити категорію»;
+   * null — the space's «Комісії банку».
+   */
+  feeCategoryId: z.uuid().nullable(),
 });
+
+/**
+ * IMP-03@PoC FR 14, FR 15, FR 22: the one-sided transfer — `flagged` by the system («односторонній переказ»: it still
+ * counts as usual) or `marked` «Це переказ» (neither income nor expense: the detail shows the type «Переказ», FR 24);
+ * `evidence` — why it was flagged (`transfer-words`, `own-account-words`, `card-payment`; extensible), empty when marked
+ * by hand.
+ */
+const oneSidedSchema = z.object({
+  state: z.enum(["flagged", "marked"]),
+  evidence: z.array(z.string()),
+});
+
+const oneSidedOut = (state: unknown, evidence: unknown): z.input<typeof oneSidedSchema> | null =>
+  state === "flagged" || state === "marked"
+    ? { state, evidence: Array.isArray(evidence) ? evidence.map(String) : [] }
+    : null;
 
 export const transactionSchema = z.object({
   id: z.uuid(),
@@ -175,6 +198,8 @@ export const transactionSchema = z.object({
    * «Середнє за N міс.», «Створити за моїми витратами», «Подушка безпеки»); false — not marked.
    */
   oneOff: z.boolean(),
+  /** IMP-03@PoC FR 14, FR 22: a one-sided transfer, flagged or marked «Це переказ»; null — none (or «Це не переказ»). */
+  oneSidedTransfer: oneSidedSchema.nullable(),
   /**
    * BUD-12 FR 4, FR 8: «До розбору» — `queued` (in the queue), `confirmed` (its category confirmed), null (never in
    * the queue: entered by hand).
@@ -293,6 +318,7 @@ function transferOut(id: string, view: TransferView | undefined): z.input<typeof
       link.rate === null
         ? null
         : { rate: link.rate.rate.toString(), date: link.rate.date, source: link.rate.source },
+    feeCategoryId: link.feeCategoryId ?? null,
   };
 }
 
@@ -327,6 +353,7 @@ function present(
     tags: tagsOut(t.tagIds, names),
     // BUD-06 FR 8 (#685): with `transactions.one-off` off the stored mark is shown nowhere, as it acts nowhere.
     oneOff: oneOffOn && t.oneOff,
+    oneSidedTransfer: oneSidedOut(t.oneSided?.state, t.oneSided?.evidence),
     review: t.review,
     version: t.version,
     recordedAt: t.createdAt,
@@ -657,6 +684,7 @@ function listItem(
     note: (row["note"] as string | null) ?? null,
     tags: tagsOut(rowTags(row), names),
     oneOff: oneOffOn && row["oneOff"] === true,
+    oneSidedTransfer: oneSidedOut(row["oneSided"], row["oneSidedEvidence"]),
     review: (row["review"] as StoredTransaction["review"]) ?? null,
     version: Number(row["version"]),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
@@ -923,6 +951,12 @@ export const markTransferRoute = defineRoute({
       .object({
         /** The other side: a credit for a debit and the other way round, on another account of the space. */
         counterpartId: z.uuid(),
+        /**
+         * IMP-03@PoC FR 21: the category of the pair's fee or currency difference chosen with «Змінити категорію» before
+         * «Підтвердити» — a category of the space, not merged, not a service one (else 400 `feeCategoryId: not_found`);
+         * left out — «Комісії банку».
+         */
+        feeCategoryId: z.uuid().optional(),
       })
       .strict(),
   },
@@ -940,6 +974,9 @@ export const markTransferRoute = defineRoute({
       caller(ctx),
       params.transactionId,
       body.counterpartId,
+      body.feeCategoryId === undefined
+        ? null
+        : { categoryId: body.feeCategoryId, check: feeCategoryWiring(ctx) },
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
@@ -982,6 +1019,100 @@ export const dismissTransferRoute = defineRoute({
       caller(ctx),
       params.transactionId,
       body.counterpartId,
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
+
+const feeCategoryWiring = (ctx: ProtectedContext) => {
+  const { feeCategory } = transactionsServices(ctx);
+  if (feeCategory === null) throw new ApiProblem("INTERNAL");
+  return feeCategory;
+};
+
+/**
+ * IMP-03@PoC FR 21 (row 139a): «Змінити категорію» of a confirmed pair's fee — the budget counts the fee (one currency)
+ * or the currency difference (two) in the chosen category instead of «Комісії банку»; the journal does not change.
+ */
+export const setTransferFeeCategoryRoute = defineRoute({
+  module: MODULE,
+  method: "PUT",
+  path: "/v1/transactions/{transactionId}/transfer/fee-category",
+  operationId: "setTransferFeeCategory",
+  summary:
+    "«Змінити категорію» of a confirmed pair's fee or currency difference (IMP-03 FR 21): the budget counts it in this category; null — «Комісії банку» again",
+  access: { permission: "household.data.write", feature: TRANSFERS_FLAG },
+  bodyLimitBytes: 1024,
+  problems: ["ACCOUNT_CLOSED", "VERSION_CONFLICT"],
+  request: {
+    params,
+    body: z
+      .object({
+        /** A category of the space, not merged, not a service one (else 400 `categoryId: not_found`); null — «Комісії банку». */
+        categoryId: z.uuid().nullable(),
+      })
+      .strict(),
+  },
+  response: {
+    status: 200,
+    description: "The transaction, a side of the transfer",
+    schema: transactionSchema,
+  },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = transactionsServices(ctx);
+    const result = await setTransferFeeCategory(
+      deps,
+      inTransactions(ctx),
+      caller(ctx),
+      params.transactionId,
+      body.categoryId,
+      feeCategoryWiring(ctx),
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
+
+/**
+ * IMP-03@PoC FR 14, FR 22 (row 139a): the switch «Це переказ» of a one-sided transfer — `isTransfer` true: neither income
+ * nor expense; false — «Це не переказ»: the flag is gone and never set again, it counts as usual. Flagged or not (FR 24:
+ * with no candidates the user marks it one-sided). The journal does not change.
+ */
+export const setOneSidedTransferRoute = defineRoute({
+  module: MODULE,
+  method: "PUT",
+  path: "/v1/transactions/{transactionId}/one-sided-transfer",
+  operationId: "setOneSidedTransfer",
+  summary:
+    "«Це переказ» / «Це не переказ» of a one-sided transfer — its other side on an account outside Willowsum (IMP-03 FR 14, FR 22): marked, it is neither income nor expense",
+  access: { permission: "household.data.write", feature: TRANSFERS_FLAG },
+  bodyLimitBytes: 1024,
+  problems: ["ACCOUNT_CLOSED"],
+  request: {
+    params,
+    body: z
+      .object({
+        /** True — «Це переказ»; false — «Це не переказ». */
+        isTransfer: z.boolean(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The transaction", schema: transactionSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = transactionsServices(ctx);
+    const result = await decideOneSided(
+      deps,
+      inTransactions(ctx),
+      caller(ctx),
+      params.transactionId,
+      body.isTransfer,
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
@@ -1200,6 +1331,8 @@ export const transactionsRoutes = [
   createTransferRoute,
   unmarkTransferRoute,
   dismissTransferRoute,
+  setTransferFeeCategoryRoute,
+  setOneSidedTransferRoute,
   mergeDuplicateRoute,
   unmergeDuplicateRoute,
   dismissDuplicateRoute,

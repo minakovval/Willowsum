@@ -27,6 +27,11 @@ export interface TransferLink {
    * official rate of the transfer's date or the nearest earlier one, kept when marked; null in one currency.
    */
   readonly rate: ExchangeRate | null;
+  /**
+   * IMP-03@PoC FR 21: the category the budget counts the fee (one currency) or the currency difference (two) in, chosen
+   * with «Змінити категорію»; null or absent — the space's «Комісії банку».
+   */
+  readonly feeCategoryId?: string | null;
 }
 
 export interface PairSide {

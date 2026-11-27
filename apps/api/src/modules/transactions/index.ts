@@ -66,10 +66,19 @@ import {
   type AccountOperation,
   type MovementSide,
 } from "./adapters/db/cashflow-reads.ts";
+import {
+  confirmedPairs,
+  oneSidedTransfers,
+  pairingSingles,
+  type ConfirmedPair,
+  type OneSidedSide,
+  type SingleSide,
+} from "./adapters/db/pair-reads.ts";
 import { transferDifference } from "./domain/index.ts";
 import { transactionCreated, transactionImportMerged, type TransactionImportMerged } from "./events.ts";
 import {
   applyHandOff,
+  flagOneSided,
   markTransfer,
   ROLLBACK_RECOVERY_LISTED,
   previewRollback,
@@ -190,6 +199,22 @@ export interface TransferCandidates {
     transactionId: string,
     query: { readonly windowDays: number; readonly amountShare: string; readonly limit: number },
   ): Promise<{ readonly chosen: ChosenSide | null; readonly items: readonly CounterpartSide[] }>;
+  /**
+   * IMP-03@PoC FR 14, FR 15: the free transactions (posted, shown, not split, not merged, in no transfer, not zero) that
+   * never had a one-sided state, newest first, at most `limit` — with their texts (the bank's description too) for the
+   * check of transfer-matching.
+   */
+  singles(householdId: string, limit: number): Promise<readonly SingleSide[]>;
+  /** IMP-03@PoC FR 18, FR 22 «Односторонні»: the flagged and marked one-sided transfers still free; newest first. */
+  oneSided(
+    householdId: string,
+    limit: number,
+  ): Promise<{ readonly items: readonly OneSidedSide[]; readonly count: number }>;
+  /** IMP-03@PoC FR 18, FR 20 «Підтверджені»: the space's transfers with their fee or difference; newest first. */
+  confirmed(
+    householdId: string,
+    limit: number,
+  ): Promise<{ readonly items: readonly ConfirmedPair[]; readonly count: number }>;
 }
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
@@ -199,9 +224,15 @@ export function createTransferCandidates(db: ModuleDatabase): TransferCandidates
       db.inHousehold(householdId, (q) => transferCandidates(q, householdId, query)),
     counterpartsOf: (householdId, transactionId, query) =>
       db.inHousehold(householdId, (q) => counterpartCandidates(q, householdId, transactionId, query)),
+    singles: (householdId, limit) =>
+      db.inHousehold(householdId, (q) => pairingSingles(q, householdId, limit)),
+    oneSided: (householdId, limit) =>
+      db.inHousehold(householdId, (q) => oneSidedTransfers(q, householdId, limit)),
+    confirmed: (householdId, limit) =>
+      db.inHousehold(householdId, (q) => confirmedPairs(q, householdId, limit)),
   };
 }
-export type { CandidateSide, ChosenSide, CounterpartSide };
+export type { CandidateSide, ChosenSide, ConfirmedPair, CounterpartSide, OneSidedSide, SingleSide };
 
 /**
  * BUD-01@PoC FR 7, AC4 (#722 D): «Позначити як переказ» of a pair for module transfer-matching's card payments — the
@@ -264,6 +295,61 @@ export function createTransferMarking(
         });
       }
       return true;
+    },
+  };
+}
+
+/**
+ * IMP-03@PoC FR 14, FR 15 (row 139a): the system's flag «односторонній переказ» for module transfer-matching — each of
+ * `items` still free and never in a one-sided state gets it (application flagOneSided: the row's version, its hand-off
+ * and audit entry by `actorAccountId`, the person whose import, entry or search ran it); the others are skipped. The
+ * hand-offs run right away (the worker runs them otherwise). How many were flagged.
+ */
+export interface OneSidedFlagging {
+  flag(
+    householdId: string,
+    actorAccountId: string,
+    items: readonly { readonly transactionId: string; readonly evidence: readonly string[] }[],
+  ): Promise<number>;
+}
+
+export function createOneSidedFlagging(
+  db: ModuleDatabase,
+  ports: {
+    readonly accounts: HandOffDeps["accounts"];
+    readonly ledger: HandOffDeps["ledger"];
+    readonly audit: Pick<AuditLog, "record">;
+  },
+): OneSidedFlagging {
+  const deps: HandOffDeps = {
+    accounts: ports.accounts,
+    ledger: ports.ledger,
+    audit: transactionAudit(ports.audit),
+  };
+  return {
+    async flag(householdId, actorAccountId, items) {
+      if (items.length === 0) return 0;
+      const { flagged, handOffs } = await flagOneSided(
+        (work) => db.inHousehold(householdId, (q) => work(transactionsTx(q))),
+        { householdId, accountId: actorAccountId },
+        items,
+      );
+      try {
+        for (const h of handOffs)
+          await applyHandOff(
+            deps,
+            transactionRows((work) => db.inHousehold(householdId, work)),
+            householdId,
+            h,
+          );
+      } catch (error) {
+        // The jobs are queued: the worker finishes them (class only, never a value).
+        logEvent("transactions.hand_off_deferred", "warn", {
+          "ws.module": "transactions",
+          "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+        });
+      }
+      return flagged.length;
     },
   };
 }
@@ -659,13 +745,19 @@ async function transferDifferences(
     const d = transferDifference(t.outflow, t.inflow, t.rate);
     if (d === null) return [];
     const accountId = d.side === "outflow" ? t.outflow.accountId : t.inflow.accountId;
-    return accounts.has(accountId) ? [{ id: t.id, accountId, amount: d.amount, date: t.date }] : [];
+    return accounts.has(accountId)
+      ? [{ id: t.id, accountId, amount: d.amount, date: t.date, chosen: t.feeCategoryId }]
+      : [];
   });
   if (differences.length === 0) return [];
-  const categoryId = await options.feeCategory(householdId);
-  if (categoryId === null) return [];
+  const bankFees = await options.feeCategory(householdId);
+  // IMP-03 FR 21: the category chosen with «Змінити категорію», else «Комісії банку».
+  const counted = differences.flatMap(({ chosen, ...d }) => {
+    const categoryId = chosen ?? bankFees;
+    return categoryId === null ? [] : [{ ...d, categoryId }];
+  });
   // A loss is spending in «Комісії банку»; a gain is income under the same category (FIN-03 AC31).
-  return differences.map((d) => ({
+  return counted.map(({ categoryId, ...d }) => ({
     ...d,
     parts: [
       {

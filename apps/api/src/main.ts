@@ -90,11 +90,13 @@ import {
   createTransactionsServices,
   createTransferCandidates,
   createTransferMarking,
+  createOneSidedFlagging,
 } from "./modules/transactions/index.ts";
 import {
   createCardPaymentTransfers,
   createImportBatchProposals,
   createTransferMatchingServices,
+  type OneSidedDeps,
   createTransferProposalSides,
 } from "./modules/transfer-matching/index.ts";
 import { createDuplicateCheck, createDuplicateMatchingServices } from "./modules/duplicate-matching/index.ts";
@@ -122,7 +124,7 @@ import { scheduleDaily } from "./platform/process/daily.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
 import { createWorker } from "./platform/queue/index.ts";
 import { createApiRateLimits } from "./platform/http/rate-limit.ts";
-import { createListTotals } from "./platform/lists/list-total.ts";
+import { createListTotals, kyivToday } from "./platform/lists/list-total.ts";
 import { buildServer } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
 import { startTelemetry } from "./platform/telemetry/telemetry.ts";
@@ -324,7 +326,33 @@ const recurring = createRecurringServices({
 // BUD-01@PoC FR 7, AC4 (#722 D): a payment to a credit card from an own account of the space is a transfer at once —
 // the proposals of transfer-matching, the cards of the space (accounts' kind), the transactions module's mark; run after
 // «Нова транзакція» and after an import batch's apply, while `transactions.transfers` is on for the space.
+// IMP-03@PoC FR 14, FR 15, FR 18, FR 23 (row 139a): the one-sided transfers — the free transactions and the lists of
+// transactions, the space's credit cards (accounts' kind), the flag of transactions; today on the Kyiv clock.
+const oneSidedTransfers: OneSidedDeps = {
+  singles: (householdId, limit) =>
+    createTransferCandidates(databases.for("transactions")).singles(householdId, limit),
+  oneSided: (householdId, limit) =>
+    createTransferCandidates(databases.for("transactions")).oneSided(householdId, limit),
+  confirmed: (householdId, limit) =>
+    createTransferCandidates(databases.for("transactions")).confirmed(householdId, limit),
+  cards: async (householdId, accountIds) => {
+    const directory = createAccountDirectory(databases.for("accounts"));
+    const cards = new Set<string>();
+    for (const id of accountIds)
+      if ((await directory.postingAccount(householdId, id))?.kind === "credit-card") cards.add(id);
+    return cards;
+  },
+  flag: (householdId, actorAccountId, items) =>
+    createOneSidedFlagging(databases.for("transactions"), {
+      accounts: createAccountDirectory(databases.for("accounts")),
+      ledger: createLedger(databases.for("ledger")),
+      audit,
+    }).flag(householdId, actorAccountId, items),
+  today: () => kyivToday(systemClock.now()),
+};
+
 const cardPaymentTransfers = createCardPaymentTransfers({
+  oneSided: oneSidedTransfers,
   candidates: createTransferCandidates(databases.for("transactions")),
   rates: (requests) =>
     createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
@@ -511,6 +539,7 @@ const server = buildServer({
             }),
             // FIN-03 FR 5, FR 6: proposals of transfers from the space's transactions at the official rates.
             transferMatching: createTransferMatchingServices({
+              oneSided: oneSidedTransfers,
               candidates: createTransferCandidates(databases.for("transactions")),
               rates: (requests) =>
                 createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(

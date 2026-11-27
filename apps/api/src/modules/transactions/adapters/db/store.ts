@@ -16,6 +16,7 @@ import {
   transferFee,
   type TransferLink,
   keepsOneOff,
+  type OneSidedState,
 } from "../../domain/index.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
 import { transactionCreated } from "../../events.ts";
@@ -50,6 +51,9 @@ interface Row {
   bank_fee: string | null;
   /** The currency the fee was charged in (the row's as imported); set with `bank_fee`. */
   bank_fee_currency: string | null;
+  /** IMP-03 FR 14, FR 22 (0018_one_sided_and_fee_category.sql): the one-sided transfer's state; null — none. */
+  one_sided: OneSidedState | null;
+  one_sided_evidence: string[] | null;
 }
 
 interface TransferRow {
@@ -59,6 +63,7 @@ interface TransferRow {
   rate: string | null;
   rate_date: string | null;
   rate_source: string | null;
+  fee_category_id: string | null;
   inflow_amount: string;
   inflow_currency: string;
   inflow_date: string;
@@ -92,7 +97,7 @@ interface PartRow {
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
   counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, note,
   tag_ids::text[] AS tag_ids, one_off, review, version, created_at, bank_fee::text AS bank_fee,
-  bank_fee_currency`;
+  bank_fee_currency, one_sided, one_sided_evidence`;
 
 /** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
 export async function transfersOf(
@@ -104,6 +109,7 @@ export async function transfersOf(
   if (ids.length === 0) return byId;
   const { rows } = await q.query<TransferRow>(
     `SELECT f.id, f.outflow_id, f.inflow_id, f.rate::text AS rate, f.rate_date::text AS rate_date, f.rate_source,
+            f.fee_category_id,
             i.amount::text AS inflow_amount, i.currency AS inflow_currency, i.occurred_on::text AS inflow_date,
             o.amount::text AS outflow_amount, o.currency AS outflow_currency, o.occurred_on::text AS outflow_date
        FROM transfers f
@@ -128,7 +134,13 @@ export async function transfersOf(
     const difference =
       outflow.amount.currency === inflow.amount.currency ? null : transferDifference(outflow, inflow, rate);
     byId.set(r.id, {
-      link: { id: r.id, outflowId: r.outflow_id, inflowId: r.inflow_id, rate },
+      link: {
+        id: r.id,
+        outflowId: r.outflow_id,
+        inflowId: r.inflow_id,
+        rate,
+        feeCategoryId: r.fee_category_id,
+      },
       date: transferDate(outflow, inflow),
       fee: transferFee(outflow, inflow),
       currencyDifference: difference?.amount ?? null,
@@ -208,6 +220,11 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
     ...(r.bank_fee === null || r.bank_fee === undefined || !r.bank_fee_currency
       ? {}
       : { bankFee: Money.of(r.bank_fee, r.bank_fee_currency) }),
+    // IMP-03 FR 14, FR 22: the one-sided transfer's state and why it was flagged.
+    oneSided:
+      r.one_sided === null || r.one_sided === undefined
+        ? null
+        : { state: r.one_sided, evidence: r.one_sided_evidence ?? [] },
   };
 }
 
@@ -316,7 +333,10 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
             SET account_id = $3, subaccount_id = $4, amount = $5, currency = $6, occurred_on = $7, counterparty = $8,
                 description = $9, version = $10, status = $11, hidden = $12, split_mode = $13,
                 split_needs_review = $14, transfer_id = $15, merged_into = $16, note = $17,
-                tag_ids = $18::uuid[], review = $19, one_off = $20, updated_at = now()
+                tag_ids = $18::uuid[], review = $19, one_off = $20,
+                one_sided = CASE WHEN $21::boolean THEN $22 ELSE one_sided END,
+                one_sided_evidence = CASE WHEN $21::boolean THEN $23::text[] ELSE one_sided_evidence END,
+                updated_at = now()
           WHERE household_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
         [
           householdId,
@@ -340,14 +360,18 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.review,
           // BUD-06 FR 8: an income or a transfer side keeps no «Одноразова витрата» (any write that makes it one).
           keepsOneOff(t),
+          // IMP-03 FR 14, FR 22: a write that names the one-sided state sets it; one that leaves it out keeps it.
+          t.oneSided !== undefined,
+          t.oneSided?.state ?? null,
+          t.oneSided ? [...t.oneSided.evidence] : null,
         ],
       );
       return row!;
     },
     async insertTransfer(householdId, link) {
       await q.query(
-        `INSERT INTO transfers (household_id, id, outflow_id, inflow_id, rate, rate_date, rate_source)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        `INSERT INTO transfers (household_id, id, outflow_id, inflow_id, rate, rate_date, rate_source, fee_category_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           householdId,
           link.id,
@@ -356,8 +380,17 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           link.rate?.rate.toString() ?? null,
           link.rate?.date ?? null,
           link.rate?.source ?? null,
+          // IMP-03 FR 21: the fee category chosen before «Підтвердити»; null — «Комісії банку».
+          link.feeCategoryId ?? null,
         ],
       );
+    },
+    async setTransferFeeCategory(householdId, id, categoryId) {
+      await q.query(`UPDATE transfers SET fee_category_id = $3 WHERE household_id = $1 AND id = $2`, [
+        householdId,
+        id,
+        categoryId,
+      ]);
     },
     async removeTransfer(householdId, id) {
       await q.query(`DELETE FROM transfers WHERE household_id = $1 AND id = $2`, [householdId, id]);
@@ -505,6 +538,8 @@ export const transactionsList = defineList({
     note: "note",
     tagIds: "tag_ids",
     oneOff: "one_off",
+    oneSided: "one_sided",
+    oneSidedEvidence: "one_sided_evidence",
     review: "review",
     version: "version",
     createdAt: "created_at",
@@ -599,6 +634,8 @@ export async function transferCandidates(
         AND (i.account_id <> o.account_id OR i.currency <> o.currency)
         AND o.status = 'posted' AND i.status = 'posted' AND NOT o.hidden AND NOT i.hidden
         AND o.split_mode IS NULL AND i.split_mode IS NULL AND o.transfer_id IS NULL AND i.transfer_id IS NULL
+        -- IMP-03 FR 22: a one-sided transfer marked «Це переказ» is in no pair.
+        AND o.one_sided IS DISTINCT FROM 'marked' AND i.one_sided IS DISTINCT FROM 'marked'
         AND i.occurred_on BETWEEN o.occurred_on - $2::int AND o.occurred_on + $2::int
         AND (i.currency <> o.currency OR (i.amount <= -o.amount AND i.amount >= -o.amount * $3::numeric))
         AND NOT EXISTS (SELECT 1 FROM transfer_dismissals d
@@ -703,6 +740,7 @@ export async function counterpartCandidates(
         AND sign(c.amount) = -sign($3::numeric)
         AND (c.account_id <> $4 OR c.currency <> $5)
         AND c.status = 'posted' AND NOT c.hidden AND c.split_mode IS NULL AND c.transfer_id IS NULL
+        AND c.one_sided IS DISTINCT FROM 'marked'
         AND c.occurred_on BETWEEN $6::date - $7::int AND $6::date + $7::int
         AND (c.currency <> $5
              OR CASE WHEN $3::numeric < 0
@@ -857,7 +895,10 @@ export async function categoriesInParts(
 ): Promise<ReadonlySet<string>> {
   if (ids.length === 0) return new Set();
   const { rows } = await q.query<{ id: string }>(
-    `SELECT DISTINCT category_id AS id FROM transaction_parts WHERE household_id = $1 AND category_id = ANY($2::uuid[])`,
+    // IMP-03@PoC FR 21: the fee category chosen for a pair holds it too.
+    `SELECT category_id AS id FROM transaction_parts WHERE household_id = $1 AND category_id = ANY($2::uuid[])
+     UNION
+     SELECT fee_category_id FROM transfers WHERE household_id = $1 AND fee_category_id = ANY($2::uuid[])`,
     [householdId, ids],
   );
   return new Set(rows.map((r) => r.id));
@@ -942,7 +983,7 @@ export async function budgetRows(
                FROM transaction_parts p WHERE p.household_id = t.household_id AND p.transaction_id = t.id) AS parts
        FROM transactions t
       WHERE t.household_id = $1 AND t.account_id = ANY($2::uuid[]) AND NOT t.hidden AND t.merged_into IS NULL
-        AND t.transfer_id IS NULL
+        AND t.transfer_id IS NULL AND t.one_sided IS DISTINCT FROM 'marked'
         AND (t.occurred_on BETWEEN $3::date AND $4::date
              OR (t.split_mode = 'months' AND EXISTS (SELECT 1 FROM transaction_parts p
                    WHERE p.household_id = t.household_id AND p.transaction_id = t.id
@@ -985,6 +1026,8 @@ export async function transfersDatedIn(
     readonly outflow: { readonly accountId: string; readonly amount: Money };
     readonly inflow: { readonly accountId: string; readonly amount: Money };
     readonly rate: ExchangeRate | null;
+    /** IMP-03 FR 21: the category chosen for the fee; null — «Комісії банку». */
+    readonly feeCategoryId: string | null;
   }[]
 > {
   const { rows } = await q.query<{
@@ -999,8 +1042,9 @@ export async function transfersDatedIn(
     rate: string | null;
     rate_date: string | null;
     rate_source: string | null;
+    fee_category_id: string | null;
   }>(
-    `SELECT DISTINCT ON (f.id) f.id, to_char(t.occurred_on, 'YYYY-MM-DD') AS date,
+    `SELECT DISTINCT ON (f.id) f.id, to_char(t.occurred_on, 'YYYY-MM-DD') AS date, f.fee_category_id,
             o.account_id AS out_account, o.amount::text AS out_amount, o.currency AS out_currency,
             i.account_id AS in_account, i.amount::text AS in_amount, i.currency AS in_currency,
             f.rate::text AS rate, f.rate_date::text AS rate_date, f.rate_source
@@ -1016,6 +1060,7 @@ export async function transfersDatedIn(
   return rows.map((r) => ({
     id: r.id,
     date: r.date,
+    feeCategoryId: r.fee_category_id,
     outflow: { accountId: r.out_account, amount: Money.of(r.out_amount, r.out_currency) },
     inflow: { accountId: r.in_account, amount: Money.of(r.in_amount, r.in_currency) },
     rate:
@@ -1045,7 +1090,7 @@ export async function budgetFirstDate(
     `SELECT to_char(min(t.occurred_on), 'YYYY-MM-DD') AS first
        FROM transactions t
       WHERE t.household_id = $1 AND t.account_id = ANY($2::uuid[]) AND NOT t.hidden AND t.merged_into IS NULL
-        AND t.transfer_id IS NULL`,
+        AND t.transfer_id IS NULL AND t.one_sided IS DISTINCT FROM 'marked'`,
     [householdId, [...accountIds]],
   );
   return rows[0]?.first ?? null;
