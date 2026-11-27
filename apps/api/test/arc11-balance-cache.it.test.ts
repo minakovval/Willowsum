@@ -204,7 +204,7 @@ describe("ARC-11@PoC «Баланси і продуктивність»: the dai
     expect((await checkOf(s.householdId).run())["balance-cache"]).toBe(0);
   });
 
-  it("ARC-11 FR 21: balanceAt gives from the cache what the postings give — random journals with back-dated entries, reversals and corrections, with and without «as known at»", async () => {
+  it("ARC-11@PoC FR 15, ARC-11 FR 21: balanceAt gives from the cache what the postings give — random journals with back-dated entries, reversals and corrections, with and without «as known at»", async () => {
     for (const seed of [1, 2, 3]) {
       const s = await space();
       const r = rng(1000 + seed);
