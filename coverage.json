@@ -1,7 +1,8 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-27T08:50:17.648Z",
-  "sha": "692f8a795f9f2e44361bd9e620eda0bea16d3f66",
+  "version": 2,
+  "generatedAt": "2026-11-27T10:18:21.212Z",
+  "sha": "42aa23b44876a1ee46b552baf14dc07717e0b63c",
   "releases": [
     {
       "release": "PoC",
@@ -122,6 +123,3870 @@
         "covered": 63,
         "total": 1206
       }
+    }
+  ],
+  "blocks": [
+    {
+      "id": "money",
+      "name": "Гроші",
+      "note": "Рахунки, транзакції, перекази, валюти й курси, ручний режим, розбір транзакцій (розділ «Гроші» плану хвилі 2)."
+    },
+    {
+      "id": "planning",
+      "name": "Планування",
+      "note": "Бюджет, категорії, «Можна витратити», цілі, регулярні платежі, борги, грошовий потік (розділ «Планування»)."
+    },
+    {
+      "id": "rules",
+      "name": "Правила",
+      "note": "Мерчанти, правила категоризації, правила з історії розбору."
+    },
+    {
+      "id": "import",
+      "name": "Імпорт",
+      "note": "Завантаження виписок, рецепти розбору, парування, відкат партій (розділ «Імпорт»)."
+    },
+    {
+      "id": "screens",
+      "name": "Екрани і дизайн-система",
+      "note": "Дизайн-система, компоненти, сітки сторінок (розділи «Дизайн-система і компоненти», «Екрани і потоки»)."
+    },
+    {
+      "id": "data",
+      "name": "Дані і графіки",
+      "note": "Універсальні списки, масові дії, стани екранів, графіки."
+    },
+    {
+      "id": "platform",
+      "name": "Платформа і безпека",
+      "note": "Модулі й правила архітектури, CI/CD, безпека, нефункціональні вимоги, акаунт і вхід, процес вимог (розділи «Модулі і правила ARC», «Перед розгортанням»)."
+    }
+  ],
+  "features": [
+    {
+      "id": "ACC-01",
+      "title": "Реєстрація та вхід",
+      "section": "ACC",
+      "sectionName": "Рахунки",
+      "block": "platform",
+      "FR": {
+        "covered": 16,
+        "total": 16
+      },
+      "AC": {
+        "covered": 27,
+        "total": 27
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 45,
+        "total": 45
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "ACC-04",
+      "title": "Керування сесіями і тайм-аут",
+      "section": "ACC",
+      "sectionName": "Рахунки",
+      "block": "platform",
+      "FR": {
+        "covered": 6,
+        "total": 6
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 15,
+        "total": 15
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "ACC-05",
+      "title": "Профіль, локалізація і зміна email",
+      "section": "ACC",
+      "sectionName": "Рахунки",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 5,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 10,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "ACC-06",
+      "title": "Валюта звітності",
+      "section": "ACC",
+      "sectionName": "Рахунки",
+      "block": "platform",
+      "FR": {
+        "covered": 3,
+        "total": 3
+      },
+      "AC": {
+        "covered": 4,
+        "total": 5
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 9,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "ACC-08",
+      "title": "Робочий простір (Household), передача власності і видалення простору",
+      "section": "ACC",
+      "sectionName": "Рахунки",
+      "block": "platform",
+      "FR": {
+        "covered": 4,
+        "total": 5
+      },
+      "AC": {
+        "covered": 2,
+        "total": 9
+      },
+      "EC": {
+        "covered": 1,
+        "total": 1
+      },
+      "items": {
+        "covered": 7,
+        "total": 15
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "ARC-01",
+      "title": "Модульний моноліт із жорсткими межами",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 7,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 7,
+        "total": 7
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "ARC-02",
+      "title": "Процеси застосунку",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 5
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "ARC-03",
+      "title": "Дані та ізоляція просторів",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 6,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 6,
+        "total": 7
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "ARC-04",
+      "title": "Фонові задачі та події",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 5
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "ARC-05",
+      "title": "Зовнішні провайдери через адаптери",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 5
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "ARC-06",
+      "title": "Ключі, секрети, файли",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 5
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "ARC-07",
+      "title": "API і клієнти",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 3,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 3,
+        "total": 6
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "ARC-09",
+      "title": "Спостережуваність",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 6
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "ARC-11",
+      "title": "Бухгалтерський журнал (модуль ledger)",
+      "section": "ARC",
+      "sectionName": "Архітектура",
+      "block": "money",
+      "FR": {
+        "covered": 0,
+        "total": 0
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 0
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "BUD-01",
+      "title": "Категорії витрат і доходів",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 12,
+        "total": 13
+      },
+      "AC": {
+        "covered": 16,
+        "total": 24
+      },
+      "EC": {
+        "covered": 2,
+        "total": 5
+      },
+      "items": {
+        "covered": 30,
+        "total": 42
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-02",
+      "title": "Бюджет періоду",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 24,
+        "total": 25
+      },
+      "AC": {
+        "covered": 23,
+        "total": 23
+      },
+      "EC": {
+        "covered": 6,
+        "total": 6
+      },
+      "items": {
+        "covered": 53,
+        "total": 54
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-03",
+      "title": "«Можна витратити»",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 14,
+        "total": 15
+      },
+      "AC": {
+        "covered": 9,
+        "total": 11
+      },
+      "EC": {
+        "covered": 5,
+        "total": 5
+      },
+      "items": {
+        "covered": 28,
+        "total": 31
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-05",
+      "title": "Цілі накопичення",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 14,
+        "total": 14
+      },
+      "AC": {
+        "covered": 14,
+        "total": 15
+      },
+      "EC": {
+        "covered": 4,
+        "total": 6
+      },
+      "items": {
+        "covered": 32,
+        "total": 35
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-06",
+      "title": "Порівняння періодів",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 10,
+        "total": 11
+      },
+      "AC": {
+        "covered": 14,
+        "total": 15
+      },
+      "EC": {
+        "covered": 3,
+        "total": 3
+      },
+      "items": {
+        "covered": 27,
+        "total": 29
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-07",
+      "title": "Регулярні платежі та підписки",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 21,
+        "total": 21
+      },
+      "AC": {
+        "covered": 15,
+        "total": 16
+      },
+      "EC": {
+        "covered": 5,
+        "total": 5
+      },
+      "items": {
+        "covered": 41,
+        "total": 42
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-08",
+      "title": "Грошовий потік і норма заощаджень",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 13,
+        "total": 13
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 4,
+        "total": 4
+      },
+      "items": {
+        "covered": 24,
+        "total": 24
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "BUD-11",
+      "title": "Ручний режим без підключення банку",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "money",
+      "FR": {
+        "covered": 0,
+        "total": 10
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 5
+      },
+      "items": {
+        "covered": 0,
+        "total": 21
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "BUD-12",
+      "title": "Розбір транзакцій",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "money",
+      "FR": {
+        "covered": 14,
+        "total": 16
+      },
+      "AC": {
+        "covered": 11,
+        "total": 12
+      },
+      "EC": {
+        "covered": 1,
+        "total": 3
+      },
+      "items": {
+        "covered": 26,
+        "total": 31
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-13",
+      "title": "Атрибути транзакцій",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "money",
+      "FR": {
+        "covered": 10,
+        "total": 10
+      },
+      "AC": {
+        "covered": 9,
+        "total": 9
+      },
+      "EC": {
+        "covered": 6,
+        "total": 6
+      },
+      "items": {
+        "covered": 25,
+        "total": 25
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "BUD-14",
+      "title": "Мерчанти і правила",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "rules",
+      "FR": {
+        "covered": 14,
+        "total": 15
+      },
+      "AC": {
+        "covered": 17,
+        "total": 17
+      },
+      "EC": {
+        "covered": 6,
+        "total": 6
+      },
+      "items": {
+        "covered": 37,
+        "total": 38
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-16",
+      "title": "Методи бюджетування",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 1,
+        "total": 1
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 6,
+        "total": 6
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "BUD-17",
+      "title": "Керування планом",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 8,
+        "total": 8
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 17,
+        "total": 17
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "BUD-19",
+      "title": "Погашення боргів",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "planning",
+      "FR": {
+        "covered": 10,
+        "total": 12
+      },
+      "AC": {
+        "covered": 11,
+        "total": 11
+      },
+      "EC": {
+        "covered": 4,
+        "total": 6
+      },
+      "items": {
+        "covered": 25,
+        "total": 29
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "BUD-21",
+      "title": "Правила з історії розбору",
+      "section": "BUD",
+      "sectionName": "Бюджет",
+      "block": "rules",
+      "FR": {
+        "covered": 0,
+        "total": 26
+      },
+      "AC": {
+        "covered": 0,
+        "total": 31
+      },
+      "EC": {
+        "covered": 0,
+        "total": 11
+      },
+      "items": {
+        "covered": 0,
+        "total": 68
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CHT-00",
+      "title": "Принципи модуля «Графіки»",
+      "section": "CHT",
+      "sectionName": "Графіки",
+      "block": "data",
+      "FR": {
+        "covered": 2,
+        "total": 7
+      },
+      "AC": {
+        "covered": 2,
+        "total": 3
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 4,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "CHT-01",
+      "title": "Часовий ряд з кількома серіями",
+      "section": "CHT",
+      "sectionName": "Графіки",
+      "block": "data",
+      "FR": {
+        "covered": 0,
+        "total": 12
+      },
+      "AC": {
+        "covered": 0,
+        "total": 10
+      },
+      "EC": {
+        "covered": 0,
+        "total": 3
+      },
+      "items": {
+        "covered": 0,
+        "total": 25
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CICD-01",
+      "title": "Гілки, PR і захист основної гілки",
+      "section": "CICD",
+      "sectionName": "Поставка та CI/CD",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 5
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CICD-02",
+      "title": "Обов'язкові перевірки PR",
+      "section": "CICD",
+      "sectionName": "Поставка та CI/CD",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 0
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 0
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CICD-04",
+      "title": "Середовища",
+      "section": "CICD",
+      "sectionName": "Поставка та CI/CD",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 0
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 0
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CICD-06",
+      "title": "Прапорці функцій і поступовий випуск",
+      "section": "CICD",
+      "sectionName": "Поставка та CI/CD",
+      "block": "platform",
+      "FR": {
+        "covered": 3,
+        "total": 3
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 3,
+        "total": 3
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CICD-07",
+      "title": "Інфраструктура як код і резервні копії",
+      "section": "CICD",
+      "sectionName": "Поставка та CI/CD",
+      "block": "platform",
+      "FR": {
+        "covered": 2,
+        "total": 2
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 2,
+        "total": 2
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CICD-12",
+      "title": "Зберігання секретів і доступів",
+      "section": "CICD",
+      "sectionName": "Поставка та CI/CD",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 7
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "CMP-01",
+      "title": "Button — Кнопка",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 8,
+        "total": 8
+      },
+      "AC": {
+        "covered": 8,
+        "total": 8
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 16,
+        "total": 16
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-02",
+      "title": "Field — Поле введення",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 9,
+        "total": 9
+      },
+      "AC": {
+        "covered": 9,
+        "total": 9
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 18,
+        "total": 18
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-03",
+      "title": "Select — Список вибору",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 10,
+        "total": 10
+      },
+      "AC": {
+        "covered": 10,
+        "total": 10
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 20,
+        "total": 20
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-04",
+      "title": "Checkbox — Прапорець",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-05",
+      "title": "Switch — Перемикач",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 4
+      },
+      "AC": {
+        "covered": 0,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-07",
+      "title": "Amount — Сума",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 10
+      },
+      "AC": {
+        "covered": 0,
+        "total": 10
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 20
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-08",
+      "title": "Delta — Зміна",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-09",
+      "title": "GoalProgress — Прогрес цілі",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-10",
+      "title": "PageHeader — Заголовок сторінки",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 4
+      },
+      "AC": {
+        "covered": 0,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-11",
+      "title": "Tabs — Вкладки",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 3
+      },
+      "AC": {
+        "covered": 0,
+        "total": 3
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 6
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-12",
+      "title": "Segmented — Сегментований перемикач",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 8
+      },
+      "AC": {
+        "covered": 0,
+        "total": 8
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 16
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-13",
+      "title": "Pagination — Пагінація",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 4,
+        "total": 4
+      },
+      "AC": {
+        "covered": 4,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 8,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-14",
+      "title": "Stepper — Індикатор кроків",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-18",
+      "title": "Badge — Бейдж статусу",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-19",
+      "title": "Banner — Банер",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-20",
+      "title": "Toast — Спливне повідомлення",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 11
+      },
+      "AC": {
+        "covered": 0,
+        "total": 11
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 22
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-21",
+      "title": "Dialog — Діалог",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 27,
+        "total": 27
+      },
+      "AC": {
+        "covered": 27,
+        "total": 27
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 54,
+        "total": 54
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-22",
+      "title": "Skeleton — Скелетон завантаження",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 10,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-23",
+      "title": "EmptyState — Порожній стан",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-24",
+      "title": "ErrorState — Стан помилки",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-25",
+      "title": "Tooltip — Підказка",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 4,
+        "total": 4
+      },
+      "AC": {
+        "covered": 4,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 8,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-26",
+      "title": "Table — Таблиця",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 8,
+        "total": 8
+      },
+      "AC": {
+        "covered": 8,
+        "total": 8
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 16,
+        "total": 16
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-27",
+      "title": "ListRow — Рядок списку",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 10,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-28",
+      "title": "TransactionRow — Рядок транзакції",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 6,
+        "total": 6
+      },
+      "AC": {
+        "covered": 6,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 12,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-32",
+      "title": "FilterBar — Панель фільтрів",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 9,
+        "total": 9
+      },
+      "AC": {
+        "covered": 9,
+        "total": 9
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 18,
+        "total": 18
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-33",
+      "title": "Icon — Іконка",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 10,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-42",
+      "title": "LineChart — Лінійний графік",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 7,
+        "total": 7
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 14,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-47",
+      "title": "BarChart — Стовпчиковий графік",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 4,
+        "total": 4
+      },
+      "AC": {
+        "covered": 4,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 8,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-53",
+      "title": "Card — Картка",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 4
+      },
+      "AC": {
+        "covered": 0,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-55",
+      "title": "BudgetRow — Рядок бюджету",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-59",
+      "title": "IconButton — Кнопка-іконка",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-60",
+      "title": "Toolbar — Панель інструментів списку",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 3,
+        "total": 4
+      },
+      "AC": {
+        "covered": 3,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 6,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "CMP-61",
+      "title": "Menu — Меню і спливна панель",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 11,
+        "total": 11
+      },
+      "AC": {
+        "covered": 11,
+        "total": 11
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 22,
+        "total": 22
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-62",
+      "title": "SortMenu — Меню сортування",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 3
+      },
+      "AC": {
+        "covered": 0,
+        "total": 3
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 6
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-64",
+      "title": "Chip — Чип",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 4
+      },
+      "AC": {
+        "covered": 0,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "CMP-69",
+      "title": "AppNavigation — Навігація застосунку",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 7,
+        "total": 7
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 14,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-71",
+      "title": "BrandMark — Знак і назва продукту",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 10,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-72",
+      "title": "PeriodPicker — Вибір періоду аналітичної таблиці",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 2,
+        "total": 2
+      },
+      "AC": {
+        "covered": 6,
+        "total": 9
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 8,
+        "total": 11
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "CMP-73",
+      "title": "SelectionBar — Панель вибору",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 9,
+        "total": 9
+      },
+      "AC": {
+        "covered": 9,
+        "total": 9
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 18,
+        "total": 18
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "CMP-74",
+      "title": "Progress — Прогрес процесу",
+      "section": "CMP",
+      "sectionName": "Компоненти інтерфейсу",
+      "block": "screens",
+      "FR": {
+        "covered": 7,
+        "total": 7
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 14,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DAT-01",
+      "title": "Універсальний список",
+      "section": "DAT",
+      "sectionName": "Дані",
+      "block": "data",
+      "FR": {
+        "covered": 10,
+        "total": 12
+      },
+      "AC": {
+        "covered": 6,
+        "total": 6
+      },
+      "EC": {
+        "covered": 5,
+        "total": 5
+      },
+      "items": {
+        "covered": 21,
+        "total": 23
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "DAT-03",
+      "title": "Масові дії",
+      "section": "DAT",
+      "sectionName": "Дані",
+      "block": "data",
+      "FR": {
+        "covered": 11,
+        "total": 11
+      },
+      "AC": {
+        "covered": 12,
+        "total": 12
+      },
+      "EC": {
+        "covered": 3,
+        "total": 3
+      },
+      "items": {
+        "covered": 26,
+        "total": 26
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DAT-05",
+      "title": "Стани екранів і віджетів",
+      "section": "DAT",
+      "sectionName": "Дані",
+      "block": "data",
+      "FR": {
+        "covered": 8,
+        "total": 9
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 1,
+        "total": 1
+      },
+      "items": {
+        "covered": 16,
+        "total": 17
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "DS-01",
+      "title": "Принципи UX",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 32
+      },
+      "AC": {
+        "covered": 1,
+        "total": 35
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 1,
+        "total": 68
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "DS-02",
+      "title": "Бренд: назва, слоган, знак і логотип",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 14
+      },
+      "AC": {
+        "covered": 0,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 22
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "DS-03",
+      "title": "Тон голосу і правила мікротексту",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 16
+      },
+      "AC": {
+        "covered": 0,
+        "total": 10
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 27
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "DS-04",
+      "title": "Формати сум, чисел, відсотків, дат і часу",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 16,
+        "total": 16
+      },
+      "AC": {
+        "covered": 16,
+        "total": 16
+      },
+      "EC": {
+        "covered": 4,
+        "total": 4
+      },
+      "items": {
+        "covered": 36,
+        "total": 36
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DS-05",
+      "title": "Довгі тексти і великі числа",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 12
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 0,
+        "total": 20
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "DS-06",
+      "title": "Колірні токени і ролі кольорів",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 7,
+        "total": 7
+      },
+      "AC": {
+        "covered": 12,
+        "total": 12
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 21,
+        "total": 21
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DS-07",
+      "title": "Семантичні кольори статусів і палітра графіків",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 15
+      },
+      "AC": {
+        "covered": 0,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 0,
+        "total": 24
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "DS-08",
+      "title": "Типографіка",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 11,
+        "total": 11
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 18,
+        "total": 18
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DS-09",
+      "title": "Відступи, радіуси, тіні, рівні і шари",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 8,
+        "total": 8
+      },
+      "AC": {
+        "covered": 6,
+        "total": 6
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 16,
+        "total": 16
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DS-12",
+      "title": "Іконки і зображення",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 13,
+        "total": 13
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 1,
+        "total": 1
+      },
+      "items": {
+        "covered": 19,
+        "total": 19
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DS-13",
+      "title": "Рух і зменшений рух",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 9,
+        "total": 9
+      },
+      "AC": {
+        "covered": 6,
+        "total": 6
+      },
+      "EC": {
+        "covered": 1,
+        "total": 1
+      },
+      "items": {
+        "covered": 16,
+        "total": 16
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DS-14",
+      "title": "Стани взаємодії, фокус і зони дотику",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 11,
+        "total": 11
+      },
+      "AC": {
+        "covered": 9,
+        "total": 9
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 22,
+        "total": 22
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "DS-15",
+      "title": "Візуалізація даних: вибір графіка",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 8
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 0,
+        "total": 16
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "DS-16",
+      "title": "Візуалізація даних: осі, підписи, легенди, підказки і скорочення",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 1,
+        "total": 17
+      },
+      "AC": {
+        "covered": 0,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 1,
+        "total": 26
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "DS-17",
+      "title": "Візуалізація даних: джерело оцінки, прогноз, застарілість і чужа частка",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 0,
+        "total": 2
+      },
+      "AC": {
+        "covered": 0,
+        "total": 1
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 3
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "DS-23",
+      "title": "Словник статусів «Планування»",
+      "section": "DS",
+      "sectionName": "Дизайн-система",
+      "block": "screens",
+      "FR": {
+        "covered": 6,
+        "total": 6
+      },
+      "AC": {
+        "covered": 8,
+        "total": 8
+      },
+      "EC": {
+        "covered": 3,
+        "total": 3
+      },
+      "items": {
+        "covered": 17,
+        "total": 17
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "FIN-01",
+      "title": "Рахунки",
+      "section": "FIN",
+      "sectionName": "Фінанси",
+      "block": "money",
+      "FR": {
+        "covered": 24,
+        "total": 26
+      },
+      "AC": {
+        "covered": 20,
+        "total": 24
+      },
+      "EC": {
+        "covered": 5,
+        "total": 5
+      },
+      "items": {
+        "covered": 49,
+        "total": 55
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "FIN-03",
+      "title": "Транзакції",
+      "section": "FIN",
+      "sectionName": "Фінанси",
+      "block": "money",
+      "FR": {
+        "covered": 30,
+        "total": 37
+      },
+      "AC": {
+        "covered": 24,
+        "total": 32
+      },
+      "EC": {
+        "covered": 3,
+        "total": 4
+      },
+      "items": {
+        "covered": 57,
+        "total": 73
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "FIN-04",
+      "title": "Двоканальний журнал (подвійний запис)",
+      "section": "FIN",
+      "sectionName": "Фінанси",
+      "block": "money",
+      "FR": {
+        "covered": 10,
+        "total": 11
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 3,
+        "total": 4
+      },
+      "items": {
+        "covered": 20,
+        "total": 22
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "FIN-12",
+      "title": "Керування рахунками",
+      "section": "FIN",
+      "sectionName": "Фінанси",
+      "block": "money",
+      "FR": {
+        "covered": 14,
+        "total": 15
+      },
+      "AC": {
+        "covered": 16,
+        "total": 19
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 30,
+        "total": 36
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "FLW-01",
+      "title": "Реєстрація та онбординг",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 9
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 15
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-02",
+      "title": "Вхід, 2FA і відновлення доступу",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 3
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-10",
+      "title": "Імпорт і міграція з іншого сервісу",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "import",
+      "FR": {
+        "covered": 0,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 0,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-17",
+      "title": "Додавання рахунків: ручний рахунок, імпорт виписки, підключення банку",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "money",
+      "FR": {
+        "covered": 0,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 8
+      },
+      "EC": {
+        "covered": 0,
+        "total": 3
+      },
+      "items": {
+        "covered": 0,
+        "total": 18
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-19",
+      "title": "Робота з транзакціями",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "money",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-34",
+      "title": "Перший бюджет",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "planning",
+      "FR": {
+        "covered": 0,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-35",
+      "title": "Щоденна перевірка і розбір транзакцій",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "money",
+      "FR": {
+        "covered": 0,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-37",
+      "title": "Ціль накопичення: від створення до витрати",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "planning",
+      "FR": {
+        "covered": 0,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 4
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "FLW-38",
+      "title": "Підсумок періоду і порівняння витрат",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "planning",
+      "FR": {
+        "covered": 6,
+        "total": 6
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 13,
+        "total": 13
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "FLW-41",
+      "title": "Правила і мерчанти",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "rules",
+      "FR": {
+        "covered": 0,
+        "total": 9
+      },
+      "AC": {
+        "covered": 1,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 1,
+        "total": 15
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "FLW-44",
+      "title": "План погашення боргів",
+      "section": "FLW",
+      "sectionName": "Потоки",
+      "block": "planning",
+      "FR": {
+        "covered": 6,
+        "total": 6
+      },
+      "AC": {
+        "covered": 7,
+        "total": 8
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 13,
+        "total": 15
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "GRID-00",
+      "title": "Основа сітки, оболонка навігації і загальні правила інтерфейсу",
+      "section": "GRID",
+      "sectionName": "Таблиці",
+      "block": "screens",
+      "FR": {
+        "covered": 32,
+        "total": 33
+      },
+      "AC": {
+        "covered": 11,
+        "total": 11
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 45,
+        "total": 46
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "GRID-02",
+      "title": "Сітки сторінок розділу «Гроші»",
+      "section": "GRID",
+      "sectionName": "Таблиці",
+      "block": "screens",
+      "FR": {
+        "covered": 14,
+        "total": 20
+      },
+      "AC": {
+        "covered": 8,
+        "total": 11
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 24,
+        "total": 33
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "GRID-04",
+      "title": "Сітки сторінок розділу «Планування»",
+      "section": "GRID",
+      "sectionName": "Таблиці",
+      "block": "screens",
+      "FR": {
+        "covered": 7,
+        "total": 7
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 3,
+        "total": 3
+      },
+      "items": {
+        "covered": 15,
+        "total": 15
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "GRID-05",
+      "title": "Сітки сторінок розділу «Ще» (акаунт)",
+      "section": "GRID",
+      "sectionName": "Таблиці",
+      "block": "screens",
+      "FR": {
+        "covered": 3,
+        "total": 3
+      },
+      "AC": {
+        "covered": 1,
+        "total": 1
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 4,
+        "total": 4
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "GRID-06",
+      "title": "Сітки сторінок входу і онбордингу",
+      "section": "GRID",
+      "sectionName": "Таблиці",
+      "block": "screens",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 4,
+        "total": 4
+      },
+      "EC": {
+        "covered": 1,
+        "total": 1
+      },
+      "items": {
+        "covered": 10,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "IMP-01",
+      "title": "Завантаження файлів, партії та оригінали у сховищі",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 16,
+        "total": 21
+      },
+      "AC": {
+        "covered": 11,
+        "total": 13
+      },
+      "EC": {
+        "covered": 4,
+        "total": 4
+      },
+      "items": {
+        "covered": 31,
+        "total": 38
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "IMP-02",
+      "title": "Мультивалютні рахунки та модель події з ногами",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 14,
+        "total": 15
+      },
+      "AC": {
+        "covered": 12,
+        "total": 14
+      },
+      "EC": {
+        "covered": 2,
+        "total": 3
+      },
+      "items": {
+        "covered": 28,
+        "total": 32
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "IMP-03",
+      "title": "Парування: обміни валют і внутрішні перекази",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 9,
+        "total": 24
+      },
+      "AC": {
+        "covered": 7,
+        "total": 22
+      },
+      "EC": {
+        "covered": 3,
+        "total": 4
+      },
+      "items": {
+        "covered": 19,
+        "total": 50
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "IMP-04",
+      "title": "Дублікати, ідемпотентність і відкат партії",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 10,
+        "total": 10
+      },
+      "AC": {
+        "covered": 12,
+        "total": 12
+      },
+      "EC": {
+        "covered": 4,
+        "total": 4
+      },
+      "items": {
+        "covered": 26,
+        "total": 26
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "IMP-05",
+      "title": "Контрольні суми, розриви історії та захист від чужого рахунку",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 11,
+        "total": 11
+      },
+      "AC": {
+        "covered": 9,
+        "total": 9
+      },
+      "EC": {
+        "covered": 3,
+        "total": 3
+      },
+      "items": {
+        "covered": 23,
+        "total": 23
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "IMP-06",
+      "title": "Рецепт розбору: схема, відбиток формату, альтернативи й пояснення",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 9,
+        "total": 14
+      },
+      "AC": {
+        "covered": 6,
+        "total": 12
+      },
+      "EC": {
+        "covered": 2,
+        "total": 3
+      },
+      "items": {
+        "covered": 17,
+        "total": 29
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "IMP-07",
+      "title": "API шаблонів, автопідбір і повторний розбір з різницею",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 7,
+        "total": 14
+      },
+      "AC": {
+        "covered": 7,
+        "total": 14
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 16,
+        "total": 30
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "IMP-08",
+      "title": "Майстер імпорту: завантаження та перевірка розпізнавання",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 13,
+        "total": 16
+      },
+      "AC": {
+        "covered": 9,
+        "total": 17
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 24,
+        "total": 35
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "IMP-09",
+      "title": "Редактор правил розпізнавання та шаблони (web)",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 0,
+        "total": 12
+      },
+      "AC": {
+        "covered": 0,
+        "total": 10
+      },
+      "EC": {
+        "covered": 0,
+        "total": 3
+      },
+      "items": {
+        "covered": 0,
+        "total": 25
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "IMP-10",
+      "title": "Бібліотека наших шаблонів банків та адмінка",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 0,
+        "total": 11
+      },
+      "AC": {
+        "covered": 0,
+        "total": 10
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 22
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "IMP-14",
+      "title": "Файл помилок і повторний імпорт виправлених рядків",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 0,
+        "total": 4
+      },
+      "AC": {
+        "covered": 0,
+        "total": 3
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 7
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "IMP-16",
+      "title": "Відкат партії через журнал проводок",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 7,
+        "total": 9
+      },
+      "AC": {
+        "covered": 4,
+        "total": 5
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 11,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "IMP-17",
+      "title": "Підтверджена розбіжність залишку",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 0,
+        "total": 6
+      },
+      "AC": {
+        "covered": 0,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "IMP-18",
+      "title": "Ідентичність рядка, перекриття виписок і основна дата",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 0,
+        "total": 5
+      },
+      "AC": {
+        "covered": 0,
+        "total": 3
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "IMP-19",
+      "title": "Продуктивність, технічні стелі і стани партії",
+      "section": "IMP",
+      "sectionName": "Імпорт",
+      "block": "import",
+      "FR": {
+        "covered": 3,
+        "total": 6
+      },
+      "AC": {
+        "covered": 1,
+        "total": 2
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 4,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "JRN-05",
+      "title": "Молода родина з бюджетом: перші 6 місяців",
+      "section": "JRN",
+      "sectionName": "Подорожі користувача",
+      "block": "planning",
+      "FR": {
+        "covered": 0,
+        "total": 0
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 0
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "JRN-06",
+      "title": "Перехід з іншого бюджетного застосунку: перші 90 днів",
+      "section": "JRN",
+      "sectionName": "Подорожі користувача",
+      "block": "import",
+      "FR": {
+        "covered": 0,
+        "total": 0
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 0
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "NFR-01",
+      "title": "Безпека",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 9,
+        "total": 17
+      },
+      "AC": {
+        "covered": 4,
+        "total": 8
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 13,
+        "total": 26
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-02",
+      "title": "Відповідність вимогам",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 15
+      },
+      "AC": {
+        "covered": 0,
+        "total": 1
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 16
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "NFR-05",
+      "title": "Архітектура",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 2,
+        "total": 8
+      },
+      "AC": {
+        "covered": 0,
+        "total": 2
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 2,
+        "total": 11
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-06",
+      "title": "Цілісність даних",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 5,
+        "total": 9
+      },
+      "AC": {
+        "covered": 1,
+        "total": 1
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 6,
+        "total": 11
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-07",
+      "title": "Платформи",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 3,
+        "total": 3
+      },
+      "AC": {
+        "covered": 1,
+        "total": 1
+      },
+      "EC": {
+        "covered": 1,
+        "total": 1
+      },
+      "items": {
+        "covered": 5,
+        "total": 5
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "NFR-08",
+      "title": "Доступність інтерфейсу",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 1,
+        "total": 8
+      },
+      "AC": {
+        "covered": 0,
+        "total": 3
+      },
+      "EC": {
+        "covered": 0,
+        "total": 2
+      },
+      "items": {
+        "covered": 1,
+        "total": 13
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-09",
+      "title": "Локалізація",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 3,
+        "total": 3
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 3,
+        "total": 3
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "NFR-10",
+      "title": "Спостережуваність",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 6,
+        "total": 8
+      },
+      "AC": {
+        "covered": 2,
+        "total": 2
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 8,
+        "total": 10
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-11",
+      "title": "Поставка",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 10
+      },
+      "AC": {
+        "covered": 0,
+        "total": 2
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "NFR-12",
+      "title": "Зберігання даних",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 4,
+        "total": 5
+      },
+      "AC": {
+        "covered": 1,
+        "total": 1
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 5,
+        "total": 6
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-14",
+      "title": "Захисні HTTP-заголовки, політика вмісту і обмеження частоти запитів",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 10,
+        "total": 10
+      },
+      "AC": {
+        "covered": 3,
+        "total": 3
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 13,
+        "total": 14
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-15",
+      "title": "Обов'язкові засоби захисту від загроз",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 14,
+        "total": 32
+      },
+      "AC": {
+        "covered": 5,
+        "total": 6
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 19,
+        "total": 39
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "NFR-17",
+      "title": "Резидентність даних і обробники",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "NFR-18",
+      "title": "Критерії готовності до запуску і релізні гейти",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 2
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 0,
+        "total": 2
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "NFR-19",
+      "title": "Критерії готовності вимоги (Definition of Done)",
+      "section": "NFR",
+      "sectionName": "Нефункціональні вимоги",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 7
+      },
+      "AC": {
+        "covered": 0,
+        "total": 0
+      },
+      "EC": {
+        "covered": 0,
+        "total": 1
+      },
+      "items": {
+        "covered": 0,
+        "total": 8
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "PRC-01",
+      "title": "Процес вимог: релізні зрізи, зв'язки й трасування",
+      "section": "PRC",
+      "sectionName": "Процес вимог",
+      "block": "platform",
+      "FR": {
+        "covered": 0,
+        "total": 19
+      },
+      "AC": {
+        "covered": 0,
+        "total": 13
+      },
+      "EC": {
+        "covered": 0,
+        "total": 3
+      },
+      "items": {
+        "covered": 0,
+        "total": 35
+      },
+      "fingerprintErrors": 0,
+      "status": "не почато"
+    },
+    {
+      "id": "PRC-02",
+      "title": "Процес змін: вплив змін вимог і дизайну на інші артефакти",
+      "section": "PRC",
+      "sectionName": "Процес вимог",
+      "block": "platform",
+      "FR": {
+        "covered": 1,
+        "total": 10
+      },
+      "AC": {
+        "covered": 0,
+        "total": 9
+      },
+      "EC": {
+        "covered": 0,
+        "total": 3
+      },
+      "items": {
+        "covered": 1,
+        "total": 22
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "UX-09",
+      "title": "Навігація і рівні меню",
+      "section": "UX",
+      "sectionName": "Взаємодія",
+      "block": "screens",
+      "FR": {
+        "covered": 18,
+        "total": 19
+      },
+      "AC": {
+        "covered": 15,
+        "total": 16
+      },
+      "EC": {
+        "covered": 2,
+        "total": 2
+      },
+      "items": {
+        "covered": 35,
+        "total": 37
+      },
+      "fingerprintErrors": 0,
+      "status": "у роботі"
+    },
+    {
+      "id": "VAL-04",
+      "title": "Валюти та конвертація",
+      "section": "VAL",
+      "sectionName": "Валідація",
+      "block": "money",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 5,
+        "total": 5
+      },
+      "EC": {
+        "covered": 5,
+        "total": 5
+      },
+      "items": {
+        "covered": 15,
+        "total": 15
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
+    },
+    {
+      "id": "VAL-05",
+      "title": "Фіди курсів і цін",
+      "section": "VAL",
+      "sectionName": "Валідація",
+      "block": "money",
+      "FR": {
+        "covered": 5,
+        "total": 5
+      },
+      "AC": {
+        "covered": 7,
+        "total": 7
+      },
+      "EC": {
+        "covered": 0,
+        "total": 0
+      },
+      "items": {
+        "covered": 12,
+        "total": 12
+      },
+      "fingerprintErrors": 0,
+      "status": "готово"
     }
   ]
 }
