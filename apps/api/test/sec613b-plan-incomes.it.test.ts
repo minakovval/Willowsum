@@ -270,6 +270,7 @@ describe("sec613 round 2, row 231: «Надходження» over the real modu
       incomePlans: [{ categoryId: await category(b, "Зарплата"), amount: eur("1000") }],
       limits: [],
     });
+    // The marker is the whole amount «4321.09»: a bare «4321» is also inside random ids (…8c7543216d3f, job 140753136968).
     const salary = await income(a, "Таємна зарплата", "4321.09", { categoryId: salaryCategory });
     await payment(a, { name: "Таємна підписка", amount: eur("77.77"), anchorDate: "2026-11-25" });
 
@@ -285,13 +286,13 @@ describe("sec613 round 2, row 231: «Надходження» over the real modu
     // The regular income is in its category's fact (BUD-03), not in the plan: no row, no sum of it.
     expect(income_.rows).toEqual([]);
     expect(income_.totals[1]).toEqual(eur("1000"));
-    for (const text of ["Таємна", salary, "4321", "77.77", "2026-11-25"])
+    for (const text of ["Таємна", salary, "4321.09", "77.77", "2026-11-25"])
       expect(leakText(own.body)).not.toContain(text);
 
     const other = await grid(b);
     expect(other.statusCode, other.body).toBe(200);
     const seen = leakText(other.body) + leakText(JSON.stringify(await period(b, "2026-12")));
-    for (const text of [salary, "4321", "Таємна", "77.77", a.householdId, salaryCategory])
+    for (const text of [salary, "4321.09", "Таємна", "77.77", a.householdId, salaryCategory])
       expect(seen).not.toContain(text);
     const foreign = await cell(b, salaryCategory);
     const random = await cell(b, randomUUID());
