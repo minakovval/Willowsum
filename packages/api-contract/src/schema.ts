@@ -1363,6 +1363,75 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/import/history-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Uploads a history file with the user's categorisation (BUD-21 FR 3, AC5): checked and stored as a statement is (kind «файл історії»), never applied; the same file still stored opens its batch (`existing`) */
+        post: operations["uploadHistoryFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/history-files/{batchId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The step «Перевірка розпізнавання» (BUD-21 FR 4, FR 5): the roles of the columns with evidence and alternatives, rows as read, the file's categories, the transfer and account values, the summary and what is missing */
+        get: operations["getHistoryFile"];
+        put?: never;
+        post?: never;
+        /** «Видалити файл» (BUD-21 FR 24): the original and the rows as read go now, not after 30 days; what was confirmed stays */
+        delete: operations["deleteHistoryFile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/history-files/{batchId}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Підтвердити» the reading (BUD-21 FR 6): the read shown (`parseId`), the values that mark a transfer (default — the engine's suggestion) and the account of each value; nothing is created without it */
+        post: operations["confirmHistoryFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/history-files/{batchId}/reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Corrects the reading (BUD-21 FR 6, AC9): a column's role, the date order, the decimal separator or the sign; the file is read again from its original in the background */
+        post: operations["rereadHistoryFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/import/originals/{token}": {
         parameters: {
             query?: never;
@@ -2527,7 +2596,7 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "CATEGORY_LIMIT_CONFIRM" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "IMPORT_NOT_READY" | "IMPORT_ROWS_REFUSED" | "IMPORT_PLAN_TOO_LARGE" | "IMPORT_APPLY_UNSUPPORTED" | "IMPORT_ROLLBACK_EXPIRED" | "RECIPE_INVALID" | "TEMPLATE_CHANGED" | "TEMPLATE_NAME_TAKEN" | "TEMPLATE_STALE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "CATEGORY_LIMIT_CONFIRM" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "IMPORT_NOT_READY" | "HISTORY_NOT_READY" | "HISTORY_ANSWER_INVALID" | "IMPORT_ROWS_REFUSED" | "IMPORT_PLAN_TOO_LARGE" | "IMPORT_APPLY_UNSUPPORTED" | "IMPORT_ROLLBACK_EXPIRED" | "RECIPE_INVALID" | "TEMPLATE_CHANGED" | "TEMPLATE_NAME_TAKEN" | "TEMPLATE_STALE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
             /** @description VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload */
             currentCategoryId?: string | null;
             /** @description VERSION_CONFLICT, TEMPLATE_CHANGED: the current version of the record */
@@ -18007,6 +18076,1398 @@ export interface operations {
             };
         };
     };
+    uploadHistoryFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description File parts only, at most 1 files and 27262976 bytes in all */
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    files?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The history file's batch, its read queued; or the batch of the same file already stored */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: {
+                            confirmedAt: string | null;
+                            createdAt: string;
+                            deleteAfter: string;
+                            fileName: string;
+                            /** @enum {string} */
+                            format: "csv" | "tsv" | "xlsx" | "xls";
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            sizeBytes: number;
+                            /** @enum {string} */
+                            state: "processing" | "parsed" | "failed";
+                            version: number;
+                        };
+                        existing: boolean;
+                        /** Format: uuid */
+                        parseId: string;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The file is over a technical ceiling (FILE_TOO_LARGE); The request body is too large (PAYLOAD_TOO_LARGE) */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The file was not accepted (FILE_REJECTED) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 30 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getHistoryFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The history file and how it was read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: {
+                            confirmedAt: string | null;
+                            createdAt: string;
+                            deleteAfter: string;
+                            fileName: string;
+                            /** @enum {string} */
+                            format: "csv" | "tsv" | "xlsx" | "xls";
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            sizeBytes: number;
+                            /** @enum {string} */
+                            state: "processing" | "parsed" | "failed";
+                            version: number;
+                        };
+                        canConfirm: boolean;
+                        confirmed: {
+                            at: string;
+                        } | null;
+                        parse: {
+                            engineVersion: string;
+                            refusal: {
+                                ceiling?: {
+                                    limit: number;
+                                    name: string;
+                                };
+                                code: string;
+                                message: {
+                                    en: string;
+                                    uk: string;
+                                };
+                            } | null;
+                            /** @enum {string} */
+                            state: "pending" | "parsed" | "failed";
+                        };
+                        /** Format: uuid */
+                        parseId: string;
+                        recognition: {
+                            accounts: {
+                                more: boolean;
+                                values: {
+                                    accountId: string | null;
+                                    count: number;
+                                    value: string;
+                                }[];
+                            };
+                            columns: {
+                                column: number;
+                                header: string | null;
+                                role: {
+                                    alternatives: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    }[];
+                                    chosen: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    };
+                                    evidence: {
+                                        code: string;
+                                        column?: number;
+                                        count?: number;
+                                        example?: string;
+                                        of?: number;
+                                        row?: number;
+                                        word?: string;
+                                    }[];
+                                    flags: string[];
+                                };
+                            }[];
+                            dates: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            delimiter: {
+                                alternatives: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                }[];
+                                chosen: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                };
+                            } | null;
+                            encoding: {
+                                alternatives: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                }[];
+                                chosen: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                };
+                            } | null;
+                            examples: {
+                                account: string | null;
+                                amount: string | null;
+                                category: string | null;
+                                counterparty: string | null;
+                                currency: string | null;
+                                date: string | null;
+                                description: string | null;
+                                row: number;
+                                subcategory: string | null;
+                                tags: string | null;
+                                transfer: boolean;
+                            }[];
+                            labels: {
+                                items: {
+                                    category: string;
+                                    count: number;
+                                    subcategories: {
+                                        count: number;
+                                        name: string;
+                                    }[];
+                                }[];
+                                more: boolean;
+                            };
+                            missing: ("date" | "amount" | "description" | "categories")[];
+                            numbers: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            sign: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            summary: {
+                                read: number;
+                                rows: number;
+                                skipped: {
+                                    count: number;
+                                    /** @enum {string} */
+                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation";
+                                }[];
+                                transfers: number;
+                            };
+                            table: {
+                                dataRows: number;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                headerRow: number | null;
+                            };
+                            transfers: {
+                                more: boolean;
+                                values: {
+                                    count: number;
+                                    suggested: boolean;
+                                    transfer: boolean;
+                                    value: string;
+                                }[];
+                            };
+                        } | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    deleteHistoryFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        deleted: true;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    confirmHistoryFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accounts?: {
+                        accountId: string | null;
+                        value: string;
+                    }[];
+                    /** Format: uuid */
+                    parseId: string;
+                    transferValues?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The confirmed history file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: {
+                            confirmedAt: string | null;
+                            createdAt: string;
+                            deleteAfter: string;
+                            fileName: string;
+                            /** @enum {string} */
+                            format: "csv" | "tsv" | "xlsx" | "xls";
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            sizeBytes: number;
+                            /** @enum {string} */
+                            state: "processing" | "parsed" | "failed";
+                            version: number;
+                        };
+                        canConfirm: boolean;
+                        confirmed: {
+                            at: string;
+                        } | null;
+                        parse: {
+                            engineVersion: string;
+                            refusal: {
+                                ceiling?: {
+                                    limit: number;
+                                    name: string;
+                                };
+                                code: string;
+                                message: {
+                                    en: string;
+                                    uk: string;
+                                };
+                            } | null;
+                            /** @enum {string} */
+                            state: "pending" | "parsed" | "failed";
+                        };
+                        /** Format: uuid */
+                        parseId: string;
+                        recognition: {
+                            accounts: {
+                                more: boolean;
+                                values: {
+                                    accountId: string | null;
+                                    count: number;
+                                    value: string;
+                                }[];
+                            };
+                            columns: {
+                                column: number;
+                                header: string | null;
+                                role: {
+                                    alternatives: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    }[];
+                                    chosen: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    };
+                                    evidence: {
+                                        code: string;
+                                        column?: number;
+                                        count?: number;
+                                        example?: string;
+                                        of?: number;
+                                        row?: number;
+                                        word?: string;
+                                    }[];
+                                    flags: string[];
+                                };
+                            }[];
+                            dates: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            delimiter: {
+                                alternatives: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                }[];
+                                chosen: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                };
+                            } | null;
+                            encoding: {
+                                alternatives: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                }[];
+                                chosen: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                };
+                            } | null;
+                            examples: {
+                                account: string | null;
+                                amount: string | null;
+                                category: string | null;
+                                counterparty: string | null;
+                                currency: string | null;
+                                date: string | null;
+                                description: string | null;
+                                row: number;
+                                subcategory: string | null;
+                                tags: string | null;
+                                transfer: boolean;
+                            }[];
+                            labels: {
+                                items: {
+                                    category: string;
+                                    count: number;
+                                    subcategories: {
+                                        count: number;
+                                        name: string;
+                                    }[];
+                                }[];
+                                more: boolean;
+                            };
+                            missing: ("date" | "amount" | "description" | "categories")[];
+                            numbers: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            sign: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            summary: {
+                                read: number;
+                                rows: number;
+                                skipped: {
+                                    count: number;
+                                    /** @enum {string} */
+                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation";
+                                }[];
+                                transfers: number;
+                            };
+                            table: {
+                                dataRows: number;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                headerRow: number | null;
+                            };
+                            transfers: {
+                                more: boolean;
+                                values: {
+                                    count: number;
+                                    suggested: boolean;
+                                    transfer: boolean;
+                                    value: string;
+                                }[];
+                            };
+                        } | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT); The history file cannot be confirmed as read (HISTORY_NOT_READY) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The answer does not fit the history file (HISTORY_ANSWER_INVALID) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    rereadHistoryFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    columns?: {
+                        column: number;
+                        /** @enum {string} */
+                        role: "date" | "value-date" | "amount" | "debit" | "credit" | "balance" | "currency" | "description" | "counterparty" | "reference" | "status" | "fee" | "original-amount" | "original-currency" | "exchange-rate" | "ignore" | "category" | "subcategory" | "transfer-flag" | "tags" | "account";
+                    }[];
+                    /** @enum {string} */
+                    dateOrder?: "dmy" | "mdy" | "ymd";
+                    /** @enum {string} */
+                    decimalSeparator?: "." | ",";
+                    /** @enum {string} */
+                    delimiter?: "," | ";" | "\t" | "|";
+                    /** @enum {string} */
+                    encoding?: "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                    headerRow?: number;
+                    /** @enum {string} */
+                    sign?: "as-printed" | "invert";
+                };
+            };
+        };
+        responses: {
+            /** @description The history file, read again */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: {
+                            confirmedAt: string | null;
+                            createdAt: string;
+                            deleteAfter: string;
+                            fileName: string;
+                            /** @enum {string} */
+                            format: "csv" | "tsv" | "xlsx" | "xls";
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            sizeBytes: number;
+                            /** @enum {string} */
+                            state: "processing" | "parsed" | "failed";
+                            version: number;
+                        };
+                        canConfirm: boolean;
+                        confirmed: {
+                            at: string;
+                        } | null;
+                        parse: {
+                            engineVersion: string;
+                            refusal: {
+                                ceiling?: {
+                                    limit: number;
+                                    name: string;
+                                };
+                                code: string;
+                                message: {
+                                    en: string;
+                                    uk: string;
+                                };
+                            } | null;
+                            /** @enum {string} */
+                            state: "pending" | "parsed" | "failed";
+                        };
+                        /** Format: uuid */
+                        parseId: string;
+                        recognition: {
+                            accounts: {
+                                more: boolean;
+                                values: {
+                                    accountId: string | null;
+                                    count: number;
+                                    value: string;
+                                }[];
+                            };
+                            columns: {
+                                column: number;
+                                header: string | null;
+                                role: {
+                                    alternatives: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    }[];
+                                    chosen: {
+                                        examples: {
+                                            cell: string;
+                                            reads: string | null;
+                                        }[];
+                                        label: string;
+                                        score: number;
+                                        value: string | {
+                                            [key: string]: string;
+                                        };
+                                    };
+                                    evidence: {
+                                        code: string;
+                                        column?: number;
+                                        count?: number;
+                                        example?: string;
+                                        of?: number;
+                                        row?: number;
+                                        word?: string;
+                                    }[];
+                                    flags: string[];
+                                };
+                            }[];
+                            dates: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            delimiter: {
+                                alternatives: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                }[];
+                                chosen: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                };
+                            } | null;
+                            encoding: {
+                                alternatives: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                }[];
+                                chosen: {
+                                    reason?: string;
+                                    score: number;
+                                    value: string;
+                                };
+                            } | null;
+                            examples: {
+                                account: string | null;
+                                amount: string | null;
+                                category: string | null;
+                                counterparty: string | null;
+                                currency: string | null;
+                                date: string | null;
+                                description: string | null;
+                                row: number;
+                                subcategory: string | null;
+                                tags: string | null;
+                                transfer: boolean;
+                            }[];
+                            labels: {
+                                items: {
+                                    category: string;
+                                    count: number;
+                                    subcategories: {
+                                        count: number;
+                                        name: string;
+                                    }[];
+                                }[];
+                                more: boolean;
+                            };
+                            missing: ("date" | "amount" | "description" | "categories")[];
+                            numbers: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            sign: {
+                                alternatives: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                }[];
+                                chosen: {
+                                    examples: {
+                                        cell: string;
+                                        reads: string | null;
+                                    }[];
+                                    label: string;
+                                    score: number;
+                                    value: string | {
+                                        [key: string]: string;
+                                    };
+                                };
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                flags: string[];
+                            } | null;
+                            summary: {
+                                read: number;
+                                rows: number;
+                                skipped: {
+                                    count: number;
+                                    /** @enum {string} */
+                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation";
+                                }[];
+                                transfers: number;
+                            };
+                            table: {
+                                dataRows: number;
+                                evidence: {
+                                    code: string;
+                                    column?: number;
+                                    count?: number;
+                                    example?: string;
+                                    of?: number;
+                                    row?: number;
+                                    word?: string;
+                                }[];
+                                headerRow: number | null;
+                            };
+                            transfers: {
+                                more: boolean;
+                                values: {
+                                    count: number;
+                                    suggested: boolean;
+                                    transfer: boolean;
+                                    value: string;
+                                }[];
+                            };
+                        } | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     openImportOriginal: {
         parameters: {
             query?: never;
@@ -19413,7 +20874,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.one-off" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.summary" | "budget.cashflow" | "data.import" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.one-off" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.plan" | "budget.compare" | "budget.spendable" | "budget.summary" | "budget.cashflow" | "data.import" | "categorization.history-rules" | "debts.payoff")[];
                     };
                 };
             };

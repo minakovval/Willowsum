@@ -18,13 +18,14 @@ export {
   StatementParseError,
 } from "./adapters/index.ts";
 export type {
+  HistoryParser,
   SealedAccountBinding,
   StatementParser,
   StatementParserOptions,
   StatementParseRefusal,
 } from "./adapters/index.ts";
 export { fingerprintOf, READ_LIMITS } from "./application/index.ts";
-export type { FileReading, ReadOptions, StatementParse } from "./application/index.ts";
+export type { FileReading, HistoryParse, ReadOptions, StatementParse } from "./application/index.ts";
 export {
   ANALYSIS_LIMITS,
   checkPattern,
@@ -37,6 +38,16 @@ export {
   signatureSimilarity,
   TABLE_LIMITS,
   TableLimitError,
+} from "./domain/index.ts";
+export { HISTORY_LIMITS, HISTORY_MISSING, HISTORY_ROLES } from "./domain/index.ts";
+export type {
+  ColumnRole,
+  HistoryColumn,
+  HistoryMissing,
+  HistoryReadOptions,
+  HistoryRole,
+  HistoryRow,
+  TransferValue,
 } from "./domain/index.ts";
 export {
   ACCOUNT_BINDINGS,

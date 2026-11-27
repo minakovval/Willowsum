@@ -637,6 +637,11 @@ const server = buildServer({
                       accounts: createAccountDirectory(databases.for("accounts")),
                       keys: createSpaceKeys(databases.for("household"), audit, kms),
                     },
+                    // BUD-21 a: history files — the key of their read and answers, the accounts of the account column.
+                    history: {
+                      keys: createSpaceKeys(databases.for("household"), audit, kms),
+                      accounts: createAccountDirectory(databases.for("accounts")),
+                    },
                     // IMP-01 FR 11: «Застосувати» — module transactions writes the batch's rows (journal by hand-off).
                     apply: {
                       transactions: createImportedTransactions(databases.for("transactions"), {

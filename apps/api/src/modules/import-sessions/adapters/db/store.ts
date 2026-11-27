@@ -2,6 +2,9 @@ import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/
 import type {
   Batch,
   BatchFile,
+  BatchKind,
+  HistoryFileParse,
+  HistoryTx,
   Decided,
   FileParse,
   FileReview,
@@ -11,12 +14,19 @@ import type {
   SpaceTx,
 } from "../../application/index.ts";
 import type { BatchState } from "../../domain/index.ts";
-import { enqueueHandOff, enqueueParse, PARSE_FILE_JOB } from "../queue/job.ts";
+import {
+  enqueueHandOff,
+  enqueueHistoryParse,
+  enqueueParse,
+  PARSE_FILE_JOB,
+  PARSE_HISTORY_JOB,
+} from "../queue/job.ts";
 import { applicationsTx } from "./applications.ts";
 
 interface BatchRow {
   household_id: string;
   id: string;
+  kind: BatchKind;
   name: string | null;
   state: BatchState;
   created_by: string;
@@ -40,7 +50,7 @@ interface FileRow {
   created_at: Date;
 }
 
-const BATCH = `household_id, id, name, state, created_by, version, created_at, last_action_at,
+const BATCH = `household_id, id, kind, name, state, created_by, version, created_at, last_action_at,
   EXISTS (SELECT 1 FROM batch_applications a
            WHERE a.household_id = batches.household_id AND a.batch_id = batches.id AND a.in_progress) AS applying,
   (SELECT a.applied_at FROM batch_applications a
@@ -51,6 +61,7 @@ const FILE =
 const batch = (r: BatchRow): Batch => ({
   householdId: r.household_id,
   id: r.id,
+  kind: r.kind,
   name: r.name,
   state: r.state,
   createdBy: r.created_by,
@@ -140,9 +151,18 @@ const fileParse = (r: ParseRow): FileParse => ({
   parsedAt: r.parsed_at,
 });
 
+/**
+ * Which batches a transaction sees (BUD-21 FR 3): the statements' routes and jobs only statements' batches — a history
+ * file's batch is «not found» to them, so it is never parsed as a statement, applied or listed in the history of
+ * imports; the history file's routes only history batches; the daily cleanup both.
+ */
+export type BatchScope = BatchKind | "any";
+
 /** The batches of the transaction's space; every statement names the space too (row policies hold it anyway). */
-export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
+export function batchesTx(q: HouseholdQueryRunner, scope: BatchScope = "statement"): ParseBatchesTx {
   const h = q.householdId;
+  // $k: the scope's kind, null — any.
+  const k = scope === "any" ? null : scope;
   const one = async (sql: string, values: unknown[]) => {
     const { rows } = await q.query<BatchRow>(sql, values);
     return rows[0] ? batch(rows[0]) : null;
@@ -150,28 +170,41 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
   return {
     async insertBatch(b) {
       await q.query(
-        `INSERT INTO batches (household_id, id, name, state, created_by, version, created_at, last_action_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [h, b.id, b.name, b.state, b.createdBy, b.version, b.createdAt, b.lastActionAt],
+        `INSERT INTO batches (household_id, id, kind, name, state, created_by, version, created_at, last_action_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          h,
+          b.id,
+          b.kind ?? "statement",
+          b.name,
+          b.state,
+          b.createdBy,
+          b.version,
+          b.createdAt,
+          b.lastActionAt,
+        ],
       );
     },
     // A batch marked for deletion (FR 12, FR 20) is «not found» to every step.
     lockBatch: (id) =>
       one(
-        `SELECT ${BATCH} FROM batches WHERE household_id = $1 AND id = $2 AND deleting_at IS NULL FOR UPDATE`,
-        [h, id],
+        `SELECT ${BATCH} FROM batches WHERE household_id = $1 AND id = $2 AND deleting_at IS NULL
+           AND ($3::text IS NULL OR kind = $3) FOR UPDATE`,
+        [h, id, k],
       ),
     findBatch: (id) =>
-      one(`SELECT ${BATCH} FROM batches WHERE household_id = $1 AND id = $2 AND deleting_at IS NULL`, [
-        h,
-        id,
-      ]),
+      one(
+        `SELECT ${BATCH} FROM batches WHERE household_id = $1 AND id = $2 AND deleting_at IS NULL
+           AND ($3::text IS NULL OR kind = $3)`,
+        [h, id, k],
+      ),
     async listBatches(limit, after) {
       const { rows } = await q.query<BatchRow>(
         `SELECT ${BATCH} FROM batches WHERE household_id = $1 AND deleting_at IS NULL
            AND ($2::timestamptz IS NULL OR (created_at, id) < ($2::timestamptz, $3::uuid))
+           AND ($5::text IS NULL OR kind = $5)
          ORDER BY created_at DESC, id DESC LIMIT $4`,
-        [h, after?.createdAt ?? null, after?.id ?? null, limit],
+        [h, after?.createdAt ?? null, after?.id ?? null, limit, k],
       );
       return rows.map(batch);
     },
@@ -233,15 +266,17 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
       const { rows } = await q.query<{ id: string }>(
         `SELECT id FROM batches WHERE household_id = $1 AND deleting_at IS NULL
            AND state NOT IN ('applied', 'rolled-back') AND last_action_at < $2
+           AND ($4::text IS NULL OR kind = $4)
          ORDER BY last_action_at, id LIMIT $3`,
-        [h, before, limit],
+        [h, before, limit, k],
       );
       return rows.map((r) => r.id);
     },
     async deletingBatches(limit) {
       const { rows } = await q.query<{ id: string }>(
-        `SELECT id FROM batches WHERE household_id = $1 AND deleting_at IS NOT NULL ORDER BY deleting_at, id LIMIT $2`,
-        [h, limit],
+        `SELECT id FROM batches WHERE household_id = $1 AND deleting_at IS NOT NULL
+           AND ($3::text IS NULL OR kind = $3) ORDER BY deleting_at, id LIMIT $2`,
+        [h, limit, k],
       );
       return rows.map((r) => r.id);
     },
@@ -385,9 +420,10 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
         [h],
       );
       const { rows } = await q.query<{ n: number }>(
-        `SELECT count(*)::int AS n FROM jobs WHERE household_id = $1 AND name = $2
+        `SELECT count(*)::int AS n FROM jobs WHERE household_id = $1 AND name = ANY($2)
            AND created_at > now() - interval '1 hour'`,
-        [h, PARSE_FILE_JOB.name],
+        // BUD-21 FR 3: a history file's reads count against the same ceiling as a statement's.
+        [h, [PARSE_FILE_JOB.name, PARSE_HISTORY_JOB.name]],
       );
       return rows[0]!.n;
     },
@@ -405,12 +441,121 @@ export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
   };
 }
 
+interface HistoryRow {
+  batch_id: string;
+  batch_file_id: string;
+  parse_id: string;
+  state: HistoryFileParse["state"];
+  refusal_code: string | null;
+  engine_version: string;
+  options: HistoryFileParse["options"];
+  parse_sealed: Buffer | null;
+  row_count: number | null;
+  missing: string[];
+  answers_sealed: Buffer | null;
+  requested_by: string;
+  requested_at: Date;
+  parsed_at: Date | null;
+  confirmed_by: string | null;
+  confirmed_at: Date | null;
+}
+
+const HISTORY =
+  "batch_id, batch_file_id, parse_id, state, refusal_code, engine_version, options, parse_sealed, row_count, missing, answers_sealed, requested_by, requested_at, parsed_at, confirmed_by, confirmed_at";
+
+const historyParse = (r: HistoryRow): HistoryFileParse => ({
+  batchId: r.batch_id,
+  batchFileId: r.batch_file_id,
+  parseId: r.parse_id,
+  state: r.state,
+  refusalCode: r.refusal_code,
+  engineVersion: r.engine_version,
+  options: r.options,
+  parseSealed: r.parse_sealed,
+  rowCount: r.row_count,
+  missing: r.missing,
+  answersSealed: r.answers_sealed,
+  requestedBy: r.requested_by,
+  requestedAt: r.requested_at,
+  parsedAt: r.parsed_at,
+  confirmedBy: r.confirmed_by,
+  confirmedAt: r.confirmed_at,
+});
+
+/** BUD-21 FR 3–6: the history files' batches of the transaction's space and their reads. */
+export function historyTx(q: HouseholdQueryRunner): HistoryTx {
+  const h = q.householdId;
+  return {
+    ...batchesTx(q, "history"),
+    async historyParse(batchId, lock = false) {
+      const { rows } = await q.query<HistoryRow>(
+        `SELECT ${HISTORY} FROM history_parses WHERE household_id = $1 AND batch_id = $2${lock ? " FOR UPDATE" : ""}`,
+        [h, batchId],
+      );
+      return rows[0] ? historyParse(rows[0]) : null;
+    },
+    async upsertHistoryParse(p) {
+      await q.query(
+        `INSERT INTO history_parses (household_id, ${HISTORY})
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+         ON CONFLICT (household_id, batch_id) DO UPDATE SET batch_file_id = EXCLUDED.batch_file_id,
+           parse_id = EXCLUDED.parse_id, state = EXCLUDED.state, refusal_code = EXCLUDED.refusal_code,
+           engine_version = EXCLUDED.engine_version, options = EXCLUDED.options,
+           parse_sealed = EXCLUDED.parse_sealed, row_count = EXCLUDED.row_count, missing = EXCLUDED.missing,
+           answers_sealed = EXCLUDED.answers_sealed, requested_by = EXCLUDED.requested_by,
+           requested_at = EXCLUDED.requested_at, parsed_at = EXCLUDED.parsed_at,
+           confirmed_by = EXCLUDED.confirmed_by, confirmed_at = EXCLUDED.confirmed_at`,
+        [
+          h,
+          p.batchId,
+          p.batchFileId,
+          p.parseId,
+          p.state,
+          p.refusalCode,
+          p.engineVersion,
+          JSON.stringify(p.options),
+          p.parseSealed,
+          p.rowCount,
+          [...p.missing],
+          p.answersSealed,
+          p.requestedBy,
+          p.requestedAt,
+          p.parsedAt,
+          p.confirmedBy,
+          p.confirmedAt,
+        ],
+      );
+    },
+    enqueueHistoryParse: (job) => enqueueHistoryParse(q, job),
+    async lockContent(sha256) {
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('import-sessions.history-content:' || $1 || ':' || $2, 0))`,
+        [h, sha256],
+      );
+    },
+    async historyByContent(sha256) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT b.id FROM batch_files f
+           JOIN batches b ON b.household_id = f.household_id AND b.id = f.batch_id
+         WHERE f.household_id = $1 AND f.content_sha256 = $2 AND b.kind = 'history' AND b.deleting_at IS NULL
+         ORDER BY b.created_at, b.id LIMIT 1`,
+        [h, sha256],
+      );
+      return rows[0]?.id ?? null;
+    },
+  };
+}
+
 /** The batch's transaction with the stored result of its apply (application/apply.ts). */
 export function applyTx(q: HouseholdQueryRunner): ApplyBatchesTx & RollbackTx {
   return { ...batchesTx(q), ...applicationsTx(q) };
 }
 
 /** A transaction of the module's database bound to one space. */
-export function spaceTx(db: Pick<ModuleDatabase, "inHousehold">, householdId: string): SpaceTx {
-  return (work) => db.inHousehold(householdId, (q) => work(batchesTx(q)));
+export function spaceTx(
+  db: Pick<ModuleDatabase, "inHousehold">,
+  householdId: string,
+  scope: BatchScope = "statement",
+): SpaceTx {
+  return (work) => db.inHousehold(householdId, (q) => work(batchesTx(q, scope)));
 }

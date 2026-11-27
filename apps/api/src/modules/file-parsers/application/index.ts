@@ -4,3 +4,5 @@ export { FileTooLargeError, fingerprintOf, readDelimitedFile, READ_LIMITS } from
 export type { FileReading, ReadOptions } from "./read-file.ts";
 export { parseStatement } from "./parse-statement.ts";
 export type { OpenedAccountBinding, StatementParse } from "./parse-statement.ts";
+export { parseHistory } from "./parse-history.ts";
+export type { HistoryParse } from "./parse-history.ts";

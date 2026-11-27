@@ -10,3 +10,4 @@ export * from "./apply.ts";
 export * from "./rollback.ts";
 export * from "./review-rows.ts";
 export * from "./result.ts";
+export * from "./history.ts";

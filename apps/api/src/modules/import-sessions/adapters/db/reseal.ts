@@ -1,5 +1,6 @@
 import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
 import { sealedColumnsPart, type ResealPart } from "../../../../platform/modules/reseal.ts";
+import { answersPurpose, historyPurpose } from "../../application/history.ts";
 import { parsePurpose } from "../../application/parse.ts";
 
 /**
@@ -24,5 +25,24 @@ export function importSessionsResealPart(db: ModuleDatabase): ResealPart {
         purpose: (row) => parsePurpose(row["batch_file_id"] as string, row["parse_id"] as string),
       },
     },
+    // BUD-21 FR 3, FR 6: a history file's read and the confirmation's answers.
+    ...(["parse_sealed", "answers_sealed"] as const).map((column) => ({
+      keys: ["batch_id"],
+      column,
+      select: `SELECT batch_id, batch_file_id, parse_id, ${column} FROM history_parses
+                WHERE household_id = $1 AND ${column} IS NOT NULL
+                  AND ($2::uuid IS NULL OR batch_id > $2::uuid)
+                ORDER BY batch_id LIMIT $3 FOR UPDATE`,
+      update: `UPDATE history_parses SET ${column} = $3 WHERE household_id = $1 AND batch_id = $2`,
+      count: `SELECT count(*)::text AS n FROM history_parses WHERE household_id = $1 AND ${column} IS NOT NULL`,
+      sealedFor: {
+        kind: "bytes" as const,
+        purpose: (row: Record<string, unknown>) =>
+          (column === "parse_sealed" ? historyPurpose : answersPurpose)(
+            row["batch_file_id"] as string,
+            row["parse_id"] as string,
+          ),
+      },
+    })),
   ]);
 }

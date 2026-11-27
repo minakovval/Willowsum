@@ -1,5 +1,11 @@
 import type { AccountCandidates, AccountDirectory } from "../../accounts/index.ts";
-import { StatementParseError, type Institution, type StatementParser } from "../../file-parsers/index.ts";
+import {
+  StatementParseError,
+  type HistoryParser,
+  type HistoryReadOptions,
+  type Institution,
+  type StatementParser,
+} from "../../file-parsers/index.ts";
 import { FileNotFoundError, rejection, REJECTION_CODES, type FileStorage } from "../../file-storage/index.ts";
 import type { SpaceKeys } from "../../household/index.ts";
 import {
@@ -22,6 +28,8 @@ export interface ParseModules {
   readonly accounts: Pick<AccountDirectory, "postingAccount">;
   readonly keys: Pick<SpaceKeys, "fieldOpener" | "sealBytes">;
   readonly parser: StatementParser;
+  /** BUD-21 FR 3: the history file's read (the same isolated parser); absent — history files are not read. */
+  readonly history?: HistoryParser;
   /** IMP-08 FR 2 (row 230): accounts' directory of banks (`bankDirectory`), for the statement's own bank. */
   readonly banks?: () => readonly Institution[];
   /** IMP-08 FR 2 (row 230b): the space's accounts the file's account is matched among (`createAccountCandidates`). */
@@ -103,6 +111,18 @@ export function parsePorts(modules: ParseModules): ParsePorts {
         throw error;
       }
     },
+    ...(modules.history
+      ? {
+          async parseHistory(_householdId: string, bytes: Uint8Array, options: HistoryReadOptions) {
+            try {
+              return await modules.history!.parseHistory(bytes, {}, options);
+            } catch (error) {
+              if (error instanceof StatementParseError) throw new ParseRefused(refusalCode(error));
+              throw error;
+            }
+          },
+        }
+      : {}),
     ...(modules.banks ? { institutions: modules.banks } : {}),
     ...(modules.candidates
       ? { candidates: (householdId: string) => modules.candidates!.candidates(householdId) }

@@ -10,7 +10,7 @@ import type { UploadBudget } from "./upload-budget.ts";
  * object storage or the database. It is served only through a signed link (≤ 15 minutes) of its own space, only as a
  * download with the type of its content and `nosniff`.
  */
-export const FILE_KINDS = ["statement"] as const;
+export const FILE_KINDS = ["statement", "history-file"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
 export interface StoredFile {

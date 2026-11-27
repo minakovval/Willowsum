@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (IMP-08 п. 2, рядок 230b: банк поза довідником — `printedBank`, `bankName`, `bankInDirectory`); 2026-11-26 (IMP-08 п. 2, рядок 230: `StatementChecks.detected` — банк, валюта і маска картки чи IBAN, які виписка називає для свого рахунку; `StatementOptions.institutions`); 2026-11-21 (IMP-02 п. 5, 12, IMP-05 п. 1, #698: `StatementEvent.feeIncluded` — чи сума містить комісію, з даних файлу (`readFeeBasis`), позначки `fee-unreadable` і `fee-basis-unknown` (залишки з розривом не показують, чи сума містить комісію), «—» — немає комісії, перевірка курсу з комісією, ланцюжок залишків у порядку рядків одного дня (лінійно), версія рушія «2»); 2026-11-21 (IMP-02 п. 4, S-047: кілька колонок опису й приміток разом в описі банку; слова заголовків іспанської виписки); 2026-11-20 (IMP-05 FR 6: борг кредитної картки, рішення власника 2026-11-20, п. 6; крок розбору: не більше 2 воркерів розбору водночас, лінивий відкривач прив'язки, `PARSE_ENGINE_VERSION`; IMP-05 частина 1: контрольні суми, розрив історії, чужий рахунок, знаки, уточнення, хвиля 2, рядок 42; раніше: прив'язка виписки до рахунку рецепта, рядок 41, частина 3)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -78,7 +78,7 @@
 
 ## Вимоги
 
-Зрізи PoC, що називають модуль: FLW-10@PoC, IMP-01@PoC, IMP-02@PoC, IMP-05@PoC, IMP-06@PoC, IMP-09@PoC, IMP-19@PoC. Функції додають PR цих зрізів.
+Зрізи PoC, що називають модуль: FLW-10@PoC, IMP-01@PoC, IMP-02@PoC, IMP-05@PoC, IMP-06@PoC, IMP-09@PoC, IMP-19@PoC; BUD-21@PoC (читання файлу історії, частина a). Функції додають PR цих зрізів.
 
 ## Публічний інтерфейс
 
@@ -101,6 +101,13 @@
 - Не більше `PARSE_LIMITS.concurrent` (2; параметр `concurrent`) воркерів розбору одного парсера водночас, решта чекає черги
   (#624); `binding` може бути функцією, що повертає прив'язку: відкривач поля береться лише тоді, коли настала черга воркера.
   `PARSE_ENGINE_VERSION` — версія рушія, яку партія зберігає з кожним файлом (IMP-01 п. 9).
+- `HistoryParser.parseHistory(bytes, options?, corrections?)` → `HistoryParse` (BUD-21@PoC п. 4–6; той самий ізольований
+  воркер, стелі й черга, що в `parse`; `isolatedStatementParser()` реалізує обидва): ролі виписки й ролі колонок
+  користувача (`HISTORY_ROLES`: `category`, `subcategory`, `transfer-flag`, `tags`, `account`) з причинами (`header-word`,
+  `transfer-values`, `user-choice`) і альтернативами, формати дат, чисел і знака, рядки (`HistoryRow`), значення колонки
+  переказу з лічильниками й підказкою, `missing` (`HISTORY_MISSING`: `date`, `amount`, `description`, `categories`).
+  `HistoryReadOptions` — виправлення користувача (ролі колонок, порядок дати, десятковий роздільник, знак). Результат
+  містить клітинки файлу: не логувати.
 - `historyGap(previous, next)` → `HistoryGap`; `readingFits(value, currency)`; `CHECK_KINDS`, `SIGN_BASES`,
   `FLAG_SEVERITY`; типи `ControlCheck`, `StatementBounds`, `BatchFlag`, `Clarification`, `SignReview` та інші з `index.ts`.
   `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`,
@@ -138,4 +145,5 @@
 `application/imp02-events.test.ts`, `adapters/isolation/imp02-parse-events.test.ts`, `domain/imp06-followups.test.ts`,
 `domain/sec619-header-bound.test.ts`, `application/imp05-checks.test.ts`,
 `adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`,
-`adapters/isolation/sec624-parse-concurrency.test.ts`, `adapters/isolation/sec639-opener-wipe.test.ts`.
+`adapters/isolation/sec624-parse-concurrency.test.ts`, `adapters/isolation/sec639-opener-wipe.test.ts`,
+`application/bud21-history-parse.test.ts`, `adapters/isolation/bud21-history-worker.test.ts` (файл історії).

@@ -4,8 +4,13 @@
 // never logs.
 import { parentPort, workerData } from "node:worker_threads";
 import { answerFromWorker } from "../../../../platform/process/isolated.ts";
-import { FileTooLargeError, parseStatement, type ReadOptions } from "../../application/index.ts";
-import { TableLimitError, type StatementOptions } from "../../domain/index.ts";
+import {
+  FileTooLargeError,
+  parseHistory,
+  parseStatement,
+  type ReadOptions,
+} from "../../application/index.ts";
+import { TableLimitError, type HistoryReadOptions, type StatementOptions } from "../../domain/index.ts";
 import { AccountBindingError, openAccountBinding } from "./open-binding.ts";
 import type { SealedAccountBinding } from "./run.ts";
 
@@ -16,16 +21,23 @@ import type { SealedAccountBinding } from "./run.ts";
 const ANALYSIS_CHARS = 2 * 1024 * 1024;
 const RESULT_CHARS = 16 * 1024 * 1024;
 
-const { bytes, options, statement, binding } = workerData as {
+const { bytes, options, statement, binding, history } = workerData as {
   bytes: Uint8Array;
   options: ReadOptions;
   statement: StatementOptions;
   binding?: SealedAccountBinding;
+  /** BUD-21 FR 3, FR 4: a history file's parse with the user's corrections (no binding, no statement options). */
+  history?: HistoryReadOptions;
 };
 
 await answerFromWorker(
   (message) => parentPort!.postMessage(message),
   () => {
+    if (history) {
+      const parsed = parseHistory(bytes, options, history);
+      if (JSON.stringify(parsed).length > RESULT_CHARS) throw new Error("result too large");
+      return parsed;
+    }
     const parse = parseStatement(bytes, options, statement, openAccountBinding(binding));
     // The answer is copied into the API process: it stays bounded whatever the file holds.
     if (JSON.stringify({ reading: parse.reading, analysis: parse.analysis }).length > ANALYSIS_CHARS)

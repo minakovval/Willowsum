@@ -43,6 +43,7 @@ export {
   createImportSessionsServices,
   HAND_OFF_JOB,
   PARSE_FILE_JOB,
+  PARSE_HISTORY_JOB,
   type ApplyServices,
   type ImportSessionsServices,
   type ParseModules,
@@ -240,7 +241,8 @@ export function createImportSessionsCleanup(options: {
         try {
           const { result, handOffs } = await deleteStaleBatches(
             deps,
-            spaceTx(options.db, householdId),
+            // BUD-21 FR 24, AC30: history files' batches go after 30 days without an action too.
+            spaceTx(options.db, householdId, "any"),
             originals,
             householdId,
           );

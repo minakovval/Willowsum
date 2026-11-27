@@ -7,6 +7,7 @@ export {
   StatementParseError,
 } from "./isolation/run.ts";
 export type {
+  HistoryParser,
   SealedAccountBinding,
   StatementParser,
   StatementParserOptions,
