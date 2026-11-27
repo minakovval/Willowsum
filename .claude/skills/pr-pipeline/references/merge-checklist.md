@@ -1,6 +1,6 @@
 # Merge checklist (step 6, full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
 
 Read when you are about to merge. The merge conditions and approvals themselves: AGENTS.md step 7 and
 [merge rules](../../../references/merge-rules.md) (including «Merge on Ready, follow up separately»).
@@ -30,19 +30,20 @@ Read when you are about to merge. The merge conditions and approvals themselves:
      before every merge read its comments,
      `gh api repos/{owner}/{repo}/issues/<n>/comments --jq '.[] | [.user.login, .created_at, .body[0:200]] | @tsv'`,
      and the review bodies.
-   **Order**: code PRs with Ready before docs PRs (otherwise their syncs and
-   confirmations repeat, #203); a docs PR with decisions that code depends on — at once. Among code PRs, a
-   `sensitive` PR whose verdict is expected within ≈ 1 h merges first and the PR without `sensitive` is synced
-   after it; if that verdict is not expected so soon, merge the ready PR at once.
+   **Order**: code PRs with Ready before docs PRs (else their syncs repeat, #203); a docs PR with decisions that
+   code depends on — at once. Among code PRs, a `sensitive` PR whose verdict is expected within ≈ 1 h merges first
+   (the other is synced after it); if not so soon, merge the ready PR at once. While a `sensitive` PR in security
+   review or a fix round is open, do not merge ahead of it a PR whose file list intersects its files; merge that
+   PR after it, unless it fixes a red `main` or a security issue, or the owner says otherwise (owner, 2026-11-27).
    **Sync only when needed** (full syncs and their review rounds were the largest waste).
    Before every merge check `gh api repos/{owner}/{repo}/pulls/<n> --jq .mergeable_state` (`dirty` is a conflict, CI
    does not run on it, #249; `unknown` → ask again after a few seconds) and run the check below. Sync only when the
    PR conflicts, when GitHub refuses the merge, or when `main` changed since the PR's merge-base any of: the PR's own
    files, `packages/api-contract/**` other than `openapi.json` and `src/schema.ts`, `apps/api/module-rules.json`, or
-   migrations of a module the PR touches. `packages/api-contract/openapi.json` and `packages/api-contract/src/schema.ts`
-   no longer require a sync by themselves: the workflow «Contract check on main»
-   (`.github/workflows/main-contract-check.yml`) runs `pnpm contract:check` and `pnpm typecheck` after every push to `main`, so a broken
-   contract or a client that no longer compiles shows up at once as a red `main` (owner, 2026-11-20). Otherwise merge with `behind_by` > 0, no sync and no confirmation (CI green and the verdicts on the PR's own head
+   migrations of a module the PR touches. `packages/api-contract/openapi.json` and `src/schema.ts` need no sync by
+   themselves: «Contract check on main» (`.github/workflows/main-contract-check.yml`) runs `pnpm contract:check` and
+   `pnpm typecheck` after every push to `main`, so a break shows up as a red `main` (owner, 2026-11-20). Otherwise
+   merge with `behind_by` > 0, no sync, no confirmation (CI green and the verdicts on the PR's own head
    as above). CI on `main` after every merge catches the rest: **a red `main` is the top priority** — stop merging,
    start `investigate-ci-failure` on `main`, merge again only when `main` is green. The daily check of `main`
    (ADR-0008) stays. Check (from the repository root):
@@ -70,9 +71,8 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    #255, #256), otherwise an agent; when a fix round is due anyway, the fix agent syncs (SKILL.md step 4); a
    `sensitive` PR's confirmation round goes to one agent for both verdicts (SKILL.md step 5).
    **The lead confirms only a sync with an unchanged diff.** An author's fix after «Changes requested» is confirmed
-   only by a reviewer agent (`review-pr` «6. Confirmation rounds»), no exceptions; a lead's `Verdict: Ready` does not
-   count on a head that holds an author commit made after «Changes requested» and not covered by a later reviewer
-   agent's verdict; the lead's own confirmation of a sync with an unchanged diff (below) stays.
+   only by a reviewer agent (`review-pr` «6. Confirmation rounds»), no exceptions: a lead's `Verdict: Ready` does not
+   count on a head with an author commit after «Changes requested» not covered by a later reviewer verdict.
    **The lead confirms a sync itself**, with no agent, posting a PR **review** (not a comment, so the daily check
    of `main`, ADR-0008, finds a verdict on the merged head): `Reviewed head: <new>`, both SHAs, the command below and
    its output `unchanged`, and `Verdict: Ready` on its own last line. It applies to (any other output, a changed
