@@ -255,3 +255,66 @@ describe("ARC-11@PoC through main.ts's wiring: the worker dispatches the ledger'
     expect(rows).toEqual([{ n: 3 }]);
   });
 });
+
+/** The space's journal rows (entries, postings, rates, accounts), whole, as the database owner sees them. */
+async function journal(householdId: string): Promise<unknown[]> {
+  const out: unknown[] = [];
+  for (const table of ["accounts", "entries", "postings", "conversions"])
+    out.push(
+      (
+        await db.owner.query(
+          `SELECT to_jsonb(t) AS row FROM ledger.${table} t WHERE household_id = $1 ORDER BY to_jsonb(t)::text`,
+          [householdId],
+        )
+      ).rows,
+    );
+  return out;
+}
+
+describe("ARC-11@PoC «Межі модуля»: projections consume «проводку записано» and never change the journal", () => {
+  it("ARC-11@PoC FR 3: dispatching the events and every read a projection makes (balances, live entries, a cache rebuild) leave the journal as it was", async () => {
+    const s = await space();
+    const savings = await ledger.openAccount(
+      s.householdId,
+      { module: "accounts", id: randomUUID() },
+      { type: "asset", currency: "EUR" },
+    );
+    const first = await ledger.post(s.householdId, spend(s.cash, "-20.00"));
+    await ledger.post(s.householdId, {
+      ...spend(s.cash),
+      event: { type: "transfer", from: s.cash.id, to: savings.id, amount: eur("5.55") },
+    });
+    await ledger.reverse(s.householdId, first.id, `reversal-${first.id}`);
+    const before = await journal(s.householdId);
+    expect((before[1] as unknown[]).length).toBe(3);
+
+    // A projection's work: it gets the events from the outbox and reads through the ledger's interface.
+    const worker = createWorker({ ...workerQueues(db.databases), households: async () => [s.householdId] });
+    try {
+      await worker.tick();
+      await worker.idle();
+    } finally {
+      await worker.stop();
+    }
+    expect((await events(s.householdId)).every((e) => e.dispatched_at !== null)).toBe(true);
+    await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30");
+    await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30", { asKnownAt: new Date().toISOString() });
+    await ledger.balancesAt(s.householdId, savings.id, ["2026-05-31", "2026-06-30", "2026-07-31"]);
+    await ledger.liveEntries(s.householdId, first.source, "transaction");
+    await ledger.rebuildBalances(s.householdId);
+
+    expect(await journal(s.householdId)).toEqual(before);
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30")).toDecimalString()).toBe("-5.55");
+    // The event a projection gets carries no amount or account to post with: only what happened and where to read it.
+    for (const e of await events(s.householdId))
+      expect(Object.keys(e.payload).sort()).toEqual([
+        "entryId",
+        "eventType",
+        "operationDate",
+        "recordedAt",
+        "reversesEntryId",
+        "sourceId",
+        "sourceModule",
+      ]);
+  });
+});

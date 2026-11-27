@@ -7,8 +7,11 @@ import { setupRealModules, type RealModulesDatabase } from "../../../test/real-m
 import { databaseLedgerStore } from "./adapters/index.ts";
 import { post as postWith, type LedgerStore } from "./application/index.ts";
 import {
+  ACCOUNT_TYPES,
   createLedger,
   createLedgerIntegrityCheck,
+  RULES_VERSION,
+  SERVICE_ACCOUNTS,
   type Ledger,
   type LedgerAccount,
   type PostInput,
@@ -814,5 +817,334 @@ describe("security review #642: Ledger.balancesAt", () => {
     );
     expect(rows).toHaveLength(5);
     for (const r of rows) expect(r, r.relname).toMatchObject({ rls: true, forced: true });
+  });
+});
+
+/** Every ledger account of a space, as the database owner sees it (outside the row policy). */
+async function accountsOf(householdId: string) {
+  return (
+    await db.owner.query<{
+      id: string;
+      type: string;
+      currency: string;
+      owner_module: string | null;
+      owner_id: string | null;
+      service_kind: string | null;
+    }>(
+      `SELECT id, type, currency, owner_module, owner_id, service_kind FROM ledger.accounts
+        WHERE household_id = $1 ORDER BY id`,
+      [householdId],
+    )
+  ).rows;
+}
+
+describe("ARC-11 «План рахунків»: the chart of accounts", () => {
+  it("ARC-11@PoC FR 4: every journal account has one of the five types and exactly one currency", async () => {
+    const householdId = randomUUID();
+    const opened: LedgerAccount[] = [];
+    for (const type of ACCOUNT_TYPES)
+      opened.push(
+        await ledger.openAccount(
+          householdId,
+          { module: "accounts", id: randomUUID() },
+          { type, currency: "EUR" },
+        ),
+      );
+    expect(opened.map((a) => [a.type, a.currency])).toEqual(ACCOUNT_TYPES.map((t) => [t, "EUR"]));
+    // An unknown type is refused before anything is written.
+    expect(
+      await code(
+        ledger.openAccount(
+          householdId,
+          { module: "accounts", id: randomUUID() },
+          { type: "cash" as never, currency: "EUR" },
+        ),
+      ),
+    ).toBe("INVALID_ACCOUNT");
+    // The owner's account keeps its type and its one currency: opening it again with another is a conflict.
+    const owner = { module: "accounts", id: randomUUID() };
+    const cash = await ledger.openAccount(householdId, owner, { type: "asset", currency: "EUR" });
+    expect(await code(ledger.openAccount(householdId, owner, { type: "asset", currency: "USD" }))).toBe(
+      "ACCOUNT_CONFLICT",
+    );
+    expect(await code(ledger.openAccount(householdId, owner, { type: "liability", currency: "EUR" }))).toBe(
+      "ACCOUNT_CONFLICT",
+    );
+    expect((await ledger.openAccount(householdId, owner, { type: "asset", currency: "EUR" })).id).toBe(
+      cash.id,
+    );
+    // A service account is one per currency too: a spending in USD gets its own «Зовнішні кошти» in USD.
+    const usd = await ledger.openAccount(
+      householdId,
+      { module: "accounts", id: randomUUID() },
+      { type: "asset", currency: "USD" },
+    );
+    await ledger.post(householdId, input({ type: "transaction", account: cash.id, amount: eur("-1") }));
+    await ledger.post(
+      householdId,
+      input({ type: "transaction", account: usd.id, amount: Money.of("-1", "USD") }),
+    );
+    const rows = await accountsOf(householdId);
+    expect(
+      rows
+        .filter((r) => r.service_kind === "external-funds")
+        .map((r) => r.currency)
+        .sort(),
+    ).toEqual(["EUR", "USD"]);
+    for (const r of rows) {
+      expect(ACCOUNT_TYPES as readonly string[], r.id).toContain(r.type);
+      expect(r.currency, r.id).toMatch(/^[A-Z][A-Z0-9]{2,9}$/);
+    }
+    // The database holds the same rule: no other type, no account without a currency.
+    const insert = (type: string, currency: string | null) =>
+      asModule(
+        householdId,
+        `INSERT INTO accounts (household_id, id, type, currency, owner_module, owner_id) VALUES ($1, $2, $3, $4, 'accounts', $2)`,
+        [householdId, randomUUID(), type, currency],
+      );
+    expect(await insert("cash", "EUR")).toBe("23514");
+    expect(await insert("asset", null)).toBe("23502");
+    expect(await insert("asset", "EUR,USD")).toBe("23514");
+  });
+
+  it("ARC-11@PoC FR 5: journal accounts are made by the owner modules' events; the ledger makes none of its own but the service accounts", async () => {
+    const s = await space();
+    // A posting that names an account no owner opened is refused, and no account is made for it.
+    const stranger = randomUUID();
+    expect(
+      await code(
+        ledger.post(
+          s.householdId,
+          input({ type: "transfer", from: s.cash.id, to: stranger, amount: eur("5") }),
+        ),
+      ),
+    ).toBe("UNKNOWN_ACCOUNT");
+    expect((await accountsOf(s.householdId)).map((r) => r.id).sort()).toEqual(
+      [s.cash.id, s.savings.id].sort(),
+    );
+    // An account needs an owner module and its record.
+    expect(
+      await code(
+        ledger.openAccount(
+          s.householdId,
+          { module: "", id: randomUUID() },
+          { type: "asset", currency: "EUR" },
+        ),
+      ),
+    ).toBe("INVALID_SOURCE");
+    expect(
+      await code(
+        ledger.openAccount(
+          s.householdId,
+          { module: "accounts", id: "not-an-id" },
+          { type: "asset", currency: "EUR" },
+        ),
+      ),
+    ).toBe("INVALID_SOURCE");
+    // After events of several rules, every account is either an owner's (the ones opened) or a service account.
+    const asset = await ledger.openAccount(
+      s.householdId,
+      { module: "assets", id: randomUUID() },
+      { type: "asset", currency: "EUR" },
+    );
+    await ledger.post(
+      s.householdId,
+      input({ type: "transaction", account: s.cash.id, amount: eur("-9.99") }),
+    );
+    await ledger.post(
+      s.householdId,
+      input({ type: "balance-adjustment", account: s.savings.id, amount: eur("2") }),
+    );
+    await ledger.post(
+      s.householdId,
+      input({ type: "asset-revaluation", asset: asset.id, change: eur("100") }),
+    );
+    const rows = await accountsOf(s.householdId);
+    const owned = rows.filter((r) => r.service_kind === null);
+    expect(owned.map((r) => r.id).sort()).toEqual([s.cash.id, s.savings.id, asset.id].sort());
+    for (const r of owned) expect([r.owner_module, r.owner_id], r.id).not.toContain(null);
+    expect(
+      rows
+        .filter((r) => r.service_kind !== null)
+        .map((r) => r.service_kind)
+        .sort(),
+    ).toEqual(["adjustment", "external-funds", "revaluation-reserve"]);
+    // The database refuses an account that is neither an owner's nor a service account.
+    expect(
+      await asModule(
+        s.householdId,
+        `INSERT INTO accounts (household_id, id, type, currency) VALUES ($1, $2, 'asset', 'EUR')`,
+        [s.householdId, randomUUID()],
+      ),
+    ).toBe("23514");
+  });
+
+  it("ARC-11@PoC FR 6: a space's service accounts cannot be deleted or renamed — by any role, and the ledger has no such call", async () => {
+    const s = await space();
+    await ledger.post(s.householdId, input({ type: "transaction", account: s.cash.id, amount: eur("-1") }));
+    const [external] = (await accountsOf(s.householdId)).filter((r) => r.service_kind === "external-funds");
+    expect(external).toBeDefined();
+    expect(Object.keys(SERVICE_ACCOUNTS).sort()).toEqual([
+      "adjustment",
+      "external-funds",
+      "fx-difference",
+      "realized-gain",
+      "revaluation-reserve",
+    ]);
+    // A service account has no name to rename: only its kind, type and currency.
+    const columns = (
+      await db.owner.query<{ column_name: string }>(
+        `SELECT column_name FROM information_schema.columns WHERE table_schema = 'ledger' AND table_name = 'accounts'`,
+      )
+    ).rows.map((r) => r.column_name);
+    expect(columns).toContain("service_kind");
+    for (const c of columns) expect(c).not.toMatch(/name|title|label|description/);
+    const change = [
+      `UPDATE accounts SET service_kind = 'adjustment' WHERE id = $1`,
+      `UPDATE accounts SET currency = 'USD' WHERE id = $1`,
+      `UPDATE accounts SET type = 'income' WHERE id = $1`,
+      `DELETE FROM accounts WHERE id = $1`,
+    ];
+    for (const sql of change) {
+      expect(await asModule(s.householdId, sql, [external!.id]), sql).toBe("42501");
+      expect(
+        await code(db.owner.query(sql.replace("accounts", "ledger.accounts"), [external!.id])),
+        sql,
+      ).toBe("42501");
+    }
+    expect(await code(db.owner.query(`TRUNCATE ledger.accounts CASCADE`))).toBe("42501");
+    expect((await accountsOf(s.householdId)).find((r) => r.id === external!.id)).toEqual(external);
+    // The ledger's interface offers no call that deletes, renames or closes an account.
+    for (const call of Object.keys(ledger))
+      expect(call).not.toMatch(/delete|remove|rename|close|erase|update/i);
+  });
+});
+
+describe("ARC-11 «Запис проводок»: what a stored entry holds", () => {
+  it("ARC-11@PoC FR 7: space, source, event type, operation date, time of recording, rules version, idempotency key and a posting with both sides", async () => {
+    const s = await space();
+    const key = `card-op:${randomUUID()}`;
+    const source = { module: "transactions", id: randomUUID() };
+    const before = (await db.owner.query<{ t: Date }>(`SELECT clock_timestamp() AS t`)).rows[0]!.t;
+    const entry = await ledger.post(s.householdId, {
+      source,
+      idempotencyKey: key,
+      operationDate: "2026-05-31",
+      event: { type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("12.34") },
+    });
+    const after = (await db.owner.query<{ t: Date }>(`SELECT clock_timestamp() AS t`)).rows[0]!.t;
+    const { rows } = await db.owner.query(
+      `SELECT household_id, source_module, source_id, event_type, operation_date::text AS operation_date, recorded_at,
+              rules_version, idempotency_key, reverses_entry_id FROM ledger.entries WHERE id = $1`,
+      [entry.id],
+    );
+    expect(rows).toEqual([
+      {
+        household_id: s.householdId,
+        source_module: "transactions",
+        source_id: source.id,
+        event_type: "transfer",
+        operation_date: "2026-05-31",
+        recorded_at: expect.any(Date),
+        rules_version: RULES_VERSION,
+        idempotency_key: key,
+        reverses_entry_id: null,
+      },
+    ]);
+    const recordedAt = rows[0].recorded_at as Date;
+    expect(recordedAt.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1);
+    expect(recordedAt.getTime()).toBeLessThanOrEqual(after.getTime() + 1);
+    // The entry the caller gets is the stored one.
+    expect(entry).toMatchObject({
+      source,
+      eventType: "transfer",
+      operationDate: "2026-05-31",
+      rulesVersion: RULES_VERSION,
+      reversesEntryId: null,
+    });
+    expect(new Date(entry.recordedAt).getTime()).toBe(recordedAt.getTime());
+    // «At least two postings»: in the pair model (ADR-0011) one posting row is the debit of one account and the credit
+    // of another, so every entry has at least one debit and one credit, on different accounts.
+    expect((await stored(entry.id)).postings).toEqual([
+      {
+        debit_account_id: s.savings.id,
+        credit_account_id: s.cash.id,
+        amount: "12.340000000000000000",
+        currency: "EUR",
+      },
+    ]);
+    // An entry row cannot be stored without its postings.
+    expect(
+      await asModule(
+        s.householdId,
+        `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key)
+         VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'transfer', '2026-06-01', 1, $2::uuid::text)`,
+        [s.householdId, randomUUID()],
+      ),
+    ).toBe("23514");
+  });
+});
+
+describe("ARC-11 «Правила проводок»: an entry keeps the rules version it was made by", () => {
+  it("ARC-11@PoC FR 19: an entry of other rules keeps its version and postings; new entries take the current rules; a reversal offsets the stored postings", async () => {
+    const s = await space();
+    // An entry made by other rules (version 7): a «transaction» posted against another account, which the current rules
+    // never make (they post it against «Зовнішні кошти»). Written raw, as a past version of the code would have.
+    const old = { id: randomUUID(), source: { module: "transactions", id: randomUUID() } };
+    await db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
+      await dropBalanceCache(q);
+      await q.query(
+        `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key)
+         VALUES ($1, $2::uuid, 'transactions', $3, 'transaction', '2026-06-01', 7, $2::uuid::text)`,
+        [s.householdId, old.id, old.source.id],
+      );
+      await q.query(`INSERT INTO postings VALUES ($1, $2, 1, $3, $4, 25, 'EUR')`, [
+        s.householdId,
+        old.id,
+        s.cash.id,
+        s.savings.id,
+      ]);
+    });
+    // A new event of the same type is posted by the current rules and stores their version.
+    const fresh = await ledger.post(s.householdId, {
+      ...input({ type: "transaction", account: s.cash.id, amount: eur("-10") }),
+      source: old.source,
+    });
+    expect(fresh.rulesVersion).toBe(RULES_VERSION);
+    expect(fresh.postings).toEqual([
+      {
+        debitAccountId: expect.not.stringMatching(s.savings.id),
+        creditAccountId: s.cash.id,
+        amount: eur("10"),
+      },
+    ]);
+    // The old entry is read as stored: its version and its own postings, not re-derived by today's rules.
+    const live = await ledger.liveEntries(s.householdId, old.source, "transaction");
+    expect(live.map((e) => [e.id, e.rulesVersion])).toEqual([
+      [old.id, 7],
+      [fresh.id, RULES_VERSION],
+    ]);
+    expect(live[0]!.postings).toEqual([
+      { debitAccountId: s.cash.id, creditAccountId: s.savings.id, amount: eur("25") },
+    ]);
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30")).toDecimalString()).toBe("15");
+    // Re-posting the past is a reversal of exactly what is stored, then a new entry: the history is not rewritten.
+    const back = await ledger.reverse(s.householdId, old.id, `reversal-${old.id}`);
+    expect(back).toMatchObject({ rulesVersion: RULES_VERSION, reversesEntryId: old.id });
+    expect(back.postings).toEqual([
+      { debitAccountId: s.savings.id, creditAccountId: s.cash.id, amount: eur("25") },
+    ]);
+    const { rows } = await db.owner.query(`SELECT rules_version FROM ledger.entries WHERE id = $1`, [old.id]);
+    expect(rows).toEqual([{ rules_version: 7 }]);
+    expect((await stored(old.id)).postings).toEqual([
+      {
+        debit_account_id: s.cash.id,
+        credit_account_id: s.savings.id,
+        amount: "25.000000000000000000",
+        currency: "EUR",
+      },
+    ]);
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30")).toDecimalString()).toBe("-10");
+    expect((await ledger.balanceAt(s.householdId, s.savings.id, "2026-06-30")).toDecimalString()).toBe("0");
   });
 });
