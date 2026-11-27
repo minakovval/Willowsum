@@ -42,9 +42,9 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    files, `packages/api-contract/**` other than `openapi.json` and `src/schema.ts`, `apps/api/module-rules.json`, or
    migrations of a module the PR touches. `packages/api-contract/openapi.json` and `src/schema.ts` need no sync by
    themselves: «Contract check on main» (`.github/workflows/main-contract-check.yml`) runs `pnpm contract:check` and
-   `pnpm typecheck` after every push to `main`, so a break shows up as a red `main` (owner, 2026-11-20). Otherwise
-   merge with `behind_by` > 0, no sync, no confirmation (CI green and the verdicts on the PR's own head
-   as above). CI on `main` after every merge catches the rest: **a red `main` is the top priority** — stop merging,
+   `pnpm typecheck` after every push to `main`, so a broken contract or a client that no longer compiles shows up at
+   once as a red `main` (owner, 2026-11-20). Otherwise merge with `behind_by` > 0, no sync, no confirmation (CI green and the verdicts on the PR's own head as above).
+   CI on `main` after every merge catches the rest: **a red `main` is the top priority** — stop merging,
    start `investigate-ci-failure` on `main`, merge again only when `main` is green. The daily check of `main`
    (ADR-0008) stays. Check (from the repository root):
    ```bash
@@ -72,7 +72,7 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    `sensitive` PR's confirmation round goes to one agent for both verdicts (SKILL.md step 5).
    **The lead confirms only a sync with an unchanged diff.** An author's fix after «Changes requested» is confirmed
    only by a reviewer agent (`review-pr` «6. Confirmation rounds»), no exceptions: a lead's `Verdict: Ready` does not
-   count on a head with an author commit after «Changes requested» not covered by a later reviewer verdict.
+   count on a head with an author commit after «Changes requested» not covered by a later reviewer agent's verdict.
    **The lead confirms a sync itself**, with no agent, posting a PR **review** (not a comment, so the daily check
    of `main`, ADR-0008, finds a verdict on the merged head): `Reviewed head: <new>`, both SHAs, the command below and
    its output `unchanged`, and `Verdict: Ready` on its own last line. It applies to (any other output, a changed
