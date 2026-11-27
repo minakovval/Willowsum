@@ -104,8 +104,9 @@ describe("DS-12@PoC no photos, uploads or illustrations", () => {
     }
     const contract = readFileSync(join(root, "packages/api-contract/openapi.json"), "utf8");
     expect(contract).not.toMatch(/image\/(png|jpeg)|"\/[a-z/{}-]*(upload|attachments?|photos?)/i);
-    // The one multipart route is the statement upload of an import batch (IMP-01@PoC FR 3): CSV, TSV, XLSX and XLS only,
-    // checked by content on the server (ARC-06 FR 4), so no photo can be stored through it.
+    // The multipart routes are the statement upload of an import batch (IMP-01@PoC FR 3) and the history-file upload
+    // (BUD-21@PoC FR 1, part a; the same checks): CSV, TSV, XLSX and XLS only, checked by content on the server
+    // (ARC-06 FR 4), so no photo can be stored through either.
     const paths = (
       JSON.parse(contract) as { paths: Record<string, Record<string, { requestBody?: unknown }>> }
     ).paths;
@@ -114,7 +115,7 @@ describe("DS-12@PoC no photos, uploads or illustrations", () => {
         .filter(([, op]) => JSON.stringify(op.requestBody ?? {}).includes("multipart/form-data"))
         .map(([method]) => `${method} ${path}`),
     );
-    expect(multipart).toEqual(["post /v1/import/batches/{batchId}/files"]);
+    expect(multipart).toEqual(["post /v1/import/batches/{batchId}/files", "post /v1/import/history-files"]);
   });
 
   it("DS-12@PoC FR 12: no illustrations, mascots or stock photos — the only vector images are the brand mark files and the favicon", () => {

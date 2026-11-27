@@ -296,7 +296,10 @@ export async function rereadHistoryFile(
 }
 
 const correctionCount = (o: HistoryReadOptions): number =>
-  (o.columns?.length ?? 0) + (o.dateOrder ? 1 : 0) + (o.decimalSeparator ? 1 : 0) + (o.sign ? 1 : 0);
+  (o.columns?.length ?? 0) +
+  [o.encoding, o.delimiter, o.headerRow, o.dateOrder, o.decimalSeparator, o.sign].filter(
+    (x) => x !== undefined,
+  ).length;
 
 export type HistoryPorts = Pick<ParsePorts, "original" | "seal"> & {
   parseHistory(householdId: string, bytes: Uint8Array, options: HistoryReadOptions): Promise<HistoryParse>;

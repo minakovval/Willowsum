@@ -45,7 +45,13 @@ export function parseHistory(
   options: ReadOptions = {},
   corrections: HistoryReadOptions = {},
 ): HistoryParse {
-  const { rows, headerRow, ...reading } = readDelimitedFile(bytes, options);
+  // FR 6: the structure as the user chose it (FR 4: encoding, delimiter, table) over the engine's.
+  const { rows, headerRow, ...reading } = readDelimitedFile(bytes, {
+    ...options,
+    ...(corrections.encoding ? { encoding: corrections.encoding } : {}),
+    ...(corrections.delimiter ? { delimiter: corrections.delimiter } : {}),
+    ...(corrections.headerRow ? { headerRow: corrections.headerRow - 1 } : {}),
+  });
   const firstRow = options.skipRows ?? 0;
   const analysis = analyzeTable(rows, headerRow, firstRow);
   const columns = withColumnRoles(

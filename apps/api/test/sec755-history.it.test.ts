@@ -571,26 +571,23 @@ describe("sec755: BUD-21@PoC a — security properties of the history file", () 
       expect((await call(who, "GET", `/v1/import/history-files/${id}`)).statusCode).toBe(200);
   });
 
-  it.fails(
-    "sec755 IMP-05@PoC «Бізнес-правила»: an IBAN and a card number in the file's texts are shown masked on the review step — in the rows as read and in the examples of every decision",
-    async () => {
-      const iban = ["UA21", "3223", "1300", "0002", "6007", "2335", "6600", "1"].join("");
-      const card = ["4149", "4999", "9123", "4567"].join("");
-      const space = await newSpace();
-      const { view } = await uploaded(
-        space,
-        csv([
-          "Дата;Сума;Опис;Контрагент;Категорія",
-          `01.03.2026;-120,50;Оплата ${iban};Картка ${card};Їжа`,
-          `02.03.2026;-45,00;Переказ ${iban};Картка ${card};Кафе`,
-          `03.03.2026;-80,00;Платіж ${iban};Картка ${card};Їжа`,
-        ]),
-      );
-      const text = JSON.stringify(view);
-      expect(text).not.toContain(iban);
-      expect(text).not.toContain(card);
-      expect(view.recognition.examples[0].description).toBe("Оплата …6001");
-      expect(view.recognition.columns[2].role.chosen.examples[0].cell).toBe("Оплата …6001");
-    },
-  );
+  it("sec755 IMP-05@PoC «Бізнес-правила»: an IBAN and a card number in the file's texts are shown masked on the review step — in the rows as read and in the examples of every decision", async () => {
+    const iban = ["UA21", "3223", "1300", "0002", "6007", "2335", "6600", "1"].join("");
+    const card = ["4149", "4999", "9123", "4567"].join("");
+    const space = await newSpace();
+    const { view } = await uploaded(
+      space,
+      csv([
+        "Дата;Сума;Опис;Контрагент;Категорія",
+        `01.03.2026;-120,50;Оплата ${iban};Картка ${card};Їжа`,
+        `02.03.2026;-45,00;Переказ ${iban};Картка ${card};Кафе`,
+        `03.03.2026;-80,00;Платіж ${iban};Картка ${card};Їжа`,
+      ]),
+    );
+    const text = JSON.stringify(view);
+    expect(text).not.toContain(iban);
+    expect(text).not.toContain(card);
+    expect(view.recognition.examples[0].description).toBe("Оплата …6001");
+    expect(view.recognition.columns[2].role.chosen.examples[0].cell).toBe("Оплата …6001");
+  });
 });

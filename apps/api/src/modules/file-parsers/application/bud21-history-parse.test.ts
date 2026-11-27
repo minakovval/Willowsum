@@ -139,6 +139,20 @@ describe("BUD-21@PoC FR 6: the user's corrections read the file again", () => {
     expect(p.transfers.values).toEqual([]);
   });
 
+  it("BUD-21@PoC FR 6: the encoding, the delimiter and the header row as the user chose them", () => {
+    const titled = csv([
+      "Моя історія;;;",
+      ...["Date;Amount;Description;Category", "01/02/2026;-10.00;Coffee;Cafe"],
+    ]);
+    const p = parseHistory(titled, {}, { encoding: "windows-1251", delimiter: ",", headerRow: 1 });
+    expect(p.reading.encoding.chosen.encoding).toBe("windows-1251");
+    expect(p.reading.delimiter.chosen.delimiter).toBe(",");
+    expect(p.table.headerRow).toBe(1);
+    const back = parseHistory(titled, {}, { encoding: "utf-8", delimiter: ";", headerRow: 2 });
+    expect(back.table.headerRow).toBe(2);
+    expect(roles(back)).toEqual(["date", "amount", "description", "category"]);
+  });
+
   it("BUD-21@PoC FR 6: the decimal separator and the sign as the user chose them", () => {
     const inverted = parseHistory(FULL, {}, { sign: "invert" });
     expect(inverted.sign!.chosen.value).toBe("invert");

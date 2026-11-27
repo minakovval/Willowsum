@@ -19078,6 +19078,11 @@ export interface operations {
                     /** @enum {string} */
                     decimalSeparator?: "." | ",";
                     /** @enum {string} */
+                    delimiter?: "," | ";" | "\t" | "|";
+                    /** @enum {string} */
+                    encoding?: "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                    headerRow?: number;
+                    /** @enum {string} */
                     sign?: "as-printed" | "invert";
                 };
             };

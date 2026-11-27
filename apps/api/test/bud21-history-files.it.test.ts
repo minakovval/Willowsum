@@ -488,6 +488,26 @@ describe("BUD-21@PoC FR 6: corrections and the confirmation", () => {
     expect(view.recognition.labels.items[0]).toEqual({ category: "Їжа", count: 2, subcategories: [] });
   });
 
+  it("BUD-21@PoC FR 6: the encoding, the delimiter and the header row corrected; the file is read again with them", async () => {
+    const space = await newSpace();
+    const { batchId } = await uploaded(space);
+    const res = await call(space, "POST", `/v1/import/history-files/${batchId}/reading`, {
+      encoding: "windows-1251",
+      delimiter: ",",
+      headerRow: 1,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    await work(space.householdId);
+    const view = (await call(space, "GET", `/v1/import/history-files/${batchId}`)).json();
+    expect(view.recognition.encoding.chosen.value).toBe("windows-1251");
+    expect(view.recognition.delimiter.chosen.value).toBe(",");
+    expect(view.recognition.table.headerRow).toBe(1);
+    expect(
+      (await call(space, "POST", `/v1/import/history-files/${batchId}/reading`, { delimiter: "x" }))
+        .statusCode,
+    ).toBe(400);
+  });
+
   it("BUD-21@PoC FR 6: the transfer values and the accounts the user answers are kept; a value the file does not have, or another space's account, is refused", async () => {
     const space = await newSpace();
     const other = await newSpace();

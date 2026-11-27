@@ -3,6 +3,8 @@ import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
 import {
   DATE_ORDERS,
+  DELIMITERS,
+  ENCODINGS,
   HISTORY_MISSING,
   HISTORY_ROLES,
   ROLES,
@@ -409,6 +411,10 @@ export const rereadHistoryFileRoute = defineRoute({
     params,
     body: z
       .object({
+        encoding: z.enum(ENCODINGS).optional(),
+        delimiter: z.enum(DELIMITERS).optional(),
+        /** 1-based, as `recognition.table.headerRow`. */
+        headerRow: z.number().int().min(1).max(20_000).optional(),
         columns: z
           .array(z.object({ column: z.number().int().min(1).max(512), role: columnRole }).strict())
           .max(64)
@@ -429,6 +435,9 @@ export const rereadHistoryFileRoute = defineRoute({
     const { handOffs } = await historied(() =>
       run((tx) =>
         rereadHistoryFile(deps, tx, userId, params.batchId, {
+          ...(body.encoding ? { encoding: body.encoding } : {}),
+          ...(body.delimiter ? { delimiter: body.delimiter } : {}),
+          ...(body.headerRow ? { headerRow: body.headerRow } : {}),
           ...(body.columns ? { columns: body.columns } : {}),
           ...(body.dateOrder ? { dateOrder: body.dateOrder } : {}),
           ...(body.decimalSeparator ? { decimalSeparator: body.decimalSeparator } : {}),

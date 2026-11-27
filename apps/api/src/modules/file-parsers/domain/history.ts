@@ -11,6 +11,8 @@ import {
   type StatementAnalysis,
 } from "./analysis.ts";
 import type { EventFlag, StatementEvents } from "./events.ts";
+import type { Encoding } from "./encoding.ts";
+import type { Delimiter } from "./table.ts";
 import { dateCell, dateFormatLabel, type DateOrder, type DecimalSeparator } from "./values.ts";
 
 /**
@@ -76,8 +78,15 @@ export interface HistoryColumn {
   readonly role: Decision<ColumnRole>;
 }
 
-/** The user's corrections on the review step (FR 6): a column's role and the formats; the file is read again. */
+/**
+ * The user's corrections on the review step (FR 6): the structure (encoding, delimiter, header row — FR 4), a column's
+ * role and the formats; the file is read again.
+ */
 export interface HistoryReadOptions {
+  readonly encoding?: Encoding;
+  readonly delimiter?: Delimiter;
+  /** 1-based, as `TableAnalysis.headerRow` shows it. */
+  readonly headerRow?: number;
   readonly columns?: readonly { readonly column: number; readonly role: ColumnRole }[];
   readonly dateOrder?: DateOrder;
   readonly decimalSeparator?: DecimalSeparator;

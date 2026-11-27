@@ -44247,6 +44247,32 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "encoding": {
+                    "type": "string",
+                    "enum": [
+                      "utf-8",
+                      "utf-16le",
+                      "utf-16be",
+                      "windows-1251",
+                      "windows-1252",
+                      "cp866",
+                      "koi8-u"
+                    ]
+                  },
+                  "delimiter": {
+                    "type": "string",
+                    "enum": [
+                      ",",
+                      ";",
+                      "\t",
+                      "|"
+                    ]
+                  },
+                  "headerRow": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20000
+                  },
                   "columns": {
                     "maxItems": 64,
                     "type": "array",
