@@ -346,7 +346,7 @@ describe("BUD-21@PoC FR 7: the file's labels and the space's tree", () => {
     });
   });
 
-  it("BUD-21@PoC FR 7: a choice the file or the tree does not have is refused and nothing is created", async () => {
+  it("BUD-21@PoC FR 7: a choice the file or the tree does not have — or another space's category — is refused and nothing is created", async () => {
     const space = await newSpace();
     const { batchId, view } = await uploaded(space, AC6);
     const res = await confirm(space, batchId, view.parseId, {
@@ -361,6 +361,15 @@ describe("BUD-21@PoC FR 7: the file's labels and the space's tree", () => {
       labels: [{ category: "Кав'ярні", subcategory: null, action: "category", categoryId: randomUUID() }],
     });
     expect(other.json()).toMatchObject({ errors: [{ path: "labels[0]", issue: "unknown-category" }] });
+    // Another space's category is not known here (П-5): the same answer, nothing of it shown.
+    const stranger = await newSpace();
+    await uploaded(stranger, AC6);
+    const theirs = (await named(stranger.householdId, "Продукти"))!;
+    const foreign = await confirm(space, batchId, view.parseId, {
+      labels: [{ category: "Кав'ярні", subcategory: null, action: "category", categoryId: theirs.id }],
+    });
+    expect(foreign.statusCode).toBe(422);
+    expect(foreign.json()).toMatchObject({ errors: [{ path: "labels[0]", issue: "unknown-category" }] });
     expect(await named(space.householdId, "Мийка")).toBeUndefined();
     expect(await auditOf(space.householdId, "categories.history")).toEqual([]);
   });

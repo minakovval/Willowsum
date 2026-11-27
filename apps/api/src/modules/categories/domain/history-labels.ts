@@ -211,6 +211,10 @@ export function planLabels(input: LabelPlanInput): LabelPlanResult {
   }
 
   const inUse = input.categories.filter((c) => c.state !== "retired");
+  // The first category in use of each name (names are unique in the space without case, FR 2).
+  const byName = new Map<string, PlanCategory>();
+  for (const c of inUse)
+    if (c.kind !== "service" && !byName.has(labelKey(c.name))) byName.set(labelKey(c.name), c);
   const byId = new Map(input.categories.map((c) => [c.id, c]));
   const choices = new Map<string, LabelChoice>();
   for (const [index, choice] of input.choices.entries()) {
@@ -306,7 +310,7 @@ export function planLabels(input: LabelPlanInput): LabelPlanResult {
     if (service === "transfer") outcomes.set(leaf.key, { action: "transfer", source: "service" });
     else if (service === "adjustment") outcomes.set(leaf.key, { action: "skip", reason: "service-category" });
     else {
-      const found = inUse.find((c) => c.kind !== "service" && labelKey(c.name) === labelKey(leaf.name));
+      const found = byName.get(labelKey(leaf.name));
       outcomes.set(
         leaf.key,
         found
@@ -336,10 +340,12 @@ export function planLabels(input: LabelPlanInput): LabelPlanResult {
     }
     return null;
   };
-  const creates = (catKey: string) =>
-    sorted.some(
-      (l) => l.catKey === catKey && withSubs.has(catKey) && outcomes.get(l.key)!.action === "create",
-    );
+  const creating = new Set(
+    sorted
+      .filter((l) => withSubs.has(l.catKey) && outcomes.get(l.key)!.action === "create")
+      .map((l) => l.catKey),
+  );
+  const creates = (catKey: string) => creating.has(catKey);
   for (const g of fileGroups.values()) {
     const existing = spaceGroup(g.key);
     if (!existing && !creates(g.key)) continue;

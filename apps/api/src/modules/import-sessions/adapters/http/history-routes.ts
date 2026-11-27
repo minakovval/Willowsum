@@ -608,7 +608,8 @@ export const confirmHistoryFileRoute = defineRoute({
   summary:
     "«Підтвердити» the reading (BUD-21 FR 6): the read shown (`parseId`), the values that mark a transfer (default — the engine's suggestion) and the account of each value; nothing is created without it",
   access: WRITE,
-  bodyLimitBytes: 64 * 1024,
+  // Up to 1 000 labels' choices (BUD-21 b), each a label of up to 200 characters twice.
+  bodyLimitBytes: 512 * 1024,
   request: {
     params,
     body: z
