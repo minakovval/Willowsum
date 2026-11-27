@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-20
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-27
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»). Each rule
@@ -54,7 +54,7 @@ proposals: [lead communication](references/lead-communication.md).
 2. **Implementer**: a new agent with `implement-requirement`, in its own worktree on its own branch
    (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`). Brief: the ID
    and slice, the exact files and sections to read, branch, worktree, slot `k` (§3), a scratchpad prefix unique
-   to the PR and role (`pr153-review/`, never a generic `body.md`), and the report.
+   to the PR and role (`pr153-review/`, never a generic `body.md`), the report, and the 5–7 most frequent reviewer findings for that module, taken from the reviews of its recent PRs (a test per criterion, a permission check, a `.catch` without a test; owner, 2026-11-27; no new self-check step).
    **Report**: at most 5 lines, fixed form — `PR`, `Head`
    (full SHA), `Result`, `Blockers`, `Owner questions`; reviewers: `PR` · `Head`, `Verdict` (`Security verdict`),
    `Blocking` (file:line), `Owner questions`, `Checks`. Everything else goes in the PR body or the review; read a verdict with
@@ -72,7 +72,7 @@ proposals: [lead communication](references/lead-communication.md).
    ([token economy](references/token-economy.md) item 2), as the PR's tier asks ([merge rules](../../references/merge-rules.md),
    «Review tiers»; name the tier in the brief): a `review-pr` reviewer and, for a PR labelled
    `sensitive`, a `security-review` reviewer — each in a session other than the author's, with the PR number and
-   head SHA. The brief asks for the verdict as a PR review with `commit_id=<head>`, never an issue comment, the PostgreSQL check (step 2), and says: «red CI is not a review finding unless the change
+   head SHA. A `review-pr` brief names the diff, the requirement files and the items the PR closes; the reviewer reads the rest of the module only when needed; `security-review` of a `sensitive` PR stays full (owner, 2026-11-27). The brief asks for the verdict as a PR review with `commit_id=<head>`, never an issue comment, the PostgreSQL check (step 2), and says: «red CI is not a review finding unless the change
    caused it; checking CI is the lead's job before merge».
 4. **Batch**: wait for both reviews, then send **one** fix request (`fix-review-findings`):
    review IDs, which patch wins where reviewers conflict (your decision), which non-blocking items are fixed in this round and which are recorded (only money, data, security or a broken requirement item → «Follow-ups»);
@@ -86,14 +86,15 @@ proposals: [lead communication](references/lead-communication.md).
    a red CI the PR did not cause does not count), then the reviewer gives a ready fix and confirms it. An author's
    fix after «Changes requested» is confirmed only by a reviewer agent; the lead confirms only a sync with an unchanged
    diff, no exceptions ([merge checklist](references/merge-checklist.md), «The lead confirms a sync itself»;
-   `sensitive` too). A confirmation (of
-   fixes or a sync) of a `sensitive` PR always goes to **one** Opus agent, never Fable (token economy, item 1), except
-   when the diff since the last reviewed head changes only tests, texts or a merge of main: then **one** Sonnet agent
-   (it hands back to the lead, who gives it to Opus, if it finds a code change outside tests). The agent loads `review-pr` and `security-review` and
-   posts both verdicts as two PR reviews with `commit_id`, in a session other than the
-   author's and the fix agent's; it switches to a full security review (`security-review` §7) when the diff adds a
-   guard, endpoint, query or sensitive path, or the PR gains a `sensitive:<category>`. Reviews of PRs without `sensitive` (tests, docs, process, flaky tests,
-   non-sensitive screens and UI components) run on Sonnet (token economy, item 1).
+   `sensitive` too). A confirmation (of fixes or a sync) of a `sensitive` PR goes to the **resumed** `review-pr`
+   reviewer session (Opus) of that PR, never Fable: it loads `security-review` and the security reviewer's findings
+   (Fable's too) and posts both verdicts as two PR reviews with `commit_id` (owner, 2026-11-27,
+   [log](../../../docs/decisions/log/2026-11-27-owner-process-review-35.md)). A fresh Opus agent (loads `review-pr` and
+   `security-review`; not the author's or the fix agent's session) instead when that session's context is over 300 k
+   tokens or the session is gone; #180 marks the role `c:O↻` (resumed) or `c:O+` (fresh). Full `security-review` §7
+   when the diff adds a guard, endpoint, query or sensitive path, or the PR gains a `sensitive:<category>`. Diff since
+   the last reviewed head only tests, texts or a merge of main: one Sonnet agent (token economy, item 1). Reviews of
+   PRs without `sensitive` run on Sonnet (token economy, item 1).
 6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for `sensitive`
    `Security verdict: Ready`) names it, the owner decision recorded for `owner-decision` PRs, the owner's approval
    for cloud or production, no unanswered owner «stop» or question (read the PR comments before every merge). Order, `behind_by`, syncs, confirmations and the CI wait command:
@@ -120,7 +121,7 @@ another open PR, or CI cannot run: then stop merging and tell the owner at once)
 
 **Lead sessions** — [restarts](references/restarts.md) (read at the start, after a restart or an agent cut off by a
 limit, at ~350 k tokens and after a compaction: the steps are there); a new session, the automatic restart and the start message:
-[new session](../../references/new-lead-session.md); the external review every 2 days: [external review](../../references/external-review.md). Model by risk (Fable included), briefs, resumes, token accounting and the
+[new session](../../references/new-lead-session.md); the external review once a week: [external review](../../references/external-review.md). Model by risk (Fable included), briefs, resumes, token accounting and the
 retrospective (with the process review): [token economy](references/token-economy.md) (read when you choose a model or write a brief).
 
 ## 2. Owner
