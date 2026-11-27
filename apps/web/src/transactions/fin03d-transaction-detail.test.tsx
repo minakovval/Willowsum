@@ -231,7 +231,7 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     );
   });
 
-  it("FIN-03@PoC FR 27: the menu «…» of a manual transaction that is no «Можливий дубль» — «Позначити як переказ» (IMP-03 FR 24), «Історія змін» and «Видалити» (last, a danger item); nothing to hide (FR 18)", async () => {
+  it("FIN-03@PoC FR 27: the menu «…» of a manual transaction that is no «Можливий дубль» — «Позначити як переказ» (IMP-03 FR 24), «Історія змін» and «Видалити» (last, a danger item); nothing to hide (FIN-03 FR 18)", async () => {
     open();
     await loaded();
     const items = await menuItems();

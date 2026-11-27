@@ -417,7 +417,7 @@ async function openManual() {
   return screen.findByRole("dialog", { name: "Позначити як переказ" });
 }
 
-describe("IMP-03@PoC FR 24, AC17–AC22: «Позначити як переказ» in the details", () => {
+describe("IMP-03@PoC FR 24, AC17, AC18, AC19, AC21, AC22: «Позначити як переказ» in the details", () => {
   it("IMP-03@PoC FR 24: the item is in «…» of a free transaction; no page of its own opens (AC22)", async () => {
     await openDetail([candidate(C_OK)]);
     const items = await openMenu();
