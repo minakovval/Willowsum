@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-27T13:00:50.450Z",
-  "sha": "0507e11e0c7aa54c12b16101a8ac9f27df6e5ac3",
+  "generatedAt": "2026-11-27T13:10:56.863Z",
+  "sha": "7f84569959afcf822456dbd5ac51b2dc5c1094f2",
   "releases": [
     {
       "release": "PoC",
       "slices": 153,
       "FR": {
-        "covered": 863,
-        "total": 1428
+        "covered": 886,
+        "total": 1478
       },
       "AC": {
         "covered": 689,
@@ -20,16 +20,16 @@
         "total": 211
       },
       "items": {
-        "covered": 1683,
-        "total": 2774
+        "covered": 1706,
+        "total": 2824
       }
     },
     {
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 428,
-        "total": 1205
+        "covered": 451,
+        "total": 1257
       },
       "AC": {
         "covered": 391,
@@ -40,16 +40,16 @@
         "total": 245
       },
       "items": {
-        "covered": 908,
-        "total": 2487
+        "covered": 931,
+        "total": 2539
       }
     },
     {
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 517,
-        "total": 3400
+        "covered": 535,
+        "total": 3455
       },
       "AC": {
         "covered": 481,
@@ -60,8 +60,8 @@
         "total": 723
       },
       "items": {
-        "covered": 1100,
-        "total": 7126
+        "covered": 1118,
+        "total": 7181
       }
     },
     {
@@ -89,7 +89,7 @@
       "slices": 169,
       "FR": {
         "covered": 130,
-        "total": 1768
+        "total": 1771
       },
       "AC": {
         "covered": 130,
@@ -101,7 +101,7 @@
       },
       "items": {
         "covered": 304,
-        "total": 3909
+        "total": 3912
       }
     },
     {
@@ -495,8 +495,8 @@
       "sectionName": "Архітектура",
       "block": "money",
       "FR": {
-        "covered": 0,
-        "total": 0
+        "covered": 16,
+        "total": 26
       },
       "AC": {
         "covered": 0,
@@ -507,11 +507,11 @@
         "total": 0
       },
       "items": {
-        "covered": 0,
-        "total": 0
+        "covered": 16,
+        "total": 26
       },
       "fingerprintErrors": 0,
-      "status": "немає пунктів для підрахунку"
+      "status": "у роботі"
     },
     {
       "id": "BUD-01",
@@ -970,8 +970,8 @@
       "sectionName": "Поставка та CI/CD",
       "block": "platform",
       "FR": {
-        "covered": 0,
-        "total": 0
+        "covered": 3,
+        "total": 15
       },
       "AC": {
         "covered": 0,
@@ -982,11 +982,11 @@
         "total": 0
       },
       "items": {
-        "covered": 0,
-        "total": 0
+        "covered": 3,
+        "total": 15
       },
       "fingerprintErrors": 0,
-      "status": "немає пунктів для підрахунку"
+      "status": "у роботі"
     },
     {
       "id": "CICD-04",
@@ -995,8 +995,8 @@
       "sectionName": "Поставка та CI/CD",
       "block": "platform",
       "FR": {
-        "covered": 0,
-        "total": 0
+        "covered": 1,
+        "total": 5
       },
       "AC": {
         "covered": 0,
@@ -1007,11 +1007,11 @@
         "total": 0
       },
       "items": {
-        "covered": 0,
-        "total": 0
+        "covered": 1,
+        "total": 5
       },
       "fingerprintErrors": 0,
-      "status": "немає пунктів для підрахунку"
+      "status": "у роботі"
     },
     {
       "id": "CICD-06",
@@ -3445,8 +3445,8 @@
       "sectionName": "Подорожі користувача",
       "block": "planning",
       "FR": {
-        "covered": 0,
-        "total": 0
+        "covered": 1,
+        "total": 2
       },
       "AC": {
         "covered": 0,
@@ -3457,11 +3457,11 @@
         "total": 0
       },
       "items": {
-        "covered": 0,
-        "total": 0
+        "covered": 1,
+        "total": 2
       },
       "fingerprintErrors": 0,
-      "status": "немає пунктів для підрахунку"
+      "status": "у роботі"
     },
     {
       "id": "JRN-06",
@@ -3470,8 +3470,8 @@
       "sectionName": "Подорожі користувача",
       "block": "import",
       "FR": {
-        "covered": 0,
-        "total": 0
+        "covered": 2,
+        "total": 2
       },
       "AC": {
         "covered": 0,
@@ -3482,11 +3482,11 @@
         "total": 0
       },
       "items": {
-        "covered": 0,
-        "total": 0
+        "covered": 2,
+        "total": 2
       },
       "fingerprintErrors": 0,
-      "status": "немає пунктів для підрахунку"
+      "status": "готово"
     },
     {
       "id": "NFR-01",
