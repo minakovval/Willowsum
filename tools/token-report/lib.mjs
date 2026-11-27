@@ -416,6 +416,107 @@ export function sessionRow(body, { segment, start, end, prs, note }) {
   return `| ${cells.join(" | ")} |`;
 }
 
+/** Ledger roles (one letter) → the `--run` role; the model code of the note stays as the lead wrote it (S, O, F). */
+const LEDGER_ROLES = { a: "author", r: "review", s: "security", f: "fix", c: "confirm" };
+
+/** The ledger TSV: `PR<TAB>role<TAB>model<TAB>agentId` per line; empty lines and lines starting with «# » are skipped. */
+export function parseLedger(text, path = "ledger") {
+  const rows = [];
+  text.split("\n").forEach((raw, i) => {
+    const line = raw.replace(/\r$/, "");
+    if (!line.trim() || /^#\s/.test(line)) return;
+    const f = line.split("\t").map((c) => c.trim());
+    if (f.length !== 4 || f.some((c) => !c)) throw new UsageError(`${path}:${i + 1}: need PR<TAB>role<TAB>model<TAB>agentId`);
+    if (!LEDGER_ROLES[f[1]]) throw new UsageError(`${path}:${i + 1}: role «${f[1]}» must be one of ${Object.keys(LEDGER_ROLES).join("/")}`);
+    if (!/^[\w-]+$/.test(f[3])) throw new UsageError(`${path}:${i + 1}: agentId «${f[3]}» is not a plain id`);
+    rows.push({ pr: `#${f[0].replace(/^#/, "")}`, role: f[1], model: f[2], agentId: f[3] });
+  });
+  return rows;
+}
+
+/** First/last timestamp of a JSONL log → duration in ms, and the last call's context (input + cache) as `subagent_tokens`. */
+export function logSpan(text) {
+  let first = Infinity;
+  let last = -Infinity;
+  let context = 0;
+  for (const line of text.split("\n")) {
+    if (!line.trim()) continue;
+    let rec;
+    try {
+      rec = JSON.parse(line);
+    } catch {
+      continue; // collectUsage has already rejected a broken line
+    }
+    const t = Date.parse(rec.timestamp ?? "");
+    if (Number.isFinite(t)) {
+      first = Math.min(first, t);
+      last = Math.max(last, t);
+    }
+    const u = rec.message?.usage;
+    if (u && rec.isSidechain !== true) {
+      context = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
+    }
+  }
+  return { ms: Number.isFinite(first) ? last - first : 0, tokens: context };
+}
+
+/**
+ * Rows of «PR» for every PR of the ledger (or `prs`) that has no row in `body` yet, from the agent logs in `tasksDir`.
+ * `io`: { readFile, exists(path), gh }. Returns { rows: [{ pr, row, lines }], skipped: [pr], warnings: [text] }.
+ * A missing log still gives the row (with what exists) and a warning; CI = 0 for a код/UI/виправлення PR throws.
+ */
+export function batchRows(body, ledger, { tasksDir, prs, types = {}, defaultType = "код", branchOf, ciOf, io }) {
+  const { lines, header, last } = locateTable(body, TABLES.pr);
+  const key = (c) => c.replace(/^\[([^\]]*)\]\([^)]*\)$/, "$1");
+  const have = new Set(lines.slice(header + 2, last + 1).map((l) => key(tableCells(l)[0])));
+  const scope = prs ?? [...new Set(ledger.map((l) => l.pr))];
+  const out = { rows: [], skipped: [], warnings: [] };
+  for (const pr of scope) {
+    if (have.has(pr)) {
+      out.skipped.push(pr);
+      continue;
+    }
+    const entries = ledger.filter((l) => l.pr === pr);
+    if (entries.length === 0) throw new UsageError(`${pr}: not in the ledger`);
+    const type = types[pr] ?? defaultType;
+    if (!PR_TYPES.includes(type)) throw new UsageError(`${pr}: type ${type} must be one of ${PR_TYPES.join(", ")}`);
+    const seen = new Map();
+    const runs = [];
+    const missing = [];
+    for (const e of entries) {
+      const path = `${tasksDir.replace(/\/$/, "")}/${e.agentId}.output`;
+      let text;
+      if (io.exists(path)) text = io.readFile(path);
+      if (text === undefined) {
+        missing.push(`${e.role}:${e.agentId}`);
+        out.warnings.push(`${pr}: log ${path} is missing — the row has no numbers of ${e.role} ${e.agentId}`);
+        runs.push({ role: LEDGER_ROLES[e.role], ms: 0, tokens: 0 });
+        continue;
+      }
+      collectUsage(text, { path, seen });
+      runs.push({ role: LEDGER_ROLES[e.role], ...logSpan(text) });
+    }
+    const usage = addUp(seen);
+    const byModel = addUpByModel(seen);
+    const ci = ciOf(pr, branchOf?.(pr));
+    if (CI_REQUIRED.has(type) && Math.round(ci.minutes) === 0) {
+      throw new UsageError(`${pr}: CI = 0 for a «${type}» PR (${ci.runs} runs): check the branch`);
+    }
+    if (ci.unfinished > 0) out.warnings.push(`${pr}: ${ci.unfinished} of ${ci.runs} CI runs are not completed yet`);
+    const codes = [...new Set(entries.map((e) => `${e.role}:${e.model}`))].join(" ");
+    const lost = missing.length ? `журнал втрачено: ${missing.join(", ")}` : "";
+    const withModels = [codes, lost, seen.size ? modelNote(byModel) : ""].filter(Boolean).join("; ");
+    const note = [...withModels].length <= MAX_NOTE ? withModels : [codes, lost].filter(Boolean).join("; ");
+    const rounds = String(Math.max(1, entries.filter((e) => e.role === "r").length));
+    out.rows.push({
+      pr,
+      row: formatRow({ pr, type, rounds, runs, usage, ci: ci.minutes, note }),
+      lines: modelLines(byModel),
+    });
+  }
+  return out;
+}
+
 const USAGE = `usage:
   node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|процес|виправлення> --rounds <text>
       --run role=<author|fix|review|security|confirm>,log=<agent log>,ms=<duration_ms>,tokens=<subagent_tokens> [--run …]
@@ -424,10 +525,13 @@ const USAGE = `usage:
   node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>"
   node tools/token-report/index.mjs append --body <#180 body file> --sessions --segment "ведучий N"
       --start <get_session.json> --end <get_session.json> --prs <#a,#b | none> [--note <text>]
+  node tools/token-report/index.mjs batch --ledger <tsv> --tasks <dir> --body <#180 body file> [--prs <#a,#b>]
+      [--types <#a=UI,#b=процес>] [--branches <#a=branch,…>] [--dry-run]
+      [--start <snap.json> --end <snap.json> --segment "ведучий N" [--note <text>]]
   node tools/token-report/index.mjs archive --body <#180 body file> --out <archive.md>`;
 
 /** Flags without a value. */
-const SWITCHES = new Set(["sessions"]);
+const SWITCHES = new Set(["sessions", "dry-run"]);
 
 function options(argv) {
   const opts = { run: [], positional: [] };
@@ -520,6 +624,75 @@ export function main(argv, io) {
         `appended to the table ${opts.sessions ? "«Сесії»" : "«PR»"} in ${opts.body}; now: ` +
           "gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@" + opts.body,
       );
+      return 0;
+    }
+    if (mode === "batch") {
+      for (const key of ["ledger", "tasks", "body"])
+        if (!opts[key]) throw new UsageError(`batch needs --${key}\n${USAGE}`);
+      const sessions = ["start", "end", "segment"].filter((k) => opts[k]);
+      if (sessions.length && sessions.length < 3) throw new UsageError("the «Сесії» row needs --start, --end and --segment together");
+      const pairs = (text) =>
+        Object.fromEntries(
+          (text ?? "").split(",").filter(Boolean).map((p) => {
+            const at = p.indexOf("=");
+            if (at < 0) throw new UsageError(`${p}: need <#PR>=<value>`);
+            return [`#${p.slice(0, at).trim().replace(/^#/, "")}`, p.slice(at + 1).trim()];
+          }),
+        );
+      const list = (text) => text.split(",").map((p) => `#${p.trim().replace(/^#/, "")}`).filter((p) => p !== "#");
+      const types = pairs(opts.types);
+      const branches = pairs(opts.branches);
+      const ledger = parseLedger(readFile(opts.ledger), opts.ledger);
+      const body = readFile(opts.body);
+      const exists = io.exists ?? ((p) => fs.existsSync(p));
+      const ciOf = (pr, branch) => {
+        if (!branch) throw new UsageError(`${pr}: no branch — give --branches ${pr}=<branch> (CI minutes come from its Actions runs)`);
+        let parsed;
+        try {
+          parsed = JSON.parse(io.gh(["api", `repos/{owner}/{repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=100`]));
+        } catch (e) {
+          if (e instanceof UsageError) throw e;
+          throw new UsageError(`${pr}: the GitHub Actions runs are not JSON`);
+        }
+        return ciMinutes(parsed);
+      };
+      const result = batchRows(body, ledger, {
+        tasksDir: opts.tasks,
+        prs: opts.prs ? list(opts.prs) : undefined,
+        types,
+        branchOf: (pr) => branches[pr],
+        ciOf,
+        io: { readFile, exists },
+      });
+      for (const w of result.warnings) io.stderr(`warning: ${w}`);
+      for (const pr of result.skipped) io.stderr(`skipped ${pr}: already has a row`);
+      let updated = body;
+      for (const r of result.rows) {
+        updated = appendRow(updated, r.row);
+        io.stdout(r.row);
+        for (const l of r.lines) io.stdout(l);
+      }
+      if (sessions.length) {
+        const snap = (p) => {
+          try {
+            return readSnapshot(JSON.parse(readFile(p)), p);
+          } catch (e) {
+            if (e instanceof UsageError) throw e;
+            throw new UsageError(`${p}: not JSON`);
+          }
+        };
+        const scope = opts.prs ? list(opts.prs) : [...new Set(ledger.map((l) => l.pr))];
+        const row = sessionRow(updated, { segment: opts.segment, start: snap(opts.start), end: snap(opts.end), prs: scope, note: opts.note });
+        updated = appendRow(updated, row, { table: "sessions" });
+        io.stdout(row);
+      }
+      if (opts["dry-run"]) {
+        io.stderr("dry run: the body file is not changed");
+      } else if (updated !== body) {
+        const writeFile = io.writeFile ?? ((p, text) => fs.writeFileSync(p, text, "utf8"));
+        writeFile(opts.body, updated);
+        io.stderr(`appended ${result.rows.length} rows to ${opts.body}; now: gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@${opts.body}`);
+      } else io.stderr("nothing to add");
       return 0;
     }
     if (mode === "archive") {

@@ -75,17 +75,17 @@ test('jobNames: a matrix job is covered only by an aggregate job that compares n
   assert.deepEqual(jobNames(yml), ['agg', 'printer', 'printed', 'inline', 'other', 'listed', 'lone', 'Plain', 'dep']);
 });
 
-// Owner, 2026-11-14 (#178 comment 6883729022 item 2): integration tests in shards; 3 shards since the owner's
-// decision of 2026-11-21. `api` stays the one required check and fails unless every part (checks, integration 1/3,
-// 2/3, 3/3) passed.
-test('CICD-02: the api integration tests run in 3 vitest shards behind the aggregate check `api`', () => {
+// Owner, 2026-11-14 (#178 comment 6883729022 item 2): integration tests in shards; 5 shards since the owner's
+// decision of 2026-11-27 (3 on 2026-11-21). `api` stays the one required check and fails unless every part (checks,
+// integration 1/5 … 5/5) passed.
+test('CICD-02: the api integration tests run in 5 vitest shards behind the aggregate check `api`', () => {
   const wf = read('.github/workflows/pr-checks.yml');
   const block = (job) => new RegExp(`^ {2}${job}:\\n((?: {4,}.*\\n|\\s*\\n)*)`, 'm').exec(wf)?.[1] ?? '';
   const parts = block('api-parts');
   assert.match(parts, /^ {4}name: api \$\{\{ matrix\.part \}\}$/m);
   assert.match(parts, /fail-fast: false/);
   const shards = [...parts.matchAll(/^ {12}shard: (\S+)$/gm)].map((m) => m[1]);
-  assert.deepEqual(shards, ['1/3', '2/3', '3/3']);
+  assert.deepEqual(shards, ['1/5', '2/5', '3/5', '4/5', '5/5']);
   assert.match(parts, /^ {10}- part: checks$/m);
   // Every part has its own PostgreSQL service (cluster-wide roles never meet another part's).
   assert.match(parts, /^ {4}services:\n {6}postgres:\n/m);

@@ -1,6 +1,6 @@
 # CI minutes and path filters
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
 
 Moved out of AGENTS.md without change. Read when you add or change a workflow, or a job was skipped by its path filter.
 
@@ -13,13 +13,13 @@ counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not
 scheduled or frequent workflows without counting their minutes. «Requirements traceability» runs once per push to
 `main` (about a minute) to publish the generated traceability files; «Contract check on main» runs `pnpm contract:check` and `pnpm typecheck` once per push to `main` (about a minute and a half, owner 2026-11-20).
 
-**The job `api` in parts** (integration tests in 3 shards, owner 2026-11-21): the matrix job `api-parts` runs four parallel parts, each with its own
+**The job `api` in parts** (integration tests in 5 shards, owner 2026-11-27, was 3): the matrix job `api-parts` runs six parallel parts, each with its own
 PostgreSQL 17 service — `api checks` (module boundaries, contract, flags, schema, migrations, old code + new
-schema, the image) and `api integration 1/3`, `2/3`, `3/3` (`vitest --shard=i/3`, split by file). The
-required check stays `api`: a small job that needs the parts and fails unless all four passed; it and the parts are
+schema, the image) and `api integration 1/5` … `5/5` (`vitest --shard=i/5`, split by file). The
+required check stays `api`: a small job that needs the parts and fails unless all six passed; it and the parts are
 skipped together by the path filter. The parts are not required by name (`tools/pr-rules/lib/workflows.mjs`
-leaves out a matrix job another job needs). Cost: four runners each install the workspace (about 1–2 min each), so
+leaves out a matrix job another job needs). Cost: six runners each install the workspace (about 1–2 min each), so
 the minutes go up a little while the wall time drops. Reproduce one shard locally:
-`pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts --shard=1/3`
+`pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts --shard=1/5`
 (a test that passes alone but fails in its shard on a fresh cluster depends on another file: fix the dependency,
 [flaky tests](flaky-tests.md)).

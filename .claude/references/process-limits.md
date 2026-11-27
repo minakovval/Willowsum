@@ -1,6 +1,6 @@
 # Process limits: how to check and apply them
 
-**Створено:** 2026-11-16 · **Оновлено:** 2026-11-19
+**Створено:** 2026-11-16 · **Оновлено:** 2026-11-27
 
 Read when a lead segment starts, when a PR adds text to the lead's rules, or when a
 review finds a security defect that will not be fixed in the same PR. The rules themselves are in the files named
@@ -28,20 +28,31 @@ No count of open follow-ups schedules a sweep. Open money and data-loss follow-u
 plan-status PR (linked from the row); the rest are sorted once into closed or the MVP list. A sweep (row `R`) runs
 only when the lead proposes it and the owner agrees.
 
-## Size of the lead's rules (`pr-pipeline/references/lead-communication.md`, «Rule text»)
+## Size of the rules (`pr-pipeline/references/lead-communication.md`, «Rule text»)
+
+The limit is in **characters**, not lines (long lines had made the old line limit meaningless): the ten files the
+agents read together stay within **105 000 characters**.
 
 ```bash
-cat .claude/skills/pr-pipeline/SKILL.md .claude/skills/pr-pipeline/references/*.md \
-  $(ls .claude/references/*.md | grep -v /external-review.md) | wc -l   # at most 1060
+cat AGENTS.md .claude/skills/{implement-requirement,review-pr,security-review,fix-review-findings,screen-from-canvas,pr-pipeline}/SKILL.md \
+  .claude/skills/pr-pipeline/references/{merge-checklist,restarts,token-economy}.md | LC_ALL=C.utf8 wc -m   # at most 105000
 ```
 
-Files read only by the external reviewer (`external-review.md`) are not counted. The author of a PR that changes these files runs it before pushing; the reviewer repeats it. Over the limit → in the
-same PR move rarely needed text to a reference outside the skill, or delete what a later rule replaced, and add the
-table «правило → нове місце» to the PR body. Inline history of the paragraphs the PR edits is removed only after
+Other files in `.claude/references/` and in the skills' `references/` are not counted. The author of a PR that
+changes these files runs it before pushing; the reviewer repeats it. Over the limit → in the same PR move rarely
+needed text to a reference outside the counted files, or delete what a later rule replaced, and add the table
+«правило → нове місце» to the PR body. Inline history of the paragraphs the PR edits is removed only after
 checking that the decision log has it (`grep -rn "<date or #PR>" docs/decisions/log/`); if it does not, add the
 entry to the log first.
 
-## Security detail of an unfixed defect (`pr-pipeline/SKILL.md`, step 7)
+## Security detail of an unfixed defect
+
+**Not in the skills until the import day** (owner, 2026-11-27): `review-pr`, `security-review`, `fix-review-findings`
+and `pr-pipeline` do not mention it now; the rule lives only here. Until the import day the detail goes into the
+issue or PR as usual. On that day the lead adds one line to those four skills (non-blocking finding with a
+reproducible bypass, leak or loss: one line in the review, probe, test and patch to the scratchpad `keep/`, the
+path in the report; `pr-pipeline` step 7: the unmerged probes are not posted but go to the advisory) and to
+`new-lead-session.md` step 2 (`keep/` detail of an unfixed finding goes to its advisory), and links here.
 
 **Applies from the day the owner imports real bank statements**: until then the detail goes into the issue or PR as
 usual and the steps below are not followed. That day = a decision-log entry quoting the owner's words about the

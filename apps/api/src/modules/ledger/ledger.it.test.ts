@@ -539,7 +539,7 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
   });
 });
 
-describe("FIN-04 AC6 (core), ARC-11 FR 24: the daily integrity check finds broken entries and logs an «error» without amounts", () => {
+describe("FIN-04 AC6 (core), ARC-11@PoC FR 23, ARC-11 FR 24: the daily integrity check finds broken entries and logs an «error» without amounts", () => {
   it("a clean journal: nothing reported; broken rows (written past the constraints): each check counted", async () => {
     const s = await space();
     const usd = await ledger.openAccount(
@@ -686,7 +686,7 @@ describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per peri
     expect(outbox.sent).toHaveLength(2);
   });
 
-  it("FIN-04@PoC EC3: a letter that could not be sent releases its claim; the next run sends it", async () => {
+  it("FIN-04@PoC EC2: a letter that could not be sent releases its claim; the next run sends it", async () => {
     await cleanRun();
     const s = await space();
     await breakSpace(s.householdId);
@@ -702,7 +702,7 @@ describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per peri
     expect(await exportedText(telemetry)).toContain("ledger.integrity_alert_sent");
   });
 
-  it("FIN-04@PoC EC4: no recipient — an «error» event, no claim, the check still returns its findings", async () => {
+  it("FIN-04@PoC EC3: no recipient — an «error» event, no claim, the check still returns its findings", async () => {
     await cleanRun();
     const before = await state();
     const s = await space();
