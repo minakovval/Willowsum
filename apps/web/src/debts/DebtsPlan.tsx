@@ -14,7 +14,7 @@ import { ScheduleChart } from "./ScheduleChart.tsx";
  * S-144 «План погашення» (BUD-19@PoC FR 1, FR 2, FR 4, FR 5, FR 10; AC1, AC2, AC4, AC5, AC6, AC11): one debt at a time,
  * the assumptions of a scenario (the debt's own data stays), the result of the base and of the scenario, the chart
  * and «Зберегти план». Every figure comes from `POST /v1/debts/{id}/scenario`; the browser calculates nothing. A credit
- * card has no rate and no regular payment: it asks for «Зменшувати на … / міс.», which «Зберегти план» keeps as the
+ * card has no rate and no regular payment: it asks for «Гасити щомісяця: …», which «Зберегти план» keeps as the
  * card's plan setting (FLW-44@PoC FR 1, BUD-19@PoC FR 2, AC5; owner decision 2026-11-27).
  */
 export function DebtsPlan({ debts, refresh }: { debts: readonly Debt[]; refresh: () => void }) {

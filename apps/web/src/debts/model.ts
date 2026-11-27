@@ -42,7 +42,7 @@ const same = (a: string | null | undefined, b: string | null | undefined): boole
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 export const isMonth = (value: string): boolean => MONTH.test(value);
 
-/** A credit card has no rate and no regular payment: its payment is «Зменшувати на … / міс.» (FLW-44@PoC FR 1). */
+/** A credit card has no rate and no regular payment: its payment is «Гасити щомісяця: …» (FLW-44@PoC FR 1). */
 export const isCard = (debt: Pick<Debt, "kind">): boolean => debt.kind === "credit-card";
 
 /** The fields start from the saved plan when there is one, otherwise from the debt's own terms (FR 2). */
@@ -73,7 +73,7 @@ export function initialAssumptions(debt: Debt, comma: boolean): Assumptions {
  */
 export function scenarioBody(debt: Debt, a: Assumptions): ScenarioBody | null {
   const card = isCard(debt);
-  // FLW-44@PoC FR 1: a card has no rate; its payment is the amount «Зменшувати на … / міс.».
+  // FLW-44@PoC FR 1: a card has no rate; its payment is the amount «Гасити щомісяця: …».
   const rate = card ? null : parseRate(a.rate);
   if ((!card && rate === null) || a.payment === null || a.balance === null) return null;
   if (!new Decimal(a.payment).gt(0)) return null;
@@ -155,7 +155,7 @@ export function linePath(
 
 /**
  * What the user typed on «Стратегія» for one debt that has no payment or rate of its own; for a card without its
- * «Зменшувати на … / міс.», the amount (`min`) only — a card has no rate (FLW-44@PoC FR 4).
+ * «Гасити щомісяця: …», the amount (`min`) only — a card has no rate (FLW-44@PoC FR 4).
  */
 export interface Entry {
   readonly min: string | null;
