@@ -10,9 +10,13 @@ import { NUMBER_FIELD } from "../../application/index.ts";
 export function accountsResealPart(db: ModuleDatabase): ResealPart {
   return sealedColumnsPart("accounts", db, [
     {
-      table: "accounts",
       keys: ["id"],
       column: "number_sealed",
+      select: `SELECT id, number_sealed FROM accounts
+                WHERE household_id = $1 AND number_sealed IS NOT NULL AND ($2::uuid IS NULL OR id > $2::uuid)
+                ORDER BY id LIMIT $3 FOR UPDATE`,
+      update: "UPDATE accounts SET number_sealed = $3 WHERE household_id = $1 AND id = $2",
+      count: "SELECT count(*)::text AS n FROM accounts WHERE household_id = $1 AND number_sealed IS NOT NULL",
       sealedFor: { kind: "field", field: NUMBER_FIELD },
     },
   ]);

@@ -10,7 +10,29 @@ import { ACCOUNT_VALUE_FIELD } from "../../application/index.ts";
 export function importRecipesResealPart(db: ModuleDatabase): ResealPart {
   const sealedFor = { kind: "field", field: ACCOUNT_VALUE_FIELD } as const;
   return sealedColumnsPart("import-recipes", db, [
-    { table: "recipes", keys: ["id"], column: "account_value_sealed", sealedFor },
-    { table: "recipe_versions", keys: ["recipe_id", "version"], column: "account_value_sealed", sealedFor },
+    {
+      keys: ["id"],
+      column: "account_value_sealed",
+      select: `SELECT id, account_value_sealed FROM recipes
+                WHERE household_id = $1 AND account_value_sealed IS NOT NULL AND ($2::uuid IS NULL OR id > $2::uuid)
+                ORDER BY id LIMIT $3 FOR UPDATE`,
+      update: "UPDATE recipes SET account_value_sealed = $3 WHERE household_id = $1 AND id = $2",
+      count:
+        "SELECT count(*)::text AS n FROM recipes WHERE household_id = $1 AND account_value_sealed IS NOT NULL",
+      sealedFor,
+    },
+    {
+      keys: ["recipe_id", "version"],
+      column: "account_value_sealed",
+      select: `SELECT recipe_id, version, account_value_sealed FROM recipe_versions
+                WHERE household_id = $1 AND account_value_sealed IS NOT NULL
+                  AND ($2::uuid IS NULL OR (recipe_id, version) > ($2::uuid, $3::integer))
+                ORDER BY recipe_id, version LIMIT $4 FOR UPDATE`,
+      update:
+        "UPDATE recipe_versions SET account_value_sealed = $4 WHERE household_id = $1 AND recipe_id = $2 AND version = $3",
+      count:
+        "SELECT count(*)::text AS n FROM recipe_versions WHERE household_id = $1 AND account_value_sealed IS NOT NULL",
+      sealedFor,
+    },
   ]);
 }

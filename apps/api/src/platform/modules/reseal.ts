@@ -77,25 +77,29 @@ export const RESEAL_BATCH_SIZE = 100;
 /**
  * One sealed column of a module's table: the columns that order its rows within a space (the primary key without
  * `household_id`), and what the value is sealed for — a field name, or a purpose made from the row's own columns.
- * Names are the module's constants, never input.
+ * The module writes its three statements as literal SQL (no text is built here; every value is a parameter):
+ *   - `select`: `$1` the space, `$2…$(k+1)` the cursor (the last row's keys; all null for the first batch), `$(k+2)`
+ *     the limit; returns the keys, the purpose's columns and the sealed column of the space's rows whose value is
+ *     not null, after the cursor, in key order, `FOR UPDATE`;
+ *   - `update`: `$1` the space, `$2…$(k+1)` the row's keys, `$(k+2)` the new sealed value;
+ *   - `count`: `$1` the space; returns `n` (text), the space's rows whose value is not null.
  */
 export interface SealedColumn {
-  readonly table: string;
   readonly keys: readonly string[];
   readonly column: string;
+  readonly select: string;
+  readonly update: string;
+  readonly count: string;
   readonly sealedFor:
     | { readonly kind: "field"; readonly field: string }
     | {
         readonly kind: "bytes";
-        readonly columns: readonly string[];
         readonly purpose: (row: Readonly<Record<string, unknown>>) => string;
       };
 }
 
 /** Byte payloads (up to 32 MiB each) are sealed again a few per transaction, whatever the batch size. */
 export const RESEAL_BYTES_BATCH_MAX = 8;
-
-const IDENT_RE = /^[a-z][a-z0-9_]{0,62}$/;
 
 /** A query runner of one space's transaction (`ModuleDatabase.inHousehold`). */
 export interface ResealQueries {
@@ -110,17 +114,12 @@ export interface ResealDatabase {
   inHousehold<T>(householdId: string, work: (q: ResealQueries) => Promise<T>): Promise<T>;
 }
 
-/** Validates the names of a part's sealed columns (identifiers of the module's own schema). */
+/** Every statement of a part is bound to the space and the select locks its rows. */
 function checkColumns(columns: readonly SealedColumn[]): void {
   for (const c of columns) {
-    const names = [
-      c.table,
-      c.column,
-      ...c.keys,
-      ...(c.sealedFor.kind === "bytes" ? c.sealedFor.columns : []),
-    ];
-    if (c.keys.length === 0 || !names.every((n) => IDENT_RE.test(n)))
-      throw new Error("A sealed column is named by the module's identifiers");
+    const bound = [c.select, c.update, c.count].every((sql) => sql.includes("household_id = $1"));
+    if (c.keys.length === 0 || !bound || !c.select.includes("FOR UPDATE"))
+      throw new Error("A sealed column's statements are bound to the space and lock what they read");
   }
 }
 
@@ -133,16 +132,7 @@ async function resealBatch(
   limit: number,
   cursor: readonly unknown[] | null,
 ): Promise<{ readonly next: unknown[] | null; readonly changed: number }> {
-  const keyList = c.keys.join(", ");
-  const params = c.keys.map((_, i) => `$${i + 2}`).join(", ");
-  const extra = c.sealedFor.kind === "bytes" ? c.sealedFor.columns.filter((x) => !c.keys.includes(x)) : [];
-  const after = cursor ? `AND (${keyList}) > (${params})` : "";
-  const { rows } = await q.query(
-    `SELECT ${[...c.keys, ...extra, c.column].join(", ")} FROM ${c.table}
-      WHERE household_id = $1 AND ${c.column} IS NOT NULL ${after}
-      ORDER BY ${keyList} LIMIT ${limit} FOR UPDATE`,
-    [householdId, ...(cursor ?? [])],
-  );
+  const { rows } = await q.query(c.select, [householdId, ...(cursor ?? c.keys.map(() => null)), limit]);
   let changed = 0;
   for (const row of rows) {
     const value: unknown = row[c.column];
@@ -151,10 +141,8 @@ async function resealBatch(
         ? resealer.field(c.sealedFor.field, value as string)
         : resealer.bytes(c.sealedFor.purpose(row), value as Buffer);
     if (next === null) continue;
-    await q.query(
-      `UPDATE ${c.table} SET ${c.column} = $${c.keys.length + 2} WHERE household_id = $1 AND (${keyList}) = (${params})`,
-      [householdId, ...c.keys.map((k) => row[k]), next],
-    );
+    const updated = await q.query(c.update, [householdId, ...c.keys.map((k) => row[k]), next]);
+    if (updated.rowCount !== 1) throw new Error("A sealed row changed under its lock");
     changed += 1;
   }
   const last = rows.length === limit ? rows[rows.length - 1] : undefined;
@@ -199,10 +187,7 @@ export function sealedColumnsPart(
       let total = 0;
       for (const c of columns) {
         const { rows } = await db.inHousehold(householdId, (q) =>
-          q.query<{ n: string }>(
-            `SELECT count(*)::text AS n FROM ${c.table} WHERE household_id = $1 AND ${c.column} IS NOT NULL`,
-            [householdId],
-          ),
+          q.query<{ n: string }>(c.count, [householdId]),
         );
         total += Number(rows[0]?.n ?? 0);
       }
