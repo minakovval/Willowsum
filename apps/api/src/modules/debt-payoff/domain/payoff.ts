@@ -121,12 +121,28 @@ function simulateUnbounded(a: Assumptions): Outcome<PayoffResult> {
   return { kind: "over-limit" };
 }
 
-/** A debt in «Стратегія» (FR 6): its fixed minimum payment. */
+/**
+ * A debt in «Стратегія» (FR 6): its fixed minimum payment. `annualRate` null — a credit card: no rate and no interest
+ * (FLW-44@PoC FR 4, owner decision 2026-11-27); its payment is the user's «Зменшувати на … / міс.».
+ */
 export interface StrategyDebt {
   readonly id: string;
   readonly balance: Money;
-  readonly annualRate: string;
+  readonly annualRate: string | null;
   readonly minimumPayment: Money;
+}
+
+const interestOf = (d: { readonly left: Money; readonly annualRate: string | null }): Money =>
+  d.annualRate === null ? Money.zero(d.left.currency) : monthlyInterest(d.left, d.annualRate);
+
+/** Avalanche: the highest rate first; a debt without a rate (a credit card) after every rated one (FLW-44 FR 4). */
+function byRate(
+  x: { readonly annualRate: string | null },
+  y: { readonly annualRate: string | null },
+): number {
+  if (x.annualRate === null || y.annualRate === null)
+    return (x.annualRate === null ? 1 : 0) - (y.annualRate === null ? 1 : 0);
+  return new Decimal(y.annualRate).comparedTo(new Decimal(x.annualRate));
 }
 
 export interface StrategyResult {
@@ -140,7 +156,8 @@ export interface StrategyResult {
 /**
  * «Усього на борги / міс.» under a strategy (FR 6): each month every debt takes its interest, then its minimum
  * payment; what is left of the total goes to one debt — the highest rate first (Avalanche) or the smallest balance first
- * (Snowball; ties by the order given) — and on to the next when it is paid off. A paid-off debt's minimum stays in the
+ * (Snowball; ties by the order given; a debt without a rate — after the rated ones in Avalanche, by its balance in
+ * Snowball) — and on to the next when it is paid off. A paid-off debt's minimum stays in the
  * total, so it passes to the next one. `total` must cover the minimums (the caller checks it).
  */
 export function simulateStrategy(
@@ -159,7 +176,7 @@ function simulateStrategyUnbounded(
   const currency = total.currency;
   const live = debts.map((d, order) => ({ ...d, order, left: d.balance }));
   const firstInterest = live.reduce(
-    (sum, d) => (positive(d.left) ? sum.plus(monthlyInterest(d.left, d.annualRate)) : sum),
+    (sum, d) => (positive(d.left) ? sum.plus(interestOf(d)) : sum),
     Money.zero(currency),
   );
   const closedIn = new Map<string, number>();
@@ -172,7 +189,7 @@ function simulateStrategyUnbounded(
     let available = total;
     const open = live.filter((d) => positive(d.left));
     for (const d of open) {
-      const i = monthlyInterest(d.left, d.annualRate);
+      const i = interestOf(d);
       interest = interest.plus(i);
       d.left = d.left.plus(i);
     }
@@ -185,7 +202,7 @@ function simulateStrategyUnbounded(
       .filter((d) => positive(d.left))
       .sort((x, y) =>
         strategy === "avalanche"
-          ? new Decimal(y.annualRate).comparedTo(new Decimal(x.annualRate)) || x.order - y.order
+          ? byRate(x, y) || x.order - y.order
           : x.left.compare(y.left) || x.order - y.order,
       );
     for (const d of targets) {

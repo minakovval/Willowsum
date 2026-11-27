@@ -14,7 +14,7 @@ import { DebtName, Disclaimer, PaidBar, tabPath } from "./parts.tsx";
  */
 export function DebtsList({ debts }: { debts: readonly Debt[] }) {
   const { t } = useI18n();
-  // FLW-44@PoC FR 1: a credit card shows its balance only; it is not part of the calculation, so it has no note.
+  // FLW-44@PoC FR 1: a credit card has no interest, so it never «не зменшується».
   const stuck = debts.filter((d) => d.kind !== "credit-card" && d.base?.status === "not-decreasing");
   return (
     <>
@@ -63,8 +63,11 @@ export function DebtsList({ debts }: { debts: readonly Debt[] }) {
 
 function DebtRow({ debt }: { debt: Debt }) {
   const { t, locale } = useI18n();
-  // FLW-44@PoC FR 1 (owner, 2026-11-26): a credit card has no rate, regular payment or end date — only the balance.
-  const balanceOnly = debt.kind === "credit-card";
+  // FLW-44@PoC FR 1 (owner, 2026-11-27): a credit card has no rate and no regular payment; its payment is the amount
+  // «Зменшувати на … / міс.» the user gave, and its end date follows from it. Without the amount — the balance and the hint.
+  const card = debt.kind === "credit-card";
+  const amount = card ? debt.cardMonthlyAmount : null;
+  const balanceOnly = card && amount === null;
   return (
     <tr>
       <td data-label={t("debts.col.debt")}>
@@ -74,14 +77,26 @@ function DebtRow({ debt }: { debt: Debt }) {
         {money(locale, debt.balance)}
       </td>
       <td data-label={t("debts.col.rate")} className="debts-num">
-        {balanceOnly || debt.annualRate === null
-          ? "—"
-          : formatPercent(locale, debt.annualRate, { digits: 1 })}
+        {card || debt.annualRate === null ? "—" : formatPercent(locale, debt.annualRate, { digits: 1 })}
       </td>
       <td data-label={t("debts.col.payment")} className="debts-num">
-        {balanceOnly || debt.monthlyPayment === null ? "—" : money(locale, debt.monthlyPayment)}
+        {card
+          ? amount === null
+            ? "—"
+            : money(locale, amount)
+          : debt.monthlyPayment === null
+            ? "—"
+            : money(locale, debt.monthlyPayment)}
       </td>
-      <td data-label={t("debts.col.payoff")}>{balanceOnly ? "—" : <Payoff debt={debt} />}</td>
+      <td data-label={t("debts.col.payoff")}>
+        {balanceOnly ? (
+          <a className="debts-badge debts-badge--muted" href={hrefFor(tabPath("plan"))}>
+            {t("debts.card.amountHint")}
+          </a>
+        ) : (
+          <Payoff debt={debt} />
+        )}
+      </td>
       <td data-label={t("debts.col.paid")}>{balanceOnly ? "—" : <PaidBar debt={debt} />}</td>
       <td className="debts-open">
         <Tooltip text={t("debts.openAccount")}>
@@ -128,7 +143,6 @@ function Summary({ debts }: { debts: readonly Debt[] }) {
   let maxMonths = 0;
   const except: string[] = [];
   for (const d of debts) {
-    if (d.kind === "credit-card") continue;
     if (d.base?.status === "paid" && d.base.payoffMonth !== null) {
       lastMonth = laterMonth(lastMonth, d.base.payoffMonth);
       maxMonths = Math.max(maxMonths, d.base.months ?? 0);
