@@ -231,11 +231,11 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     );
   });
 
-  it("FIN-03@PoC FR 27: the menu «…» of a manual transaction that is no «Можливий дубль» — «Історія змін» and «Видалити» (last, a danger item); nothing to hide (FR 18)", async () => {
+  it("FIN-03@PoC FR 27: the menu «…» of a manual transaction that is no «Можливий дубль» — «Позначити як переказ» (IMP-03 FR 24), «Історія змін» and «Видалити» (last, a danger item); nothing to hide (FR 18)", async () => {
     open();
     await loaded();
     const items = await menuItems();
-    expect(labels(items)).toEqual(["Історія змін", "Видалити"]);
+    expect(labels(items)).toEqual(["Позначити як переказ", "Історія змін", "Видалити"]);
     expect(items.at(-1)!.dataset.tone).toBe("danger");
     expect(screen.getByRole("menu").querySelector("[role='separator']")).toBeTruthy();
   });
@@ -258,7 +258,12 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     );
     await loaded();
     expect(card().querySelector(".txd-marks")?.textContent).toContain("Можливий дубль");
-    expect(labels(await menuItems())).toEqual(["Приховати транзакцію", "Історія змін", "Видалити"]);
+    expect(labels(await menuItems())).toEqual([
+      "Приховати транзакцію",
+      "Позначити як переказ",
+      "Історія змін",
+      "Видалити",
+    ]);
     await act(async () => screen.getByRole("menuitem", { name: /Приховати транзакцію/ }).click());
     await waitFor(() => expect(card().querySelector(".txd-marks")?.textContent).toContain("Приховано"));
     expect(api.calls.some((c) => c.method === "POST" && c.path.endsWith("/hide"))).toBe(true);
@@ -333,7 +338,7 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     await loaded();
     expect(card().querySelector(".txd-marks")?.textContent).toContain("Об’єднано");
     // The server refuses to delete a record with merged duplicates (TRANSACTION_MERGED): «Видалити» is not offered.
-    expect(labels(await menuItems())).toEqual(["Історія змін"]);
+    expect(labels(await menuItems())).toEqual(["Позначити як переказ", "Історія змін"]);
     await act(async () => more().click());
     await act(async () => within(card()).getByRole("button", { name: "Роз’єднати" }).click());
     await waitFor(() => expect(within(card()).queryByRole("button", { name: "Роз’єднати" })).toBeNull());
