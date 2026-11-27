@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { I18nProvider } from "@willowsum/i18n";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Field } from "../field/Field.tsx";
+import { SearchSelect } from "../select/SearchSelect.tsx";
 import { FormDialog, FormMore, type FormDialogField } from "./FormDialog.tsx";
 
 /**
@@ -437,7 +438,7 @@ describe("CMP-21@PoC FormDialog", () => {
     );
   });
 
-  it("CMP-21@PoC AC24: on steps 2 and 3 the bar has «Скасувати», «Назад» and the main action (step 2 also «Далі»); «Скасувати» closes without changes", () => {
+  it("CMP-21@PoC AC24: on steps 2 and 3 the bar has «Скасувати», «Назад» and the main action (step 2 also «Далі»); «Скасувати» does not save", () => {
     const close = vi.fn();
     const submit = vi.fn();
     render(<GoalForm onClose={close} onSubmit={submit} />);
@@ -447,8 +448,72 @@ describe("CMP-21@PoC FormDialog", () => {
     act(() => button("Далі").click());
     expect(barLabels()).toEqual(["Скасувати", "Назад", "Додати ціль"]);
     act(() => button("Скасувати").click());
-    expect(close).toHaveBeenCalledTimes(1);
     expect(submit).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("CMP-21@PoC AC24, CMP-21@PoC AC27 and CMP-21@PoC FR27: «Скасувати» with unsaved changes asks «Зберегти зміни?» in the same dialog (one dialog, three buttons) instead of closing", () => {
+    const close = vi.fn();
+    const submit = vi.fn();
+    render(<GoalForm onClose={close} onSubmit={submit} />);
+    fillStep1();
+    act(() => button("Далі").click());
+    act(() => button("Далі").click());
+    act(() => button("Скасувати").click());
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("alertdialog")).toHaveLength(1);
+    expect(document.querySelectorAll("dialog")).toHaveLength(1);
+    expect(
+      within(screen.getByRole("alertdialog")).getByRole("heading", { name: "Зберегти зміни?" }),
+    ).toBeTruthy();
+    expect(barLabels()).toEqual(["Редагувати далі", "Не зберігати", "Зберегти"]);
+    expect(screen.queryByRole("button", { name: "Закрити" })).toBeNull();
+    // «Редагувати далі» returns to the form on the same step with the typed values.
+    act(() => screen.getByRole("button", { name: "Редагувати далі" }).click());
+    expect(screen.getByRole("dialog", { name: "Нова ціль" })).toBeTruthy();
+    expect(barLabels()).toEqual(["Скасувати", "Назад", "Додати ціль"]);
+    act(() => button("Назад").click());
+    act(() => button("Назад").click());
+    expect(input("Назва").value).toBe("Відпустка");
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("CMP-21@PoC AC27 and CMP-21@PoC FR27: «Не зберігати» closes without saving; «Зберегти» saves; ✕ and Esc ask the same question", () => {
+    const close = vi.fn();
+    const submit = vi.fn();
+    render(<GoalForm onClose={close} onSubmit={submit} />);
+    fillStep1();
+    act(() => button("Закрити").click());
+    expect(screen.getByRole("alertdialog", { name: "Зберегти зміни?" })).toBeTruthy();
+    // Esc on the question goes back to the form, as «Редагувати далі».
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "Нова ціль" })).toBeTruthy();
+    fireEvent.keyDown(dialog(), { key: "Escape" });
+    expect(screen.getByRole("alertdialog", { name: "Зберегти зміни?" })).toBeTruthy();
+    act(() => screen.getByRole("button", { name: "Зберегти" }).click());
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    act(() => screen.getByRole("button", { name: "Не зберігати" }).click());
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("CMP-21@PoC AC27 and CMP-21@PoC FR27: a form without changes closes at once; so does one whose values were put back; «Зберегти» is inactive while a required field is empty", () => {
+    const close = vi.fn();
+    render(<GoalForm onClose={close} />);
+    act(() => button("Скасувати").click());
+    expect(close).toHaveBeenCalledTimes(1);
+    cleanup();
+    const again = vi.fn();
+    render(<GoalForm onClose={again} />);
+    type("Назва", "Відпустка");
+    type("Назва", "");
+    act(() => button("Закрити").click());
+    expect(again).toHaveBeenCalledTimes(1);
+    cleanup();
+    render(<GoalForm />);
+    type("Назва", "Відпустка");
+    act(() => button("Скасувати").click());
+    expect(screen.getByRole("button", { name: "Зберегти" }).getAttribute("aria-disabled")).toBe("true");
   });
 
   it("CMP-21@PoC AC1: focus starts on the first field of step 1 and moves to the first field of each new step", () => {
@@ -569,5 +634,107 @@ describe("CMP-21@PoC FormMore («Додатково»)", () => {
     // While it holds a value or an error it cannot be collapsed.
     act(() => toggle().click());
     expect(body().hidden).toBe(false);
+  });
+});
+
+describe("CMP-21@PoC FormDialog — a choice in a SearchSelect and the focus of the question", () => {
+  const groups = [
+    {
+      id: "g",
+      title: "Банки",
+      options: [
+        { value: "a", label: "Альфа" },
+        { value: "b", label: "Бета" },
+      ],
+    },
+  ];
+  function PickForm({ onClose }: { onClose: () => void }) {
+    const [bank, setBank] = useState("a");
+    const [name, setName] = useState("Х");
+    return (
+      <I18nProvider>
+        <FormDialog
+          open
+          onClose={onClose}
+          title="Ф"
+          closeLabel="Закрити"
+          fields={[]}
+          submitLabel="Ок"
+          onSubmit={() => {}}
+          editing
+        >
+          {() => (
+            <>
+              <Field label="Назва" value={name} onChange={setName} />
+              <SearchSelect label="Банк" groups={groups} value={bank} onChange={setBank} />
+            </>
+          )}
+        </FormDialog>
+      </I18nProvider>
+    );
+  }
+
+  it("CMP-21@PoC AC27 and CMP-21@PoC FR27: only a SearchSelect changed, then «Скасувати» — the question is shown, the dialog is not closed", () => {
+    const close = vi.fn();
+    render(<PickForm onClose={close} />);
+    act(() => screen.getByRole("button", { name: /Альфа/ }).click());
+    act(() => screen.getByRole("option", { name: /Бета/ }).click());
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog", { name: "Зберегти зміни?" })).toBeTruthy();
+  });
+
+  it("CMP-21@PoC AC27: opening the search box of an untouched SearchSelect is not a change", () => {
+    const close = vi.fn();
+    render(<PickForm onClose={close} />);
+    act(() => screen.getByRole("button", { name: /Альфа/ }).click());
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("CMP-21@PoC AC24: the question takes the focus on «Редагувати далі»; «Редагувати далі» returns it to a field of the form, never to <body>", () => {
+    render(<PickForm onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText(/^Назва/), { target: { value: "Інша" } });
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Редагувати далі" }));
+    act(() => screen.getByRole("button", { name: "Редагувати далі" }).click());
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement).toBe(screen.getByLabelText(/^Назва/));
+  });
+
+  it("CMP-21@PoC AC27: a SearchSelect that mounts after the first paint (loaded options) is not a change — «Скасувати» closes at once", async () => {
+    const close = vi.fn();
+    function Late() {
+      const [ready, setReady] = useState(false);
+      useEffect(() => {
+        const id = setTimeout(() => setReady(true), 20);
+        return () => clearTimeout(id);
+      }, []);
+      return (
+        <I18nProvider>
+          <FormDialog
+            open
+            onClose={close}
+            title="Ф"
+            closeLabel="Закрити"
+            fields={[]}
+            submitLabel="Ок"
+            onSubmit={() => {}}
+            editing
+          >
+            {() => (
+              <>
+                <Field label="Назва" value="Х" onChange={() => {}} />
+                {ready ? <SearchSelect label="Банк" groups={groups} value="a" onChange={() => {}} /> : null}
+              </>
+            )}
+          </FormDialog>
+        </I18nProvider>
+      );
+    }
+    render(<Late />);
+    await screen.findByRole("button", { name: /Альфа/ });
+    act(() => screen.getByRole("button", { name: "Скасувати" }).click());
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });
