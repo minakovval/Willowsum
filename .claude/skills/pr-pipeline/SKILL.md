@@ -100,9 +100,8 @@ proposals: [lead communication](references/lead-communication.md).
    «Follow-ups» go to one follow-up PR (rows R) or an issue each, linked from the merged PR. Unmerged
    **reviewer probes and tests** are posted at once on that issue inside `<details>`, split if over 65 000
    characters.
-   **Token and time accounting** (mandatory): at each merge save the PR's agent numbers (tokens, ms) before the
-   logs vanish; add the PR rows to the **body** of #180 in a batch every 3 merges, with the #179 update
-   ([token economy](references/token-economy.md), «Token accounting»).
+   **Token and time accounting** (mandatory): the ledger line at each agent start; `batch` once per segment and for
+   the daily summary, then the #180 body back with `-F body=@file` ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner**: «Мовчання в чаті» above; questions: §2.
 9. **Follow-ups**: an open follow-up about money or data loss gets a plan row; the rest are sorted once into closed
    or the MVP list. A follow-up sweep (row `R`) runs only when the lead proposes it and the owner agrees; none is

@@ -24,13 +24,13 @@ and the same repository (`source_url`). The new session's ID goes into #179 and,
 owner; the third only after the owner answers — the finishing lead asks in chat and gives the start message in one
 code block, so the owner can start it. Risks and mitigations: a chain of sessions runs without the owner — the
 «Lead state» is always in the #179 body and an owner «stop» is checked before every merge (`pr-pipeline` step 6); costs
-grow unnoticed — every session posts its snapshot in #180.
+grow unnoticed — every segment adds its «Сесії» row in #180.
 
 **Start message**: the whole first message for the new session, also given to the
 owner in one code block, ready to copy without edits whenever the owner starts the session. It names the session
 (`Willowsum · ведучий N+1 · <з чого почати>`); tells it to read «Lead state» (#179), the process queue (#178) and
 token accounting (#180) and to work by `.claude/skills/pr-pipeline`; lists the start steps (rename, starting
-snapshot in #180); names the
+snapshot saved to a file); names the
 first tasks and any open owner question; for an automatic restart states its count («1-й автоматичний перезапуск
 із 2»); tells it to check whether a process review is due ([restarts](../skills/pr-pipeline/references/restarts.md)); and always
 includes «Технічних повідомлень у чаті не пиши (pr-pipeline, «Мовчання в чаті»).» The owner edits nothing.
