@@ -68,6 +68,7 @@ import { maskNumbers } from "../../domain/index.ts";
 export { maskNumbers };
 import { storageRejection } from "../parse-ports.ts";
 import { handOffNow, importSessionsServices } from "./services.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 
 /**
  * Import batches (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 12, FR 13, FR 21; IMP-19@PoC FR 5; wave 2 row 39): create
@@ -994,6 +995,18 @@ export const applyImportBatchRoute = defineRoute({
       ),
     );
     await handOffNow(audit, householdId, handOffs);
+    // BUD-01 FR 7 (#722 D): the batch's payments to a credit card from an own account become transfers at once — only
+    // by the apply that wrote the batch (a stored result writes nothing, so nothing is marked again). The apply stands
+    // either way: a failure here leaves the pairs proposals in «Пари».
+    if (result.first && apply.cardPayments)
+      await apply.cardPayments
+        .markFor(householdId, userId, { importBatchId: params.batchId })
+        .catch((error: unknown) =>
+          logEvent("import_sessions.card_payment_deferred", "warn", {
+            "ws.module": "import-sessions",
+            "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+          }),
+        );
     const run = routeTx(ctx);
     const batch = await run((tx) => tx.findBatch(params.batchId));
     if (!batch) throw new ApiProblem("NOT_FOUND");

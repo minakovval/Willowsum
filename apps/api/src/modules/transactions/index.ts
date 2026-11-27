@@ -29,6 +29,7 @@ import {
   transactionsList,
   transactionsRoutes,
   transactionsWorkerQueue,
+  transactionsTx,
   transferCandidates,
   duplicateCandidates,
   importBatchTransactions,
@@ -65,6 +66,7 @@ import { transferDifference } from "./domain/index.ts";
 import { transactionCreated, transactionImportMerged, type TransactionImportMerged } from "./events.ts";
 import {
   applyHandOff,
+  markTransfer,
   ROLLBACK_RECOVERY_LISTED,
   previewRollback,
   rollbackImport,
@@ -80,6 +82,7 @@ import {
   type ImportRollbackResult,
   type RollbackCategory,
   type RollbackPreview,
+  type TransferDeps,
 } from "./application/index.ts";
 import { logEvent } from "../../platform/telemetry/signals.ts";
 
@@ -181,6 +184,71 @@ export function createTransferCandidates(db: ModuleDatabase): TransferCandidates
   };
 }
 export type { CandidateSide };
+
+/**
+ * BUD-01@PoC FR 7, AC4 (#722 D): «Позначити як переказ» of a pair for module transfer-matching's card payments — the
+ * same mark as the route's (application markTransfer: both rows locked, the accounts' money locks, the journal's
+ * transfer event, the audit entry of each side by `actorAccountId`, the person whose import or entry brought the pair),
+ * its hand-offs run right away (the worker runs them otherwise). True — marked; false — refused (a side changed, in
+ * another transfer or of another space, an account closed, no rate): nothing changed. `db` is the transactions
+ * module's own database.
+ */
+export interface TransferMarking {
+  mark(householdId: string, actorAccountId: string, outflowId: string, inflowId: string): Promise<boolean>;
+}
+
+export function createTransferMarking(
+  db: ModuleDatabase,
+  ports: {
+    readonly accounts: HandOffDeps["accounts"];
+    readonly ledger: HandOffDeps["ledger"];
+    readonly audit: Pick<AuditLog, "record">;
+    readonly newId: () => string;
+    readonly rates: TransferDeps["rates"];
+  },
+): TransferMarking {
+  const deps: TransferDeps = {
+    accounts: ports.accounts,
+    ledger: ports.ledger,
+    audit: transactionAudit(ports.audit),
+    newId: ports.newId,
+    rates: ports.rates,
+    // Not read by the mark: no date is typed, no status set, nothing hidden.
+    today: () => {
+      throw new Error("the transfer mark reads no date");
+    },
+    statesEnabled: () => Promise.resolve(false),
+    duplicates: null,
+  };
+  return {
+    async mark(householdId, actorAccountId, outflowId, inflowId) {
+      const result = await markTransfer(
+        deps,
+        (work) => db.inHousehold(householdId, (q) => work(transactionsTx(q))),
+        { householdId, accountId: actorAccountId },
+        outflowId,
+        inflowId,
+      );
+      if (result.kind !== "ok") return false;
+      try {
+        for (const h of result.handOffs)
+          await applyHandOff(
+            deps,
+            transactionRows((work) => db.inHousehold(householdId, work)),
+            householdId,
+            h,
+          );
+      } catch (error) {
+        // The jobs are queued: the worker finishes them (class only, never a value).
+        logEvent("transactions.hand_off_deferred", "warn", {
+          "ws.module": "transactions",
+          "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+        });
+      }
+      return true;
+    },
+  };
+}
 
 /**
  * The possible duplicates (FIN-03@PoC FR 12) for module duplicate-matching, which decides by its rule: two shown

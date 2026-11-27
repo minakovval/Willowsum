@@ -31,7 +31,8 @@ export interface ResultPorts {
 export interface BatchFollowUp {
   /**
    * FR 11 «N платежів на картку записано як переказ» (IMP-03 FR 15): the card payments from an own account of the space
-   * the apply recorded as a transfer at once. The apply does not record any yet (IMP-03 FR 15 is a later part): 0.
+   * the apply recorded as a transfer at once. Since #722 D the apply records them (BUD-01 FR 7), but this count is not
+   * read yet (a later part, with IMP-03 FR 15): 0.
    */
   readonly cardPaymentTransfers: number;
   /** FR 11, AC7 «N пар переказів», «Пари · N»: the proposals with a side of this batch; `more` — the read was capped. */

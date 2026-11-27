@@ -48,6 +48,15 @@ export interface CategoryTransactions {
   ): Promise<readonly string[]>;
 }
 
+/** Module transfer-matching's `CardPaymentTransfers` by shape (BUD-01 FR 7): how many pairs it marked. */
+export interface CardPayments {
+  markFor(
+    householdId: string,
+    actorAccountId: string,
+    fresh: { readonly transactionIds: readonly string[] },
+  ): Promise<number>;
+}
+
 const BRAND = Symbol("willowsum-transactions-services");
 
 /**
@@ -70,6 +79,12 @@ export interface TransactionsServices {
   readonly categoryOf: ReviewCategories | null;
   /** FIN-03 FR 22 «Категорії»: the transactions of a category (module categorization); null when it is not wired. */
   readonly categoryTransactions: CategoryTransactions | null;
+  /**
+   * BUD-01@PoC FR 7, AC4 (#722 D): module transfer-matching's `CardPaymentTransfers` (by shape: no import of that
+   * module), run after «Нова транзакція» — a payment to a credit card from an own account becomes a transfer at once;
+   * null when it is not wired.
+   */
+  readonly cardPayments: CardPayments | null;
   /** The profile currency of the totals (EUR for every space in this release, ACC-06). */
   readonly reportingCurrency: string;
   /** «Історія змін» (FIN-03 FR 27): the audit log's entries of one entity; null when the log given cannot read. */
@@ -105,6 +120,8 @@ export function createTransactionsServices(options: {
   readonly categoryOf?: ReviewCategories;
   /** FIN-03 FR 22: the transactions of a category (module categorization); without it the filter answers 500. */
   readonly categoryTransactions?: CategoryTransactions;
+  /** BUD-01 FR 7: module transfer-matching's card payments, run after «Нова транзакція»; without it — none. */
+  readonly cardPayments?: CardPayments;
 }): TransactionsServices {
   const deps: TransactionsDeps = {
     accounts: options.accounts,
@@ -127,6 +144,7 @@ export function createTransactionsServices(options: {
     totals: options.totals,
     categoryOf: options.categoryOf ?? null,
     categoryTransactions: options.categoryTransactions ?? null,
+    cardPayments: options.cardPayments ?? null,
     reportingCurrency: REPORTING_CURRENCY,
     history: options.audit.entriesFor ? { entriesFor: options.audit.entriesFor.bind(options.audit) } : null,
     oneOffEnabled: (householdId) =>

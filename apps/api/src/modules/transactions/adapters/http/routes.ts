@@ -470,14 +470,35 @@ export const createTransactionRoute = defineRoute({
   },
   response: { status: 201, description: "The new transaction", schema: transactionSchema },
   handler: async ({ body }, ctx) => {
-    const { deps } = transactionsServices(ctx);
+    const { deps, cardPayments } = transactionsServices(ctx);
     const result = await ctx.inHousehold((q) =>
       createTransaction(deps, transactionsTx(q), caller(ctx), body),
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
     await handOffNow(ctx, deps, result.handOff);
-    return shown(ctx, result.transaction);
+    // BUD-01 FR 7 (#722 D): a payment to a credit card from an own account is a transfer at once; the transaction is
+    // created either way — a failure here leaves the pair a proposal in «Пари».
+    const marked = cardPayments
+      ? await cardPayments
+          .markFor(ctx.principal.householdId, ctx.principal.userId, {
+            transactionIds: [result.transaction.id],
+          })
+          .catch((error: unknown) => {
+            logEvent("transactions.card_payment_deferred", "warn", {
+              "ws.module": MODULE,
+              "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+            });
+            return 0;
+          })
+      : 0;
+    const row =
+      marked > 0
+        ? await ctx.inHousehold((q) =>
+            transactionsTx(q).find(ctx.principal.householdId, result.transaction.id),
+          )
+        : null;
+    return shown(ctx, row ?? result.transaction);
   },
 });
 

@@ -111,6 +111,17 @@ export interface ParseServices {
  */
 export interface ApplyServices {
   readonly transactions: ImportedTransactions;
+  /**
+   * BUD-01@PoC FR 7, AC4 (#722 D): module transfer-matching's `CardPaymentTransfers` (by shape), run once the batch is
+   * written — its payments to a credit card from an own account of the space become transfers at once. Omitted — none.
+   */
+  readonly cardPayments?: {
+    markFor(
+      householdId: string,
+      actorAccountId: string,
+      fresh: { readonly importBatchId: string },
+    ): Promise<number>;
+  };
 }
 
 /**
