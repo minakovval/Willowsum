@@ -539,6 +539,19 @@
   accent-color: var(--ws-brand);
 }
 
+.imp-result-counts {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  color: var(--ws-ink);
+  font-size: var(--ws-text-body-size);
+  overflow-wrap: anywhere;
+}
+
+.imp-result-counts p {
+  margin: 0;
+}
+
 .imp-result-heading {
   margin: 0;
   padding: var(--ws-space-3) var(--ws-space-5);

@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-17, П-24, П-25, П-26, CMP-32, CMP-64
 - Сценарії: UC-IMP-30, UC-IMP-31, UC-IMP-32, UC-IMP-33, UC-IMP-34, UC-IMP-35
 - Модуль: transfer-matching, transactions, ledger
-- Перевіряється: `apps/api/src/modules/transfer-matching/domain/imp03-exchange-matching.test.ts`, `apps/api/src/modules/transactions/domain/imp03-exchange-pair.test.ts`, `apps/api/test/imp03-exchanges.it.test.ts`, `apps/api/src/modules/transfer-matching/domain/sec688-exchange-matching.test.ts`, `apps/api/test/bud08b-cashflow-flows.it.test.ts`, `apps/api/test/fin03-transfer-difference.it.test.ts`
+- Перевіряється: `apps/api/src/modules/transfer-matching/domain/imp03-exchange-matching.test.ts`, `apps/api/src/modules/transactions/domain/imp03-exchange-pair.test.ts`, `apps/api/test/imp03-exchanges.it.test.ts`, `apps/api/src/modules/transfer-matching/domain/sec688-exchange-matching.test.ts`, `apps/api/test/bud08b-cashflow-flows.it.test.ts`, `apps/api/test/fin03-transfer-difference.it.test.ts`, `apps/web/src/transactions/fin03-transfer-difference.test.tsx`
 
 **Мета.** Як користувач з кількома рахунками, я хочу, щоб система знаходила дві сторони одного переказу чи обміну валют і пропонувала їх поєднати, щоб перекази між власними рахунками не рахувалися як дохід чи витрата.
 

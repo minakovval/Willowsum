@@ -5,7 +5,9 @@ import { loadBatch, type BatchDetail } from "./api.ts";
 import {
   applyBatch,
   loadResult,
+  loadRollbackCounts,
   rollbackBatch,
+  type RollbackCounts,
   type BatchResult,
   type RolledBack,
   type RollbackMode,
@@ -180,4 +182,35 @@ export function useResultStep(batchId: string) {
   const clearRollbackFailure = useCallback(() => setRollbackFailure(null), []);
 
   return { view, retry, apply, rollback, clearRollbackFailure, rolling, rollbackFailure, rolledBack };
+}
+
+/** The state of the counts in the rollback dialog (IMP-16@PoC FR 4). */
+export type CountsView =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly counts: RollbackCounts }
+  | { readonly kind: "expired" }
+  | { readonly kind: "error"; readonly failure: Failure };
+
+/** Reads the counts when `load` is called — on every opening of the dialog and on «Спробувати ще раз»; an older answer is dropped. */
+export function useRollbackCounts(batchId: string) {
+  const api = useAuthApi();
+  const [view, setView] = useState<CountsView>({ kind: "loading" });
+  const latest = useRef(0);
+  const load = useCallback(() => {
+    const mine = ++latest.current;
+    setView({ kind: "loading" });
+    void loadRollbackCounts(api, batchId).then((o) => {
+      if (mine !== latest.current) return;
+      if (!o.ok) setView({ kind: "error", failure: failureOf(o) });
+      else if (o.data.rollback === null) setView({ kind: "expired" });
+      else setView({ kind: "ready", counts: o.data.rollback });
+    });
+  }, [api, batchId]);
+  useEffect(
+    () => () => {
+      latest.current = -1;
+    },
+    [],
+  );
+  return { view, load };
 }
