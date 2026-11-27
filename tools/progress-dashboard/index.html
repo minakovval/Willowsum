@@ -78,6 +78,27 @@ ul.prs .age { color: var(--muted); font-size: 13px; white-space: nowrap; font-va
 .pace b { font-size: 22px; font-weight: 650; color: var(--brand); font-variant-numeric: tabular-nums; }
 .pace span { color: var(--muted); font-size: 13px; }
 .alert { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+.feat { display: grid; gap: 8px; }
+.feat details { border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.feat summary { display: grid; grid-template-columns: minmax(0, 1fr) minmax(70px, 160px) auto; gap: 6px 12px; align-items: center; padding: 10px 12px; cursor: pointer; font-size: 14px; }
+.feat summary:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.feat summary .nm { overflow-wrap: break-word; font-weight: 600; }
+.feat summary .bar { height: 8px; margin: 0; }
+.feat summary .ct { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 560px) { .feat summary { grid-template-columns: minmax(0, 1fr); } }
+.feat .bnote { padding: 0 12px 8px; }
+.feat details.inner { border: 0; border-radius: 0; background: none; }
+.feat details.inner > summary { display: list-item; margin-left: 28px; color: var(--link); font-size: 13px; padding: 4px 0 8px; }
+.feat ul { list-style: none; margin: 0; padding: 0 12px 10px; display: grid; gap: 8px; }
+.feat li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; font-size: 13px; padding-top: 8px; border-top: 1px solid var(--line); }
+.feat li .id { font-variant-numeric: tabular-nums; font-weight: 600; }
+.feat li .tt { overflow-wrap: anywhere; }
+.feat li .st { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.feat li .pr { grid-column: 2 / -1; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--inset); color: var(--muted); font-size: 12px; }
+.badge.ok { background: var(--product); color: var(--bg); }
+.badge.wip { background: var(--warn-bg); color: var(--warn-ink); }
+@media (max-width: 560px) { .feat li { grid-template-columns: 56px minmax(0, 1fr); } .feat li .st { grid-column: 2; text-align: left; } }
 footer { color: var(--muted); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
 </style>
@@ -108,6 +129,12 @@ footer { color: var(--muted); font-size: 12px; }
     </section>
   </div>
 
+  <section aria-labelledby="h-feat">
+    <h2 id="h-feat">Готовність функцій PoC</h2>
+    <p class="note" id="featnote">Завантажую функції…</p>
+    <div class="feat" id="feat"></div>
+  </section>
+
   <section aria-labelledby="h-pace">
     <h2 id="h-pace">Темп</h2>
     <div class="pace">
@@ -128,7 +155,7 @@ footer { color: var(--muted); font-size: 12px; }
 
   <footer>
     Дані читаються прямо з публічного репозиторію <a href="https://github.com/minakovval/Willowsum">minakovval/Willowsum</a> раз на 10 хвилин, поки сторінка відкрита.
-    Покриття — частка пунктів вимог PoC (FR, AC, EC), які названі хоча б одним тестом (<code>node tools/req-check/index.mjs --coverage</code>); CI рахує його після кожного злиття в main. Темп, графік і загальна кількість читаються з GitHub і охоплюють увесь проєкт. PR із назвою «PRC-…» рахуються як процес.
+    Покриття й список функцій PoC — частка пунктів вимог PoC (FR, AC, EC), які названі хоча б одним тестом (<code>node tools/req-check/index.mjs --coverage</code>); CI рахує його після кожного злиття в main. Темп, графік і загальна кількість читаються з GitHub і охоплюють увесь проєкт. PR із назвою «PRC-…» рахуються як процес.
   </footer>
 </div>
 
@@ -220,7 +247,11 @@ footer { color: var(--muted); font-size: 12px; }
     if (!j || j.schema !== 1 || !Array.isArray(j.releases) || isNaN(Date.parse(j.generatedAt))) return false;
     var ok = j.releases.filter(function (r) { return r && typeof r.release === 'string' && count(r.FR) && count(r.AC) && count(r.EC) && count(r.items) && r.items.total > 0; });
     if (!ok.some(function (r) { return r.release === 'PoC'; })) return false;
-    return { at: j.generatedAt, sha: /^[0-9a-f]{40}$/.test(j.sha || '') ? j.sha : null, releases: ok };
+    var blks = Array.isArray(j.blocks) ? j.blocks.filter(function (b) { return b && typeof b.id === 'string' && typeof b.name === 'string'; }) : [];
+    var feats = Array.isArray(j.features) ? j.features.filter(function (f) {
+      return f && typeof f.id === 'string' && typeof f.title === 'string' && typeof f.block === 'string' && count(f.items) && ['готово', 'у роботі', 'не почато'].indexOf(f.status) >= 0;
+    }) : null;
+    return { features: feats, blocks: blks, at: j.generatedAt, sha: /^[0-9a-f]{40}$/.test(j.sha || '') ? j.sha : null, releases: ok };
   }
   function loadCoverage() {
     return fetch(COVERAGE, { cache: 'no-cache' }).then(function (r) {
@@ -291,6 +322,76 @@ footer { color: var(--muted); font-size: 12px; }
     }
   }
 
+  // «Готовність функцій PoC»: a feature is a requirement of the PoC release. The status comes from coverage.json; the
+  // page raises «не почато» to «у роботі» when an open PR title starts with «ID:».
+  function openPrOf(id) {
+    var list = state.open || [];
+    for (var i = 0; i < list.length; i++) if (list[i].t.slice(0, id.length + 1) === id + ':') return list[i];
+    return null;
+  }
+  function renderFeatures() {
+    var box = $('feat'); box.textContent = '';
+    if (!coverage || !coverage.features) {
+      text('featnote', coverage === null ? 'Завантажую функції…' : 'Немає даних: у coverage.json немає списку функцій. Його пише CI після злиття в main.');
+      return;
+    }
+    var blocks = {}, order = [];
+    (coverage.blocks || []).forEach(function (b) { blocks[b.id] = { name: b.name, note: b.note, list: [] }; order.push(b.id); });
+    coverage.features.forEach(function (f) {
+      var pr = openPrOf(f.id);
+      var st = f.status === 'не почато' && pr ? 'у роботі' : f.status;
+      if (!blocks[f.block]) { blocks[f.block] = { name: 'Без блоку', note: '', list: [] }; order.push(f.block); }
+      blocks[f.block].list.push({ f: f, pr: pr, st: st });
+    });
+    var ready = 0;
+    order.forEach(function (k) {
+      var blk = blocks[k];
+      if (!blk.list.length) return;
+      var cov = 0, tot = 0, rd = 0, started = 0;
+      blk.list.forEach(function (x) {
+        cov += x.f.items.covered; tot += x.f.items.total;
+        if (x.st === 'готово') rd += 1;
+        if (x.st !== 'не почато') started += 1;
+      });
+      ready += rd;
+      var bst = rd === blk.list.length ? 'готово' : started ? 'у роботі' : 'не почато';
+      var d = document.createElement('details');
+      var sm = document.createElement('summary');
+      var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = blk.name;
+      var bar = document.createElement('div'); bar.className = 'bar';
+      var q = tot ? Math.floor(cov / tot * 100) : 0;
+      bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100'); bar.setAttribute('aria-valuenow', q);
+      bar.setAttribute('aria-label', blk.name + ': пункти вимог, названі тестами');
+      var bi = document.createElement('i'); bi.style.width = q + '%'; bar.appendChild(bi);
+      var ct = document.createElement('span'); ct.className = 'ct';
+      ct.appendChild(document.createTextNode(q + ' % · готово ' + rd + ' з ' + blk.list.length + ' · '));
+      var bb = document.createElement('span'); bb.className = 'badge' + (bst === 'готово' ? ' ok' : bst === 'у роботі' ? ' wip' : ''); bb.textContent = bst;
+      ct.appendChild(bb);
+      sm.appendChild(nm); sm.appendChild(bar); sm.appendChild(ct); d.appendChild(sm);
+      if (blk.note) { var nt = document.createElement('p'); nt.className = 'note bnote'; nt.textContent = blk.note; d.appendChild(nt); }
+      var inner = document.createElement('details'); inner.className = 'inner';
+      var is = document.createElement('summary'); is.textContent = 'Функції (' + blk.list.length + ')'; inner.appendChild(is);
+      var ul = document.createElement('ul');
+      blk.list.forEach(function (x) {
+        var li = document.createElement('li');
+        var id = document.createElement('span'); id.className = 'id'; id.textContent = x.f.id;
+        var tt = document.createElement('span'); tt.className = 'tt'; tt.textContent = x.f.title;
+        var stw = document.createElement('span'); stw.className = 'st';
+        var b = document.createElement('span'); b.className = 'badge' + (x.st === 'готово' ? ' ok' : x.st === 'у роботі' ? ' wip' : ''); b.textContent = x.st;
+        stw.appendChild(document.createTextNode((x.f.items.total ? Math.floor(x.f.items.covered / x.f.items.total * 100) : 0) + ' % · ')); stw.appendChild(b);
+        li.appendChild(id); li.appendChild(tt); li.appendChild(stw);
+        if (x.pr) {
+          var pw = document.createElement('span'); pw.className = 'pr';
+          var a = document.createElement('a'); a.href = x.pr.u; a.textContent = 'PR #' + x.pr.n;
+          pw.appendChild(a); li.appendChild(pw);
+        }
+        ul.appendChild(li);
+      });
+      inner.appendChild(ul); d.appendChild(inner); box.appendChild(d);
+    });
+    text('featnote', 'Блок — група вимог релізу PoC. Функція — одна вимога. Готово: усі пункти названі тестами, помилок відбитків немає. Готово ' + ready + ' з ' + coverage.features.length + ' функцій.');
+  }
+
   function isProcess(title) { return /^\s*PRC-/i.test(title); }
   function dayKey(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function fmtDate(d) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' }); }
@@ -305,6 +406,7 @@ footer { color: var(--muted); font-size: 12px; }
 
   function render() {
     renderCoverage();
+    renderFeatures();
     var prs = Object.keys(state.prs).map(function (n) { return state.prs[n]; });
     var product = prs.filter(function (p) { return !isProcess(p.t) && p.m >= WAVE2; });
     var productAll = prs.filter(function (p) { return !isProcess(p.t); }).length;
@@ -377,7 +479,7 @@ footer { color: var(--muted); font-size: 12px; }
 
   function refresh() {
     var al = $('alert');
-    loadCoverage().then(renderCoverage);   // independent of the GitHub API: shown even when GitHub limits requests
+    loadCoverage().then(function () { renderCoverage(); renderFeatures(); });   // independent of the GitHub API: shown even when GitHub limits requests
     return Promise.all([loadMerged(), loadOpen(), loadIssues(), loadPlan()]).then(function () {
       state.at = Date.now(); al.hidden = true; save(); render();
     }).catch(function (e) {
