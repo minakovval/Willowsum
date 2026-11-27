@@ -54,7 +54,7 @@ function net(postings: readonly Posting[]): Map<string, Decimal> {
 const shown = (postings: readonly Posting[]) =>
   postings.map((x) => [refKey(x.debit), refKey(x.credit), x.amount.toDecimalString()]);
 
-describe("FIN-04 FR 2: a posting set is balanced per currency before anything is written", () => {
+describe("FIN-04 FR 2, ARC-11 FR 8, FR 9: a posting set is balanced per currency before anything is written", () => {
   it("a valid set passes", () => {
     expect(code(() => assertBalanced([p(A, B, "10.5"), p(B, A, "0.000000000000000001")], currencyOf))).toBe(
       "ok",
@@ -196,7 +196,7 @@ describe("FIN-04 FR 3, FR 4: the posting rules", () => {
     ).toBe("INVALID_EVENT");
   });
 
-  it("ARC-11: an event type without a rule is refused («невідомий тип події»), also an inherited key", () => {
+  it("ARC-11 FR 20: an event type without a rule is refused («невідомий тип події»), also an inherited key", () => {
     expect(code(() => postingsFor({ type: "gift" } as unknown as LedgerEvent))).toBe("UNKNOWN_EVENT_TYPE");
     expect(code(() => postingsFor({ type: "toString" } as unknown as LedgerEvent))).toBe(
       "UNKNOWN_EVENT_TYPE",
@@ -241,7 +241,7 @@ describe("ARC-11 criteria on random event sequences (property tests)", () => {
     }
   });
 
-  it("FIN-04 FR 5: a reversal returns every account to where it was before the entry", () => {
+  it("FIN-04 FR 5, ARC-11 FR 14: a reversal returns every account to where it was before the entry", () => {
     const all: Posting[] = [];
     for (const event of randomEvents(11, 300)) {
       const postings = postingsFor(event);

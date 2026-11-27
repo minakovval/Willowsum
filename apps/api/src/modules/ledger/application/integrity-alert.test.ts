@@ -90,7 +90,7 @@ function setup(options: { recipient?: boolean } = {}) {
 }
 
 describe("FIN-04@PoC FR 10: one letter to the product owner per discrepancy period", () => {
-  it("FIN-04@PoC AC6: a discrepancy sends one letter with the kinds and counts; the claim holds the clock's time", async () => {
+  it("FIN-04@PoC AC6, ARC-11 FR 24: a discrepancy sends one letter with the kinds and counts; the claim holds the clock's time", async () => {
     const t = setup();
     await t.run(findings({ "unbalanced-entry": 2 }), 1);
     expect(t.letters).toEqual([{ findings: findings({ "unbalanced-entry": 2 }), failedSpaces: 1 }]);
@@ -226,7 +226,7 @@ describe("FIN-04@PoC FR 10: the letter and the period key hold only the kinds an
     expect(letter.text).toContain("ledger.integrity_violation");
   });
 
-  it("no amounts, currencies, ids or space data: only small integers and fixed words", () => {
+  it("ARC-11 FR 24: no amounts, currencies, ids or space data: only small integers and fixed words", () => {
     const letter = integrityAlertMessage({
       findings: findings({ "unbalanced-entry": 12, "empty-entry": 7, "reversal-mismatch": 1 }),
       failedSpaces: 0,

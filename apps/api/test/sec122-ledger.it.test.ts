@@ -75,7 +75,7 @@ describe("sec122 FIN-04 FR 2 / AC2: a posting set is written whole, in one trans
     ).not.toBe("ok");
   });
 
-  it("«as known at» a past moment does not change after that moment", async () => {
+  it("ARC-11 FR 17: «as known at» a past moment does not change after that moment", async () => {
     const s = await space();
     const entry = await transfer(s, "10", "2026-01-10");
     const before = await ledger.balanceAt(s.householdId, s.savings.id, "2026-12-31", {
@@ -152,7 +152,7 @@ describe("sec122 ARC-03: a space cannot write into or read another space's journ
 });
 
 describe("sec122 least privilege: only the ledger's own roles hold rights on its tables", () => {
-  it("no other role has any table privilege on ledger.*; the module role has SELECT and INSERT only", async () => {
+  it("ARC-11 FR 1, FR 13: no other role has any table privilege on ledger.*; the module role has SELECT and INSERT only", async () => {
     const { rows } = await db.owner.query<{ grantee: string; table_name: string; privilege_type: string }>(
       `SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants
         WHERE table_schema = 'ledger' AND grantee NOT IN ('ws_own_ledger') ORDER BY 1, 2, 3`,
@@ -230,7 +230,7 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
     expect(cols.rows).toEqual([]);
   });
 
-  it("every other module's role is refused reads and writes on the ledger tables", async () => {
+  it("ARC-11 FR 1: every other module's role is refused reads and writes on the ledger tables", async () => {
     const s = await space();
     for (const module of realModules.filter((m) => m !== "ledger")) {
       for (const sql of [
@@ -248,7 +248,7 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
     }
   });
 
-  it("append-only holds for the schema owner role (row policy hides every row) and the superuser (triggers)", async () => {
+  it("ARC-11 FR 13: append-only holds for the schema owner role (row policy hides every row) and the superuser (triggers)", async () => {
     const s = await space();
     const entry = await transfer(s, "4");
     for (const sql of [
@@ -277,7 +277,7 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
 });
 
 describe("sec122 FIN-04 FR 6 / AC4: a balance on a date never counts later-dated entries", () => {
-  it("an entry dated the next day, recorded first, is not in the balance; one dated the same day is", async () => {
+  it("ARC-11 FR 16, FR 17: an entry dated the next day, recorded first, is not in the balance; one dated the same day is", async () => {
     const s = await space();
     await transfer(s, "100", "2026-07-01");
     await transfer(s, "0.01", "2026-06-30");
@@ -290,7 +290,7 @@ describe("sec122 FIN-04 FR 6 / AC4: a balance on a date never counts later-dated
     );
   });
 
-  it("amounts are exact decimals end to end (no float rounding)", async () => {
+  it("ARC-11 FR 11: amounts are exact decimals end to end (no float rounding)", async () => {
     const s = await space();
     await transfer(s, "0.1");
     await transfer(s, "0.2");

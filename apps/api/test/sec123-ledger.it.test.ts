@@ -64,7 +64,7 @@ const entryCount = async (householdId: string) =>
       .rows[0].n,
   );
 
-describe("sec123 — correction (FIN-04 FR 5, AC3): atomic, never in place, the resulting balance is right", () => {
+describe("sec123 — correction (FIN-04 FR 5, AC3; ARC-11 FR 14): atomic, never in place, the resulting balance is right", () => {
   it("a replacement that fails leaves the original unreversed (reversal and new entry in one transaction)", async () => {
     const s = await space();
     const first = await ledger.post(s.householdId, spend(s, "-50"));

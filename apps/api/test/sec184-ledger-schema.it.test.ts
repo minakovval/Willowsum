@@ -37,8 +37,8 @@ async function problemsAfter(sql: string): Promise<string[]> {
 const KEY =
   "ALTER TABLE ledger.entries DROP CONSTRAINT entries_idempotency_key_code; ALTER TABLE ledger.entries ADD CONSTRAINT k";
 
-describe("sec184: the ledger free-text rule is deny-by-default", () => {
-  it("sec184: the real ledger schema still passes", async () => {
+describe("sec184 ARC-11 FR 2: the ledger free-text rule is deny-by-default", () => {
+  it("sec184 ARC-11 FR 2: the real ledger schema still passes", async () => {
     expect(await ledgerFreeTextProblems(owner)).toEqual([]);
   });
 

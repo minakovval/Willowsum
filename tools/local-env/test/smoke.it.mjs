@@ -10,7 +10,7 @@ const state = readState(STATE_DIR);
 if (!state) throw new Error('The local environment was never started: run `pnpm local:up` first.');
 const { values, envPath } = state;
 
-test('CICD-04 local / ARC-03 FR1: PostgreSQL 17 answers, in UTC, with NUMERIC(38,18) amounts', () => {
+test('CICD-04 FR 1, local / ARC-03 FR1: PostgreSQL 17 answers, in UTC, with NUMERIC(38,18) amounts', () => {
   assert.match(psql(envPath, values, 'show server_version'), /^17\./);
   assert.equal(psql(envPath, values, 'show timezone'), 'UTC');
   assert.equal(psql(envPath, values, "select '12345.678900000000000001'::numeric(38,18)"), '12345.678900000000000001');
@@ -22,7 +22,7 @@ test('CICD-04 local: PostgreSQL on the published port demands SCRAM-SHA-256 pass
   assert.ok(auth.mechanisms.includes('SCRAM-SHA-256'), auth.mechanisms.join(','));
 });
 
-test('CICD-04 local: mail sent over SMTP is caught locally and visible in the mail API', async () => {
+test('CICD-04 FR 1, local: mail sent over SMTP is caught locally and visible in the mail API', async () => {
   const subject = `ws-smoke-${token()}`;
   await sendMail(values, {
     user: values.WS_LOCAL_SMTP_USER,
@@ -54,7 +54,7 @@ test('CICD-04 local: the mail web UI and API refuse access without the generated
   assert.equal(res.status, 401);
 });
 
-test('CICD-04 local: S3 storage stores and returns an object with the generated key', async () => {
+test('CICD-04 FR 1, local: S3 storage stores and returns an object with the generated key', async () => {
   const url = s3Url(values, values.WS_LOCAL_S3_BUCKET, `smoke/${token()}.txt`);
   const content = `synthetic ${token()}`;
   const put = await s3Request(values, 'PUT', url, content);

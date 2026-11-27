@@ -38,7 +38,7 @@ const code = (p: Promise<unknown>) =>
   );
 
 describe("ARC-11: an event without a rule, or with an invalid date, is refused before anything is written", () => {
-  it("unknown event type", async () => {
+  it("ARC-11 FR 20: unknown event type", async () => {
     const event = { type: "gift", account: A, amount: Money.of("1", "EUR") } as unknown as LedgerEvent;
     // post() opens the transaction, then refuses inside it before any read or write.
     let reads = 0;
@@ -131,13 +131,13 @@ describe("FIN-04 FR 5, ARC-11: repeats and reversals are decided before anything
       } as never),
   });
 
-  it("ARC-11: a repeated idempotency key returns the entry it made without reading accounts or writing", async () => {
+  it("ARC-11 FR 10: a repeated idempotency key returns the entry it made without reading accounts or writing", async () => {
     const event = { type: "transaction" as const, account: A, amount: Money.of("-5", "EUR") };
     const input = { source: SOURCE, idempotencyKey: "k", operationDate: "2026-06-30", event };
     expect(await post({ store: stub({ entryByKey: ENTRY }), newId: () => A }, H1, input)).toBe(ENTRY);
   });
 
-  it("FIN-04 FR 5: an entry already reversed is not reversed again", async () => {
+  it("FIN-04 FR 5, ARC-11 FR 14: an entry already reversed is not reversed again", async () => {
     const store = stub({ entry: ENTRY, reversalOf: "00000000-0000-4000-8000-0000000000e9" });
     expect(await code(reverse({ store, newId: () => A }, H1, ENTRY.id, "k2"))).toBe("ALREADY_REVERSED");
   });
@@ -325,7 +325,7 @@ describe("ARC-11 «Баланси і продуктивність»: the balance
     event: { type: "transfer", from: B, to: A, amount: Money.of(amount, "EUR") } as LedgerEvent,
   });
 
-  it("ARC-11: each account's cache gets the entry's movement on its date, with the version it read, in the order of the ids", async () => {
+  it("ARC-11 FR 21: each account's cache gets the entry's movement on its date, with the version it read, in the order of the ids", async () => {
     const { store, tries } = cacheStore(0);
     await post({ store, newId: () => "00000000-0000-4000-8000-0000000000e1" }, H1, transfer("0.3"));
     expect(tries).toEqual([
@@ -334,7 +334,7 @@ describe("ARC-11 «Баланси і продуктивність»: the balance
     ]);
   });
 
-  it("ARC-11: a conflict is retried on the fresh version, so the concurrent entry's amount is not lost", async () => {
+  it("ARC-11 FR 22: a conflict is retried on the fresh version, so the concurrent entry's amount is not lost", async () => {
     const { store, tries } = cacheStore(2);
     await post({ store, newId: () => "00000000-0000-4000-8000-0000000000e1" }, H1, transfer("5"));
     expect(tries.map((t) => [t.account, t.expected])).toEqual([
@@ -345,7 +345,7 @@ describe("ARC-11 «Баланси і продуктивність»: the balance
     ]);
   });
 
-  it("ARC-11: an account that keeps conflicting refuses the entry (rolled back), never writes a stale cache", async () => {
+  it("ARC-11 FR 22: an account that keeps conflicting refuses the entry (rolled back), never writes a stale cache", async () => {
     const { store, tries } = cacheStore(BALANCE_ATTEMPTS);
     expect(
       await code(post({ store, newId: () => "00000000-0000-4000-8000-0000000000e1" }, H1, transfer("5"))),

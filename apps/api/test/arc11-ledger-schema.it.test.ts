@@ -41,11 +41,11 @@ async function problemsAfter(sql: string): Promise<string[]> {
 }
 
 describe("ARC-11@PoC criterion «Тексти, описи або назви мерчантів у таблицях журналу»: the CI schema check", () => {
-  it("ARC-11@PoC criterion «Тексти, описи або назви мерчантів у таблицях журналу»: the real ledger schema has no free text", async () => {
+  it("ARC-11@PoC FR 2, criterion «Тексти, описи або назви мерчантів у таблицях журналу»: the real ledger schema has no free text", async () => {
     expect(await ledgerFreeTextProblems(owner)).toEqual([]);
   });
 
-  it("ARC-11@PoC criterion «Тексти, описи або назви мерчантів у таблицях журналу»: a migration adding `description text` to ledger.entries fails", async () => {
+  it("ARC-11@PoC FR 2, criterion «Тексти, описи або назви мерчантів у таблицях журналу»: a migration adding `description text` to ledger.entries fails", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "ws-arc11-"));
     const scratch = await createTestDatabase();
     const client = new pg.Client({ connectionString: scratch.url });
@@ -99,7 +99,7 @@ describe("ARC-11@PoC criterion «Тексти, описи або назви ме
     },
   );
 
-  it("ARC-11@PoC criterion «Тексти, описи або назви мерчантів у таблицях журналу»: a listed code column without its code CHECK is refused", async () => {
+  it("ARC-11@PoC FR 2, criterion «Тексти, описи або назви мерчантів у таблицях журналу»: a listed code column without its code CHECK is refused", async () => {
     for (const [sql, column] of [
       ["ALTER TABLE ledger.postings DROP CONSTRAINT postings_currency_code", "ledger.postings.currency"],
       [
@@ -119,7 +119,7 @@ describe("ARC-11@PoC criterion «Тексти, описи або назви ме
       ]);
   });
 
-  it("ARC-11@PoC criterion «Тексти, описи або назви мерчантів у таблицях журналу»: the code CHECKs refuse text in the stored rows", async () => {
+  it("ARC-11@PoC FR 2, criterion «Тексти, описи або назви мерчантів у таблицях журналу»: the code CHECKs refuse text in the stored rows", async () => {
     const household = "00000000-0000-4000-8000-000000000001";
     for (const sql of [
       `INSERT INTO ledger.entries (household_id, id, source_module, source_id, event_type, operation_date,

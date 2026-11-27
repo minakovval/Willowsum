@@ -52,7 +52,7 @@ const advisory = (id, pkg, severity, version) => ({
 });
 const audit = (...advisories) => ({ advisories: Object.fromEntries(advisories.map((a, i) => [String(i), a])), metadata: {} });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: a High or Critical finding blocks; Medium is only reported', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: a High or Critical finding blocks; Medium is only reported', () => {
   const r = evaluateSast(
     { results: [semgrepResult('ws-eval', 'apps/api/src/x.ts', 3, 'ERROR', 'Critical'), semgrepResult('ws-other', 'apps/api/src/x.ts', 2, 'WARNING', 'Medium')], errors: [] },
     list(),
@@ -66,14 +66,14 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
   assert.equal(summarize('sast', evaluateSast({ results: [semgrepResult('ws-other', 'a.ts', 1, 'WARNING')], errors: [] }, list(), sourceOf), []).ok, true);
 });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: a rule or config error fails closed; a partly parsed file does not', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: a rule or config error fails closed; a partly parsed file does not', () => {
   const failed = evaluateSast({ results: [], errors: [{ level: 'error', message: 'Invalid YAML' }] }, list(), sourceOf);
   assert.equal(summarize('sast', failed, []).ok, false);
   const partial = evaluateSast({ results: [], errors: [{ level: 'warn', type: ['PartialParsing'] }] }, list(), sourceOf);
   assert.equal(summarize('sast', partial, []).ok, true);
 });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: an allowlisted finding passes only for its rule, file and code; a stale entry fails', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: an allowlisted finding passes only for its rule, file and code; a stale entry fails', () => {
   const report = { results: [semgrepResult('ws-sql-template-interpolation', 'apps/api/src/x.ts', 2)], errors: [] };
   const ok = evaluateSast(report, list([sastEntry()]), sourceOf);
   assert.equal(ok.blocking.length, 0);
@@ -89,7 +89,7 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
   assert.equal(evaluateSast({ results: [], errors: [] }, list([sastEntry()]), sourceOf, { fullScan: false }).stale.length, 0);
 });
 
-test('CICD-02@PoC criterion «Вразливості залежностей»: High and Critical in production dependencies block; Moderate is only reported', () => {
+test('CICD-02@PoC FR 14 «Вразливості залежностей»: High and Critical in production dependencies block; Moderate is only reported', () => {
   const r = evaluateSca(audit(advisory('GHSA-aaaa-bbbb-cccc', 'pg', 'high', '8.0.0'), advisory('GHSA-cccc-dddd-ffff', 'zod', 'critical', '4.0.0'), advisory('GHSA-g3hv-75wg-m249', 'minimatch', 'moderate', '9.0.5')), list());
   assert.deepEqual(r.blocking.map((f) => f.package), ['pg', 'zod']);
   assert.equal(r.reported.length, 1);
@@ -99,13 +99,13 @@ test('CICD-02@PoC criterion «Вразливості залежностей»: H
   assert.equal(summarize('sca', evaluateSca(audit(), list()), []).ok, true);
 });
 
-test('CICD-02@PoC criterion «Вразливості залежностей»: output that is not an audit report (registry down, error) fails closed', () => {
+test('CICD-02@PoC FR 14 «Вразливості залежностей»: output that is not an audit report (registry down, error) fails closed', () => {
   for (const bad of [null, {}, { error: { code: 'ERR_PNPM_AUDIT_BAD_RESPONSE', message: 'down' } }]) {
     assert.equal(summarize('sca', evaluateSca(bad, list()), []).ok, false);
   }
 });
 
-test('CICD-02@PoC criterion «Вразливості залежностей»: an exception needs the owner and a review date', () => {
+test('CICD-02@PoC FR 14 «Вразливості залежностей»: an exception needs the owner and a review date', () => {
   assert.deepEqual(validateAllowlist(list([], [scaEntry()]), TODAY), []);
   assert.match(validateAllowlist(list([], [scaEntry({ decision: LEAD })]), TODAY).join('\n'), /needs the owner's decision/);
   assert.match(validateAllowlist(list([], [scaEntry({ kind: 'false-positive' })]), TODAY).join('\n'), /never a false positive/);

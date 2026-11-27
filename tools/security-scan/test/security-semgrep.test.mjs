@@ -44,7 +44,7 @@ function expectations(file) {
     });
 }
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: every rule finds its known-bad snippet, as High or Critical', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: every rule finds its known-bad snippet, as High or Critical', () => {
   const dir = workdir(/^bad\./);
   try {
     const found = scan(dir);
@@ -66,7 +66,7 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
   }
 });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: the safe forms the codebase uses give no finding', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: the safe forms the codebase uses give no finding', () => {
   const dir = workdir(/^good\./);
   try {
     assert.deepEqual(scan(dir), []);
@@ -75,7 +75,7 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
   }
 });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: a High finding fails the job (exit 1, annotation on the line); an inline nosemgrep does not hide it', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: a High finding fails the job (exit 1, annotation on the line); an inline nosemgrep does not hide it', () => {
   const dir = workdir(/^bad\.ts\./);
   try {
     // An inline suppression without a reason or review date is ignored (--disable-nosem): accepted findings go to the allowlist.
@@ -92,7 +92,7 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
   }
 });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: safe code passes the job (exit 0)', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: safe code passes the job (exit 0)', () => {
   const dir = workdir(/^good\./);
   try {
     const run = spawnSync(process.execPath, [CLI, 'sast', '--semgrep', SEMGREP, dir], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });

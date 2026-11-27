@@ -404,7 +404,7 @@ describe("IMP-04@PoC FR 9: an imported transaction is hidden, never deleted (rev
     return rows[0]!.n;
   }
 
-  it("FIN-03@PoC AC9, IMP-04@PoC FR 9: «Видалити» of an imported row hides it — the row and its journal entry stay, and the same statement applied again adds nothing", async () => {
+  it("FIN-03@PoC AC9, IMP-04@PoC FR 9, JRN-06 FR 1: «Видалити» of an imported row hides it — the row and its journal entry stay, and the same statement applied again adds nothing", async () => {
     const space = await newSpace();
     // The account's journal account exists (as module accounts opens it), so the rows' entries are posted.
     const sub = accountsOf.get(`${space.householdId}/${space.eur}`)!.subaccounts[0]!;

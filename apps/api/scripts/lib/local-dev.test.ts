@@ -20,7 +20,7 @@ import {
 
 const LINK_KEY = Buffer.alloc(32, 7).toString("base64");
 
-describe("CICD-04: pnpm local:dev — the whole app locally with one command", () => {
+describe("CICD-04 FR 1: pnpm local:dev — the whole app locally with one command", () => {
   it("takes only --fresh", () => {
     expect(parseLocalDevArgs([])).toEqual({ fresh: false });
     expect(parseLocalDevArgs(["--fresh"])).toEqual({ fresh: true });

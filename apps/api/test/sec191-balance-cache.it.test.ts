@@ -50,7 +50,7 @@ async function bypassPosting(householdId: string, debit: string, credit: string)
 }
 
 describe("sec191: the commit-time trigger guards both sides of a posting", () => {
-  it("a posting that skips the cache is refused when only its credit, or only its debit, account has a cache", async () => {
+  it("ARC-11 FR 21: a posting that skips the cache is refused when only its credit, or only its debit, account has a cache", async () => {
     const householdId = randomUUID();
     const open = () =>
       ledger.openAccount(

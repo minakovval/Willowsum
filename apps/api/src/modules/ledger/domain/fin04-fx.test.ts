@@ -61,7 +61,7 @@ const transfer: LedgerEvent = {
 };
 
 describe("FIN-04@PoC EC1: an event in another currency than the account is posted through «Валютна різниця»", () => {
-  it("FIN-04@PoC EC1: a spending of 100 USD settled as 93.10 EUR — one balanced pair per currency, actual amounts kept", () => {
+  it("FIN-04@PoC EC1, ARC-11 FR 8: a spending of 100 USD settled as 93.10 EUR — one balanced pair per currency, actual amounts kept", () => {
     const postings = postingsFor(spending);
     expect(shown(postings)).toEqual([
       ["s:fx-difference", `a:${EUR_ACCOUNT}`, "93.1", "EUR"],
@@ -86,7 +86,7 @@ describe("FIN-04@PoC EC1: an event in another currency than the account is poste
     ]);
   });
 
-  it("FIN-04@PoC EC1: the entry keeps the rate with its date and source, the converted amount and the difference", () => {
+  it("FIN-04@PoC EC1, ARC-11 FR 8: the entry keeps the rate with its date and source, the converted amount and the difference", () => {
     const [c, ...rest] = conversionsFor(spending, "2026-06-15");
     expect(rest).toEqual([]);
     // The account's amount (EUR) converted into the entry's currency (USD) at 1 EUR = 1.08 USD: 100.548 USD.
@@ -110,7 +110,7 @@ describe("FIN-04@PoC EC1: an event in another currency than the account is poste
     expect(conversionDifference(t!).toDecimalString()).toBe("-1.85");
   });
 
-  it("FIN-04@PoC EC1: exact decimals — the posted amounts as given, the converted one at the 18-decimal storage scale", () => {
+  it("FIN-04@PoC EC1, ARC-11 FR 11: exact decimals — the posted amounts as given, the converted one at the 18-decimal storage scale", () => {
     const rate = exchangeRate({
       base: "EUR",
       quote: "USD",

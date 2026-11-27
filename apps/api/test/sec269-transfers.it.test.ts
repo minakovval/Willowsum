@@ -377,7 +377,7 @@ describe("PR #269 security probes", () => {
     expect(await count(theirs.space.householdId)).toBe(1);
   });
 
-  it("SEC-269 money: a currency transfer posts fx-transfer with the stored dated NBU rate; nothing passes through a JS number", async () => {
+  it("SEC-269 money, ARC-11 FR 8: a currency transfer posts fx-transfer with the stored dated NBU rate; nothing passes through a JS number", async () => {
     const space = await newSpace();
     const a = await createAccount(space, "2000.00");
     const u = await createAccount(space, "0.00", "UAH");
