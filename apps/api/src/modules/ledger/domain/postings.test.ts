@@ -1,4 +1,5 @@
-import { Decimal, Money } from "@willowsum/domain-kernel";
+import { readdirSync, readFileSync } from "node:fs";
+import { Decimal, exchangeRate, Money } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
 import {
   assertBalanced,
@@ -8,6 +9,7 @@ import {
   postingsFor,
   refKey,
   reversalOf,
+  RULES_VERSION,
   type AccountRef,
   type LedgerEvent,
   type Posting,
@@ -263,5 +265,76 @@ describe("FIN-04 FR 6: a balance has the sign of its account type", () => {
     expect(naturalBalance("liability", d, c).toDecimalString()).toBe("-69.5");
     expect(naturalBalance("equity", d, c).toDecimalString()).toBe("-69.5");
     expect(naturalBalance("income", d, c).toDecimalString()).toBe("-69.5");
+  });
+});
+
+/** One event of every type the rules know (synthetic ids and amounts); a new type without a sample fails FR 18 below. */
+const SAMPLES: { readonly [T in LedgerEvent["type"]]: Extract<LedgerEvent, { type: T }> } = {
+  transaction: { type: "transaction", account: A, amount: eur("-42.17"), fee: eur("0.50") },
+  transfer: { type: "transfer", from: A, to: B, amount: eur("100") },
+  "opening-balance": { type: "opening-balance", account: A, amount: eur("1000") },
+  "balance-adjustment": { type: "balance-adjustment", account: B, amount: eur("-3.5") },
+  "asset-purchase": { type: "asset-purchase", asset: ASSET, account: A, amount: eur("250000") },
+  "asset-revaluation": { type: "asset-revaluation", asset: ASSET, change: eur("12000") },
+  "asset-sale": { type: "asset-sale", asset: ASSET, account: A, proceeds: eur("300"), basis: eur("250") },
+  "mortgage-payment": {
+    type: "mortgage-payment",
+    liability: LIAB,
+    interestExpense: INTEREST,
+    account: B,
+    principal: eur("800"),
+    interest: eur("200"),
+  },
+  "rental-income": { type: "rental-income", account: A, income: RENT, amount: eur("900") },
+  "fx-transaction": {
+    type: "fx-transaction",
+    account: A,
+    amount: Money.of("-100", "USD"),
+    settled: eur("-93.10"),
+    rate: exchangeRate({ base: "EUR", quote: "USD", rate: "1.08", date: "2026-06-15", source: "synthetic" }),
+  },
+  "fx-transfer": {
+    type: "fx-transfer",
+    from: USD_ACCOUNT,
+    to: A,
+    sent: Money.of("500", "USD"),
+    received: eur("461.25"),
+    rate: exchangeRate({ base: "EUR", quote: "USD", rate: "1.08", date: "2026-06-15", source: "synthetic" }),
+  },
+  legs: { type: "legs", legs: [{ account: A, amount: eur("-10") }], fee: { account: A, amount: eur("1") } },
+};
+
+describe("ARC-11 «Правила проводок»: a versioned table of pure functions in the ledger's domain layer", () => {
+  it("ARC-11@PoC FR 18: one version number for the table, and a rule for every event type it lists", () => {
+    expect(Number.isInteger(RULES_VERSION) && RULES_VERSION >= 1).toBe(true);
+    // The table is the list of event types; each has a rule that gives a posting set.
+    expect([...EVENT_TYPES].sort()).toEqual(Object.keys(SAMPLES).sort());
+    for (const type of EVENT_TYPES) expect(postingsFor(SAMPLES[type]).length, type).toBeGreaterThan(0);
+  });
+
+  it("ARC-11@PoC FR 18: every rule is a pure function — the same event gives the same postings, and the event is not changed", () => {
+    for (const type of EVENT_TYPES) {
+      const event = SAMPLES[type];
+      const before = JSON.stringify(event);
+      const first = shown(postingsFor(event));
+      expect(shown(postingsFor(event)), type).toEqual(first);
+      expect(JSON.stringify(event), type).toBe(before);
+    }
+  });
+
+  it("ARC-11@PoC FR 18: the domain layer reads no database, clock, network or environment — it imports the kernel and itself only", () => {
+    const dir = new URL(".", import.meta.url);
+    const sources = readdirSync(dir).filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"));
+    expect(sources).toContain("rules.ts");
+    for (const file of sources) {
+      const text = readFileSync(new URL(file, dir), "utf8");
+      const imports = [...text.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]!);
+      for (const from of imports)
+        expect(
+          from === "@willowsum/domain-kernel" || /^\.\/[a-z0-9-]+\.ts$/.test(from),
+          `${file}: ${from}`,
+        ).toBe(true);
+      expect(text, file).not.toMatch(/\bDate\.now\(|new Date\(|process\.env|Math\.random\(/);
+    }
   });
 });

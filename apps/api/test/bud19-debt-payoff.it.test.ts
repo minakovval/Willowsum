@@ -495,7 +495,13 @@ describe("FLW-44@PoC: a credit card in the payoff plan with the user's «Зме�
     });
     // The account's own data is not changed (FR 3): its rate stays, it gets no payment.
     const account = (await call(space, "GET", `/v1/accounts/${visa}`)).json();
-    expect(JSON.stringify(account)).not.toContain('"200');
+    expect(account).toMatchObject({
+      kind: "credit-card",
+      loan: null,
+      creditCard: { annualRate: "24", creditLimit: null, debt: eur("800"), available: null },
+      currencies: [{ currency: "EUR", balance: eur("-800") }],
+      adjustments: [],
+    });
     expect(await planAudit(space.householdId, "create")).toBe(1);
     // A rate for a card is refused on save too.
     const rated = await call(space, "PUT", `/v1/debts/${visa}/plan`, { annualRate: "24" });
