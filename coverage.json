@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-27T10:18:21.212Z",
-  "sha": "42aa23b44876a1ee46b552baf14dc07717e0b63c",
+  "generatedAt": "2026-11-27T11:02:03.199Z",
+  "sha": "2ffbef9b134b3ade3367a57d5eff82dfe152cd1c",
   "releases": [
     {
       "release": "PoC",
@@ -12,15 +12,15 @@
         "total": 1428
       },
       "AC": {
-        "covered": 686,
+        "covered": 687,
         "total": 1134
       },
       "EC": {
-        "covered": 130,
+        "covered": 131,
         "total": 211
       },
       "items": {
-        "covered": 1679,
+        "covered": 1681,
         "total": 2773
       }
     },
@@ -32,15 +32,15 @@
         "total": 1205
       },
       "AC": {
-        "covered": 388,
+        "covered": 389,
         "total": 1036
       },
       "EC": {
-        "covered": 88,
+        "covered": 89,
         "total": 245
       },
       "items": {
-        "covered": 904,
+        "covered": 906,
         "total": 2486
       }
     },
@@ -52,15 +52,15 @@
         "total": 3400
       },
       "AC": {
-        "covered": 480,
+        "covered": 481,
         "total": 3003
       },
       "EC": {
-        "covered": 101,
+        "covered": 102,
         "total": 723
       },
       "items": {
-        "covered": 1098,
+        "covered": 1100,
         "total": 7126
       }
     },
@@ -72,15 +72,15 @@
         "total": 692
       },
       "AC": {
-        "covered": 22,
+        "covered": 23,
         "total": 663
       },
       "EC": {
-        "covered": 12,
+        "covered": 13,
         "total": 207
       },
       "items": {
-        "covered": 54,
+        "covered": 56,
         "total": 1562
       }
     },
@@ -3499,15 +3499,15 @@
         "total": 17
       },
       "AC": {
-        "covered": 4,
+        "covered": 5,
         "total": 8
       },
       "EC": {
-        "covered": 0,
+        "covered": 1,
         "total": 1
       },
       "items": {
-        "covered": 13,
+        "covered": 15,
         "total": 26
       },
       "fingerprintErrors": 0,
