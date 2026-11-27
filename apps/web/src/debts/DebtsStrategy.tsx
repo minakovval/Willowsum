@@ -6,7 +6,9 @@ import { useStrategies, type Debt, type Strategies } from "./api.ts";
 import { formatAmount, formatMonth, money } from "./format.ts";
 import {
   initialEntries,
+  isCard,
   minimumTotal,
+  needsEntry,
   parseRate,
   strategyCurrencies,
   strategyDebts,
@@ -25,7 +27,9 @@ const KINDS: readonly { id: Kind; label: MessageKey; hint: MessageKey }[] = [
  * and the switch «Avalanche» / «Snowball». Both strategies are calculated together by the server
  * (`POST /v1/debts/strategy`); the difference is shown neutrally, with no «recommended» mark and no advice.
  * The minimum payments are fixed: a debt's own payment, or for a debt that has none (a credit card: FIN-01 gives it no
- * payment; owner 2026-11-16, «3 а») the minimum payment and the rate entered here, sent as `debts[]`.
+ * payment; owner 2026-11-16, «3 а») the minimum payment and the rate entered here, sent as `debts[]`. A credit card
+ * takes part with its «Зменшувати на … / міс.» as a fixed payment and no rate (FLW-44@PoC FR 4, owner decision
+ * 2026-11-27): from its saved plan, or entered here; without it, the card takes no part.
  */
 export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
   const { t, locale } = useI18n();
@@ -35,7 +39,7 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
   const currency =
     picked && currencies.includes(picked) ? picked : (currencies[0] ?? debts[0]!.balance.currency);
   const minimum = minimumTotal(debts, currency, entries);
-  const needs = debts.filter((d) => d.monthlyPayment === null || d.annualRate === null);
+  const needs = debts.filter(needsEntry);
   const [typed, setTyped] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>("avalanche");
   const group = useId();
@@ -117,7 +121,16 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
             return (
               <div key={d.accountId} className="debts-fields">
                 <span className="debts-strong">{d.name}</span>
-                {d.annualRate === null ? (
+                {isCard(d) ? (
+                  <AmountField
+                    label={t("debts.strategy.cardAmountOf", { name: d.name })}
+                    value={e.min}
+                    currency={d.balance.currency}
+                    hint={t("debts.card.amountHint")}
+                    onChange={(min) => set({ min })}
+                  />
+                ) : null}
+                {!isCard(d) && d.annualRate === null ? (
                   <Field
                     label={t("debts.strategy.rateOf", { name: d.name })}
                     value={e.rate}
@@ -126,7 +139,7 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
                     error={e.rate !== "" && parseRate(e.rate) === null ? t("debts.plan.rateError") : null}
                   />
                 ) : null}
-                {d.monthlyPayment === null ? (
+                {!isCard(d) && d.monthlyPayment === null ? (
                   <AmountField
                     label={t("debts.strategy.minOf", { name: d.name })}
                     value={e.min}
@@ -272,7 +285,9 @@ function Order({ debts, result, kind }: { debts: readonly Debt[]; result: Strate
                   {d.annualRate === null ? "—" : formatPercent(locale, d.annualRate, { digits: 1 })}
                 </td>
                 <td data-label={t("debts.strategy.col.min")} className="debts-num">
-                  {d.monthlyPayment === null ? "—" : money(locale, d.monthlyPayment)}
+                  {(isCard(d) ? d.cardMonthlyAmount : d.monthlyPayment) === null
+                    ? "—"
+                    : money(locale, (isCard(d) ? d.cardMonthlyAmount : d.monthlyPayment)!)}
                 </td>
                 <td data-label={t("debts.col.payoff")}>
                   <span className="debts-stack">

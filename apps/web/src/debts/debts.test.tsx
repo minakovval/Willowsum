@@ -21,6 +21,7 @@ const loan: Debt = {
   balance: eur("4100.00"),
   annualRate: "9.9",
   monthlyPayment: eur("310.00"),
+  cardMonthlyAmount: null,
   termsMissing: false,
   base: {
     status: "paid",
@@ -33,14 +34,14 @@ const loan: Debt = {
   progress: { paidPercent: 34, remainingMonths: 15, plan: { status: "ahead", amount: eur("80.00") } },
   plan: null,
 };
-const card: Debt = {
+/** A loan whose 90 € does not cover the month's interest of 100 € (FR 3). */
+const stuckLoan: Debt = {
+  ...loan,
   accountId: CARD,
-  kind: "credit-card",
   name: "Універсальна",
   balance: eur("5000.00"),
   annualRate: "24",
   monthlyPayment: eur("90.00"),
-  termsMissing: false,
   base: {
     status: "not-decreasing",
     months: null,
@@ -50,7 +51,34 @@ const card: Debt = {
     cappedOneOffs: [],
   },
   progress: { paidPercent: 27, remainingMonths: null, plan: { status: "behind", amount: eur("15.50") } },
+};
+/** A credit card without «Зменшувати на … / міс.» (FLW-44@PoC FR 1): no rate, no payment, no calculation yet. */
+const card: Debt = {
+  accountId: CARD,
+  kind: "credit-card",
+  name: "Універсальна",
+  balance: eur("800.00"),
+  annualRate: null,
+  monthlyPayment: null,
+  cardMonthlyAmount: null,
+  termsMissing: true,
+  base: null,
+  progress: { paidPercent: 27, remainingMonths: null, plan: { status: "behind", amount: eur("15.50") } },
   plan: null,
+};
+/** The same card with 200 € a month: 800 ÷ 200 — 4 months, no interest (FLW-44@PoC AC9). */
+const cardWithAmount: Debt = {
+  ...card,
+  cardMonthlyAmount: eur("200.00"),
+  termsMissing: false,
+  base: {
+    status: "paid",
+    months: 4,
+    payoffMonth: "2027-03",
+    totalInterest: eur("0"),
+    schedule: [],
+    cappedOneOffs: [],
+  },
 };
 const parents: Debt = {
   accountId: PARENTS,
@@ -59,6 +87,7 @@ const parents: Debt = {
   balance: eur("600.00"),
   annualRate: null,
   monthlyPayment: null,
+  cardMonthlyAmount: null,
   termsMissing: true,
   base: null,
   progress: { paidPercent: 60, remainingMonths: null, plan: { status: "none", amount: null } },
@@ -152,7 +181,7 @@ describe("BUD-19@PoC S-143 «Борги»", () => {
   });
 
   it("BUD-19@PoC FR 3: a debt whose payment does not cover the monthly interest shows no date — «За цих умов борг не зменшується»", async () => {
-    renderAt("#/planning/debts", withDebts([{ ...card, kind: "loan" }]).client);
+    renderAt("#/planning/debts", withDebts([stuckLoan]).client);
     const note = await screen.findByText("«Універсальна»: за цих умов борг не зменшується.");
     expect(note.closest('[role="note"]')).toBeTruthy();
     const row = screen.getAllByText("Універсальна")[0]!.closest("tr")!;
@@ -163,21 +192,33 @@ describe("BUD-19@PoC S-143 «Борги»", () => {
     );
   });
 
-  it("FLW-44@PoC FR 1: a credit card shows only its balance — no rate, payment, end date, progress or «не зменшується» note, and the summary does not say «крім» for it", async () => {
+  it("FLW-44@PoC FR 1, AC8: a credit card without «Зменшувати на … / міс.» shows its balance and the hint to enter it — no rate, payment, end date or «не зменшується» note", async () => {
     renderAt("#/planning/debts", withDebts([loan, card]).client);
     const row = (await screen.findByText("Універсальна")).closest("tr")!;
-    expect(within(row).getByText("5 000,00 €")).toBeTruthy();
+    expect(within(row).getByText("800,00 €")).toBeTruthy();
     expect(within(row).queryByText(/%/)).toBeNull();
-    expect(within(row).queryByText("90,00 €")).toBeNull();
     expect(within(row).queryByText(/через|Борг не зменшується|Немає ставки/)).toBeNull();
-    expect(within(row).queryByRole("progressbar")).toBeNull();
-    expect(within(row).getAllByText("—").length).toBe(4);
+    const hint = within(row).getByRole("link", { name: "Вкажіть, скільки щомісяця гасите з картки" });
+    expect(hint.getAttribute("href")).toBe("#/planning/debts/plan");
     expect(screen.queryByText(/Універсальна»: за цих умов/)).toBeNull();
     const summary = screen.getByRole("region", { name: "Підсумок боргів" });
     expect(within(summary).getByText("Боргів").nextElementSibling?.textContent).toBe("2");
-    expect(within(summary).queryByText(/крім/)).toBeNull();
+    // Рішення ведучого (2026-11-27; власник не схвалював; FLW-44 code): the card without the amount is not in the
+    // debt-free date, so the summary names it after «крім».
+    expect(plain(within(summary).getByText(/крім/).textContent)).toContain("крім: Універсальна");
     // The loan beside it keeps every column.
     expect(within(screen.getByText("Автокредит").closest("tr")!).getByText(/через/)).toBeTruthy();
+  });
+
+  it("FLW-44@PoC AC9, FR 1: a card of 800 € with 200 € a month shows the amount and its end date in 4 months; still no rate", async () => {
+    renderAt("#/planning/debts", withDebts([loan, cardWithAmount]).client);
+    const row = (await screen.findByText("Універсальна")).closest("tr")!;
+    expect(within(row).getByText("200,00 €")).toBeTruthy();
+    expect(row.querySelector('[data-label="Ставка"]')?.textContent).toBe("—");
+    expect(plain(within(row).getByText(/через/).textContent)).toBe("через 4 міс.");
+    expect(within(row).getByText(/березень 2027|бер/)).toBeTruthy();
+    const summary = screen.getByRole("region", { name: "Підсумок боргів" });
+    expect(within(summary).queryByText(/крім/)).toBeNull();
   });
 
   it("BUD-19@PoC FR 10: the result is marked «Розрахунок за введеними даними, не фінансова порада»", async () => {
@@ -292,11 +333,12 @@ const stuck = {
   schedule: [],
   cappedOneOffs: [] as string[],
 };
+// Rated loans (BUD-19 AC1, AC3 after #733: «Visa Loan», «Mastercard Loan»).
 const visa: Debt = {
   ...loan,
   accountId: VISA,
-  kind: "credit-card",
-  name: "Visa",
+  kind: "loan",
+  name: "Visa Loan",
   balance: at("5000.00"),
   annualRate: "24",
   monthlyPayment: at("250.00"),
@@ -306,7 +348,7 @@ const visa: Debt = {
 const master: Debt = {
   ...visa,
   accountId: MASTER,
-  name: "Mastercard",
+  name: "Mastercard Loan",
   balance: at("1500.00"),
   annualRate: "18",
   monthlyPayment: at("40.00"),
@@ -327,7 +369,7 @@ const planApi = (over: Parameters<typeof fakeApi>[0] = {}) =>
 const field = (name: RegExp) => screen.getByRole("textbox", { name });
 
 describe("BUD-19@PoC S-144 «План погашення»", () => {
-  it("BUD-19@PoC AC1: «Visa» 5 000 € at 24 % and 250 € — «Погашення через 26 міс.», the month, «Відсотки за весь строк», marked as a calculation", async () => {
+  it("BUD-19@PoC AC1: «Visa Loan» 5 000 € at 24 % and 250 € — «Погашення через 26 міс.», the month, «Відсотки за весь строк», marked as a calculation", async () => {
     const api = planApi();
     renderTab("plan", api.client);
     expect(await screen.findByText("Погашення через 26 міс.")).toBeTruthy();
@@ -340,7 +382,7 @@ describe("BUD-19@PoC S-144 «План погашення»", () => {
     expect(api.calls.find((c) => c.path === `/v1/debts/${VISA}/scenario`)?.body).toEqual({});
   });
 
-  it("BUD-19@PoC FR 1: the card has «Додатковий платіж / міс.», «Додати разовий платіж», «Як рахуємо» and the link to the account's settings", async () => {
+  it("BUD-19@PoC FR 1: the debt has «Додатковий платіж / міс.», «Додати разовий платіж», «Як рахуємо» and the link to the account's settings", async () => {
     renderTab("plan", planApi().client);
     await screen.findByText("Погашення через 26 міс.");
     expect(field(/Додатковий платіж/)).toBeTruthy();
@@ -430,7 +472,7 @@ describe("BUD-19@PoC S-144 «План погашення»", () => {
     expect(screen.queryByText(/2029|2028/)).toBeNull();
   });
 
-  it("BUD-19@PoC AC5: a card without a payment asks for the rate and the payment; nothing is calculated until both are there", async () => {
+  it("BUD-19@PoC FR 2: a debt without a rate or a payment asks for both; nothing is calculated until both are there", async () => {
     const api = fakeApi({
       "GET /v1/debts": { status: 200, body: { debts: [parents] } },
       [scenarioPath(PARENTS)]: {
@@ -590,7 +632,7 @@ describe("BUD-19@PoC S-144 «План погашення»", () => {
     expect(await screen.findByText("Розрахунок перевищує 100 років — збільште платіж")).toBeTruthy();
   });
 
-  it("BUD-19@PoC FR 1: with several debts the card is chosen from the list and shows that debt's terms", async () => {
+  it("BUD-19@PoC FR 1: with several debts the debt is chosen from the list and shows that debt's terms", async () => {
     const api = fakeApi({
       "GET /v1/debts": { status: 200, body: { debts: [visa, master] } },
       [scenarioPath(VISA)]: { status: 200, body: { base: visa.base, scenario: visa.base, saving: null } },
@@ -632,7 +674,7 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
     excluded: [{ accountId: PARENTS, reason: "terms-missing" }],
     included: [VISA, MASTER],
   };
-  // A credit card has no payment of its own (FIN-01): the minimum is entered on the screen.
+  // Loans without a payment of their own: the minimum is entered on the screen (FR 2).
   const v100: Debt = { ...visa, monthlyPayment: null };
   const m40: Debt = { ...master, monthlyPayment: null };
   const minimum = (name: string) =>
@@ -668,7 +710,7 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
     });
   });
 
-  it("BUD-19@PoC AC3: 340 € for the two cards — Avalanche 24 міс. / 1 581,51 €, Snowball 25 міс. / 1 728,57 €; the difference 147,06 € is neutral, with no «рекомендовано»", async () => {
+  it("BUD-19@PoC AC3: 340 € for the two loans — Avalanche 24 міс. / 1 581,51 €, Snowball 25 міс. / 1 728,57 €; the difference 147,06 € is neutral, with no «рекомендовано»", async () => {
     const api = strategyApi();
     await enterMinimums(api);
     fireEvent.change(await screen.findByRole("textbox", { name: /Усього на борги/ }), {
@@ -698,7 +740,7 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
         .slice(1)
         .map((r) => plain(r.textContent));
     expect(screen.getByRole("heading", { name: "Порядок погашення · Avalanche" })).toBeTruthy();
-    expect(rowsOf()[0]).toContain("Mastercard");
+    expect(rowsOf()[0]).toContain("Mastercard Loan");
     expect(rowsOf()[0]).toContain("через 13 міс.");
     fireEvent.click(screen.getByRole("radio", { name: /Snowball/ }));
     expect(screen.getByRole("heading", { name: "Порядок погашення · Snowball" })).toBeTruthy();
@@ -706,7 +748,7 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
     expect((screen.getByRole("radio", { name: /Snowball/ }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it("BUD-19@PoC AC5: a card without a minimum payment is asked for it and takes no part until it is entered; the debt the server leaves out says why", async () => {
+  it("BUD-19@PoC FR 2: a debt without a minimum payment is asked for it and takes no part until it is entered; the debt the server leaves out says why", async () => {
     const api = strategyApi();
     renderTab("strategy", api.client);
     expect(await screen.findByText(/Вкажіть мінімальний платіж і ставку/)).toBeTruthy();
@@ -787,5 +829,142 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("Не вдалося розрахувати стратегії");
     fireEvent.click(screen.getByRole("button", { name: "Спробувати ще раз" }));
     expect(await screen.findByText("Усі борги погашено за 24 міс.")).toBeTruthy();
+  });
+});
+
+/**
+ * FLW-44@PoC / BUD-19@PoC: a credit card in «План погашення» and «Стратегія» with the user's «Зменшувати на … / міс.»
+ * (owner decision 2026-11-27). Texts «Зменшувати на … / міс.» and «Вкажіть, скільки щомісяця гасите з картки» —
+ * варіант від агента, потребує погодження (canvas PocPlanDebtsTexts).
+ */
+describe("FLW-44@PoC a credit card with «Зменшувати на … / міс.»", () => {
+  const noInterest = calc(4, "2027-03", "0", [
+    ["2026-12", "600.00"],
+    ["2027-01", "400.00"],
+    ["2027-02", "200.00"],
+    ["2027-03", "0"],
+  ]);
+
+  it("BUD-19@PoC AC5, FLW-44@PoC AC8: a card without the amount asks for it — no rate and no regular payment field; nothing is calculated until it is entered", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [card] } },
+      [scenarioPath(CARD)]: { status: 200, body: { base: noInterest, scenario: noInterest, saving: null } },
+    });
+    renderTab("plan", api.client);
+    // The prompt in place of the result and the field's hint.
+    expect(await screen.findAllByText("Вкажіть, скільки щомісяця гасите з картки")).toHaveLength(2);
+    const amount = field(/Зменшувати на … \/ міс\./);
+    expect(amount.getAttribute("value")).toBe("");
+    expect(field(/Залишок/).getAttribute("value")).toMatch(/800,00/);
+    expect(screen.queryByRole("textbox", { name: /Ставка річних/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Регулярний платіж/ })).toBeNull();
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    fireEvent.change(amount, { target: { value: "200" } });
+    expect(await screen.findByText("Погашення через 4 міс.")).toBeTruthy();
+    expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({ monthlyPayment: "200.00" });
+  });
+
+  it("FLW-44@PoC AC9: 800 € at 200 € a month — «Погашення через 4 міс.», no interest; «Зберегти план» keeps the amount as the card's plan setting", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [card] } },
+      [scenarioPath(CARD)]: { status: 200, body: { base: noInterest, scenario: noInterest, saving: null } },
+      [`PUT /v1/debts/${CARD}/plan`]: { status: 200, body: {} },
+    });
+    renderTab("plan", api.client);
+    fireEvent.change(await screen.findByRole("textbox", { name: /Зменшувати на/ }), {
+      target: { value: "200" },
+    });
+    expect(await screen.findByText("Погашення через 4 міс.")).toBeTruthy();
+    expect(plain(screen.getByText(/березень 2027/).textContent)).toContain("відсотки за весь строк 0,00 €");
+    // The amount alone is the card's base, not a scenario beside it.
+    expect(screen.getAllByText(/Погашення через/)).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Зберегти план" }));
+    expect(await screen.findByText("План збережено")).toBeTruthy();
+    expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+      monthlyPayment: "200.00",
+      addToPlannedExpenses: false,
+    });
+  });
+
+  it("FLW-44@PoC FR 1: a card with its saved amount starts from it and sends no override", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [cardWithAmount] } },
+      [scenarioPath(CARD)]: { status: 200, body: { base: noInterest, scenario: noInterest, saving: null } },
+    });
+    renderTab("plan", api.client);
+    expect(await screen.findByText("Погашення через 4 міс.")).toBeTruthy();
+    expect(field(/Зменшувати на/).getAttribute("value")).toMatch(/200,00/);
+    expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({});
+  });
+
+  const both = {
+    avalanche: {
+      status: "paid",
+      months: 30,
+      payoffMonth: "2029-05",
+      totalInterest: at("1100.00"),
+      debts: [
+        { accountId: CARD, months: 4, payoffMonth: "2027-03" },
+        { accountId: VISA, months: 30, payoffMonth: "2029-05" },
+      ],
+    },
+    snowball: {
+      status: "paid",
+      months: 30,
+      payoffMonth: "2029-05",
+      totalInterest: at("1120.00"),
+      debts: [
+        { accountId: CARD, months: 2, payoffMonth: "2027-01" },
+        { accountId: VISA, months: 30, payoffMonth: "2029-05" },
+      ],
+    },
+    excluded: [],
+    included: [VISA, CARD],
+  };
+  const rated: Debt = { ...visa, monthlyPayment: at("150.00") };
+
+  it("FLW-44@PoC AC9, FR 4: the card's 200 € is in «Усього на борги / міс.» and its end date is in the order; less than the payments — the warning, nothing calculated", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [rated, cardWithAmount] } },
+      "POST /v1/debts/strategy": { status: 200, body: both },
+    });
+    renderTab("strategy", api.client);
+    const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
+    expect(total.getAttribute("value")).toMatch(/350,00/);
+    // A card with its amount asks for nothing.
+    expect(screen.queryByRole("textbox", { name: /Зменшувати на/ })).toBeNull();
+    expect(await screen.findAllByText("Усі борги погашено за 30 міс.")).toHaveLength(2);
+    expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
+      total: { amount: "350", currency: "EUR" },
+    });
+    const cardRow = screen.getAllByText("Універсальна").at(-1)!.closest("tr")!;
+    expect(plain(cardRow.textContent)).toContain("200,00 €");
+    expect(plain(cardRow.textContent)).toContain("через 4 міс.");
+    const before = api.calls.length;
+    fireEvent.change(total, { target: { value: "300" } });
+    expect(plain(screen.getByText(/Сума менша за мінімальні платежі/).textContent)).toContain("350,00 €");
+    expect(api.calls.length).toBe(before);
+  });
+
+  it("FLW-44@PoC AC8, FR 4: a card without the amount takes no part; its «Зменшувати на … / міс.» entered here sends the amount only, never a rate", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [rated, card] } },
+      "POST /v1/debts/strategy": { status: 200, body: both },
+    });
+    renderTab("strategy", api.client);
+    const amount = await screen.findByRole("textbox", { name: /Зменшувати на … \/ міс\.: Універсальна/ });
+    expect(screen.queryByRole("textbox", { name: /Ставка річних, %: Універсальна/ })).toBeNull();
+    expect(screen.getByText("Вкажіть, скільки щомісяця гасите з картки")).toBeTruthy();
+    await waitFor(() => expect(api.calls.some((c) => c.path === "/v1/debts/strategy")).toBe(true));
+    expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
+      total: { amount: "150", currency: "EUR" },
+    });
+    fireEvent.change(amount, { target: { value: "200" } });
+    await waitFor(() =>
+      expect(api.calls.filter((c) => c.path === "/v1/debts/strategy").at(-1)?.body).toEqual({
+        total: { amount: "350", currency: "EUR" },
+        debts: [{ accountId: CARD, minimumPayment: "200.00" }],
+      }),
+    );
   });
 });
