@@ -5,7 +5,7 @@ description: Apply the findings of the review-pr and security-review reviews to 
 
 # Fix review findings
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-27
 
 Input: a PR number, the review IDs to address (usually the latest `review-pr` and, for a `sensitive` PR, the
 latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed fix commit that
@@ -27,13 +27,12 @@ fixes every blocking item, CI green, the new head SHA.
 2. Apply the reviewers' patches (or write the fix yourself when only the failing path is given).
 3. Flip each `it.fails` to `it` once its fix is in, and run it: it must pass.
 4. Two reviewers' patches conflict → apply the lead's decision from the request; no decision → ask the lead,
-   do not pick one yourself. On a lighter model applying ready patches (owner, 2026-11-14, #178): if a patch
-   cannot be applied as given (it fails, deadlocks or needs a different design, as in #191), stop and report to
-   the lead; the fix then moves to the strong model. Do not improvise.
+   do not pick one yourself. You apply ready patches as given, on a `sensitive` PR too: if a patch cannot be applied as given (it fails,
+   deadlocks or needs a different design), stop and report «deviates from patch: <which, why>» to the lead; the
+   fix then moves to the main model. Do not improvise.
 5. Never weaken, skip or delete a test to get green (AGENTS.md step 6); never edit an acceptance test unless
    the requirement changed. A test that fails only sometimes needs a root cause, never «load», «flake» or
-   «timeout under load» (owner, 2026-11-13): reproduce it, compare with `main`, find the cause (#146: a shared
-   `test/.tmp` race), or list it under Follow-ups in the PR body / report with the evidence; the lead opens the issue. Never skip, quarantine or raise a
+   «timeout under load»: reproduce it, compare with `main`, find the cause, or list it under Follow-ups in the PR body / report with the evidence; the lead opens the issue. Never skip, quarantine or raise a
    timeout without a stated basis.
 6. Requirement text: a finding or patch against a release view (`<ID>.<release key>.md`, line 2 «Згенеровано
    з …») is applied to the source `<ID>.md` instead — the same line, with the release tag that limits it to the
@@ -44,17 +43,17 @@ fixes every blocking item, CI green, the new head SHA.
 ## 3. Non-blocking
 
 Fix the small non-blocking items in this same fix round. List under «Follow-ups» in the PR body / report only an
-item about money, data or security, or one that breaks a requirement item; the lead opens the issue. A security finding left unfixed in `main`: in «Follow-ups» only one line (module, rule broken); the probe, test and patch stay in the reviewer's scratchpad `keep/` file for the advisory ([process limits](../../references/process-limits.md)). When it applies: process limits.
+item about money, data or security, or one that breaks a requirement item; the lead opens the issue.
 
 A decision this round records (the lead's choice between patches, a small detail) goes into a **new file**
-`docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a numeric suffix if the name is taken; owner, 2026-11-13),
+`docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a numeric suffix if the name is taken),
 worded as before; never append to the archive `docs/decisions/state-2026-11-05.md`.
 
 ## 4. Check
 
-Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts).
+Before tests: `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start`.
 Run what the changed code needs: `pnpm typecheck` (the same command as the CI job `web`, every tsconfig
-included; run it as `cd <worktree> && pnpm typecheck`, #184; owner, 2026-11-14), `pnpm lint`, `pnpm test`; integration tests as
+included; run it as `cd <worktree> && pnpm typecheck`), `pnpm lint`, `pnpm test`; integration tests as
 `pnpm db:test run -- pnpm test:integration` when the database is involved (one run per cluster at a time;
 without Docker, as in cloud sessions, give the admin URL:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm test:integration`);
@@ -69,11 +68,10 @@ your own PIDs — [own ports](../../references/own-ports.md) (read when you star
 
 ## 5. Push and report
 
-Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
-(`pr153-fix/`), never a generic name like `body.md` (two PR bodies were overwritten with
-another agent's text).
+Scratchpad files: only under a prefix or subfolder unique to the PR and role (`pr153-fix/`), never a generic
+name like `body.md`.
 
-**Local PR checks before every push and body change** (owner, 2026-11-13):
+**Local PR checks before every push and body change**:
 
 ```
 git fetch origin main
@@ -92,4 +90,4 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
    plus a separate sync merge commit when the branch is behind `main` (pr-pipeline step 4); WIP commits made during
    the round are fine (pr-pipeline step 2); push. Committing and pushing to the PR's own branch is part of the task, no separate owner approval (owner,
    2026-11-13, #178: «дозволяю»); if the permission classifier still refuses, stop and report it to the lead.
-3. **Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <blocking items fixed: count, and the fix commit>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (each item → file / test, follow-ups, check details) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178). The reviewers then re-review only this diff.
+3. **Report to the lead**: at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <blocking items fixed: count, and the fix commit>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (each item → file / test, follow-ups, check details) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178). The reviewers then re-review only this diff.

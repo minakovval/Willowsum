@@ -5,68 +5,39 @@
 Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
 session starts or finishes.
 
-1. Pick the agent's model by risk and by the PR's tier ([merge rules](../../../references/merge-rules.md), «Review
-   tiers»). The tier Фундамент keeps the models below (main model, Fable for its uses); authors and
-   `review-pr` reviewers of the tiers Функціональність (screens, components), Документи and Локальні інструменти run
-   on the lighter model (Sonnet; Opus only where the screen has money logic), which for those tiers replaces «every review … of a PR that changes code … stays on the main
-   model» below; security reviews stay as below; why: the owner asked for cost by risk (brief «легший процес,
-   надійна база», item 5):
-   - **implementing** sensitive features: the main model (Fable has only the uses below);
-   - **fixes**: the lighter model working from ready reviewer patches (`fix-review-findings`), a fresh agent per
-     fix; if it must deviate from a patch, it stops and reports, and the fix moves to the main model; status checks
-     also on the lighter model;
-   - **authors of server PRs** stay on Opus; sweeps (rows R) and flaky-test fixes: Sonnet (below);
-   - **security reviews**: the main model, except the Fable uses below; **mutation testing of critical modules
-     is mandatory on any model**;
-   - **Fable** only for:
-     (a) the design of A1 and the amendments to ADR-0002 and ADR-0015; (b) the **first** security review of a PR
-     labelled `sensitive:permissions`, `auth`, `encryption` or `schema`; (d) wave planning (`plan-wave`). At most **2**
-     Fable tasks. Owner decision (2026-11-20, option а, [log](../../../../docs/decisions/log/2026-11-20-owner-fable-usage.md)),
-     which replaces the owner decision of 2026-11-19 on money PRs:
-     - A PR that is only `sensitive:money`, with none of those four labels, goes to Opus with `security-review`, and
-       **mutation testing of the money logic is mandatory**.
-     - Every confirmation goes to Opus, never Fable (who, resumed or fresh, and when the full §7 review: SKILL.md
-       step 5; Sonnet exception below). PRs with only `pipeline` or `infrastructure`: Opus, `security-review`.
-     - Near 90 % of the Fable limit, the first reviews of (b) go to Opus; the lead tells the owner.
-     - Mitigation for money PRs: every 2 days the lead starts **one** Fable agent that reads only the money PRs merged
-       since the previous run. It runs `security-review`, read-only, and posts one comment per PR only when it finds a
-       defect. The lead opens an issue for each defect.
-     Everything else — flaky-test root causes (finding the cause), other architecture rows, implementing vault
-     encryption, statement import, server PRs — is on the main model, except what the Sonnet decision below moves;
-     the lead stays on Opus. Fable draws on the Ultra subscription limit about twice as fast per token, with longer turns: short
-     briefs that state the goal; compare its rows in #180 by the per-model split;
-   - **Sonnet** (owner decision 2026-11-20, option б,
-     [log](../../../../docs/decisions/log/2026-11-20-owner-sonnet-reviews.md)). Sonnet does:
-     (a) `review-pr` of a PR **without** the `sensitive` label that is tests, docs, process, flaky tests, or a
-     non-sensitive screen or UI component; (b) a confirmation where the diff since the last reviewed head changes only
-     tests, texts or a merge of main (also for a `sensitive` PR); (c) authors of follow-up sweeps (rows R) and of
-     flaky-test fixes; (d) the **first** security review of a PR whose diff changes only test titles (the name
-     strings of `it`/`test`/`describe`) and/or only requirement wording, with no item added or removed (owner,
-     2026-11-27, [log](../../../../docs/decisions/log/2026-11-27-owner-process-review-35.md)): the lead checks this
-     mechanically on the diff (strict list: `security-review` §0 «Light confirmation»); any other changed line → Opus. Mitigations, all mandatory:
-     - a Sonnet confirmation that finds a change to code outside tests stops and hands back to the lead, who gives
-       the confirmation to Opus;
-     - a Sonnet reviewer checks that no assertion was removed or weakened (compare the test diff with the head it
-       last reviewed) and says so in its report;
-     - for a screen, the Playwright screenshot at 1280 px is compared with the board (`screen-from-canvas`).
-     Stay on **Opus**: authors of server PRs, first reviews of `sensitive` PRs (except (d)), and confirmations of `sensitive`
-     PRs whose diff changes code. A `.claude/`- or AGENTS.md-only PR that touches a security rule (hard rules, review
-     procedures, approvals, secrets, sensitive paths) is reviewed by Opus, as is every other review or confirmation
-     of a PR that changes code, tools or workflows and is not listed under Sonnet;
-2. A first review goes to a fresh agent with a narrow brief. A re-review **resumes the same reviewer session**
-   when only the fixes changed since its last head (the brief: the diff since that head and its previous findings);
-   a **fresh reviewer** when more changed — a sync with non-mechanical changes, new scope, a rewritten history
-   `sensitive` confirmations: SKILL.md step 5. At most two rounds either way (AGENTS.md step 5).
+1. **Model by role and risk.** Main model = Opus; lighter = Sonnet; the lead stays on Opus. Tiers:
+   [merge rules](../../../references/merge-rules.md), «Review tiers».
+
+   | Role | Sonnet | Opus | Fable |
+   | --- | --- | --- | --- |
+   | Author | tiers Функціональність (screens, components), Документи, Локальні інструменти; follow-up sweeps (rows R); flaky-test fixes | server PRs; sensitive features; a screen with money logic; finding the root cause of a flaky test | the design of A1 and the amendments to ADR-0002 and ADR-0015; wave planning (`plan-wave`) |
+   | Fix (`fix-review-findings`) | every fix, `sensitive` PRs too: a fresh agent that applies the reviewers' ready patches; status checks | only after the Sonnet agent reports that it must deviate from a patch | — |
+   | `review-pr`, first review | a PR **without** `sensitive` that is tests, docs, process, flaky tests, or a screen or UI component (the tiers Функціональність, Документи, Локальні інструменти) | every other PR that changes code, tools or workflows; a screen with money logic; a `.claude/`- or AGENTS.md-only PR that touches a security rule (hard rules, review procedures, approvals, secrets, sensitive paths) | — |
+   | `security-review`, first review | a PR whose diff changes only test titles and/or requirement wording with no item added or removed: you check it mechanically on the diff (strict list: `security-review` §0 «Light confirmation»); any other changed line → Opus | a PR that is only `sensitive:money`, `schema`, `pipeline` or `infrastructure`; everything not in the other columns | a PR labelled `sensitive:permissions`, `auth` or `encryption` |
+   | Confirmation (who: SKILL.md step 5) | the diff since the last reviewed head changes only tests, texts or a merge of `main` (`sensitive` PRs too) | the diff changes code | never |
+
+   - **Fable limits**: near 90 % of the Fable limit the first security reviews go to
+     Opus and you tell the owner. Fable draws on the subscription limit about twice as fast per token, with
+     longer turns: short briefs that state the goal; compare its rows in #180 by the per-model split.
+   - **Sonnet reviews, mandatory mitigations**: a Sonnet confirmation that finds a change to code outside tests
+     stops and hands back to you, and the confirmation goes to Opus; a Sonnet reviewer checks that no assertion
+     was removed or weakened (the test diff against the head it last reviewed) and says so in its report; for a
+     screen, the 1280 px screenshot is compared with the board (`screen-from-canvas` §6).
+   - Mutation testing: `security-review` §4.
+   - Decisions behind the table: `docs/decisions/log/2026-11-20-owner-fable-usage.md`,
+     `2026-11-20-owner-sonnet-reviews.md`, `2026-11-27-owner-process-review-35.md`, `2026-11-27-owner-rules-rewrite.md`.
+2. A first review and every confirmation go to a fresh agent with a narrow brief (SKILL.md step 5). At most two
+   rounds (AGENTS.md step 5).
 3. Reviewers rely on green CI for full suites: locally only the tests of the changed code (plus integration tests
    for database changes).
-4. Briefs point agents at exact files and sections instead of «read everything»; reports in the fixed ≤ 5-line
-   form (SKILL.md step 2); small PRs and splitting: AGENTS.md step 5, SKILL.md step 1.
-5. Resume an implementing agent at most 2 times: every resume re-reads its whole
-   context; a third round of fixes goes to a fresh agent with the diff, the findings and
+4. Briefs point agents at exact files and sections instead of «read everything» and repeat nothing the agent's
+   skill already says; agent types with short tool lists and the brief's contents: SKILL.md step 2; small PRs and
+   splitting: AGENTS.md step 5, SKILL.md step 1.
+5. Never resume a reviewer; resume an implementing agent only while its context is under ≈ 100 k tokens: every
+   call of a resumed agent re-reads its whole context. Otherwise a fresh agent with the diff, the findings and
    the patch.
-6. Cost of rounds: one confirmation agent for both verdicts of a `sensitive` PR saves
-   ≈ 80–90 k per sync (SKILL.md steps 1, 4, 5); no sync at all: [merge checklist](merge-checklist.md), «Sync only
-   when needed».
+6. Cost of rounds: one confirmation agent for both verdicts of a `sensitive` PR saves ≈ 80–90 k per sync
+   (SKILL.md step 5); no sync at all: [merge checklist](merge-checklist.md), «Sync only when needed».
 
 ## Token accounting
 
@@ -121,14 +92,11 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
    to «PR»: every author, fix, reviewer and confirmation run of each PR (follow-up and fix agents included).
 3. **Analysis**: no weekly «Аналіз» note; the process review ([restarts](restarts.md))
    draws its conclusions from #180: which PR types cost most (sum and per PR, tokens and time) and the lead's share.
-   Once stage 1 of `docs/plans/poc-wave-2.md` is done, compare with the pace from 2026-11-16 on, not earlier days:
-   the mean time from opening a PR to its merge, review sessions per PR and cost per merged PR (from #180); if one
-   of them did not improve, tell the owner in two or three lines.
 
 ## Session retrospective
 
 With the process review and at the end of a session (not at a compaction: [restarts](restarts.md), «After
 compaction»): a comment on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs);
-proposals with risks, downsides and mitigations (→ #178 and item 4 of the handover table); risks — plus the «Сесії»
+proposals with risks, downsides and mitigations (→ #178, each with its link); risks — plus the «Сесії»
 row («Token accounting» item 1; written at a compaction too) and a short note to the owner in chat.
 [Example](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).

@@ -5,74 +5,71 @@ description: Security review of a Willowsum pull request labelled `sensitive` (a
 
 # Security review of a sensitive PR
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-27
 
 You are an independent security reviewer. You did not write this code. Your job is to show, with tests,
 whether the security properties the requirement claims really hold. This review is separate from the
-`review-pr` review and runs in its own session (AGENTS.md, «Process», step 5).
+`review-pr` review and runs in its own session (AGENTS.md step 5).
 
 ## 0. Scope
 
-- Only PRs labelled `sensitive` (CI sets it and `sensitive:<category>` from file paths) need this review. A PR
-  without the label: say so and stop.
-- Review the security properties of the requirement the PR claims and of the shared rules it touches
-  (AGENTS.md «Hard rules»: data access, privacy, vault, crypto, money). Correctness outside them is for
-  `review-pr`.
-- **Security properties only** (owner, 2026-11-13): requirement coverage, logic, test naming and style are
-  `review-pr`'s; generic checks are CI's. Do not re-run req-check, `--views`, `--coverage`, typecheck, lint,
-  formatting or other generic checks, and do not report on them.
-- **Light confirmation** (owner, 2026-11-13): when the PR is `sensitive` only because test titles or comments
-  changed in sensitive paths (no logic), confirm that with a diff check instead of a full review: for every
-  sensitive file, `git diff origin/main...<head> -- <file>` shows only changed test titles (`describe` / `it` /
-  `test` strings) or comment lines, and the same file with those lines stripped is unchanged
-  (`git diff -G'.' --word-diff` helps). A title counts only as the literal string argument: no change to the
-  call itself (`.skip`, `.only`, `.todo`, `.fails`, `.each`, `.concurrent`, `.runIf`/`.skipIf`, a new or removed
-  `it`/`describe`) and no `${…}` expression in it. A comment counts only when it is not a directive: any added,
-  removed or changed `eslint-disable`/`eslint-enable`/`eslint `/`global`, `@ts-ignore`/`@ts-expect-error`/
-  `@ts-nocheck`, `@vitest-environment`/`@jest-environment`, `prettier-ignore`, `gitleaks:allow`, `istanbul` or
-  `c8` ignore, `@type`/`@typedef` in a `.js`/`.mjs` file, a shebang, or a `#` line in YAML that is not a comment
-  (inside a block scalar) → full review. Then post one short review: «Light confirmation: only test titles /
-  comments in <files>», `Reviewed head: <SHA>` and the verdict line. Any logic, assertion, fixture or
-  configuration change in a sensitive path → full review.
-- **By tier** ([merge rules](../../references/merge-rules.md), «Review tiers»; the lead names it in the brief;
-  Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md))):
+- Only PRs labelled `sensitive` (CI sets it and `sensitive:<category>` from file paths). A PR without the label:
+  say so and stop.
+- **Security properties only**: those of the requirement the PR claims and of the shared rules it touches
+  (AGENTS.md «Hard rules»: data access, privacy, vault, crypto, money). Requirement coverage, logic, test naming
+  and style, the owner decision and the owner's approval for cloud or production are `review-pr`'s; generic checks
+  are CI's: do not re-run req-check, `--views`, `--coverage`, typecheck, lint or formatting, and do not report on
+  them.
+- **Mutation testing of a `sensitive` PR is yours alone** (§4): the `review-pr` session does none.
+- **Light confirmation**: when the PR is `sensitive` only because test titles or comments changed in sensitive
+  paths (no logic), confirm that with a diff check instead of a full review: for every sensitive file,
+  `git diff origin/main...<head> -- <file>` shows only changed test titles (`describe` / `it` / `test` strings) or
+  comment lines, and the same file with those lines stripped is unchanged (`git diff -G'.' --word-diff` helps).
+  - A title counts only as the literal string argument: no change to the call itself (`.skip`, `.only`, `.todo`,
+    `.fails`, `.each`, `.concurrent`, `.runIf`/`.skipIf`, a new or removed `it`/`describe`) and no `${…}`
+    expression in it.
+  - A comment counts only when it is not a directive: any added, removed or changed
+    `eslint-disable`/`eslint-enable`/`eslint `/`global`, `@ts-ignore`/`@ts-expect-error`/`@ts-nocheck`,
+    `@vitest-environment`/`@jest-environment`, `prettier-ignore`, `gitleaks:allow`, `istanbul` or `c8` ignore,
+    `@type`/`@typedef` in a `.js`/`.mjs` file, a shebang, or a `#` line in YAML that is not a comment (inside a
+    block scalar) → full review.
+  - Then post one short review: «Light confirmation: only test titles / comments in <files>»,
+    `Reviewed head: <SHA>` and the verdict line. Any logic, assertion, fixture or configuration change in a
+    sensitive path → full review.
+- **By tier** ([merge rules](../../references/merge-rules.md), «Review tiers»; the lead names it in the brief):
   Фундамент — this skill in full, mutation testing for critical modules (§4); Функціональність — only when CI set
   `sensitive` because the PR touches the foundation, then in full for those files; Локальні інструменти — **one**
   round, no mutation testing, and findings that do not concern production are non-blocking (follow-ups), so no
   round 2 unless a production-relevant blocker remains.
-- The owner decision and the owner's approval for cloud or production are checked by `review-pr`, not here.
-- **Round 2** checks only the fixes and your own round-1 findings (the diff since the head you last
-  reviewed). At most two rounds (see «7. Rounds»).
+- At most two rounds; round 2 checks only the fixes and your own round-1 findings (§7).
 
 ## 1. Load
 
-1. `AGENTS.md` «Hard rules» and «Process», step 5–7.
+1. `AGENTS.md` «Hard rules» and «Process», steps 5–7.
 2. The requirement file (for a card: the slice of the target release), before the PR body.
-3. The PR: labels, head SHA (`gh pr view <n> --json headRefOid,labels`), the diff, CI status.
+3. The PR: labels, head SHA (`gh api repos/{owner}/{repo}/pulls/<n> --jq '.head.sha, [.labels[].name]'`), the
+   diff, CI status.
 4. The module card(s) and only the code the diff touches, plus the guards it relies on.
 
 ## 2. Work in isolation
 
 - Your own git worktree in the session scratchpad on the PR head:
   `git worktree add <scratchpad>/pr<n>-sec/worktree <head SHA>`; `pnpm install --frozen-lockfile` there.
-- Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts).
-- Your own database: `pnpm db:test`; integration tests only as
-  `pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
-  (roles are shared by the cluster; the command queues runs, `infra/local/README.md`).
-- Load probes that need the database run only through `pnpm db:test run -- …`, each on its own database; never on a
-  hand-made database (owner, 2026-11-14, #178, «так, 1–4 так, пункт 3 як пробні 2 запуски»). Mutants and repeated
-  runs: Рішення власника (2026-11-15; #178, comment 6896768536; #226; #178 comment 6883738878).
-- No Docker (cloud sessions): `pnpm db:test` fails unless the admin URL is given:
-  `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`.
-- **Rely on CI for the full suites** (owner, 2026-11-13): do not rerun the full suites (`pnpm test`,
-  `pnpm test:integration`, `pnpm test:e2e`, all of `tools/*`): CI runs them on the head. Run only the tests of the
-  files the PR touches, plus mutation testing (critical modules), browser checks and targeted checks of a path you
-  suspect. The review states in one line what it relied on CI for: the jobs and their result on the reviewed head
-  («CI relied on: requirements, web, api, e2e — green on <SHA>»; a job not finished or red is named as such).
+- Before tests: `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start`.
+- Your own database: integration tests and load probes only as `pnpm db:test run -- …`, each on its own
+  database, never a hand-made one (roles are shared by the cluster; the command queues runs). Cloud sessions have
+  no Docker, so give the admin URL:
+  `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
+  (`infra/local/README.md`).
+- **Rely on CI for the full suites**: do not rerun `pnpm test`, `pnpm test:integration`, `pnpm test:e2e` or all
+  of `tools/*`. Run only the tests of the files the PR touches, mutation testing (critical modules), browser
+  checks and targeted checks of a path you suspect. The review states in one line what it relied on CI for («CI
+  relied on: requirements, web, api, e2e — green on <SHA>»; a job not finished or red is named as such). Red CI is
+  a finding only when the change caused it.
 - Servers, databases and background processes: only your slot's ports, your own `pnpm db:test` databases and
-your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
-- Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
-  (`pr153-sec/`: worktree, tests, patches, review text), never a generic name like `body.md`.
+  your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
+- Scratchpad files: only under a prefix unique to the PR and role (`pr153-sec/`: worktree, tests, patches, review
+  text), never a generic name like `body.md`.
 
 ## 3. Properties → tests
 
@@ -85,27 +82,19 @@ A property without a test that fails when the guard is removed is a gap. Write t
 
 ## 4. Mutation testing and output files
 
-Critical modules only (data isolation, money, authentication, encryption): weaken one guard at a time, run
-the relevant suite, restore, and write a test for every survivor; defects as `it.fails` plus a verified patch,
-all in scratchpad files with `// ===== FILE: <path> =====` headers and no secret-shaped literals —
-[procedure](references/mutation-and-output.md) (read when you mutate or hand over tests and patches).
+Critical modules only (data isolation, money, authentication, encryption), mandatory there on any model; in a
+PR that is only `sensitive:money`, only for changed formulas of sums (rates, rounding, balances, limits): weaken one guard at a time, run the relevant suite,
+restore, and write a test for every survivor; defects as `it.fails` plus a verified patch, all in scratchpad files with
+`// ===== FILE: <path> =====` headers and no secret-shaped literals —
+[procedure](references/mutation-and-output.md) (read when you mutate or hand over tests and patches). The fix
+agent applies your tests and patches as given, so each must run as written.
 
 ## 6. Report
 
-Post **one** review with event `COMMENT` (not «approve» or «request changes»):
-
-- the head commit reviewed, full SHA, at the top;
-- the table property → test → mutant (killed / survivor → new test);
-- **Blocking** — only a security bypass, data loss or leak, or a violation of a security property the PR's
-  requirement claims; each with file:line, the failing path, the `it.fails` test and the patch file;
-- **Non-blocking** — everything else. Record it as a follow-up only when the item is about money, data or security,
-  or breaks a requirement item (the author lists it under «Follow-ups» in the PR body / report; the lead opens the
-  issue). Anything smaller the author fixes in the same fix round; with no fix round you apply it per the reviewer-patch rule
-  below (within its limits), or it is not recorded;
-- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)). When it applies: process limits;
-- where the output files are (scratchpad path) and how to apply them.
-
-Post one PR review of this shape (a confirmation of a sensitive PR by one agent posts two PR reviews with commit_id, one per verdict line; pr-pipeline step 5, owner, 2026-11-14, #178):
+Post **one** PR review on the head with event `COMMENT` (not «approve» or «request changes»), never an issue
+comment: write the text to your scratchpad file and run
+`gh api repos/{owner}/{repo}/pulls/<n>/reviews -f commit_id=<head SHA> -f event=COMMENT -F body=@<file>`
+(`-F` sends the file's text). The same for every confirmation round. Shape:
 
 ```
 Reviewed head: <full SHA>
@@ -118,24 +107,18 @@ Security verdict: Ready
 _Generated by [Claude Code](https://claude.ai/code)_
 ```
 
-When something blocks, the verdict line is `Security verdict: Changes requested` instead.
+- The table property → test → mutant (killed / survivor → new test).
+- **Blocking** — only a security bypass, data loss or leak, or a violation of a security property the PR's
+  requirement claims; each with file:line, the failing path, the `it.fails` test and the patch file.
+- **Non-blocking** — everything else. It is a follow-up only when it is about money, data or security, or breaks
+  a requirement item (the author lists it under «Follow-ups» in the PR body; the lead opens the issue). Anything
+  smaller the author fixes in the same fix round; with no fix round you apply it as a reviewer patch (below), or
+  it is not recorded.
+- Where the output files are (scratchpad path) and how to apply them.
 
-**Post it as a PR review on the head, never as an issue comment** (owner, 2026-11-14, #178; in #185 it went to
-the issue): write the text to your scratchpad file and run
-`gh api repos/{owner}/{repo}/pulls/<n>/reviews -f commit_id=<head SHA> -f event=COMMENT -F body=@<file>`
-(`-F`, so the file's text is sent). The same for every confirmation round.
-
-The last two lines of the review are exactly the verdict and the footer:
-
-```
-Security verdict: Ready
----
-_Generated by [Claude Code](https://claude.ai/code)_
-```
-
-(or `Security verdict: Changes requested` when anything is blocking). The verdict line stands on its own
-line, outside quotes and code. Never write «Схвалюю» or «Approved». The daily check (ADR-0008) reads this line
-and compares the SHA with the merged head.
+**Verdict line**: the last line before the footer, on its own line, outside quotes and code:
+`Security verdict: Ready`, or `Security verdict: Changes requested` when anything is blocking. Never write
+«Схвалюю» or «Approved». The daily check (ADR-0008) reads this line and compares the SHA with the merged head.
 
 GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
 happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
@@ -146,11 +129,10 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 - If something blocking remains after round 2: give a ready fix with its test, verdict
   `Security verdict: Changes requested`; after the author applies it, confirm that fix briefly, with a verdict
   that names the final head SHA.
-- **Confirmation round** (owner, 2026-11-13; after a fix commit, your ready fix or a `sync-branch` merge):
-  follow `review-pr` «6. Confirmation rounds» — the diff since your last reviewed head only; a merge commit
-  proven mechanical by the tree comparison (the first output line of `git merge-tree --write-tree M^1 M^2`
-  equals `git rev-parse M^{tree}`) is confirmed in one line, otherwise review only the hand resolution;
-  `Reviewed head: <new>` and `Previous reviewed head: <old>` at the top. Re-run the mutants only for guards the diff touches.
+- **Confirmation round** (after a fix commit, your ready fix or a `sync-branch` merge): follow `review-pr`
+  «6. Confirmation rounds» — the diff since your last reviewed head only; a merge commit proven mechanical by the
+  tree comparison is confirmed in one line, otherwise review only the hand resolution; `Reviewed head: <new>` and
+  `Previous reviewed head: <old>` at the top. Re-run the mutants only for guards the diff touches.
 - A full security review instead when the history was rewritten, the diff adds a guard, endpoint, query or
   sensitive path beyond the findings, or the PR gained a `sensitive:<category>` since your last review.
 
@@ -159,7 +141,9 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 Remove your worktree (`git worktree remove --force <path>`), drop your databases (`pnpm db:test list`,
 `pnpm db:test drop <name>`), and make sure no mutant was committed or pushed. Then report.
 
-**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`, `Security verdict: Ready` or `Security verdict: Changes requested`, `Blocking: <file:line …, or —>`, `Owner questions: <… or —>`, `Checks: <what you ran>`. Everything else (output file paths, the mutant table) stays in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
+**Report to the lead**, once, at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`,
+`Security verdict: Ready` or `Security verdict: Changes requested`, `Blocking: <file:line …, or —>`,
+`Owner questions: <… or —>`, `Checks: <what you ran>`. Everything else stays in the review.
 
 ## Reviewer patches
 
