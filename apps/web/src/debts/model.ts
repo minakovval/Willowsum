@@ -42,6 +42,9 @@ const same = (a: string | null | undefined, b: string | null | undefined): boole
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 export const isMonth = (value: string): boolean => MONTH.test(value);
 
+/** A credit card has no rate and no regular payment: its payment is «Зменшувати на … / міс.» (FLW-44@PoC FR 1). */
+export const isCard = (debt: Pick<Debt, "kind">): boolean => debt.kind === "credit-card";
+
 /** The fields start from the saved plan when there is one, otherwise from the debt's own terms (FR 2). */
 export function initialAssumptions(debt: Debt, comma: boolean): Assumptions {
   const plan = debt.plan;
@@ -57,7 +60,7 @@ export function initialAssumptions(debt: Debt, comma: boolean): Assumptions {
   return {
     balance: debt.balance.amount,
     rate: rateText(debt.annualRate, comma),
-    payment: debt.monthlyPayment?.amount ?? null,
+    payment: (isCard(debt) ? debt.cardMonthlyAmount : debt.monthlyPayment)?.amount ?? null,
     extra: null,
     oneOffs: [],
     addPlanned: false,
@@ -69,13 +72,16 @@ export function initialAssumptions(debt: Debt, comma: boolean): Assumptions {
  * or the payment is still missing (AC5) or the balance is empty: nothing is asked, the debt asks for them.
  */
 export function scenarioBody(debt: Debt, a: Assumptions): ScenarioBody | null {
-  const rate = parseRate(a.rate);
-  if (rate === null || a.payment === null || a.balance === null) return null;
+  const card = isCard(debt);
+  // FLW-44@PoC FR 1: a card has no rate; its payment is the amount «Зменшувати на … / міс.».
+  const rate = card ? null : parseRate(a.rate);
+  if ((!card && rate === null) || a.payment === null || a.balance === null) return null;
   if (!new Decimal(a.payment).gt(0)) return null;
   const body: ScenarioBody = {};
   if (!same(a.balance, debt.balance.amount)) body.balance = a.balance;
-  if (!same(rate, debt.annualRate)) body.annualRate = rate;
-  if (!same(a.payment, debt.monthlyPayment?.amount)) body.monthlyPayment = a.payment;
+  if (rate !== null && !same(rate, debt.annualRate)) body.annualRate = rate;
+  const own = card ? debt.cardMonthlyAmount : debt.monthlyPayment;
+  if (!same(a.payment, own?.amount)) body.monthlyPayment = a.payment;
   if (a.extra !== null && new Decimal(a.extra).gt(0)) body.extraMonthly = a.extra;
   // The date field gives YYYY-MM-DD; the API takes the month.
   const oneOffs = a.oneOffs.flatMap((o) =>
@@ -147,7 +153,10 @@ export function linePath(
     .join(" ");
 }
 
-/** What the user typed on «Стратегія» for one debt that has no payment or rate of its own (a card has none). */
+/**
+ * What the user typed on «Стратегія» for one debt that has no payment or rate of its own; for a card without its
+ * «Зменшувати на … / міс.», the amount (`min`) only — a card has no rate (FLW-44@PoC FR 4).
+ */
 export interface Entry {
   readonly min: string | null;
   readonly rate: string;
@@ -169,17 +178,23 @@ export function termsOf(
   debt: Debt,
   entry: Entry | undefined,
 ): { payment: string | null; rate: string | null } {
-  const payment = debt.monthlyPayment?.amount ?? entry?.min ?? null;
+  const own = isCard(debt) ? debt.cardMonthlyAmount : debt.monthlyPayment;
+  const payment = own?.amount ?? entry?.min ?? null;
   return {
     payment: payment !== null && new Decimal(payment).gt(0) ? payment : null,
-    rate: debt.annualRate ?? (entry ? parseRate(entry.rate) : null),
+    rate: isCard(debt) ? null : (debt.annualRate ?? (entry ? parseRate(entry.rate) : null)),
   };
 }
 
+/** A card takes part with its amount alone (no rate, FLW-44@PoC FR 4); any other debt needs a payment and a rate. */
 const takesPart = (d: Debt, entries: Entries): boolean => {
   const t = termsOf(d, entries[d.accountId]);
-  return t.payment !== null && t.rate !== null;
+  return t.payment !== null && (isCard(d) || t.rate !== null);
 };
+
+/** The debt asks on «Стратегія» for what it lacks: a card its amount, any other debt its payment or rate. */
+export const needsEntry = (d: Debt): boolean =>
+  isCard(d) ? d.cardMonthlyAmount === null : d.monthlyPayment === null || d.annualRate === null;
 
 /**
  * «Усього на борги / міс.» by default: the minimum payments of the debts that take part, in one currency (the
@@ -213,8 +228,9 @@ export function strategyDebts(
       const item: { accountId: string; minimumPayment?: string; annualRate?: string } = {
         accountId: d.accountId,
       };
-      if (d.monthlyPayment === null && t.payment !== null) item.minimumPayment = t.payment;
-      if (d.annualRate === null && t.rate !== null) item.annualRate = t.rate;
+      const own = isCard(d) ? d.cardMonthlyAmount : d.monthlyPayment;
+      if (own === null && t.payment !== null) item.minimumPayment = t.payment;
+      if (!isCard(d) && d.annualRate === null && t.rate !== null) item.annualRate = t.rate;
       return item.minimumPayment !== undefined || item.annualRate !== undefined ? [item] : [];
     });
 }

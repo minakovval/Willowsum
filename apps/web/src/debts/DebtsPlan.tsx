@@ -6,14 +6,16 @@ import { accountSettingsPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { useSavePlan, useScenario, type Calculation, type Debt, type Scenario } from "./api.ts";
 import { formatAmount, formatMonth } from "./format.ts";
-import { initialAssumptions, parseRate, planBody, scenarioBody, type Assumptions } from "./model.ts";
+import { initialAssumptions, isCard, parseRate, planBody, scenarioBody, type Assumptions } from "./model.ts";
 import { Disclaimer } from "./parts.tsx";
 import { ScheduleChart } from "./ScheduleChart.tsx";
 
 /**
  * S-144 «План погашення» (BUD-19@PoC FR 1, FR 2, FR 4, FR 5, FR 10; AC1, AC2, AC4, AC5, AC6, AC11): one debt at a time,
  * the assumptions of a scenario (the debt's own data stays), the result of the base and of the scenario, the chart
- * and «Зберегти план». Every figure comes from `POST /v1/debts/{id}/scenario`; the browser calculates nothing.
+ * and «Зберегти план». Every figure comes from `POST /v1/debts/{id}/scenario`; the browser calculates nothing. A credit
+ * card has no rate and no regular payment: it asks for «Зменшувати на … / міс.», which «Зберегти план» keeps as the
+ * card's plan setting (FLW-44@PoC FR 1, BUD-19@PoC FR 2, AC5; owner decision 2026-11-27).
  */
 export function DebtsPlan({ debts, refresh }: { debts: readonly Debt[]; refresh: () => void }) {
   const { t } = useI18n();
@@ -63,7 +65,9 @@ function ScenarioPanel({ debt, refresh }: { debt: Debt; refresh: () => void }) {
   const result: Scenario | null = calc.kind === "ready" ? calc.data : calc.kind === "idle" ? null : calc.last;
   const busy = calc.kind === "loading";
   const hasExtra = a.extra !== null && new Decimal(a.extra).gt(0);
-  const changed = body !== null && Object.keys(body).length > 0;
+  const card = isCard(debt);
+  // A card's own amount is its base: a new amount alone is no scenario beside it (the server's base takes it too).
+  const changed = body !== null && Object.keys(body).some((k) => !(card && k === "monthlyPayment"));
   const canSave = calc.kind === "ready" && body !== null && calc.data.scenario.status === "paid";
 
   const onSave = async () => {
@@ -93,19 +97,31 @@ function ScenarioPanel({ debt, refresh }: { debt: Debt; refresh: () => void }) {
                 currency={currency}
                 onChange={(balance) => set({ balance })}
               />
-              <Field
-                label={t("debts.plan.field.rate")}
-                value={a.rate}
-                inputMode="decimal"
-                onChange={(rate) => set({ rate })}
-                error={a.rate !== "" && parseRate(a.rate) === null ? t("debts.plan.rateError") : null}
-              />
-              <AmountField
-                label={t("debts.plan.field.payment")}
-                value={a.payment}
-                currency={currency}
-                onChange={(payment) => set({ payment })}
-              />
+              {card ? (
+                <AmountField
+                  label={t("debts.plan.field.cardAmount")}
+                  value={a.payment}
+                  currency={currency}
+                  hint={t("debts.card.amountHint")}
+                  onChange={(payment) => set({ payment })}
+                />
+              ) : (
+                <>
+                  <Field
+                    label={t("debts.plan.field.rate")}
+                    value={a.rate}
+                    inputMode="decimal"
+                    onChange={(rate) => set({ rate })}
+                    error={a.rate !== "" && parseRate(a.rate) === null ? t("debts.plan.rateError") : null}
+                  />
+                  <AmountField
+                    label={t("debts.plan.field.payment")}
+                    value={a.payment}
+                    currency={currency}
+                    onChange={(payment) => set({ payment })}
+                  />
+                </>
+              )}
               <AmountField
                 label={t("debts.plan.field.extra")}
                 value={a.extra}
@@ -216,7 +232,7 @@ function ScenarioPanel({ debt, refresh }: { debt: Debt; refresh: () => void }) {
           {body === null ? (
             <p className="ws-card debts-prompt" role="note">
               <Icon name="info" size={20} />
-              <span>{t("debts.result.prompt")}</span>
+              <span>{t(card ? "debts.card.amountHint" : "debts.result.prompt")}</span>
             </p>
           ) : (
             <section className="ws-card debts-result" aria-labelledby="debts-result-title" aria-busy={busy}>

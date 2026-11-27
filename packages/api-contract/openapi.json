@@ -26030,6 +26030,30 @@
                               }
                             ]
                           },
+                          "cardMonthlyAmount": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "A credit card's «Зменшувати на … / міс.»: the payment of its saved plan; null — not given (always for a loan)"
+                          },
                           "termsMissing": {
                             "type": "boolean"
                           },
@@ -26369,6 +26393,7 @@
                           "balance",
                           "annualRate",
                           "monthlyPayment",
+                          "cardMonthlyAmount",
                           "termsMissing",
                           "base",
                           "progress",
@@ -27057,12 +27082,12 @@
                   "annualRate": {
                     "type": "string",
                     "maxLength": 48,
-                    "description": "Overrides the rate, percent a year, 0–100"
+                    "description": "Overrides the rate, percent a year, 0–100; a credit card has none (400 not_applicable)"
                   },
                   "monthlyPayment": {
                     "type": "string",
                     "maxLength": 48,
-                    "description": "Overrides the regular payment, > 0"
+                    "description": "Overrides the regular payment, > 0; for a credit card, its «Зменшувати на … / міс.» (no interest)"
                   },
                   "extraMonthly": {
                     "type": "string",
@@ -27397,12 +27422,12 @@
                   "annualRate": {
                     "type": "string",
                     "maxLength": 48,
-                    "description": "Overrides the rate, percent a year, 0–100"
+                    "description": "Overrides the rate, percent a year, 0–100; a credit card has none (400 not_applicable)"
                   },
                   "monthlyPayment": {
                     "type": "string",
                     "maxLength": 48,
-                    "description": "Overrides the regular payment, > 0"
+                    "description": "Overrides the regular payment, > 0; for a credit card, its «Зменшувати на … / міс.» (no interest)"
                   },
                   "extraMonthly": {
                     "type": "string",

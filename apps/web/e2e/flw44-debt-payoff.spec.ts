@@ -91,7 +91,7 @@ test.describe("with debts", () => {
     await world.account({
       kind: "credit-card",
       name: "Visa",
-      balance: eur("2000.00"),
+      balance: eur("1000.00"),
       balanceDate: since,
       annualRate: "24",
     });
@@ -100,7 +100,7 @@ test.describe("with debts", () => {
     await world.api("POST", "/v1/budget", { firstPeriod: month, incomePlan: eur("4000.00") }, [201]);
   });
 
-  test("FLW-44@PoC FR 1: «Борги» lists every loan with the balance, the annual rate, the regular payment and the end date; a credit card shows its balance only (owner, 2026-11-26)", async () => {
+  test("FLW-44@PoC FR 1, AC8: «Борги» lists every loan with the balance, the annual rate, the regular payment and the end date; a credit card without «Зменшувати на … / міс.» shows its balance and the hint to enter it (owner, 2026-11-27)", async () => {
     await open("/planning/debts");
     const row = (name: string) => main().getByRole("row", { name: new RegExp(`^${name}`) });
     const auto = await text(row("Автокредит"));
@@ -109,12 +109,31 @@ test.describe("with debts", () => {
     expect(auto).toContain("18,0 %");
     expect(auto).toContain("300,00 €");
     expect(auto).toContain(`через ${calc.months} міс.`);
-    // The card has no rate, payment or end date to show, and no «Немає ставки або платежу» either: balance only.
+    // The card has no rate and no regular payment (the account's 24 % is not used); no end date until the amount is given.
     const visa = await text(row("Visa"));
-    expect(visa).toContain("2 000,00 €");
+    expect(visa).toContain("1 000,00 €");
+    expect(visa).toContain("Вкажіть, скільки щомісяця гасите з картки");
     expect(visa).not.toMatch(/%|через|Немає ставки|Борг не зменшується/);
-    expect(visa).not.toContain("24,0");
     await expect(main().getByText("Боргів", { exact: true })).toBeVisible();
+  });
+
+  test("FLW-44@PoC AC9, FR 1: the card of 1 000 € with «Зменшувати на … / міс.» 200 € — paid off in 5 months, no interest; saved as the card's plan, the list shows the amount and the end date", async () => {
+    await open("/planning/debts/plan");
+    await main().getByRole("combobox", { name: "Борг" }).selectOption({ label: "Visa" });
+    await expect(main().getByLabel("Ставка річних, %")).toHaveCount(0);
+    await expect(main().getByLabel("Регулярний платіж / міс.")).toHaveCount(0);
+    await expect(main()).toContainText("Вкажіть, скільки щомісяця гасите з картки");
+    await main().getByLabel("Зменшувати на … / міс.").fill("200");
+    // 1 000 ÷ 200 = 5 months, rounded up; no interest on a card.
+    await expect(main()).toContainText("Погашення через 5 міс.");
+    await expect(main()).toContainText("відсотки за весь строк 0,00 €");
+    await main().getByRole("button", { name: "Зберегти план" }).click();
+    await expect(main()).toContainText("План збережено");
+    await open("/planning/debts");
+    const visa = await text(main().getByRole("row", { name: /^Visa/ }));
+    // Balance, no rate («—»), the amount in the payment column, the end date; «0 %» is «Погашено».
+    expect(visa).toContain("1 000,00 € — 200,00 €");
+    expect(visa).toContain("через 5 міс.");
   });
 
   test("FLW-44@PoC AC1, FR 1: 5 000 € at 18 % a year — the interest of the first month is 75,00 € (the balance after the first payment is 4 775,00 €); the interest of the whole term is as the rule gives", async () => {
@@ -177,24 +196,34 @@ test.describe("with debts", () => {
     expect(await text(main().getByRole("row", { name: /^Автокредит/ }))).toContain("18,0 %");
   });
 
-  test("FLW-44@PoC FR 4, AC3: «Стратегія» — the total for the debts and the switch; Avalanche pays the highest rate first, Snowball the smallest balance", async () => {
+  test("FLW-44@PoC FR 4, AC3, AC9: «Стратегія» — the card's 200 € is in the total; Avalanche puts the rest on the rated loans before the card, Snowball on the smallest balance (the card); too little — the warning", async () => {
     await open("/planning/debts/strategy");
-    await main()
-      .getByRole("textbox", { name: /Мін. платіж: Visa/ })
-      .fill("100");
-    await main()
-      .getByRole("textbox", { name: /Усього на борги/ })
-      .fill("900");
+    // The minimums: 300 + 200 (the card) + 200 + 100 = 800 €; the card asks for nothing more.
+    const total = main().getByRole("textbox", { name: /Усього на борги/ });
+    await expect(total).toHaveValue(/800,00/);
+    await expect(main().getByRole("textbox", { name: /Зменшувати на/ })).toHaveCount(0);
+    await total.fill("700");
+    await expect(main()).toContainText("Сума менша за мінімальні платежі (800,00 €)");
+    await total.fill("1000");
     await expect(main()).toContainText("Порядок погашення · Avalanche");
     const order = () => main().getByRole("table").last().getByRole("row");
-    await expect(order().nth(1)).toContainText("Visa");
+    const rowOf = (name: string) => order().filter({ hasText: name });
+    // Avalanche: the rest 200 € goes to «Автокредит» (18 %), the card gets its own 200 € only — 1 000 ÷ 200 = 5 months.
+    await expect(rowOf("Visa")).toContainText("через 5 міс.");
+    const names = async () => (await order().allTextContents()).map(plain);
+    const avalanche = await names();
+    expect(avalanche.findIndex((r) => r.includes("Автокредит"))).toBeLessThan(
+      avalanche.findIndex((r) => r.includes("Іпотека")),
+    );
     await expect(main().getByText("Avalanche").first()).toBeVisible();
     await expect(main().getByText("Snowball").first()).toBeVisible();
     await main()
       .getByRole("radio", { name: /Snowball/ })
       .click();
     await expect(main()).toContainText("Порядок погашення · Snowball");
-    await expect(order().nth(1)).toContainText("Позика");
+    // Snowball: the card is the smallest balance — 200 + 200 € a month, paid off in 3 months.
+    await expect(rowOf("Visa")).toContainText("через 3 міс.");
+    await expect(order().nth(1)).toContainText("Visa");
     await expect(main()).toContainText(DISCLAIMER);
   });
 
@@ -224,7 +253,9 @@ test.describe("with debts", () => {
     const auto = main().getByRole("row", { name: /^Автокредит/ });
     await expect(auto).toContainText("0 %");
     await expect(auto).not.toContainText("Плану немає");
-    await expect(main().getByRole("row", { name: /^Visa/ })).toContainText("Плану немає");
+    // The card's amount is its saved plan; a loan without one says «Плану немає».
+    await expect(main().getByRole("row", { name: /^Іпотека/ })).toContainText("Плану немає");
+    await expect(main().getByRole("row", { name: /^Visa/ })).not.toContainText("Плану немає");
     await expect(main()).toContainText(DISCLAIMER);
   });
 });

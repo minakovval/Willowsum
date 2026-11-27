@@ -36,6 +36,31 @@ export interface Debt {
   readonly startBalance: Money;
   readonly annualRate: string | null;
   readonly monthlyPayment: Money | null;
+  /**
+   * A credit card's «Зменшувати на … / міс.» (FLW-44@PoC FR 1, FR 4; BUD-19@PoC FR 2; owner decision 2026-11-27): what the
+   * user pays off the card each month — a plan setting, the monthly payment of the card's saved plan (`withCardAmounts`),
+   * never the account's data. Null (or left out) — not given yet; always null for a loan.
+   */
+  readonly cardMonthlyAmount?: Money | null;
+}
+
+/** A credit card has no rate and no regular payment of its own: its payment is the user's amount (FLW-44 FR 1). */
+export const isCard = (debt: Pick<Debt, "kind">): boolean => debt.kind === "credit-card";
+
+/** The rate a card is calculated at: none, so no interest (FLW-44@PoC FR 1 «відсотки по ній не рахуються»). */
+export const CARD_RATE = "0";
+
+/**
+ * The debts with each card's «Зменшувати на … / міс.» from its saved plan (Рішення ведучого (2026-11-27; власник не
+ * схвалював; FLW-44 code): the amount is the payment of the card's plan — «Зберегти план» keeps it, deleting the plan
+ * clears it; no new table).
+ */
+export function withCardAmounts(debts: readonly Debt[], plans: readonly StoredPlan[]): Debt[] {
+  return debts.map((d) => {
+    if (!isCard(d)) return d;
+    const plan = plans.find((p) => p.accountId === d.accountId && p.currency === d.currency);
+    return { ...d, cardMonthlyAmount: plan?.monthlyPayment ?? null };
+  });
 }
 
 /** What the routes read the debts from (adapters/http/services.ts). */
@@ -82,10 +107,19 @@ export function assumptionsOf(debt: Debt, input: ScenarioInput, month: Month): R
     input.balance,
     debt.balance.isNegative() ? Money.zero(debt.currency) : debt.balance,
   );
-  const monthlyPayment = amount("monthlyPayment", input.monthlyPayment, debt.monthlyPayment, true);
+  const card = isCard(debt);
+  // FLW-44@PoC FR 1: a card's payment is its «Зменшувати на … / міс.»; the scenario may still override it (FR 2).
+  const monthlyPayment = amount(
+    "monthlyPayment",
+    input.monthlyPayment,
+    card ? (debt.cardMonthlyAmount ?? null) : debt.monthlyPayment,
+    true,
+  );
   const extraMonthly = amount("extraMonthly", input.extraMonthly, Money.zero(debt.currency));
-  let annualRate = debt.annualRate;
-  if (input.annualRate !== undefined) {
+  let annualRate = card ? CARD_RATE : debt.annualRate;
+  // FLW-44@PoC «Гілки та помилки»: a card has no rate, so none can be given for it.
+  if (card && input.annualRate !== undefined) issues.push({ field: "annualRate", issue: "not_applicable" });
+  else if (input.annualRate !== undefined) {
     annualRate = parseAnnualRate(input.annualRate);
     if (annualRate === null) issues.push({ field: "annualRate", issue: "invalid" });
   }
@@ -132,13 +166,19 @@ export function scenarioOf(assumptions: Assumptions): Scenario {
   return { assumptions, base, scenario, saving };
 }
 
-/** FR 1, AC1: the calculation by the liability's own terms; null without a rate or a payment (AC5). */
+/**
+ * FR 1, AC1: the calculation by the liability's own terms; null without a rate or a payment (AC5). A card: by its
+ * «Зменшувати на … / міс.», with no interest — the balance ÷ the amount, rounded up, the last month the rest (FLW-44@PoC
+ * FR 1, AC9); null without the amount.
+ */
 export function simulateBase(debt: Debt): Outcome<PayoffResult> | null {
-  if (debt.annualRate === null || debt.monthlyPayment === null) return null;
+  const annualRate = isCard(debt) ? CARD_RATE : debt.annualRate;
+  const monthlyPayment = isCard(debt) ? (debt.cardMonthlyAmount ?? null) : debt.monthlyPayment;
+  if (annualRate === null || monthlyPayment === null) return null;
   return simulate({
     balance: debt.balance,
-    annualRate: debt.annualRate,
-    monthlyPayment: debt.monthlyPayment,
+    annualRate,
+    monthlyPayment,
     extraMonthly: Money.zero(debt.currency),
     oneOffs: [],
   });
@@ -244,14 +284,18 @@ export function strategyOf(debts: readonly Debt[], input: StrategyInput): Result
       continue;
     }
     const at = input.debts.indexOf(o!);
-    const min =
-      o?.minimumPayment !== undefined ? parseTypedAmount(o.minimumPayment, d.currency) : d.monthlyPayment;
-    const rate = o?.annualRate !== undefined ? parseAnnualRate(o.annualRate) : d.annualRate;
+    const card = isCard(d);
+    // FLW-44@PoC FR 4: a card takes part with its «Зменшувати на … / міс.» as a fixed payment and no rate.
+    const own = card ? (d.cardMonthlyAmount ?? null) : d.monthlyPayment;
+    const min = o?.minimumPayment !== undefined ? parseTypedAmount(o.minimumPayment, d.currency) : own;
+    const rate = card ? null : o?.annualRate !== undefined ? parseAnnualRate(o.annualRate) : d.annualRate;
     if (o?.minimumPayment !== undefined && (min === null || min.isZero()))
       issues.push({ field: `debts.${at}.minimumPayment`, issue: "invalid" });
-    if (o?.annualRate !== undefined && rate === null)
+    if (card && o?.annualRate !== undefined)
+      issues.push({ field: `debts.${at}.annualRate`, issue: "not_applicable" });
+    else if (o?.annualRate !== undefined && rate === null)
       issues.push({ field: `debts.${at}.annualRate`, issue: "invalid" });
-    if (min === null || rate === null) {
+    if (min === null || (rate === null && !card)) {
       excluded.push({ accountId: d.accountId, reason: "terms-missing" });
       continue;
     }

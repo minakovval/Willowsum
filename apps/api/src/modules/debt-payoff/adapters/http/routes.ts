@@ -6,6 +6,7 @@ import { defineRoute, type ProtectedContext } from "../../../../platform/http/ro
 import {
   assumptionsOf,
   currentMonth,
+  isCard,
   deletePlan,
   progressOf,
   savePlan,
@@ -15,6 +16,7 @@ import {
   type Debt,
   type Result,
   type StoredPlan,
+  withCardAmounts,
 } from "../../application/index.ts";
 import {
   addMonths,
@@ -46,8 +48,12 @@ const month = z.string().max(7).meta({ description: "YYYY-MM" });
 /** The scenario's overrides (FR 2, FR 4), in the debt's currency; never written to the liability. */
 const scenarioFields = {
   balance: decimal("Overrides the debt; a plain non-negative decimal").optional(),
-  annualRate: decimal("Overrides the rate, percent a year, 0–100").optional(),
-  monthlyPayment: decimal("Overrides the regular payment, > 0").optional(),
+  annualRate: decimal(
+    "Overrides the rate, percent a year, 0–100; a credit card has none (400 not_applicable)",
+  ).optional(),
+  monthlyPayment: decimal(
+    "Overrides the regular payment, > 0; for a credit card, its «Зменшувати на … / міс.» (no interest)",
+  ).optional(),
   extraMonthly: decimal("«Додатковий платіж / міс.»").optional(),
   oneOffs: z
     .array(z.object({ month, amount: decimal("> 0") }).strict())
@@ -93,9 +99,22 @@ const debtSchema = z.object({
   name: z.string(),
   /** What is owed, positive. */
   balance: moneySchema,
+  /** Null for a credit card: it has no rate (FLW-44@PoC FR 1). */
   annualRate: z.string().nullable(),
+  /** Null for a credit card: it has no regular payment (FLW-44@PoC FR 1). */
   monthlyPayment: moneySchema.nullable(),
-  /** AC5: «Вкажіть ставку і платіж, щоб розрахувати план» — no base calculation and no part in «Стратегія». */
+  /**
+   * A credit card's «Зменшувати на … / міс.» (FLW-44@PoC FR 1, FR 4; BUD-19@PoC FR 2): the monthly payment of its saved
+   * plan, a plan setting; null — not given yet (and always for a loan).
+   */
+  cardMonthlyAmount: moneySchema.nullable().meta({
+    description:
+      "A credit card's «Зменшувати на … / міс.»: the payment of its saved plan; null — not given (always for a loan)",
+  }),
+  /**
+   * AC5: «Вкажіть ставку і платіж, щоб розрахувати план» — no base calculation and no part in «Стратегія». A card: its
+   * «Зменшувати на … / міс.» is not given.
+   */
   termsMissing: z.boolean(),
   /** FR 1, AC1: the calculation by the liability's own terms; null while terms are missing. */
   base: outcomeSchema.nullable(),
@@ -201,10 +220,15 @@ function refuseScoped(ctx: { principal: { scoped: boolean } }): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
 }
 
-async function debtsOf(ctx: ProtectedContext): Promise<{ debts: readonly Debt[]; now: Month }> {
+/** The debts with each card's «Зменшувати на … / міс.» from its saved plan (FLW-44@PoC FR 1), and the plans. */
+async function debtsOf(
+  ctx: ProtectedContext,
+): Promise<{ debts: readonly Debt[]; plans: readonly StoredPlan[]; now: Month }> {
   const { deps } = debtPayoffServices(ctx);
   const today = deps.today();
-  return { debts: await deps.debts.debts(ctx.principal.householdId, today), now: currentMonth(today) };
+  const debts = await deps.debts.debts(ctx.principal.householdId, today);
+  const plans = await ctx.inHousehold((q) => plansTx(q).plans(ctx.principal.householdId));
+  return { debts: withCardAmounts(debts, plans), plans, now: currentMonth(today) };
 }
 
 async function debtOf(ctx: ProtectedContext, accountId: string): Promise<{ debt: Debt; now: Month }> {
@@ -236,8 +260,7 @@ export const listDebtsRoute = defineRoute({
   },
   handler: async (_input, ctx) => {
     refuseScoped(ctx);
-    const { debts, now } = await debtsOf(ctx);
-    const plans = await ctx.inHousehold((q) => plansTx(q).plans(ctx.principal.householdId));
+    const { debts, plans, now } = await debtsOf(ctx);
     return {
       debts: debts.map((d) => {
         const plan = plans.find((p) => p.accountId === d.accountId) ?? null;
@@ -248,8 +271,9 @@ export const listDebtsRoute = defineRoute({
           kind: d.kind,
           name: d.name,
           balance: money(d.balance),
-          annualRate: d.annualRate,
-          monthlyPayment: d.monthlyPayment === null ? null : money(d.monthlyPayment),
+          annualRate: isCard(d) ? null : d.annualRate,
+          monthlyPayment: isCard(d) || d.monthlyPayment === null ? null : money(d.monthlyPayment),
+          cardMonthlyAmount: d.cardMonthlyAmount ? money(d.cardMonthlyAmount) : null,
           termsMissing: base === null,
           base: base === null ? null : outcome(base, now),
           progress: {
@@ -354,7 +378,10 @@ export const compareDebtStrategiesRoute = defineRoute({
         total: z
           .object({ amount: decimal("«Усього на борги / міс.»"), currency: z.string().max(10) })
           .strict(),
-        /** Overrides of a debt's fixed minimum payment or rate; a card without a payment needs one to take part. */
+        /**
+         * Overrides of a debt's fixed minimum payment or rate. A card's minimum is its «Зменшувати на … / міс.»; a card
+         * has no rate (`annualRate` for it: 400 `not_applicable`; FLW-44@PoC FR 4).
+         */
         debts: z
           .array(
             z
