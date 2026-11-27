@@ -1,0 +1,270 @@
+# Willowsum SAST ruleset (CICD-02 criterion «Статичний аналіз безпеки коду»; NFR-01 «Вразливості»; owner decision 7,
+# docs/decisions/log/2026-11-26-owner-ambiguity-answers.md). Committed and run offline: semgrep never fetches rules
+# from the registry (`--config` is this file only, `--metrics off`).
+#
+# Severity: `severity: ERROR` is High or Critical (metadata.security-severity says which) and blocks the PR;
+# `WARNING` is Medium and only reported. Every rule names its CWE. A finding that is accepted goes to
+# tools/security-scan/allowlist.json with a reason, owner and review date; an inline `nosemgrep` comment has no
+# effect (index.mjs runs semgrep with --disable-nosem).
+rules:
+  # --- Injection ---------------------------------------------------------------------------------------------
+  - id: ws-sql-template-interpolation
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      SQL text built with a template-literal interpolation. Pass values as numbered query parameters; an identifier
+      (schema, table) comes only from a fixed list in code — then accept it in the allowlist with the reason.
+    metadata:
+      security-severity: High
+      cwe: "CWE-89: SQL injection"
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $DB.query(`...${$X}...`, ...)
+          - pattern: |
+              $DB.query({text: `...${$X}...`, ...}, ...)
+      - metavariable-regex:
+          metavariable: $DB
+          regex: (?i).*(client|pool|db|tx|conn|connection|sql|pg|executor|q|owner)$
+      # Not a finding: a module-level UPPER_CASE constant (fixed SQL text or column list) and a value quoted by the
+      # driver (`escapeIdentifier`, `escapeLiteral`) or the migration runner's `id()`.
+      - metavariable-regex:
+          metavariable: $X
+          regex: ^(?![A-Z][A-Z0-9_]*$)(?![\w.]*\.escape(Identifier|Literal)\()(?!id\().*
+      - focus-metavariable: $X
+
+  - id: ws-sql-string-concatenation
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: SQL text built by string concatenation. Pass values as numbered query parameters.
+    metadata:
+      security-severity: High
+      cwe: "CWE-89: SQL injection"
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query("..." + $X, ...)
+          - pattern: $DB.query($X + "...", ...)
+      - metavariable-regex:
+          metavariable: $DB
+          regex: (?i).*(client|pool|db|tx|conn|connection|sql|pg|executor|q|owner)$
+
+  - id: ws-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: Code built at run time (eval, new Function, a string passed to a timer). Never evaluate strings as code.
+    metadata:
+      security-severity: Critical
+      cwe: "CWE-95: Eval injection"
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+      - pattern: Function(...)
+      - pattern: setTimeout("...", ...)
+      - pattern: setInterval("...", ...)
+      - pattern: vm.runInNewContext(...)
+      - pattern: vm.runInThisContext(...)
+
+  - id: ws-child-process-shell
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A shell command built from a variable, or a child process with `shell: true`. Use execFile/spawn with a fixed
+      program and an argument array.
+    metadata:
+      security-severity: Critical
+      cwe: "CWE-78: OS command injection"
+    pattern-either:
+      - patterns:
+          - pattern-either:
+              - pattern: $CP.exec($CMD, ...)
+              - pattern: $CP.execSync($CMD, ...)
+          - pattern-not: $CP.exec("...", ...)
+          - pattern-not: $CP.execSync("...", ...)
+          - metavariable-regex:
+              metavariable: $CP
+              regex: ^(child_process|childProcess|cp)$
+      - patterns:
+          - pattern-either:
+              - pattern: exec($CMD, ...)
+              - pattern: execSync($CMD, ...)
+          - pattern-not: exec("...", ...)
+          - pattern-not: execSync("...", ...)
+      - pattern: |
+          $CP.spawn($P, $A, {..., shell: true, ...})
+      - pattern: |
+          spawn($P, $A, {..., shell: true, ...})
+      - pattern: |
+          $CP.spawnSync($P, $A, {..., shell: true, ...})
+      - pattern: |
+          spawnSync($P, $A, {..., shell: true, ...})
+      - pattern: |
+          execFile($P, $A, {..., shell: true, ...}, ...)
+      - pattern: |
+          execFileSync($P, $A, {..., shell: true, ...})
+
+  - id: ws-request-to-filesystem-path
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A file path built from request data (params, query, body, headers). Resolve the file by an id from the database
+      and keep the path server-side.
+    metadata:
+      security-severity: High
+      cwe: "CWE-22: Path traversal"
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.params
+              - pattern: $REQ.query
+              - pattern: $REQ.body
+              - pattern: $REQ.headers
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^(req|request|_req|httpRequest)$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $FS.readFile($P, ...)
+              - pattern: $FS.readFileSync($P, ...)
+              - pattern: $FS.writeFile($P, ...)
+              - pattern: $FS.writeFileSync($P, ...)
+              - pattern: $FS.createReadStream($P, ...)
+              - pattern: $FS.createWriteStream($P, ...)
+              - pattern: $FS.unlink($P, ...)
+              - pattern: $FS.rm($P, ...)
+              - pattern: $FS.open($P, ...)
+              - pattern: readFile($P, ...)
+              - pattern: writeFile($P, ...)
+              - pattern: createReadStream($P, ...)
+          - focus-metavariable: $P
+
+  - id: ws-request-to-redirect
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: A redirect target taken from request data (open redirect). Redirect only to a fixed path or an allowlisted URL.
+    metadata:
+      security-severity: High
+      cwe: "CWE-601: Open redirect"
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.query
+              - pattern: $REQ.body
+              - pattern: $REQ.params
+          - metavariable-regex:
+              metavariable: $REQ
+              regex: ^(req|request|_req|httpRequest)$
+    pattern-sinks:
+      - patterns:
+          - pattern: $REPLY.redirect($URL, ...)
+          - focus-metavariable: $URL
+
+  # --- Browser ----------------------------------------------------------------------------------------------
+  - id: ws-react-dangerously-set-inner-html
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: dangerouslySetInnerHTML with a non-literal value (XSS). Render text through React instead.
+    metadata:
+      security-severity: High
+      cwe: "CWE-79: Cross-site scripting"
+    patterns:
+      - pattern: |
+          <$EL dangerouslySetInnerHTML={$V} />
+      - pattern-not: |
+          <$EL dangerouslySetInnerHTML={{__html: "..."}} />
+
+  - id: ws-dom-html-sink
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: HTML written into the DOM from a non-literal value (XSS). Use textContent or React.
+    metadata:
+      security-severity: High
+      cwe: "CWE-79: Cross-site scripting"
+    patterns:
+      - pattern-either:
+          - pattern: $E.innerHTML = $V
+          - pattern: $E.outerHTML = $V
+          - pattern: $E.insertAdjacentHTML($POS, $V)
+          - pattern: document.write($V)
+          - pattern: document.writeln($V)
+      - pattern-not: $E.innerHTML = "..."
+      - pattern-not: $E.outerHTML = "..."
+      - pattern-not: $E.insertAdjacentHTML($POS, "...")
+
+  # --- Transport and cryptography ----------------------------------------------------------------------------
+  - id: ws-tls-verification-disabled
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: TLS certificate verification is turned off. Never disable it; trust a CA bundle instead.
+    metadata:
+      security-severity: High
+      cwe: "CWE-295: Improper certificate validation"
+    pattern-either:
+      - pattern: "{..., rejectUnauthorized: false, ...}"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
+      - pattern: process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0"
+
+  - id: ws-weak-hash
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: MD5 or SHA-1. Use SHA-256 or stronger (HMAC-SHA256 for signatures, argon2 for passwords).
+    metadata:
+      security-severity: High
+      cwe: "CWE-328: Use of weak hash"
+    patterns:
+      - pattern-either:
+          - pattern: $C.createHash("$ALG", ...)
+          - pattern: createHash("$ALG", ...)
+          - pattern: $C.createHmac("$ALG", ...)
+          - pattern: createHmac("$ALG", ...)
+      - metavariable-regex:
+          metavariable: $ALG
+          regex: (?i)^(md2|md4|md5|sha1|sha-1|ripemd160)$
+
+  - id: ws-weak-cipher
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A cipher without an IV (createCipher), in ECB mode, or a broken algorithm (DES, RC4). Use AES-256-GCM through the
+      KMS port (NFR-01 FR 2, FR 4); never write your own cryptography.
+    metadata:
+      security-severity: Critical
+      cwe: "CWE-327: Broken or risky cryptographic algorithm"
+    pattern-either:
+      - pattern: $C.createCipher(...)
+      - pattern: $C.createDecipher(...)
+      - pattern: createCipher(...)
+      - pattern: createDecipher(...)
+      - patterns:
+          - pattern-either:
+              - pattern: $C.createCipheriv("$ALG", ...)
+              - pattern: $C.createDecipheriv("$ALG", ...)
+              - pattern: createCipheriv("$ALG", ...)
+              - pattern: createDecipheriv("$ALG", ...)
+          - metavariable-regex:
+              metavariable: $ALG
+              regex: (?i)(.*(ecb|rc4|rc2|blowfish|-des)|des|bf)
+
+  # --- Secrets ----------------------------------------------------------------------------------------------
+  - id: ws-hardcoded-secret-assignment
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      A secret-looking literal assigned to a password, secret, token or key. Secrets come only from the secret store
+      or the KMS port (NFR-01 FR 5), never from source code.
+    metadata:
+      security-severity: High
+      cwe: "CWE-798: Hard-coded credentials"
+    patterns:
+      - pattern-either:
+          - pattern: const $NAME = "$VAL"
+          - pattern: let $NAME = "$VAL"
+          - pattern: "{..., $NAME: \"$VAL\", ...}"
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i)^(password|passwd|secret|api_?key|access_?key|secret_?key|private_?key|client_?secret|auth_?token|bearer_?token)$
+      - metavariable-regex:
+          metavariable: $VAL
+          regex: ^[A-Za-z0-9+/=_\-]{16,}$

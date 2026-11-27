@@ -63,7 +63,7 @@ test('pr-checks.yml: heavy jobs depend on `changes` and run unless it says false
   const parts = jobBlock(wf, 'api-parts');
   assert.match(parts, /^ {4}needs: changes$/m);
   assert.match(parts, /^ {4}if: \$\{\{ !cancelled\(\) && needs\.changes\.outputs\.api != 'false' \}\}$/m);
-  for (const job of ['requirements', 'secrets', 'changes']) assert.doesNotMatch(jobBlock(wf, job), /^ {4}(if|needs):/m, job);
+  for (const job of ['requirements', 'secrets', 'security', 'changes']) assert.doesNotMatch(jobBlock(wf, job), /^ {4}(if|needs):/m, job);
   assert.match(jobBlock(wf, 'changes'), /run: node tools\/pr-rules\/index\.mjs changes/);
   assert.match(jobBlock(wf, 'changes'), /^ {4}outputs:\n {6}web: .*\n {6}api: .*\n {6}local_env: .*\n {6}infra: .*\n {6}e2e: /m);
 });

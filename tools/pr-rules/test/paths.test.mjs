@@ -56,6 +56,13 @@ test('CICD-01 FR 4: files are classified by path into the sensitive categories',
     '.github/workflows/pr-checks.yml': ['pipeline'],
     'apps/api/Dockerfile': ['pipeline'],
     '.gitleaksignore': ['pipeline'],
+    // CICD-02 «Статичний аналіз безпеки коду»: the security job's gate files, and a .semgrepignore in any folder.
+    'tools/security-scan/allowlist.json': ['pipeline'],
+    'tools/security-scan/lib.mjs': ['pipeline'],
+    'tools/security-scan/semgrep/rules.yml': ['pipeline'],
+    'tools/security-scan/semgrep/requirements.txt': ['pipeline'],
+    '.semgrepignore': ['pipeline'],
+    'apps/api/src/.semgrepignore': ['pipeline'],
     'infra/start/network.tf': ['infrastructure'],
     'infra/start/kms.tf': ['encryption', 'infrastructure'],
   };

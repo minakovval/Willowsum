@@ -8,14 +8,22 @@
   "PoC/FR 11": "214f035b63157059",
   "PoC/FR 12": "7e1212e23f655e1e",
   "PoC/FR 13": "ab5718b197936c86",
+  "PoC/AC 2": "ec6dca25708f5ff2",
   "PoC/AC 5": "7d9ca0d481846b97",
   "PoC/AC 6": "ddcaa4531465d8a0",
   "PoC/AC 7": "47abb5adee062e26",
   "PoC/AC 8": "53733bfff8c2228a",
+  "PoC/EC 1": "e4a332a05ece0f40",
   "PoC v2/FR 3": "acfe6fc43a4cb7ef",
   "PoC v2/FR 4": "477c09b9b8d52369",
   "PoC v2/FR 6": "ce06d1cc6631bf4e",
   "PoC v2/FR 9": "9f89eb9f8edf143f",
+  "PoC v2/AC 2": "ec6dca25708f5ff2",
+  "PoC v2/EC 1": "e4a332a05ece0f40",
   "MVP/FR 6": "ce06d1cc6631bf4e",
-  "v1-mobile/FR 6": "ce06d1cc6631bf4e"
+  "MVP/AC 2": "ec6dca25708f5ff2",
+  "MVP/EC 3": "e4a332a05ece0f40",
+  "v1-mobile/FR 6": "ce06d1cc6631bf4e",
+  "v1-mobile/AC 2": "ec6dca25708f5ff2",
+  "v1-mobile/EC 3": "e4a332a05ece0f40"
 }

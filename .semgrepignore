@@ -1,0 +1,18 @@
+# Paths Semgrep does not scan (tools/security-scan, CICD-02 «Статичний аналіз безпеки коду»). The job scans production
+# and tool code; tests, fixtures and generated files are out of scope: tests build SQL, keys and HTML on purpose,
+# and the rule fixtures (tools/security-scan/test/fixtures) are known-bad code that the tests scan on their own.
+node_modules/
+dist/
+coverage/
+.git/
+*.min.js
+*.test.ts
+*.test.tsx
+*.test.mjs
+*.test.js
+**/test/
+**/e2e/
+**/fixtures/
+packages/api-contract/src/schema.ts
+design/
+docs/

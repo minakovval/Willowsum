@@ -1,0 +1,9 @@
+// Known-bad React code for the Semgrep rules; copied as bad.tsx by the tests, never compiled.
+export function Note({ html }: { html: string }) {
+  return <div dangerouslySetInnerHTML={{ __html: html }} />; // expect: ws-react-dangerously-set-inner-html
+}
+export function Wrapped({ html }: { html: string }) {
+  return (
+    <section dangerouslySetInnerHTML={{ __html: html }}></section> // expect: ws-react-dangerously-set-inner-html
+  );
+}

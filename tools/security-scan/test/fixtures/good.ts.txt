@@ -1,0 +1,41 @@
+// The safe forms of the same code: the Semgrep rules must find nothing here (no false positive on the patterns the
+// codebase uses). Copied as good.ts by the tests, never compiled.
+import { execFile } from "node:child_process";
+import { createHash, createCipheriv } from "node:crypto";
+import * as fs from "node:fs";
+
+const COLUMNS = "id, name";
+const id = (client: any, name: string) => client.escapeIdentifier(name);
+
+export async function sql(client: any, householdId: string, schema: string) {
+  await client.query("SELECT * FROM accounts WHERE household_id = $1", [householdId]);
+  await client.query(`SELECT ${COLUMNS} FROM accounts WHERE household_id = $1`, [householdId]);
+  await client.query(`SET LOCAL search_path = ${client.escapeIdentifier(schema)}, pg_temp`);
+  await client.query(`CREATE SCHEMA IF NOT EXISTS ${id(client, schema)}`);
+  await client.query(`ALTER ROLE x PASSWORD ${client.escapeLiteral("p")}`);
+}
+
+export function shell(file: string) {
+  execFile("convert", [file, "out.png"]);
+  return /x/.exec(file);
+}
+
+export function download(fileId: string) {
+  return fs.readFileSync(`/data/${fileId}`);
+}
+
+export function back(reply: any) {
+  return reply.redirect("/");
+}
+
+export function render(el: any, text: string) {
+  el.textContent = text;
+  el.innerHTML = "";
+}
+
+export function digest(data: string, key: Buffer, iv: Buffer) {
+  createCipheriv("aes-256-gcm", key, iv);
+  return createHash("sha256").update(data).digest("hex");
+}
+
+export const config = { password: process.env.SOME_PASSWORD, token: "short" };
