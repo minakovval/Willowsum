@@ -50,7 +50,7 @@ BUD-01@PoC (#722 D, серверна частина): п. 7, виняток — 
   (новіші спочатку; `outflow` і `inflow` — `transactionId`, `accountId`, `amount` зі знаком, `date`; `date` — дата ранішої
   сторони; `pairKind` — `transfer` (два рахунки) або `exchange` (IMP-03 п. 2: два гаманці одного рахунку у двох валютах),
   розширюваний; IMP-03 п. 3, 4, 7: `score` (55–100), `confidence` (`high` / `medium` / `low`), `evidence` (`code`
-розширюваний, `points`, `days`), `ambiguousWith` (`transactionId` іншої сторони, `score`); `kind` — `same-currency` з `fee` (різниця, ≤ 0) або `cross-currency` з `rate` (довідковий: 1 одиниця
+  розширюваний, `points`, `days`), `ambiguousWith` (`transactionId` іншої сторони, `score`); `kind` — `same-currency` з `fee` (різниця, ≤ 0) або `cross-currency` з `rate` (довідковий: 1 одиниця
   валюти списання у валюті зарахування), `converted` і `difference` без округлення, `bankRate` (IMP-03 п. 21: зарахування ÷
   списання, 18 знаків) і `rateBand` (`within-1` / `within-3`, IMP-03 п. 4)), `count` (N «Пари · N»), `more` (пошук переглянув свої
   `CANDIDATES_MAX` = 500 пар).
@@ -63,7 +63,7 @@ BUD-01@PoC (#722 D, серверна частина): п. 7, виняток — 
   транзакцій, що є стороною запропонованої, ще не підтвердженої пари (те саме читання, що й маршрут; до
   `CANDIDATES_MAX` пар) — для «Перекази без пари» модуля cashflow (BUD-08@PoC п. 8).
 - `createCardPaymentTransfers({ candidates, rates, cards, enabled, mark })` → `CardPaymentTransfers.markFor(householdId,
-  actorAccountId, fresh)` (BUD-01@PoC п. 7, AC4) — одразу після появи нових транзакцій (`fresh`: id транзакцій,
+actorAccountId, fresh)` (BUD-01@PoC п. 7, AC4) — одразу після появи нових транзакцій (`fresh`: id транзакцій,
   введених вручну, або `importBatchId` застосованої партії): з пропозицій «Пари · N» (те саме читання) ті, що є
   платежем на кредитну картку простору (`cards` — рахунки виду `credit-card` модуля accounts) зі списання з іншого
   рахунку простору, мають нову сторону і однозначні (жодна сторона не входить в іншого кандидата того ж читання — пропозиції
@@ -82,12 +82,12 @@ BUD-01@PoC (#722 D, серверна частина): п. 7, виняток — 
 ## Події
 
 | Публікує | Версія | Коли |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ---- |
+| —        |        |      |
 
 | Споживає | Версія | Навіщо |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ------ |
+| —        |        |        |
 
 ## Власні таблиці
 

@@ -461,6 +461,7 @@ export function workerQueues(
 } {
   const audit = createAuditLog(databases.for("audit"));
   const ledger = createLedger(databases.for("ledger"));
+  const importParser = isolatedStatementParser();
   return {
     queues: [
       { store: postgresJobStore(databases.for("ledger")), handlers: [] },
@@ -511,6 +512,7 @@ export function workerQueues(
       // BUD-07 a: the audit entries of regular payments and rejected proposals (ADR-0015), and the category merges.
       createRecurringWorkerQueue(databases.for("recurring"), audit),
       // IMP-01 b: the audit entries of import batches (ADR-0015); the parse of their files (heavy jobs).
+      // BUD-21 a: the read of history files.
       createImportSessionsWorkerQueue(
         databases.for("import-sessions"),
         audit,
@@ -523,8 +525,10 @@ export function workerQueues(
                 accounts: createAccountDirectory(databases.for("accounts")),
                 banks: bankDirectory,
                 candidates: createAccountCandidates(databases.for("accounts")),
-                // One parser per worker: its own limit of parse workers at a time on top of the heavy-job limit.
-                parser: isolatedStatementParser(),
+                // One parser per worker: its own limit of parse workers at a time on top of the heavy-job limit;
+                // a history file's read (BUD-21 a) takes the same turns.
+                parser: importParser,
+                history: importParser,
               },
               now: () => systemClock.now(),
               newId: randomUUID,

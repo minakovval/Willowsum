@@ -47,7 +47,7 @@ export function fileOriginals(
       try {
         const file = await files.store({
           ...request,
-          kind: "statement",
+          kind: request.kind ?? "statement",
           budget: request.budget as UploadBudget,
         });
         return {
@@ -150,6 +150,15 @@ export interface ResultServices {
   };
 }
 
+/**
+ * BUD-21@PoC FR 3–6 (row 233): the history file's routes — the space's key that seals and opens its read and the
+ * answers, and the accounts a value of the account column may be matched with. Omitted: those routes answer 500.
+ */
+export interface HistoryServices {
+  readonly keys: Pick<SpaceKeys, "openBytes" | "sealBytes">;
+  readonly accounts: Pick<AccountDirectory, "postingAccount">;
+}
+
 /** What the API process wires for the import-sessions routes (src/api.ts → `ctx.services`). */
 export interface ImportSessionsServices {
   readonly [BRAND]: true;
@@ -160,6 +169,7 @@ export interface ImportSessionsServices {
   readonly apply?: ApplyServices;
   readonly preview?: PreviewServices;
   readonly result?: ResultServices;
+  readonly history?: HistoryServices;
 }
 
 export function createImportSessionsServices(options: {
@@ -171,6 +181,7 @@ export function createImportSessionsServices(options: {
   readonly apply?: ApplyServices;
   readonly preview?: PreviewServices;
   readonly result?: ResultServices;
+  readonly history?: HistoryServices;
 }): ImportSessionsServices {
   return {
     [BRAND]: true,
@@ -185,6 +196,7 @@ export function createImportSessionsServices(options: {
     ...(options.apply ? { apply: options.apply } : {}),
     ...(options.preview ? { preview: options.preview } : {}),
     ...(options.result ? { result: options.result } : {}),
+    ...(options.history ? { history: options.history } : {}),
   };
 }
 

@@ -14,6 +14,7 @@ import {
 import {
   addFiles,
   applyBatch,
+  RejectedFile,
   batchResult,
   followUpOf,
   hasFollowUp,
@@ -214,6 +215,25 @@ function refusal(error: unknown): unknown {
   // #624: the space's parse requests are bounded per hour (a technical ceiling, never 402).
   if (error instanceof ParseRateLimited) return new ApiProblem("RATE_LIMITED", { retryAfterS: 3600 });
   return error;
+}
+
+/**
+ * BUD-21 FR 3, AC5: an upload whose file was not accepted (file-storage's reason, nothing of it stored) — its code and
+ * the ceiling it exceeded, 413 for a size, else 422; the rest as `guarded`.
+ */
+export async function uploadRefusal<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work();
+  } catch (error) {
+    if (error instanceof RejectedFile) {
+      const r = error.rejection;
+      throw new ApiProblem(r.status === 413 ? "FILE_TOO_LARGE" : "FILE_REJECTED", {
+        detail: r.message.en,
+        extensions: { rejection: { code: r.code, ...(r.ceiling ? { ceiling: r.ceiling } : {}) } },
+      });
+    }
+    throw refusal(error);
+  }
 }
 
 export async function guarded<T>(work: () => Promise<T>): Promise<T> {

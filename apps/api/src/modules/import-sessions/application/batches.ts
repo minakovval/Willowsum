@@ -18,8 +18,14 @@ import {
  * Every change of a batch enqueues its audit hand-off in the same transaction (ADR-0015); the entry never holds a file's
  * name or content (FR 19).
  */
+/** BUD-21@PoC FR 3: a statement's batch, or a history file's (never applied, not in the history of imports). */
+export const BATCH_KINDS = ["statement", "history"] as const;
+export type BatchKind = (typeof BATCH_KINDS)[number];
+
 export interface Batch {
   readonly id: string;
+  /** Absent — a statement's batch. */
+  readonly kind?: BatchKind;
   readonly householdId: string;
   readonly name: string | null;
   readonly state: BatchState;
@@ -110,6 +116,8 @@ export interface Originals {
     readonly householdId: string;
     readonly actorId: string;
     readonly fileName: string;
+    /** BUD-21 FR 3: file-storage's kind of the original; absent — «виписка». */
+    readonly kind?: "history-file";
     readonly declaredBytes?: number;
     readonly budget: OriginalsBudget;
     readonly body: AsyncIterable<Uint8Array> & { destroy?(): void };
@@ -452,6 +460,8 @@ export async function deleteBatch(
         changes: [
           { field: "state", before: batch.state, after: null },
           { field: "files", before: String(files.count), after: null },
+          // BUD-21 FR 26: «Видалити файл» and the daily cleanup of a history file are told apart from a statement's.
+          ...(batch.kind === "history" ? [{ field: "kind", before: "history", after: null }] : []),
         ],
       }),
     );

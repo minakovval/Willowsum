@@ -57,3 +57,18 @@ export const PARSE_FILE_JOB = defineJob({
 export async function enqueueParse(q: HouseholdQueryRunner, job: ParseJob): Promise<void> {
   await enqueueJob(q, PARSE_FILE_JOB, `parse:${job.batchFileId}:${job.parseId}`, job);
 }
+
+/**
+ * BUD-21@PoC FR 3, FR 6: the read of a history file (its upload, or a re-read with the user's corrections) in the
+ * isolated parse worker. Heavy, like a statement's parse; a dead one goes back daily (`import-sessions.hand-off-recovery`).
+ */
+export const PARSE_HISTORY_JOB = defineJob({
+  name: "import-sessions.parse-history",
+  schema: parseSchema,
+  heavy: true,
+});
+
+/** Enqueues the history file's read in the caller's import-sessions transaction; one job per read. */
+export async function enqueueHistoryParse(q: HouseholdQueryRunner, job: ParseJob): Promise<void> {
+  await enqueueJob(q, PARSE_HISTORY_JOB, `history:${job.batchFileId}:${job.parseId}`, job);
+}

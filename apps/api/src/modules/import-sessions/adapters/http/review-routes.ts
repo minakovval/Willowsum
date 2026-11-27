@@ -44,7 +44,7 @@ const opener = (ctx: ProtectedContext) => {
   return (purpose: string, sealed: Uint8Array) => parse.keys.openBytes(householdId, purpose, sealed);
 };
 
-const evidenceSchema = z.object({
+export const evidenceSchema = z.object({
   code: z.string().meta(extensible),
   column: z.number().int().optional(),
   row: z.number().int().optional(),
@@ -150,21 +150,21 @@ export const listImportReviewRowsRoute = defineRoute({
   },
 });
 
-const hypothesisSchema = z.object({
+export const hypothesisSchema = z.object({
   /** A role, a sign mode — or a date format `{ order, format }`, a number format `{ decimalSeparator, thousandsSeparator }`. */
   value: z.union([z.string(), z.record(z.string(), z.string())]),
   label: z.string(),
   score: z.number(),
   examples: z.array(z.object({ cell: z.string(), reads: z.string().nullable() })),
 });
-const decisionSchema = z.object({
+export const decisionSchema = z.object({
   chosen: hypothesisSchema,
   alternatives: z.array(hypothesisSchema),
   evidence: z.array(evidenceSchema),
   flags: z.array(z.string().meta(extensible)),
 });
 const guessSchema = z.object({ value: z.string(), score: z.number(), reason: z.string().optional() });
-const guessesSchema = z.object({ chosen: guessSchema, alternatives: z.array(guessSchema) }).nullable();
+export const guessesSchema = z.object({ chosen: guessSchema, alternatives: z.array(guessSchema) }).nullable();
 const stateCounts = Object.fromEntries(REVIEW_ROW_STATES.map((s) => [s, z.number().int()])) as Record<
   (typeof REVIEW_ROW_STATES)[number],
   z.ZodNumber

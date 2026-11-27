@@ -274,6 +274,14 @@ export const FLAGS = {
     description:
       "Імпорт виписок (IMP-01@PoC b): партії, завантаження файлів, оригінали у сховищі, підписані посилання, стани партії; рецепти розбору простору (IMP-06@PoC a); маршрути /v1/import/batches, /v1/import/recipes",
   },
+  "categorization.history-rules": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-27",
+    requires: "data.import",
+    description:
+      "Правила з історії розбору (BUD-21@PoC a): файл історії з розбором користувача — завантаження, ролі колонок, перевірка розпізнавання, виправлення, підтвердження, «Видалити файл»; маршрути /v1/import/history-files",
+  },
   "debts.payoff": {
     kind: "release",
     owner: "product-owner",

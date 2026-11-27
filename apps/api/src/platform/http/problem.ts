@@ -299,6 +299,16 @@ export const PROBLEMS = {
    */
   IMPORT_NOT_READY: { status: 409, title: "The batch is not ready to apply" },
   /**
+   * BUD-21@PoC FR 4, AC3, AC4: rules cannot be derived from the history file as read; `errors` names what is missing
+   * (`date`, `amount`, `description`, `categories`, or `rows` — no row read). Nothing was written.
+   */
+  HISTORY_NOT_READY: { status: 409, title: "The history file cannot be confirmed as read" },
+  /**
+   * BUD-21@PoC FR 6: an answer names a value the history file's reading does not have, or an account the space does not
+   * have (another space's is the same answer); `errors` names the answer. Nothing was written.
+   */
+  HISTORY_ANSWER_INVALID: { status: 422, title: "The answer does not fit the history file" },
+  /**
    * IMP-01@PoC FR 11 (#637 item 1): rows that cannot be written as they are — unreadable, without the account's currency,
    * with more decimals than the currency has, with a fee; `errors` names at most 20 (`files[<id>].rows[<n>]`) and the
    * issue. The person excludes or answers them; nothing was written.

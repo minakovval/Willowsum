@@ -24,3 +24,5 @@ export type { ParseRefusalCode, ParseState } from "./parse.ts";
 export { maskNumbers } from "./mask.ts";
 export { ACCOUNT_MATCHES, accountFor } from "./account-match.ts";
 export type { AccountCandidate, AccountMatchKind, AccountPick } from "./account-match.ts";
+export { accountValues, classifyRows, HISTORY_SKIPS, HISTORY_VIEW_LIMITS, labelTree } from "./history.ts";
+export type { HistoryRowFields, HistorySkip, HistorySummary, LabelNode, ReadRow } from "./history.ts";

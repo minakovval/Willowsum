@@ -148,9 +148,9 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
   проти транзакцій рахунку як вони є зараз; `afterEarlierFile` — раніший файл партії з тим самим рахунком (застосування
   бачить його рядки, перегляд — ні). Ті самі правила, що в готовності: `dispositionsOf`, `closesQuestion`. Права
   `household.data.read`; партія чи файл іншого простору — 404; не розібраний файл — 409. `createImportSessionsServices({ …,
-  preview? })` — `preview.candidates` (`createImportCandidates` модуля transactions); без нього перегляд дублів — 500.
+preview? })` — `preview.candidates` (`createImportCandidates` модуля transactions); без нього перегляд дублів — 500.
 - Крок «Результат» (IMP-08@PoC FR 11, FR 12, AC7; рядок 138, серверна частина; лише читання): `GET
-  /v1/import/batches/{batchId}/result` (`getImportBatchResult`) — партія, збережений результат застосування (ті самі
+/v1/import/batches/{batchId}/result` (`getImportBatchResult`) — партія, збережений результат застосування (ті самі
   `result.counts` і `appliedAt`, що у відповіді «Застосувати»; крок відкривається знову за адресою) і `followUp` — що лишилося
   після застосування, як простір є зараз: `cardPaymentTransfers` (платежі на картку, записані як переказ, IMP-03 п. 15; поки
   0 — застосування їх ще не записує), `transferProposals` (`count` пропозицій «Пари · N» зі стороною цієї партії, `more` —
@@ -158,7 +158,7 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
   категорії — черга «До розбору»). Кожне число — від модуля-власника через його публічний інтерфейс (`application/result.ts`,
   `followUpOf`; сторінки по `RESULT_PAGE` = 1 000). Партія без завершеного застосування — 409 `BATCH_STATE_CONFLICT`;
   права `household.data.read`; партія іншого простору чи учасник з областю — 404. `createImportSessionsServices({ …,
-  result? })` — `result.transactions` (`createImportBatchTransactions` модуля transactions), `result.categories`
+result? })` — `result.transactions` (`createImportBatchTransactions` модуля transactions), `result.categories`
   (`createTransactionCategories` модуля categorization), `result.proposals` (`createImportBatchProposals` модуля
   transfer-matching), підключено в main.ts; без них маршрут — 500.
 - `BATCH_LIMITS` (50 файлів — рядків партії, прийнятих і відхилених; 150 МіБ), `BATCH_STATES`, `canMove`,
@@ -175,12 +175,12 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
 ## Події
 
 | Публікує | Версія | Коли |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ---- |
+| —        |        |      |
 
 | Споживає | Версія | Навіщо |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ------ |
+| —        |        |        |
 
 ## Власні таблиці
 

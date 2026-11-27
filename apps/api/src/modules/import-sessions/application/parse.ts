@@ -1,6 +1,8 @@
 import {
   bankName,
   type DetectedAccount,
+  type HistoryParse,
+  type HistoryReadOptions,
   type Institution,
   type ReadOptions,
   type StatementChecks,
@@ -244,6 +246,8 @@ export interface ParsePorts {
     binding: ParseRecipe["binding"],
   ): Promise<StatementParse>;
   seal(householdId: string, purpose: string, plaintext: Uint8Array): Promise<Uint8Array>;
+  /** BUD-21 FR 3, FR 4: a history file's read in the isolated worker; absent — history jobs are not taken. */
+  parseHistory?(householdId: string, bytes: Uint8Array, options: HistoryReadOptions): Promise<HistoryParse>;
 }
 
 /** The parse was refused (a ceiling, a damaged file, the account binding): the file's rejection code. */
