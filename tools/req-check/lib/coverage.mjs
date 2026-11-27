@@ -188,11 +188,15 @@ export function assignBlocks(config, ids) {
   return { block, unmapped: ids.filter((id) => !block.has(id)), duplicated: [...duplicated], stale: [...block.keys()].filter((id) => !ids.includes(id)) };
 }
 
+/** Status of a PoC feature whose view has no numbered FR, AC or EC: readiness is not measured (owner, 2026-11-27). */
+export const NO_ITEMS = 'немає пунктів для підрахунку';
+
 /**
  * The features of the PoC release for the progress page: one per requirement that has a PoC view. Status:
  * «готово» — every FR, AC and EC named by a test and no fingerprint error; «у роботі» — some covered (an open PR
- * that names the ID is added by the page, from the GitHub API); «не почато» — none covered. A requirement
- * that is not in the PoC release is not listed.
+ * that names the ID is added by the page, from the GitHub API); «не почато» — none covered; «немає пунктів для
+ * підрахунку» — the view has no numbered FR, AC or EC (items.total = 0), so readiness is not measured (owner,
+ * 2026-11-27). A requirement that is not in the PoC release is not listed.
  * @param {ReturnType<typeof computeCoverage>} cov
  * @param {{titles: Map<string, string>, fingerprintErrors: Map<string, number>, blocks?: {blocks: {id: string, ids: string[]}[]}|null}} meta
  */
@@ -203,7 +207,7 @@ export function featuresSummary(cov, { titles, fingerprintErrors, blocks = null 
     const covered = r.FR.covered + r.AC.covered + r.EC.covered;
     const total = r.FR.total + r.AC.total + r.EC.total;
     const fp = fingerprintErrors.get(r.id) ?? 0;
-    const status = total > 0 && covered === total && fp === 0 ? 'готово' : covered > 0 ? 'у роботі' : 'не почато';
+    const status = total === 0 ? NO_ITEMS : covered === total && fp === 0 ? 'готово' : covered > 0 ? 'у роботі' : 'не почато';
     const prefix = r.id.slice(0, r.id.indexOf('-'));
     out.push({ id: r.id, title: titles.get(r.id) ?? '', section: prefix, sectionName: SECTION_NAMES[prefix] ?? prefix, block: map.get(r.id) ?? 'other', FR: { covered: r.FR.covered, total: r.FR.total }, AC: { covered: r.AC.covered, total: r.AC.total }, EC: { covered: r.EC.covered, total: r.EC.total }, items: { covered, total }, fingerprintErrors: fp, status });
   }

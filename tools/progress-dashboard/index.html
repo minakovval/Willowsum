@@ -94,10 +94,11 @@ ul.prs .age { color: var(--muted); font-size: 13px; white-space: nowrap; font-va
 .feat li .id { font-variant-numeric: tabular-nums; font-weight: 600; }
 .feat li .tt { overflow-wrap: anywhere; }
 .feat li .st { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
-.feat li .pr { grid-column: 2 / -1; }
+.feat li .pr, .feat li .na { grid-column: 2 / -1; }
 .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; background: var(--inset); color: var(--muted); font-size: 12px; }
 .badge.ok { background: var(--product); color: var(--bg); }
 .badge.wip { background: var(--warn-bg); color: var(--warn-ink); }
+.badge.na { background: none; border: 1px dashed var(--muted); }
 @media (max-width: 560px) { .feat li { grid-template-columns: 56px minmax(0, 1fr); } .feat li .st { grid-column: 2; text-align: left; } }
 footer { color: var(--muted); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
@@ -249,7 +250,7 @@ footer { color: var(--muted); font-size: 12px; }
     if (!ok.some(function (r) { return r.release === 'PoC'; })) return false;
     var blks = Array.isArray(j.blocks) ? j.blocks.filter(function (b) { return b && typeof b.id === 'string' && typeof b.name === 'string'; }) : [];
     var feats = Array.isArray(j.features) ? j.features.filter(function (f) {
-      return f && typeof f.id === 'string' && typeof f.title === 'string' && typeof f.block === 'string' && count(f.items) && ['готово', 'у роботі', 'не почато'].indexOf(f.status) >= 0;
+      return f && typeof f.id === 'string' && typeof f.title === 'string' && typeof f.block === 'string' && count(f.items) && ['готово', 'у роботі', 'не почато', NO_ITEMS].indexOf(f.status) >= 0;
     }) : null;
     return { features: feats, blocks: blks, at: j.generatedAt, sha: /^[0-9a-f]{40}$/.test(j.sha || '') ? j.sha : null, releases: ok };
   }
@@ -323,7 +324,11 @@ footer { color: var(--muted); font-size: 12px; }
   }
 
   // «Готовність функцій PoC»: a feature is a requirement of the PoC release. The status comes from coverage.json; the
-  // page raises «не почато» to «у роботі» when an open PR title starts with «ID:».
+  // page raises «не почато» to «у роботі» when an open PR title starts with «ID:». A feature with no numbered items
+  // (NO_ITEMS, owner 2026-11-27) is shown with its own status and left out of «Готово N з M» and of block percentages.
+  var NO_ITEMS = 'немає пунктів для підрахунку';
+  var NO_ITEMS_NOTE = 'У тексті вимоги немає нумерованих пунктів, готовність не вимірюється.';
+  function badgeClass(st) { return 'badge' + (st === 'готово' ? ' ok' : st === 'у роботі' ? ' wip' : st === NO_ITEMS ? ' na' : ''); }
   function openPrOf(id) {
     var list = state.open || [];
     for (var i = 0; i < list.length; i++) if (list[i].t.slice(0, id.length + 1) === id + ':') return list[i];
@@ -343,29 +348,32 @@ footer { color: var(--muted); font-size: 12px; }
       if (!blocks[f.block]) { blocks[f.block] = { name: 'Без блоку', note: '', list: [] }; order.push(f.block); }
       blocks[f.block].list.push({ f: f, pr: pr, st: st });
     });
-    var ready = 0;
+    var ready = 0, measured = 0, unmeasured = 0;
     order.forEach(function (k) {
       var blk = blocks[k];
       if (!blk.list.length) return;
-      var cov = 0, tot = 0, rd = 0, started = 0;
+      var cov = 0, tot = 0, rd = 0, started = 0, n = 0;
       blk.list.forEach(function (x) {
+        if (x.f.status === NO_ITEMS) { unmeasured += 1; return; }
+        n += 1;
         cov += x.f.items.covered; tot += x.f.items.total;
         if (x.st === 'готово') rd += 1;
         if (x.st !== 'не почато') started += 1;
       });
-      ready += rd;
-      var bst = rd === blk.list.length ? 'готово' : started ? 'у роботі' : 'не почато';
+      ready += rd; measured += n;
+      var bst = !n ? NO_ITEMS : rd === n ? 'готово' : started ? 'у роботі' : 'не почато';
       var d = document.createElement('details');
       var sm = document.createElement('summary');
       var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = blk.name;
       var bar = document.createElement('div'); bar.className = 'bar';
       var q = tot ? Math.floor(cov / tot * 100) : 0;
-      bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100'); bar.setAttribute('aria-valuenow', q);
+      bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100');
+      if (n) bar.setAttribute('aria-valuenow', q); else bar.setAttribute('aria-valuetext', NO_ITEMS);
       bar.setAttribute('aria-label', blk.name + ': пункти вимог, названі тестами');
       var bi = document.createElement('i'); bi.style.width = q + '%'; bar.appendChild(bi);
       var ct = document.createElement('span'); ct.className = 'ct';
-      ct.appendChild(document.createTextNode(q + ' % · готово ' + rd + ' з ' + blk.list.length + ' · '));
-      var bb = document.createElement('span'); bb.className = 'badge' + (bst === 'готово' ? ' ok' : bst === 'у роботі' ? ' wip' : ''); bb.textContent = bst;
+      if (n) ct.appendChild(document.createTextNode(q + ' % · готово ' + rd + ' з ' + n + ' · '));
+      var bb = document.createElement('span'); bb.className = badgeClass(bst); bb.textContent = bst;
       ct.appendChild(bb);
       sm.appendChild(nm); sm.appendChild(bar); sm.appendChild(ct); d.appendChild(sm);
       if (blk.note) { var nt = document.createElement('p'); nt.className = 'note bnote'; nt.textContent = blk.note; d.appendChild(nt); }
@@ -377,9 +385,11 @@ footer { color: var(--muted); font-size: 12px; }
         var id = document.createElement('span'); id.className = 'id'; id.textContent = x.f.id;
         var tt = document.createElement('span'); tt.className = 'tt'; tt.textContent = x.f.title;
         var stw = document.createElement('span'); stw.className = 'st';
-        var b = document.createElement('span'); b.className = 'badge' + (x.st === 'готово' ? ' ok' : x.st === 'у роботі' ? ' wip' : ''); b.textContent = x.st;
-        stw.appendChild(document.createTextNode((x.f.items.total ? Math.floor(x.f.items.covered / x.f.items.total * 100) : 0) + ' % · ')); stw.appendChild(b);
+        var b = document.createElement('span'); b.className = badgeClass(x.st); b.textContent = x.st;
+        if (x.f.status !== NO_ITEMS) stw.appendChild(document.createTextNode(Math.floor(x.f.items.covered / x.f.items.total * 100) + ' % · '));
+        stw.appendChild(b);
         li.appendChild(id); li.appendChild(tt); li.appendChild(stw);
+        if (x.f.status === NO_ITEMS) { var nn = document.createElement('span'); nn.className = 'na note'; nn.textContent = NO_ITEMS_NOTE; li.appendChild(nn); }
         if (x.pr) {
           var pw = document.createElement('span'); pw.className = 'pr';
           var a = document.createElement('a'); a.href = x.pr.u; a.textContent = 'PR #' + x.pr.n;
@@ -389,7 +399,8 @@ footer { color: var(--muted); font-size: 12px; }
       });
       inner.appendChild(ul); d.appendChild(inner); box.appendChild(d);
     });
-    text('featnote', 'Блок — група вимог релізу PoC. Функція — одна вимога. Готово: усі пункти названі тестами, помилок відбитків немає. Готово ' + ready + ' з ' + coverage.features.length + ' функцій.');
+    text('featnote', 'Блок — група вимог релізу PoC. Функція — одна вимога. Готово: усі пункти названі тестами, помилок відбитків немає. Готово ' + ready + ' з ' + measured + ' функцій.' +
+      (unmeasured ? ' Ще ' + unmeasured + ' — «' + NO_ITEMS + '»: у тексті немає нумерованих пунктів, тому їх не враховано ні в «Готово», ні у відсотках блоків.' : ''));
   }
 
   function isProcess(title) { return /^\s*PRC-/i.test(title); }
