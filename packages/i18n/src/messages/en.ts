@@ -400,6 +400,12 @@ export const en: Messages = {
   "txDetail.statement.fee": "Bank fee",
   "txDetail.statement.origin": "Import",
   "txDetail.statement.row": "Statement row {row}",
+  "txDetail.transfer.title": "Exchange difference",
+  "txDetail.transfer.loss": "Loss against the NBU rate",
+  "txDetail.transfer.gain": "Gain against the NBU rate",
+  "txDetail.transfer.budget": "In the budget",
+  "txDetail.transfer.budget.expense": "Expense · Bank fees",
+  "txDetail.transfer.budget.income": "Income · Bank fees",
   "txDetail.split": "Split",
   "txDetail.split.review": "needs review",
   "txDetail.unsplit": "Merge back",
@@ -3326,6 +3332,13 @@ export const en: Messages = {
   "importResult.rollback.error.network": "Error. The batch could not be rolled back. Check your connection.",
   "importResult.rollback.error.expired": "Error. The time to roll back has passed.",
   "importResult.rollback.error.conflict": "Error. The state of the batch changed: reload the page.",
+  "importResult.rollback.counts.loading": "Counting the transactions to roll back…",
+  "importResult.rollback.counts.keep":
+    "Transactions to roll back: {count}. Changed by hand and kept: {changed}.",
+  "importResult.rollback.counts.all":
+    "Transactions to roll back: {count}, including those changed by hand ({changed}).",
+  "importResult.rollback.counts.transfers": "Sides of transfers ({count}) stay either way.",
+  "importResult.rollback.counts.error": "Error. Could not count the transactions to roll back.",
   "importResult.rolledBack.title": "The batch was rolled back",
   "importResult.rolledBack.text":
     "The transactions of the batch were rolled back by reversals in the journal; nothing was deleted.",

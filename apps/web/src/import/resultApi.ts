@@ -15,6 +15,7 @@ export type RollbackBody = NonNullable<
   operations["rollbackImportBatch"]["requestBody"]
 >["content"]["application/json"];
 export type RollbackMode = NonNullable<RollbackBody["mode"]>;
+export type RollbackCounts = NonNullable<Json<operations["getImportBatchRollback"]>["rollback"]>;
 export type RolledBack = Json<operations["rollbackImportBatch"]>;
 
 /** Applies the reviewed batch: all rows or none (IMP-05 FR 11); a second call returns the stored result (`first: false`). */
@@ -33,3 +34,14 @@ export const rollbackBatch = (
   outcome(
     api.POST("/v1/import/batches/{batchId}/rollback", { params: { path: { batchId } }, body: { mode } }),
   );
+
+/**
+ * The counts of the rollback dialog (IMP-16 FR 4, IMP-04 FR 8; `GET …/rollback`, #728): `transactions` roll back with
+ * «Залишити змінені вручну» on, `changed` were changed by hand (kept with it on, rolled back with it off), `transfers` are
+ * sides of a transfer (kept either way). `null` — the batch cannot be rolled back any more.
+ */
+export const loadRollbackCounts = (
+  api: ApiClient,
+  batchId: string,
+): Promise<Outcome<Json<operations["getImportBatchRollback"]>>> =>
+  outcome(api.GET("/v1/import/batches/{batchId}/rollback", { params: { path: { batchId } } }));

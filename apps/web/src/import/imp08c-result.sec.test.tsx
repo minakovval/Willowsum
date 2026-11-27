@@ -86,6 +86,10 @@ function api(over: Handlers = {}, state = "needs-review") {
     [`GET /v1/import/batches/${BATCH}`]: () => ({ status: 200, body: detail(state) }),
     [`POST /v1/import/batches/${BATCH}/apply`]: () => ({ status: 200, body: applied() }),
     [`GET /v1/import/batches/${BATCH}/result`]: () => ({ status: 200, body: resultOf() }),
+    [`GET /v1/import/batches/${BATCH}/rollback`]: () => ({
+      status: 200,
+      body: { batch: batchOf("applied"), rollback: { transactions: 9, changed: 1, transfers: 0 } },
+    }),
     ...over,
   });
 }
@@ -164,6 +168,7 @@ describe("IMP-08@PoC c) follow-ups of #677 (security probes, issue #678)", () =>
     expect(posts(calls, "/rollback")).toHaveLength(0);
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(/Буде відкочено транзакцій/);
     const ok = within(dialog).getByRole("button", { name: "Відкотити" });
     fireEvent.click(ok);
     fireEvent.click(ok);
@@ -267,6 +272,7 @@ describe("IMP-08@PoC c) follow-ups of #677 (security probes, issue #678)", () =>
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(/Буде відкочено транзакцій/);
     fireEvent.click(within(dialog).getByRole("button", { name: "Відкотити" }));
     await screen.findByRole("heading", { name: "Партію відкочено" });
     const link = within(screen.getByRole("list", { name: "Залишені змінені транзакції" })).getByRole("link");
