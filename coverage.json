@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-27T11:59:50.464Z",
-  "sha": "56ba0f2f3502aeb8318c601f6f71979287f49e2a",
+  "generatedAt": "2026-11-27T12:47:08.867Z",
+  "sha": "0c9000e192c69e383d3f49132e13cbc2157cba52",
   "releases": [
     {
       "release": "PoC",
@@ -511,7 +511,7 @@
         "total": 0
       },
       "fingerprintErrors": 0,
-      "status": "не почато"
+      "status": "немає пунктів для підрахунку"
     },
     {
       "id": "BUD-01",
@@ -986,7 +986,7 @@
         "total": 0
       },
       "fingerprintErrors": 0,
-      "status": "не почато"
+      "status": "немає пунктів для підрахунку"
     },
     {
       "id": "CICD-04",
@@ -1011,7 +1011,7 @@
         "total": 0
       },
       "fingerprintErrors": 0,
-      "status": "не почато"
+      "status": "немає пунктів для підрахунку"
     },
     {
       "id": "CICD-06",
@@ -3461,7 +3461,7 @@
         "total": 0
       },
       "fingerprintErrors": 0,
-      "status": "не почато"
+      "status": "немає пунктів для підрахунку"
     },
     {
       "id": "JRN-06",
@@ -3486,7 +3486,7 @@
         "total": 0
       },
       "fingerprintErrors": 0,
-      "status": "не почато"
+      "status": "немає пунктів для підрахунку"
     },
     {
       "id": "NFR-01",
