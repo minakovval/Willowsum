@@ -1,4 +1,4 @@
-// Створено: 2026-11-15 · Оновлено: 2026-11-15
+// Створено: 2026-11-15 · Оновлено: 2026-11-27
 // The lead's SessionStart hook after compaction (owner, 2026-11-15, #178 comment 6897443899). No network.
 // Run: node --test tools/lead-hooks
 import assert from "node:assert/strict";
@@ -58,7 +58,7 @@ describe("after-compact hook", () => {
   it(".claude/settings.json runs this script on SessionStart with the matcher `compact` only", () => {
     const settings = JSON.parse(readFileSync(SETTINGS, "utf8"));
     assert.deepEqual(Object.keys(settings), ["hooks"]);
-    assert.deepEqual(Object.keys(settings.hooks), ["SessionStart"]);
+    assert.deepEqual(Object.keys(settings.hooks), ["SessionStart", "Stop"]); // Stop: owner-language.test.mjs
     const groups = settings.hooks.SessionStart;
     assert.equal(groups.length, 1);
     assert.equal(groups[0].matcher, "compact");

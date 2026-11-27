@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"Продовжуй конвеєр."}}
+{"type":"assistant","message":{"id":"m0","role":"assistant","content":[{"type":"tool_use","id":"t0","name":"Skill","input":{"skill":"pr-pipeline"}}]}}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t0","content":"Launching skill: pr-pipeline"}]}}
+{"type":"assistant","message":{"id":"m1","role":"assistant","content":[{"type":"text","text":"PR #740 is merged. The next step is the review of PRC-02; I am waiting for the reviewer session to finish and will report back."}]}}
+{"type":"assistant","message":{"id":"m2","role":"assistant","content":[{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"true"}}]}}

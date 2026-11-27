@@ -1,0 +1,2 @@
+{"type":"user","message":{"role":"user","content":"<command-name>/pr-pipeline</command-name>\n<command-message>pr-pipeline</command-message>"}}
+{"type":"assistant","message":{"id":"m1","role":"assistant","content":[{"type":"text","text":"PR #740 is merged. The next step is the review of PRC-02; I am waiting for the reviewer session to finish and will report back."}]}}
