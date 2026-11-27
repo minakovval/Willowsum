@@ -3,3 +3,4 @@
 export * from "./matching.ts";
 export * from "./card-payments.ts";
 export * from "./scoring.ts";
+export * from "./counterparts.ts";

@@ -39,7 +39,10 @@ export {
   transactionsTx,
   transactionsWithPartIn,
   transferCandidates,
+  counterpartCandidates,
   type CandidateSide,
+  type ChosenSide,
+  type CounterpartSide,
   type DuplicateSide,
 } from "./db/store.ts";
 export {
