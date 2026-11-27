@@ -88,13 +88,20 @@ const label = z.string().min(1).max(40);
 const pattern = z.string().min(1).max(1000);
 const currencyCode = z.string().regex(/^[A-Z]{3}$/);
 
-const recipeSchema = z.strictObject({
+/**
+ * Enums of the recipe may grow with a later schema version: the contract marks them extensible (ARC-07 FR 3), so a
+ * client shows an unknown value as it is instead of failing.
+ */
+const extensible = { "x-extensible-enum": true } as const;
+
+/** The recipe's schema (version `RECIPE_SCHEMA_VERSION`); the contract's typed recipe is built from it (IMP-07, row 49). */
+export const recipeSchema = z.strictObject({
   schemaVersion: z.literal(RECIPE_SCHEMA_VERSION),
   file: z
     .strictObject({
-      encoding: z.enum(RECIPE_ENCODINGS).optional(),
-      delimiter: z.enum(RECIPE_DELIMITERS).optional(),
-      quote: z.enum(['"', "'", "none"]).optional(),
+      encoding: z.enum(RECIPE_ENCODINGS).meta(extensible).optional(),
+      delimiter: z.enum(RECIPE_DELIMITERS).meta(extensible).optional(),
+      quote: z.enum(['"', "'", "none"]).meta(extensible).optional(),
       sheet: z.string().min(1).max(64).optional(),
       skipRows: count.optional(),
       headerRow: z.number().int().min(1).max(20_000).nullable().optional(),
@@ -106,7 +113,7 @@ const recipeSchema = z.strictObject({
     .array(
       z.strictObject({
         column,
-        role: z.enum(COLUMN_ROLES),
+        role: z.enum(COLUMN_ROLES).meta(extensible),
         /** The header the rule expects (FR 6: a warning when the file's differs). */
         header: z.string().max(200).optional(),
       }),
@@ -119,16 +126,16 @@ const recipeSchema = z.strictObject({
         .max(32)
         .regex(/^(?:YYYY|YY|MM|M|DD|D|HH|mm|ss|[./\- :T])+$/)
         .optional(),
-      order: z.enum(["dmy", "mdy", "ymd"]).optional(),
+      order: z.enum(["dmy", "mdy", "ymd"]).meta(extensible).optional(),
       baseYear: z.number().int().min(1900).max(2100).optional(),
       timeZone: z.string().min(1).max(64).optional(),
     })
     .optional(),
   numbers: z
     .strictObject({
-      decimalSeparator: z.enum([".", ","]).optional(),
-      thousandsSeparator: z.enum([",", ".", " ", "'", "none"]).optional(),
-      ambiguousIntegers: z.enum(["thousands", "decimals"]).optional(),
+      decimalSeparator: z.enum([".", ","]).meta(extensible).optional(),
+      thousandsSeparator: z.enum([",", ".", " ", "'", "none"]).meta(extensible).optional(),
+      ambiguousIntegers: z.enum(["thousands", "decimals"]).meta(extensible).optional(),
       currencySymbols: z
         .record(z.string().min(1).max(8), currencyCode)
         .refine((r) => Object.keys(r).length <= 32)
@@ -137,7 +144,7 @@ const recipeSchema = z.strictObject({
     .optional(),
   sign: z
     .strictObject({
-      mode: z.enum(["auto", "as-printed", "invert", "indicator"]),
+      mode: z.enum(["auto", "as-printed", "invert", "indicator"]).meta(extensible),
       column: column.optional(),
       outValues: z.array(label).min(1).max(10).optional(),
       inValues: z.array(label).min(1).max(10).optional(),
@@ -145,7 +152,7 @@ const recipeSchema = z.strictObject({
     .optional(),
   currency: z
     .strictObject({
-      mode: z.enum(["auto", "column", "fixed", "file", "row"]),
+      mode: z.enum(["auto", "column", "fixed", "file", "row"]).meta(extensible),
       column: column.optional(),
       code: currencyCode.optional(),
       pattern: pattern.optional(),
@@ -153,7 +160,7 @@ const recipeSchema = z.strictObject({
     .optional(),
   account: z
     .strictObject({
-      by: z.enum(["iban", "account-number", "mask", "header-pattern", "column"]),
+      by: z.enum(["iban", "account-number", "mask", "header-pattern", "column"]).meta(extensible),
       value: z.string().min(1).max(64).optional(),
       pattern: pattern.optional(),
       column: column.optional(),
@@ -174,13 +181,19 @@ const recipeSchema = z.strictObject({
         column,
         pattern,
         group: z.number().int().min(0).max(9),
-        target: z.enum(["counterparty", "reference", "description"]),
+        target: z.enum(["counterparty", "reference", "description"]).meta(extensible),
       }),
     )
     .optional(),
 });
 
 export type Recipe = z.infer<typeof recipeSchema>;
+
+/**
+ * IMP-07@PoC FR 5, EC1: a template saved with an older version of the recipe's schema is «застарілий» — never applied
+ * until it is saved again from the editor (with the current version).
+ */
+export const isStaleSchema = (schemaVersion: number): boolean => schemaVersion < RECIPE_SCHEMA_VERSION;
 
 export type RecipeCheck =
   | { readonly ok: true; readonly recipe: Recipe }

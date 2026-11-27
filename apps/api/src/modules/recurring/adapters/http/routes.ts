@@ -45,6 +45,7 @@ import {
   type PaymentIssue,
 } from "../../domain/index.ts";
 import { recurringTx } from "../db/store.ts";
+import { listRecurringCalendarRoute } from "./calendar.ts";
 import { handOffNow, recurringServices } from "./services.ts";
 
 /**
@@ -789,6 +790,7 @@ export const recurringRoutes = [
   getRecurringPaymentRoute,
   listRecurringStatusesRoute,
   listRecurringChargesRoute,
+  listRecurringCalendarRoute,
   skipRecurringChargeRoute,
   settleRecurringChargeRoute,
   keepRecurringPaymentRoute,

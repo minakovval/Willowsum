@@ -1390,7 +1390,7 @@ export type paths = {
         /** The space's parsing recipes, newest first, without their rules */
         get: operations["listImportRecipes"];
         put?: never;
-        /** Saves a parsing recipe (FR 1, FR 2, FR 3, FR 14): checked whole; an invalid one is 422 RECIPE_INVALID with each error's code and path */
+        /** Saves a parsing recipe as a template (IMP-06 FR 1, FR 14; IMP-07 FR 1, FR 2): checked whole; an invalid one is 422 RECIPE_INVALID with each error's code and path; a name taken in the same scope is 409 */
         post: operations["createImportRecipe"];
         delete?: never;
         options?: never;
@@ -1407,10 +1407,45 @@ export type paths = {
         };
         /** A parsing recipe with its rules; the account binding's value only masked */
         get: operations["getImportRecipe"];
-        put?: never;
+        /** Saves an edited template as its next version (IMP-07 FR 2, FR 3): `expectedVersion` must be the current version, else 409 TEMPLATE_CHANGED «Шаблон змінено, оновіть»; a recipe that binds the account the same way without a value keeps the sealed one */
+        put: operations["updateImportRecipe"];
         post?: never;
         /** Deletes a parsing recipe with its sealed account value */
         delete: operations["deleteImportRecipe"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/recipes/{recipeId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The template's kept versions, newest first (IMP-07 FR 2: the last 20), without their rules */
+        get: operations["listImportRecipeVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/import/recipes/{recipeId}/versions/{version}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restores a kept version (IMP-07 FR 2, AC11): its recipe becomes the template's next version; `expectedVersion` as for a save (FR 3) */
+        post: operations["restoreImportRecipeVersion"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1649,6 +1684,23 @@ export type paths = {
         put?: never;
         /** Change the password in the profile (after step-up) */
         post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The calendar of regular payments: the charges from a date over 1–366 days with the loans' monthly payments, the month's and the year's totals, the current period (BUD-07 FR 7, FR 16, FR 19) */
+        get: operations["listRecurringCalendar"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2259,6 +2311,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/not-transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Не пара»: the pair is never proposed as a transfer again, even after «Роз'єднати» (IMP-03 FR 12); nothing else changes */
+        post: operations["dismissTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/{transactionId}/one-off": {
         parameters: {
             query?: never;
@@ -2404,7 +2473,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** «Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself */
+        /** «Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer, scored 0–100 (at least 55) and one-to-one; the system never marks them itself */
         get: operations["listTransferProposals"];
         put?: never;
         post?: never;
@@ -2441,10 +2510,10 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "CATEGORY_LIMIT_CONFIRM" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "IMPORT_NOT_READY" | "IMPORT_ROWS_REFUSED" | "IMPORT_PLAN_TOO_LARGE" | "IMPORT_APPLY_UNSUPPORTED" | "IMPORT_ROLLBACK_EXPIRED" | "RECIPE_INVALID" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "CATEGORY_LIMIT_CONFIRM" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "RULE_RUN_RUNNING" | "RULE_RUN_UNDO_EXPIRED" | "RULE_RUN_UNDONE" | "RULE_NEEDS_ATTENTION" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "FILE_REJECTED" | "FILE_TOO_LARGE" | "BATCH_STATE_CONFLICT" | "READING_TOO_PRECISE" | "IMPORT_DECISION_INVALID" | "IMPORT_PARSE_INVALID" | "IMPORT_NOT_READY" | "IMPORT_ROWS_REFUSED" | "IMPORT_PLAN_TOO_LARGE" | "IMPORT_APPLY_UNSUPPORTED" | "IMPORT_ROLLBACK_EXPIRED" | "RECIPE_INVALID" | "TEMPLATE_CHANGED" | "TEMPLATE_NAME_TAKEN" | "TEMPLATE_STALE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
             /** @description VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload */
             currentCategoryId?: string | null;
-            /** @description VERSION_CONFLICT: the current version of the record */
+            /** @description VERSION_CONFLICT, TEMPLATE_CHANGED: the current version of the record */
             currentVersion?: number;
             detail?: string;
             errors?: {
@@ -17279,7 +17348,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT); The template is out of date; save it again from the editor (TEMPLATE_STALE) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -18034,12 +18103,20 @@ export interface operations {
                 content: {
                     "application/json": {
                         items: {
+                            accountId: string | null;
                             createdAt: string;
                             fingerprint: string | null;
                             /** Format: uuid */
                             id: string;
+                            lastUsedAt: string | null;
                             name: string;
                             schemaVersion: number;
+                            /** @enum {string} */
+                            scope: "space" | "account";
+                            stale: boolean;
+                            updatedAt: string;
+                            useCount: number;
+                            version: number;
                         }[];
                         /** @description Cursor of the next page; null on the last page. */
                         nextCursor: string | null;
@@ -18135,9 +18212,85 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    accountId?: string | null;
                     fingerprint?: string | null;
                     name: string;
-                    recipe: unknown;
+                    /** @description The recipe (schema version 1) or its JSON text; checked by the module: an invalid one is 422 RECIPE_INVALID with recipeErrors */
+                    recipe: {
+                        account?: {
+                            /** @enum {string} */
+                            by: "iban" | "account-number" | "mask" | "header-pattern" | "column";
+                            column?: number;
+                            pattern?: string;
+                            value?: string;
+                        };
+                        columns?: {
+                            column: number;
+                            header?: string;
+                            /** @enum {string} */
+                            role: "date" | "value-date" | "amount" | "debit" | "credit" | "balance" | "currency" | "description" | "counterparty" | "reference" | "status" | "fee" | "original-amount" | "original-currency" | "exchange-rate" | "ignore";
+                        }[];
+                        currency?: {
+                            code?: string;
+                            column?: number;
+                            /** @enum {string} */
+                            mode: "auto" | "column" | "fixed" | "file" | "row";
+                            pattern?: string;
+                        };
+                        dates?: {
+                            baseYear?: number;
+                            format?: string;
+                            /** @enum {string} */
+                            order?: "dmy" | "mdy" | "ymd";
+                            timeZone?: string;
+                        };
+                        extract?: {
+                            column: number;
+                            group: number;
+                            pattern: string;
+                            /** @enum {string} */
+                            target: "counterparty" | "reference" | "description";
+                        }[];
+                        file?: {
+                            /** @enum {string} */
+                            delimiter?: "auto" | "," | ";" | "\t" | "|";
+                            /** @enum {string} */
+                            encoding?: "auto" | "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                            footerPattern?: string;
+                            footerRows?: number;
+                            headerRow?: number | null;
+                            /** @enum {string} */
+                            quote?: "\"" | "'" | "none";
+                            sheet?: string;
+                            skipRows?: number;
+                        };
+                        filters?: {
+                            ignoreRows?: string[];
+                            skipStatuses?: string[];
+                            skipZeroAmounts?: boolean;
+                            statusColumn?: number;
+                        };
+                        numbers?: {
+                            /** @enum {string} */
+                            ambiguousIntegers?: "thousands" | "decimals";
+                            currencySymbols?: {
+                                [key: string]: string;
+                            };
+                            /** @enum {string} */
+                            decimalSeparator?: "." | ",";
+                            /** @enum {string} */
+                            thousandsSeparator?: "," | "." | " " | "'" | "none";
+                        };
+                        /** @description The version of the recipe's schema */
+                        schemaVersion: number;
+                        sign?: {
+                            column?: number;
+                            inValues?: string[];
+                            /** @enum {string} */
+                            mode: "auto" | "as-printed" | "invert" | "indicator";
+                            outValues?: string[];
+                        };
+                    } | string | unknown;
                 };
             };
         };
@@ -18151,16 +18304,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        accountId: string | null;
                         accountValueLast4: string | null;
                         createdAt: string;
                         fingerprint: string | null;
                         /** Format: uuid */
                         id: string;
+                        lastUsedAt: string | null;
                         name: string;
+                        /** @description The recipe without the account binding's value (see accountValueLast4) */
                         recipe: {
-                            [key: string]: unknown;
+                            account?: {
+                                /** @enum {string} */
+                                by: "iban" | "account-number" | "mask" | "header-pattern" | "column";
+                                column?: number;
+                                pattern?: string;
+                            };
+                            columns?: {
+                                column: number;
+                                header?: string;
+                                /** @enum {string} */
+                                role: "date" | "value-date" | "amount" | "debit" | "credit" | "balance" | "currency" | "description" | "counterparty" | "reference" | "status" | "fee" | "original-amount" | "original-currency" | "exchange-rate" | "ignore";
+                            }[];
+                            currency?: {
+                                code?: string;
+                                column?: number;
+                                /** @enum {string} */
+                                mode: "auto" | "column" | "fixed" | "file" | "row";
+                                pattern?: string;
+                            };
+                            dates?: {
+                                baseYear?: number;
+                                format?: string;
+                                /** @enum {string} */
+                                order?: "dmy" | "mdy" | "ymd";
+                                timeZone?: string;
+                            };
+                            extract?: {
+                                column: number;
+                                group: number;
+                                pattern: string;
+                                /** @enum {string} */
+                                target: "counterparty" | "reference" | "description";
+                            }[];
+                            file?: {
+                                /** @enum {string} */
+                                delimiter?: "auto" | "," | ";" | "\t" | "|";
+                                /** @enum {string} */
+                                encoding?: "auto" | "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                                footerPattern?: string;
+                                footerRows?: number;
+                                headerRow?: number | null;
+                                /** @enum {string} */
+                                quote?: "\"" | "'" | "none";
+                                sheet?: string;
+                                skipRows?: number;
+                            };
+                            filters?: {
+                                ignoreRows?: string[];
+                                skipStatuses?: string[];
+                                skipZeroAmounts?: boolean;
+                                statusColumn?: number;
+                            };
+                            numbers?: {
+                                /** @enum {string} */
+                                ambiguousIntegers?: "thousands" | "decimals";
+                                currencySymbols?: {
+                                    [key: string]: string;
+                                };
+                                /** @enum {string} */
+                                decimalSeparator?: "." | ",";
+                                /** @enum {string} */
+                                thousandsSeparator?: "," | "." | " " | "'" | "none";
+                            };
+                            /** @description The version of the recipe's schema */
+                            schemaVersion: number;
+                            sign?: {
+                                column?: number;
+                                inValues?: string[];
+                                /** @enum {string} */
+                                mode: "auto" | "as-printed" | "invert" | "indicator";
+                                outValues?: string[];
+                            };
                         };
                         schemaVersion: number;
+                        /** @enum {string} */
+                        scope: "space" | "account";
+                        stale: boolean;
+                        updatedAt: string;
+                        useCount: number;
+                        version: number;
                     };
                 };
             };
@@ -18209,7 +18442,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The idempotency key was used for another request, or that request is still running */
+            /** @description The idempotency key was used for another request, or that request is still running; A template with this name already exists (TEMPLATE_NAME_TAKEN); The account is closed (ACCOUNT_CLOSED) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -18276,16 +18509,96 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        accountId: string | null;
                         accountValueLast4: string | null;
                         createdAt: string;
                         fingerprint: string | null;
                         /** Format: uuid */
                         id: string;
+                        lastUsedAt: string | null;
                         name: string;
+                        /** @description The recipe without the account binding's value (see accountValueLast4) */
                         recipe: {
-                            [key: string]: unknown;
+                            account?: {
+                                /** @enum {string} */
+                                by: "iban" | "account-number" | "mask" | "header-pattern" | "column";
+                                column?: number;
+                                pattern?: string;
+                            };
+                            columns?: {
+                                column: number;
+                                header?: string;
+                                /** @enum {string} */
+                                role: "date" | "value-date" | "amount" | "debit" | "credit" | "balance" | "currency" | "description" | "counterparty" | "reference" | "status" | "fee" | "original-amount" | "original-currency" | "exchange-rate" | "ignore";
+                            }[];
+                            currency?: {
+                                code?: string;
+                                column?: number;
+                                /** @enum {string} */
+                                mode: "auto" | "column" | "fixed" | "file" | "row";
+                                pattern?: string;
+                            };
+                            dates?: {
+                                baseYear?: number;
+                                format?: string;
+                                /** @enum {string} */
+                                order?: "dmy" | "mdy" | "ymd";
+                                timeZone?: string;
+                            };
+                            extract?: {
+                                column: number;
+                                group: number;
+                                pattern: string;
+                                /** @enum {string} */
+                                target: "counterparty" | "reference" | "description";
+                            }[];
+                            file?: {
+                                /** @enum {string} */
+                                delimiter?: "auto" | "," | ";" | "\t" | "|";
+                                /** @enum {string} */
+                                encoding?: "auto" | "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                                footerPattern?: string;
+                                footerRows?: number;
+                                headerRow?: number | null;
+                                /** @enum {string} */
+                                quote?: "\"" | "'" | "none";
+                                sheet?: string;
+                                skipRows?: number;
+                            };
+                            filters?: {
+                                ignoreRows?: string[];
+                                skipStatuses?: string[];
+                                skipZeroAmounts?: boolean;
+                                statusColumn?: number;
+                            };
+                            numbers?: {
+                                /** @enum {string} */
+                                ambiguousIntegers?: "thousands" | "decimals";
+                                currencySymbols?: {
+                                    [key: string]: string;
+                                };
+                                /** @enum {string} */
+                                decimalSeparator?: "." | ",";
+                                /** @enum {string} */
+                                thousandsSeparator?: "," | "." | " " | "'" | "none";
+                            };
+                            /** @description The version of the recipe's schema */
+                            schemaVersion: number;
+                            sign?: {
+                                column?: number;
+                                inValues?: string[];
+                                /** @enum {string} */
+                                mode: "auto" | "as-printed" | "invert" | "indicator";
+                                outValues?: string[];
+                            };
                         };
                         schemaVersion: number;
+                        /** @enum {string} */
+                        scope: "space" | "account";
+                        stale: boolean;
+                        updatedAt: string;
+                        useCount: number;
+                        version: number;
                     };
                 };
             };
@@ -18327,6 +18640,296 @@ export interface operations {
             };
             /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateImportRecipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accountId?: string | null;
+                    expectedVersion: number;
+                    fingerprint?: string | null;
+                    name: string;
+                    /** @description The recipe (schema version 1) or its JSON text; checked by the module: an invalid one is 422 RECIPE_INVALID with recipeErrors */
+                    recipe: {
+                        account?: {
+                            /** @enum {string} */
+                            by: "iban" | "account-number" | "mask" | "header-pattern" | "column";
+                            column?: number;
+                            pattern?: string;
+                            value?: string;
+                        };
+                        columns?: {
+                            column: number;
+                            header?: string;
+                            /** @enum {string} */
+                            role: "date" | "value-date" | "amount" | "debit" | "credit" | "balance" | "currency" | "description" | "counterparty" | "reference" | "status" | "fee" | "original-amount" | "original-currency" | "exchange-rate" | "ignore";
+                        }[];
+                        currency?: {
+                            code?: string;
+                            column?: number;
+                            /** @enum {string} */
+                            mode: "auto" | "column" | "fixed" | "file" | "row";
+                            pattern?: string;
+                        };
+                        dates?: {
+                            baseYear?: number;
+                            format?: string;
+                            /** @enum {string} */
+                            order?: "dmy" | "mdy" | "ymd";
+                            timeZone?: string;
+                        };
+                        extract?: {
+                            column: number;
+                            group: number;
+                            pattern: string;
+                            /** @enum {string} */
+                            target: "counterparty" | "reference" | "description";
+                        }[];
+                        file?: {
+                            /** @enum {string} */
+                            delimiter?: "auto" | "," | ";" | "\t" | "|";
+                            /** @enum {string} */
+                            encoding?: "auto" | "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                            footerPattern?: string;
+                            footerRows?: number;
+                            headerRow?: number | null;
+                            /** @enum {string} */
+                            quote?: "\"" | "'" | "none";
+                            sheet?: string;
+                            skipRows?: number;
+                        };
+                        filters?: {
+                            ignoreRows?: string[];
+                            skipStatuses?: string[];
+                            skipZeroAmounts?: boolean;
+                            statusColumn?: number;
+                        };
+                        numbers?: {
+                            /** @enum {string} */
+                            ambiguousIntegers?: "thousands" | "decimals";
+                            currencySymbols?: {
+                                [key: string]: string;
+                            };
+                            /** @enum {string} */
+                            decimalSeparator?: "." | ",";
+                            /** @enum {string} */
+                            thousandsSeparator?: "," | "." | " " | "'" | "none";
+                        };
+                        /** @description The version of the recipe's schema */
+                        schemaVersion: number;
+                        sign?: {
+                            column?: number;
+                            inValues?: string[];
+                            /** @enum {string} */
+                            mode: "auto" | "as-printed" | "invert" | "indicator";
+                            outValues?: string[];
+                        };
+                    } | string | unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description The template's new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        accountValueLast4: string | null;
+                        createdAt: string;
+                        fingerprint: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        lastUsedAt: string | null;
+                        name: string;
+                        /** @description The recipe without the account binding's value (see accountValueLast4) */
+                        recipe: {
+                            account?: {
+                                /** @enum {string} */
+                                by: "iban" | "account-number" | "mask" | "header-pattern" | "column";
+                                column?: number;
+                                pattern?: string;
+                            };
+                            columns?: {
+                                column: number;
+                                header?: string;
+                                /** @enum {string} */
+                                role: "date" | "value-date" | "amount" | "debit" | "credit" | "balance" | "currency" | "description" | "counterparty" | "reference" | "status" | "fee" | "original-amount" | "original-currency" | "exchange-rate" | "ignore";
+                            }[];
+                            currency?: {
+                                code?: string;
+                                column?: number;
+                                /** @enum {string} */
+                                mode: "auto" | "column" | "fixed" | "file" | "row";
+                                pattern?: string;
+                            };
+                            dates?: {
+                                baseYear?: number;
+                                format?: string;
+                                /** @enum {string} */
+                                order?: "dmy" | "mdy" | "ymd";
+                                timeZone?: string;
+                            };
+                            extract?: {
+                                column: number;
+                                group: number;
+                                pattern: string;
+                                /** @enum {string} */
+                                target: "counterparty" | "reference" | "description";
+                            }[];
+                            file?: {
+                                /** @enum {string} */
+                                delimiter?: "auto" | "," | ";" | "\t" | "|";
+                                /** @enum {string} */
+                                encoding?: "auto" | "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                                footerPattern?: string;
+                                footerRows?: number;
+                                headerRow?: number | null;
+                                /** @enum {string} */
+                                quote?: "\"" | "'" | "none";
+                                sheet?: string;
+                                skipRows?: number;
+                            };
+                            filters?: {
+                                ignoreRows?: string[];
+                                skipStatuses?: string[];
+                                skipZeroAmounts?: boolean;
+                                statusColumn?: number;
+                            };
+                            numbers?: {
+                                /** @enum {string} */
+                                ambiguousIntegers?: "thousands" | "decimals";
+                                currencySymbols?: {
+                                    [key: string]: string;
+                                };
+                                /** @enum {string} */
+                                decimalSeparator?: "." | ",";
+                                /** @enum {string} */
+                                thousandsSeparator?: "," | "." | " " | "'" | "none";
+                            };
+                            /** @description The version of the recipe's schema */
+                            schemaVersion: number;
+                            sign?: {
+                                column?: number;
+                                inValues?: string[];
+                                /** @enum {string} */
+                                mode: "auto" | "as-printed" | "invert" | "indicator";
+                                outValues?: string[];
+                            };
+                        };
+                        schemaVersion: number;
+                        /** @enum {string} */
+                        scope: "space" | "account";
+                        stale: boolean;
+                        updatedAt: string;
+                        useCount: number;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The template was changed; reload it (TEMPLATE_CHANGED); A template with this name already exists (TEMPLATE_NAME_TAKEN); The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The parsing recipe is not valid (RECIPE_INVALID) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18426,6 +19029,314 @@ export interface operations {
             };
             /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listImportRecipeVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The kept versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            columnRules: number;
+                            fingerprint: string | null;
+                            name: string;
+                            savedAt: string;
+                            schemaVersion: number;
+                            version: number;
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    restoreImportRecipeVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recipeId: string;
+                version: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    expectedVersion: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The template's new version */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        accountValueLast4: string | null;
+                        createdAt: string;
+                        fingerprint: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        lastUsedAt: string | null;
+                        name: string;
+                        /** @description The recipe without the account binding's value (see accountValueLast4) */
+                        recipe: {
+                            account?: {
+                                /** @enum {string} */
+                                by: "iban" | "account-number" | "mask" | "header-pattern" | "column";
+                                column?: number;
+                                pattern?: string;
+                            };
+                            columns?: {
+                                column: number;
+                                header?: string;
+                                /** @enum {string} */
+                                role: "date" | "value-date" | "amount" | "debit" | "credit" | "balance" | "currency" | "description" | "counterparty" | "reference" | "status" | "fee" | "original-amount" | "original-currency" | "exchange-rate" | "ignore";
+                            }[];
+                            currency?: {
+                                code?: string;
+                                column?: number;
+                                /** @enum {string} */
+                                mode: "auto" | "column" | "fixed" | "file" | "row";
+                                pattern?: string;
+                            };
+                            dates?: {
+                                baseYear?: number;
+                                format?: string;
+                                /** @enum {string} */
+                                order?: "dmy" | "mdy" | "ymd";
+                                timeZone?: string;
+                            };
+                            extract?: {
+                                column: number;
+                                group: number;
+                                pattern: string;
+                                /** @enum {string} */
+                                target: "counterparty" | "reference" | "description";
+                            }[];
+                            file?: {
+                                /** @enum {string} */
+                                delimiter?: "auto" | "," | ";" | "\t" | "|";
+                                /** @enum {string} */
+                                encoding?: "auto" | "utf-8" | "utf-16le" | "utf-16be" | "windows-1251" | "windows-1252" | "cp866" | "koi8-u";
+                                footerPattern?: string;
+                                footerRows?: number;
+                                headerRow?: number | null;
+                                /** @enum {string} */
+                                quote?: "\"" | "'" | "none";
+                                sheet?: string;
+                                skipRows?: number;
+                            };
+                            filters?: {
+                                ignoreRows?: string[];
+                                skipStatuses?: string[];
+                                skipZeroAmounts?: boolean;
+                                statusColumn?: number;
+                            };
+                            numbers?: {
+                                /** @enum {string} */
+                                ambiguousIntegers?: "thousands" | "decimals";
+                                currencySymbols?: {
+                                    [key: string]: string;
+                                };
+                                /** @enum {string} */
+                                decimalSeparator?: "." | ",";
+                                /** @enum {string} */
+                                thousandsSeparator?: "," | "." | " " | "'" | "none";
+                            };
+                            /** @description The version of the recipe's schema */
+                            schemaVersion: number;
+                            sign?: {
+                                column?: number;
+                                inValues?: string[];
+                                /** @enum {string} */
+                                mode: "auto" | "as-printed" | "invert" | "indicator";
+                                outValues?: string[];
+                            };
+                        };
+                        schemaVersion: number;
+                        /** @enum {string} */
+                        scope: "space" | "account";
+                        stale: boolean;
+                        updatedAt: string;
+                        useCount: number;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The template was changed; reload it (TEMPLATE_CHANGED) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19871,6 +20782,184 @@ export interface operations {
                 };
             };
             /** @description Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listRecurringCalendar: {
+        parameters: {
+            query?: {
+                /** @description How many days, 1–366; 30 by default (FR 7 «горизонт») */
+                days?: string;
+                /** @description The first day, today by default; from 429 days before today to 366 days after it */
+                from?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The charges in the range, the loans, the totals and the period, at today's rates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        from: string;
+                        items: {
+                            accountId: string | null;
+                            counted: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            interest: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "payment" | "loan";
+                            name: string;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            paymentId: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            subscription: boolean;
+                            transactionId: string | null;
+                            /** @enum {string} */
+                            type: "expense" | "income";
+                            variable: boolean;
+                        }[];
+                        loans: {
+                            /** Format: uuid */
+                            accountId: string;
+                            annualRate: string | null;
+                            monthlyPayment: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            name: string;
+                        }[];
+                        period: {
+                            approximate: boolean;
+                            charges: number;
+                            month: string;
+                            overdue: number;
+                            paid: number;
+                            remaining: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                        };
+                        to: string;
+                        totals: {
+                            approximate: boolean;
+                            currency: string;
+                            expenses: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            incomes: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            loans: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            month: string;
+                            subscriptions: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            yearExpenses: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            yearIncomes: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
             429: {
                 headers: {
                     /** @description Seconds until the current one-minute window ends */
@@ -25921,6 +27010,208 @@ export interface operations {
             };
         };
     };
+    dismissTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    counterpartId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankReference: string | null;
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        exchangeRate: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        oneOff: boolean;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual" | "imported";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        valueDate: string | null;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     setTransactionOneOff: {
         parameters: {
             query?: never;
@@ -27964,7 +29255,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow */
+            /** @description The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow, «Не пара» POST /v1/transactions/{outflow}/not-transfer with the inflow */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -27973,7 +29264,14 @@ export interface operations {
                     "application/json": {
                         count: number;
                         items: {
+                            ambiguousWith: {
+                                score: number;
+                                /** Format: uuid */
+                                transactionId: string;
+                            }[];
                             bankRate: string | null;
+                            /** @enum {string} */
+                            confidence: "high" | "medium" | "low";
                             converted: {
                                 amount: string;
                                 currency: string;
@@ -27983,6 +29281,12 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            evidence: {
+                                /** @enum {string} */
+                                code: "exact-amount" | "amount-less-fee" | "rate-within-1" | "rate-within-3" | "same-day" | "days-apart" | "same-wallet-group";
+                                days: number | null;
+                                points: number;
+                            }[];
                             fee: {
                                 amount: string;
                                 currency: string;
@@ -28019,6 +29323,7 @@ export interface operations {
                                 source: string;
                             } | null;
                             rateBand: ("within-1" | "within-3") | null;
+                            score: number;
                         }[];
                         more: boolean;
                     };

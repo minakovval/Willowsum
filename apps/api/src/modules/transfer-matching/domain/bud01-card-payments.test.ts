@@ -63,6 +63,18 @@ describe("BUD-01@PoC FR 7: a payment to a credit card from a known own account i
     expect(cardPaymentsOf([toCard, proposal("out-2", SAVINGS, "in-1", CARD)], cards, all)).toEqual([]);
   });
 
+  it("BUD-01@PoC FR 7: with one-to-one proposals (IMP-03 FR 12) a debit that also fits a credit that lost the side is still ambiguous — none marked", () => {
+    const toCard = proposal("out-1", CURRENT, "in-1", CARD);
+    // Only the chosen proposal is left, the other candidate on the same debit is counted from the read's candidates.
+    expect(
+      cardPaymentsOf([toCard], cards, all, [toCard, proposal("out-1", CURRENT, "in-3", SAVINGS)]),
+    ).toEqual([]);
+    expect(cardPaymentsOf([toCard], cards, all, [toCard, proposal("out-2", SAVINGS, "in-1", CARD)])).toEqual(
+      [],
+    );
+    expect(cardPaymentsOf([toCard], cards, all, [toCard])).toEqual([toCard]);
+  });
+
   it("BUD-01@PoC FR 7: an account not among the space's cards never counts as one (another space's card is unknown here)", () => {
     expect(cardPaymentsOf([proposal("out-1", CURRENT, "in-1", CARD)], new Set(), all)).toEqual([]);
   });

@@ -23,6 +23,7 @@ export {
 export { HAND_OFF_JOB } from "./queue/job.ts";
 export {
   accountsPaidIn,
+  paymentsToAccounts,
   budgetFirstDate,
   transfersDatedIn,
   budgetRows,

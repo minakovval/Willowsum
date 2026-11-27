@@ -156,6 +156,20 @@ export const synthetic = [
     },
   }),
   defineSyntheticTable({
+    table: "transactions.transfer_dismissals",
+    perHousehold: 1,
+    // «Не пара» of transactions 1 and 2; another would point at rows not loaded.
+    maxPerHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          outflow_id: key(household.id, "transaction", 1),
+          inflow_id: key(household.id, "transaction", 2),
+        };
+    },
+  }),
+  defineSyntheticTable({
     table: "transactions.idempotency_keys",
     perHousehold: 2,
     *rows({ household, rng, count }) {

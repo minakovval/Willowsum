@@ -477,7 +477,13 @@ describe("BUD-01@PoC FR 7: a payment to a credit card from a known own account i
     await imported(space, [currentFile(current), cardFile(one), cardFile(two, "1200.00", "kartka-2.csv")]);
     for (const id of [current, one, two])
       expect((await rows(space.householdId, id))[0]!.transfer_id).toBeNull();
-    expect((await proposals(space)).count).toBe(2);
+    // One-to-one proposals (IMP-03 FR 12): one pair is proposed, «неоднозначно з…» the other card's credit (FR 7).
+    const open = (await call(space, "GET", "/v1/transfer-proposals")).json() as {
+      count: number;
+      items: { ambiguousWith: unknown[] }[];
+    };
+    expect(open.count).toBe(1);
+    expect(open.items[0]!.ambiguousWith).toHaveLength(1);
   });
 
   it("BUD-01@PoC FR 7: while transfers (`transactions.transfers`) are off for the space, nothing is marked", async () => {

@@ -52,6 +52,7 @@ import {
   createRecurringCategoryUsage,
   createRecurringHistory,
   createRecurringMonth,
+  createRecurringLoans,
   createRecurringServices,
 } from "./modules/recurring/index.ts";
 import {
@@ -69,6 +70,7 @@ import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
+  createAccountInflows,
   createAccountPayments,
   createBudgetTransactions,
   createCashflowMovements,
@@ -307,6 +309,13 @@ const recurring = createRecurringServices({
   }),
   transactionCategories: createTransactionCategories(databases.for("categorization")),
   fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+  // BUD-07@PoC FR 16: the monthly payments of «Кредит» accounts in the calendar.
+  loans: createRecurringLoans({
+    credit: createCreditAccounts(databases.for("accounts")),
+    liabilities: createLiabilities(databases.for("liabilities"), audit),
+    inflows: createAccountInflows(databases.for("transactions")),
+    ledger: createLedger(databases.for("ledger")),
+  }),
   audit,
   clock: systemClock,
   newId: randomUUID,
@@ -608,6 +617,8 @@ const server = buildServer({
             // IMP-06 a: parsing recipes of the space; the account binding's value sealed with the space's key.
             importRecipes: createImportRecipesServices({
               keys: createSpaceKeys(databases.for("household"), audit, kms),
+              // IMP-07 FR 1: a template of scope «рахунок» is for an account of this space.
+              accounts: createAccountDirectory(databases.for("accounts")),
               audit,
               clock: systemClock,
               newId: randomUUID,

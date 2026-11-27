@@ -39072,7 +39072,7 @@
             }
           },
           "409": {
-            "description": "The batch's state does not allow this (BATCH_STATE_CONFLICT)",
+            "description": "The batch's state does not allow this (BATCH_STATE_CONFLICT); The template is out of date; save it again from the editor (TEMPLATE_STALE)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -40784,6 +40784,48 @@
                           },
                           "createdAt": {
                             "type": "string"
+                          },
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "space",
+                              "account"
+                            ],
+                            "x-extensible-enum": true
+                          },
+                          "accountId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "stale": {
+                            "type": "boolean"
+                          },
+                          "useCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "lastUsedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
                           }
                         },
                         "required": [
@@ -40791,7 +40833,14 @@
                           "name",
                           "schemaVersion",
                           "fingerprint",
-                          "createdAt"
+                          "createdAt",
+                          "scope",
+                          "accountId",
+                          "version",
+                          "updatedAt",
+                          "stale",
+                          "useCount",
+                          "lastUsedAt"
                         ],
                         "additionalProperties": false
                       }
@@ -40906,7 +40955,7 @@
       },
       "post": {
         "operationId": "createImportRecipe",
-        "summary": "Saves a parsing recipe (FR 1, FR 2, FR 3, FR 14): checked whole; an invalid one is 422 RECIPE_INVALID with each error's code and path",
+        "summary": "Saves a parsing recipe as a template (IMP-06 FR 1, FR 14; IMP-07 FR 1, FR 2): checked whole; an invalid one is 422 RECIPE_INVALID with each error's code and path; a name taken in the same scope is 409",
         "tags": [
           "import-recipes"
         ],
@@ -40943,12 +40992,424 @@
                     "minLength": 1,
                     "maxLength": 120
                   },
-                  "recipe": {},
+                  "recipe": {
+                    "description": "The recipe (schema version 1) or its JSON text; checked by the module: an invalid one is 422 RECIPE_INVALID with recipeErrors",
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "schemaVersion": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991,
+                            "description": "The version of the recipe's schema"
+                          },
+                          "file": {
+                            "type": "object",
+                            "properties": {
+                              "encoding": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "utf-8",
+                                  "utf-16le",
+                                  "utf-16be",
+                                  "windows-1251",
+                                  "windows-1252",
+                                  "cp866",
+                                  "koi8-u"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "delimiter": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  ",",
+                                  ";",
+                                  "\t",
+                                  "|"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "quote": {
+                                "type": "string",
+                                "enum": [
+                                  "\"",
+                                  "'",
+                                  "none"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "sheet": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "skipRows": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              "headerRow": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 20000
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "footerRows": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              "footerPattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "column": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 512
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "date",
+                                    "value-date",
+                                    "amount",
+                                    "debit",
+                                    "credit",
+                                    "balance",
+                                    "currency",
+                                    "description",
+                                    "counterparty",
+                                    "reference",
+                                    "status",
+                                    "fee",
+                                    "original-amount",
+                                    "original-currency",
+                                    "exchange-rate",
+                                    "ignore"
+                                  ],
+                                  "x-extensible-enum": true
+                                },
+                                "header": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "column",
+                                "role"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "dates": {
+                            "type": "object",
+                            "properties": {
+                              "format": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "pattern": "^(?:YYYY|YY|MM|M|DD|D|HH|mm|ss|[./\\- :T])+$"
+                              },
+                              "order": {
+                                "type": "string",
+                                "enum": [
+                                  "dmy",
+                                  "mdy",
+                                  "ymd"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "baseYear": {
+                                "type": "integer",
+                                "minimum": 1900,
+                                "maximum": 2100
+                              },
+                              "timeZone": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "numbers": {
+                            "type": "object",
+                            "properties": {
+                              "decimalSeparator": {
+                                "type": "string",
+                                "enum": [
+                                  ".",
+                                  ","
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "thousandsSeparator": {
+                                "type": "string",
+                                "enum": [
+                                  ",",
+                                  ".",
+                                  " ",
+                                  "'",
+                                  "none"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "ambiguousIntegers": {
+                                "type": "string",
+                                "enum": [
+                                  "thousands",
+                                  "decimals"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "currencySymbols": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 8
+                                },
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "pattern": "^[A-Z]{3}$"
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "sign": {
+                            "type": "object",
+                            "properties": {
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "as-printed",
+                                  "invert",
+                                  "indicator"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "outValues": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                }
+                              },
+                              "inValues": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                }
+                              }
+                            },
+                            "required": [
+                              "mode"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "currency": {
+                            "type": "object",
+                            "properties": {
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "column",
+                                  "fixed",
+                                  "file",
+                                  "row"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "code": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "required": [
+                              "mode"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "account": {
+                            "type": "object",
+                            "properties": {
+                              "by": {
+                                "type": "string",
+                                "enum": [
+                                  "iban",
+                                  "account-number",
+                                  "mask",
+                                  "header-pattern",
+                                  "column"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "value": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              }
+                            },
+                            "required": [
+                              "by"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "filters": {
+                            "type": "object",
+                            "properties": {
+                              "ignoreRows": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                }
+                              },
+                              "statusColumn": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "skipStatuses": {
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                }
+                              },
+                              "skipZeroAmounts": {
+                                "type": "boolean"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "extract": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "column": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 512
+                                },
+                                "pattern": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                },
+                                "group": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9
+                                },
+                                "target": {
+                                  "type": "string",
+                                  "enum": [
+                                    "counterparty",
+                                    "reference",
+                                    "description"
+                                  ],
+                                  "x-extensible-enum": true
+                                }
+                              },
+                              "required": [
+                                "column",
+                                "pattern",
+                                "group",
+                                "target"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "schemaVersion"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "string",
+                        "description": "The recipe as JSON text"
+                      },
+                      {
+                        "description": "Any other value is refused with 422 RECIPE_INVALID"
+                      }
+                    ]
+                  },
                   "fingerprint": {
                     "anyOf": [
                       {
                         "type": "string",
                         "pattern": "^fp1:[0-9a-f]{64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "accountId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                       },
                       {
                         "type": "null"
@@ -41006,12 +41467,432 @@
                     "createdAt": {
                       "type": "string"
                     },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "space",
+                        "account"
+                      ],
+                      "x-extensible-enum": true
+                    },
+                    "accountId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "useCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "lastUsedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "recipe": {
                       "type": "object",
-                      "propertyNames": {
-                        "type": "string"
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "The version of the recipe's schema"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "encoding": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "utf-8",
+                                "utf-16le",
+                                "utf-16be",
+                                "windows-1251",
+                                "windows-1252",
+                                "cp866",
+                                "koi8-u"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "delimiter": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                ",",
+                                ";",
+                                "\t",
+                                "|"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "quote": {
+                              "type": "string",
+                              "enum": [
+                                "\"",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "sheet": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "skipRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "headerRow": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 20000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "footerRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "footerPattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "columns": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "date",
+                                  "value-date",
+                                  "amount",
+                                  "debit",
+                                  "credit",
+                                  "balance",
+                                  "currency",
+                                  "description",
+                                  "counterparty",
+                                  "reference",
+                                  "status",
+                                  "fee",
+                                  "original-amount",
+                                  "original-currency",
+                                  "exchange-rate",
+                                  "ignore"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "header": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "role"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "dates": {
+                          "type": "object",
+                          "properties": {
+                            "format": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^(?:YYYY|YY|MM|M|DD|D|HH|mm|ss|[./\\- :T])+$"
+                            },
+                            "order": {
+                              "type": "string",
+                              "enum": [
+                                "dmy",
+                                "mdy",
+                                "ymd"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "baseYear": {
+                              "type": "integer",
+                              "minimum": 1900,
+                              "maximum": 2100
+                            },
+                            "timeZone": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "numbers": {
+                          "type": "object",
+                          "properties": {
+                            "decimalSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ".",
+                                ","
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "thousandsSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ",",
+                                ".",
+                                " ",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "ambiguousIntegers": {
+                              "type": "string",
+                              "enum": [
+                                "thousands",
+                                "decimals"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "currencySymbols": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 8
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "sign": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "as-printed",
+                                "invert",
+                                "indicator"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "outValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "inValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "currency": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "column",
+                                "fixed",
+                                "file",
+                                "row"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "code": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "account": {
+                          "type": "object",
+                          "properties": {
+                            "by": {
+                              "type": "string",
+                              "enum": [
+                                "iban",
+                                "account-number",
+                                "mask",
+                                "header-pattern",
+                                "column"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            }
+                          },
+                          "required": [
+                            "by"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "filters": {
+                          "type": "object",
+                          "properties": {
+                            "ignoreRows": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "statusColumn": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "skipStatuses": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "skipZeroAmounts": {
+                              "type": "boolean"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "extract": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "group": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "target": {
+                                "type": "string",
+                                "enum": [
+                                  "counterparty",
+                                  "reference",
+                                  "description"
+                                ],
+                                "x-extensible-enum": true
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "pattern",
+                              "group",
+                              "target"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
                       },
-                      "additionalProperties": {}
+                      "required": [
+                        "schemaVersion"
+                      ],
+                      "additionalProperties": false,
+                      "description": "The recipe without the account binding's value (see accountValueLast4)"
                     },
                     "accountValueLast4": {
                       "type": [
@@ -41026,6 +41907,13 @@
                     "schemaVersion",
                     "fingerprint",
                     "createdAt",
+                    "scope",
+                    "accountId",
+                    "version",
+                    "updatedAt",
+                    "stale",
+                    "useCount",
+                    "lastUsedAt",
                     "recipe",
                     "accountValueLast4"
                   ],
@@ -41085,7 +41973,7 @@
             }
           },
           "409": {
-            "description": "The idempotency key was used for another request, or that request is still running",
+            "description": "The idempotency key was used for another request, or that request is still running; A template with this name already exists (TEMPLATE_NAME_TAKEN); The account is closed (ACCOUNT_CLOSED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -41339,12 +42227,432 @@
                     "createdAt": {
                       "type": "string"
                     },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "space",
+                        "account"
+                      ],
+                      "x-extensible-enum": true
+                    },
+                    "accountId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "useCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "lastUsedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "recipe": {
                       "type": "object",
-                      "propertyNames": {
-                        "type": "string"
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "The version of the recipe's schema"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "encoding": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "utf-8",
+                                "utf-16le",
+                                "utf-16be",
+                                "windows-1251",
+                                "windows-1252",
+                                "cp866",
+                                "koi8-u"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "delimiter": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                ",",
+                                ";",
+                                "\t",
+                                "|"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "quote": {
+                              "type": "string",
+                              "enum": [
+                                "\"",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "sheet": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "skipRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "headerRow": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 20000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "footerRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "footerPattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "columns": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "date",
+                                  "value-date",
+                                  "amount",
+                                  "debit",
+                                  "credit",
+                                  "balance",
+                                  "currency",
+                                  "description",
+                                  "counterparty",
+                                  "reference",
+                                  "status",
+                                  "fee",
+                                  "original-amount",
+                                  "original-currency",
+                                  "exchange-rate",
+                                  "ignore"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "header": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "role"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "dates": {
+                          "type": "object",
+                          "properties": {
+                            "format": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^(?:YYYY|YY|MM|M|DD|D|HH|mm|ss|[./\\- :T])+$"
+                            },
+                            "order": {
+                              "type": "string",
+                              "enum": [
+                                "dmy",
+                                "mdy",
+                                "ymd"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "baseYear": {
+                              "type": "integer",
+                              "minimum": 1900,
+                              "maximum": 2100
+                            },
+                            "timeZone": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "numbers": {
+                          "type": "object",
+                          "properties": {
+                            "decimalSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ".",
+                                ","
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "thousandsSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ",",
+                                ".",
+                                " ",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "ambiguousIntegers": {
+                              "type": "string",
+                              "enum": [
+                                "thousands",
+                                "decimals"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "currencySymbols": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 8
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "sign": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "as-printed",
+                                "invert",
+                                "indicator"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "outValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "inValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "currency": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "column",
+                                "fixed",
+                                "file",
+                                "row"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "code": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "account": {
+                          "type": "object",
+                          "properties": {
+                            "by": {
+                              "type": "string",
+                              "enum": [
+                                "iban",
+                                "account-number",
+                                "mask",
+                                "header-pattern",
+                                "column"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            }
+                          },
+                          "required": [
+                            "by"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "filters": {
+                          "type": "object",
+                          "properties": {
+                            "ignoreRows": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "statusColumn": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "skipStatuses": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "skipZeroAmounts": {
+                              "type": "boolean"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "extract": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "group": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "target": {
+                                "type": "string",
+                                "enum": [
+                                  "counterparty",
+                                  "reference",
+                                  "description"
+                                ],
+                                "x-extensible-enum": true
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "pattern",
+                              "group",
+                              "target"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
                       },
-                      "additionalProperties": {}
+                      "required": [
+                        "schemaVersion"
+                      ],
+                      "additionalProperties": false,
+                      "description": "The recipe without the account binding's value (see accountValueLast4)"
                     },
                     "accountValueLast4": {
                       "type": [
@@ -41359,6 +42667,13 @@
                     "schemaVersion",
                     "fingerprint",
                     "createdAt",
+                    "scope",
+                    "accountId",
+                    "version",
+                    "updatedAt",
+                    "stale",
+                    "useCount",
+                    "lastUsedAt",
                     "recipe",
                     "accountValueLast4"
                   ],
@@ -41409,6 +42724,1903 @@
           },
           "404": {
             "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateImportRecipe",
+        "summary": "Saves an edited template as its next version (IMP-07 FR 2, FR 3): `expectedVersion` must be the current version, else 409 TEMPLATE_CHANGED «Шаблон змінено, оновіть»; a recipe that binds the account the same way without a value keeps the sealed one",
+        "tags": [
+          "import-recipes"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "data.import",
+          "flags": [
+            "data.import"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "recipeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "recipe": {
+                    "description": "The recipe (schema version 1) or its JSON text; checked by the module: an invalid one is 422 RECIPE_INVALID with recipeErrors",
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "schemaVersion": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991,
+                            "description": "The version of the recipe's schema"
+                          },
+                          "file": {
+                            "type": "object",
+                            "properties": {
+                              "encoding": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "utf-8",
+                                  "utf-16le",
+                                  "utf-16be",
+                                  "windows-1251",
+                                  "windows-1252",
+                                  "cp866",
+                                  "koi8-u"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "delimiter": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  ",",
+                                  ";",
+                                  "\t",
+                                  "|"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "quote": {
+                                "type": "string",
+                                "enum": [
+                                  "\"",
+                                  "'",
+                                  "none"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "sheet": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "skipRows": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              "headerRow": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 20000
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "footerRows": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              "footerPattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "columns": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "column": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 512
+                                },
+                                "role": {
+                                  "type": "string",
+                                  "enum": [
+                                    "date",
+                                    "value-date",
+                                    "amount",
+                                    "debit",
+                                    "credit",
+                                    "balance",
+                                    "currency",
+                                    "description",
+                                    "counterparty",
+                                    "reference",
+                                    "status",
+                                    "fee",
+                                    "original-amount",
+                                    "original-currency",
+                                    "exchange-rate",
+                                    "ignore"
+                                  ],
+                                  "x-extensible-enum": true
+                                },
+                                "header": {
+                                  "type": "string",
+                                  "maxLength": 200
+                                }
+                              },
+                              "required": [
+                                "column",
+                                "role"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "dates": {
+                            "type": "object",
+                            "properties": {
+                              "format": {
+                                "type": "string",
+                                "maxLength": 32,
+                                "pattern": "^(?:YYYY|YY|MM|M|DD|D|HH|mm|ss|[./\\- :T])+$"
+                              },
+                              "order": {
+                                "type": "string",
+                                "enum": [
+                                  "dmy",
+                                  "mdy",
+                                  "ymd"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "baseYear": {
+                                "type": "integer",
+                                "minimum": 1900,
+                                "maximum": 2100
+                              },
+                              "timeZone": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "numbers": {
+                            "type": "object",
+                            "properties": {
+                              "decimalSeparator": {
+                                "type": "string",
+                                "enum": [
+                                  ".",
+                                  ","
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "thousandsSeparator": {
+                                "type": "string",
+                                "enum": [
+                                  ",",
+                                  ".",
+                                  " ",
+                                  "'",
+                                  "none"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "ambiguousIntegers": {
+                                "type": "string",
+                                "enum": [
+                                  "thousands",
+                                  "decimals"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "currencySymbols": {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 8
+                                },
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "pattern": "^[A-Z]{3}$"
+                                }
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "sign": {
+                            "type": "object",
+                            "properties": {
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "as-printed",
+                                  "invert",
+                                  "indicator"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "outValues": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                }
+                              },
+                              "inValues": {
+                                "minItems": 1,
+                                "maxItems": 10,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                }
+                              }
+                            },
+                            "required": [
+                              "mode"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "currency": {
+                            "type": "object",
+                            "properties": {
+                              "mode": {
+                                "type": "string",
+                                "enum": [
+                                  "auto",
+                                  "column",
+                                  "fixed",
+                                  "file",
+                                  "row"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "code": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "required": [
+                              "mode"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "account": {
+                            "type": "object",
+                            "properties": {
+                              "by": {
+                                "type": "string",
+                                "enum": [
+                                  "iban",
+                                  "account-number",
+                                  "mask",
+                                  "header-pattern",
+                                  "column"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "value": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 64
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              }
+                            },
+                            "required": [
+                              "by"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "filters": {
+                            "type": "object",
+                            "properties": {
+                              "ignoreRows": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                }
+                              },
+                              "statusColumn": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "skipStatuses": {
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                }
+                              },
+                              "skipZeroAmounts": {
+                                "type": "boolean"
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          "extract": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "column": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 512
+                                },
+                                "pattern": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 1000
+                                },
+                                "group": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9
+                                },
+                                "target": {
+                                  "type": "string",
+                                  "enum": [
+                                    "counterparty",
+                                    "reference",
+                                    "description"
+                                  ],
+                                  "x-extensible-enum": true
+                                }
+                              },
+                              "required": [
+                                "column",
+                                "pattern",
+                                "group",
+                                "target"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "schemaVersion"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "string",
+                        "description": "The recipe as JSON text"
+                      },
+                      {
+                        "description": "Any other value is refused with 422 RECIPE_INVALID"
+                      }
+                    ]
+                  },
+                  "fingerprint": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^fp1:[0-9a-f]{64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "accountId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "name",
+                  "recipe",
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The template's new version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "fingerprint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "space",
+                        "account"
+                      ],
+                      "x-extensible-enum": true
+                    },
+                    "accountId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "useCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "lastUsedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipe": {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "The version of the recipe's schema"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "encoding": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "utf-8",
+                                "utf-16le",
+                                "utf-16be",
+                                "windows-1251",
+                                "windows-1252",
+                                "cp866",
+                                "koi8-u"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "delimiter": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                ",",
+                                ";",
+                                "\t",
+                                "|"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "quote": {
+                              "type": "string",
+                              "enum": [
+                                "\"",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "sheet": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "skipRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "headerRow": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 20000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "footerRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "footerPattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "columns": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "date",
+                                  "value-date",
+                                  "amount",
+                                  "debit",
+                                  "credit",
+                                  "balance",
+                                  "currency",
+                                  "description",
+                                  "counterparty",
+                                  "reference",
+                                  "status",
+                                  "fee",
+                                  "original-amount",
+                                  "original-currency",
+                                  "exchange-rate",
+                                  "ignore"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "header": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "role"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "dates": {
+                          "type": "object",
+                          "properties": {
+                            "format": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^(?:YYYY|YY|MM|M|DD|D|HH|mm|ss|[./\\- :T])+$"
+                            },
+                            "order": {
+                              "type": "string",
+                              "enum": [
+                                "dmy",
+                                "mdy",
+                                "ymd"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "baseYear": {
+                              "type": "integer",
+                              "minimum": 1900,
+                              "maximum": 2100
+                            },
+                            "timeZone": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "numbers": {
+                          "type": "object",
+                          "properties": {
+                            "decimalSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ".",
+                                ","
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "thousandsSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ",",
+                                ".",
+                                " ",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "ambiguousIntegers": {
+                              "type": "string",
+                              "enum": [
+                                "thousands",
+                                "decimals"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "currencySymbols": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 8
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "sign": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "as-printed",
+                                "invert",
+                                "indicator"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "outValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "inValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "currency": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "column",
+                                "fixed",
+                                "file",
+                                "row"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "code": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "account": {
+                          "type": "object",
+                          "properties": {
+                            "by": {
+                              "type": "string",
+                              "enum": [
+                                "iban",
+                                "account-number",
+                                "mask",
+                                "header-pattern",
+                                "column"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            }
+                          },
+                          "required": [
+                            "by"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "filters": {
+                          "type": "object",
+                          "properties": {
+                            "ignoreRows": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "statusColumn": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "skipStatuses": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "skipZeroAmounts": {
+                              "type": "boolean"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "extract": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "group": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "target": {
+                                "type": "string",
+                                "enum": [
+                                  "counterparty",
+                                  "reference",
+                                  "description"
+                                ],
+                                "x-extensible-enum": true
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "pattern",
+                              "group",
+                              "target"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "schemaVersion"
+                      ],
+                      "additionalProperties": false,
+                      "description": "The recipe without the account binding's value (see accountValueLast4)"
+                    },
+                    "accountValueLast4": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "schemaVersion",
+                    "fingerprint",
+                    "createdAt",
+                    "scope",
+                    "accountId",
+                    "version",
+                    "updatedAt",
+                    "stale",
+                    "useCount",
+                    "lastUsedAt",
+                    "recipe",
+                    "accountValueLast4"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The template was changed; reload it (TEMPLATE_CHANGED); A template with this name already exists (TEMPLATE_NAME_TAKEN); The account is closed (ACCOUNT_CLOSED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The parsing recipe is not valid (RECIPE_INVALID)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/import/recipes/{recipeId}/versions": {
+      "get": {
+        "operationId": "listImportRecipeVersions",
+        "summary": "The template's kept versions, newest first (IMP-07 FR 2: the last 20), without their rules",
+        "tags": [
+          "import-recipes"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "data.import",
+          "flags": [
+            "data.import"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "recipeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The kept versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "maxItems": 20,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "schemaVersion": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "fingerprint": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "savedAt": {
+                            "type": "string"
+                          },
+                          "columnRules": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "version",
+                          "name",
+                          "schemaVersion",
+                          "fingerprint",
+                          "savedAt",
+                          "columnRules"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/import/recipes/{recipeId}/versions/{version}/restore": {
+      "post": {
+        "operationId": "restoreImportRecipeVersion",
+        "summary": "Restores a kept version (IMP-07 FR 2, AC11): its recipe becomes the template's next version; `expectedVersion` as for a save (FR 3)",
+        "tags": [
+          "import-recipes"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "data.import",
+          "flags": [
+            "data.import"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "recipeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The template's new version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "schemaVersion": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "fingerprint": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "space",
+                        "account"
+                      ],
+                      "x-extensible-enum": true
+                    },
+                    "accountId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "useCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "lastUsedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recipe": {
+                      "type": "object",
+                      "properties": {
+                        "schemaVersion": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991,
+                          "description": "The version of the recipe's schema"
+                        },
+                        "file": {
+                          "type": "object",
+                          "properties": {
+                            "encoding": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "utf-8",
+                                "utf-16le",
+                                "utf-16be",
+                                "windows-1251",
+                                "windows-1252",
+                                "cp866",
+                                "koi8-u"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "delimiter": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                ",",
+                                ";",
+                                "\t",
+                                "|"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "quote": {
+                              "type": "string",
+                              "enum": [
+                                "\"",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "sheet": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "skipRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "headerRow": {
+                              "anyOf": [
+                                {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 20000
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "footerRows": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000
+                            },
+                            "footerPattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "columns": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "role": {
+                                "type": "string",
+                                "enum": [
+                                  "date",
+                                  "value-date",
+                                  "amount",
+                                  "debit",
+                                  "credit",
+                                  "balance",
+                                  "currency",
+                                  "description",
+                                  "counterparty",
+                                  "reference",
+                                  "status",
+                                  "fee",
+                                  "original-amount",
+                                  "original-currency",
+                                  "exchange-rate",
+                                  "ignore"
+                                ],
+                                "x-extensible-enum": true
+                              },
+                              "header": {
+                                "type": "string",
+                                "maxLength": 200
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "role"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "dates": {
+                          "type": "object",
+                          "properties": {
+                            "format": {
+                              "type": "string",
+                              "maxLength": 32,
+                              "pattern": "^(?:YYYY|YY|MM|M|DD|D|HH|mm|ss|[./\\- :T])+$"
+                            },
+                            "order": {
+                              "type": "string",
+                              "enum": [
+                                "dmy",
+                                "mdy",
+                                "ymd"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "baseYear": {
+                              "type": "integer",
+                              "minimum": 1900,
+                              "maximum": 2100
+                            },
+                            "timeZone": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "numbers": {
+                          "type": "object",
+                          "properties": {
+                            "decimalSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ".",
+                                ","
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "thousandsSeparator": {
+                              "type": "string",
+                              "enum": [
+                                ",",
+                                ".",
+                                " ",
+                                "'",
+                                "none"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "ambiguousIntegers": {
+                              "type": "string",
+                              "enum": [
+                                "thousands",
+                                "decimals"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "currencySymbols": {
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 8
+                              },
+                              "additionalProperties": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "sign": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "as-printed",
+                                "invert",
+                                "indicator"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "outValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "inValues": {
+                              "minItems": 1,
+                              "maxItems": 10,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "currency": {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "auto",
+                                "column",
+                                "fixed",
+                                "file",
+                                "row"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "code": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            }
+                          },
+                          "required": [
+                            "mode"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "account": {
+                          "type": "object",
+                          "properties": {
+                            "by": {
+                              "type": "string",
+                              "enum": [
+                                "iban",
+                                "account-number",
+                                "mask",
+                                "header-pattern",
+                                "column"
+                              ],
+                              "x-extensible-enum": true
+                            },
+                            "pattern": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            "column": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            }
+                          },
+                          "required": [
+                            "by"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "filters": {
+                          "type": "object",
+                          "properties": {
+                            "ignoreRows": {
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              }
+                            },
+                            "statusColumn": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 512
+                            },
+                            "skipStatuses": {
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              }
+                            },
+                            "skipZeroAmounts": {
+                              "type": "boolean"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        "extract": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "column": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 512
+                              },
+                              "pattern": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "group": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9
+                              },
+                              "target": {
+                                "type": "string",
+                                "enum": [
+                                  "counterparty",
+                                  "reference",
+                                  "description"
+                                ],
+                                "x-extensible-enum": true
+                              }
+                            },
+                            "required": [
+                              "column",
+                              "pattern",
+                              "group",
+                              "target"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "schemaVersion"
+                      ],
+                      "additionalProperties": false,
+                      "description": "The recipe without the account binding's value (see accountValueLast4)"
+                    },
+                    "accountValueLast4": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "schemaVersion",
+                    "fingerprint",
+                    "createdAt",
+                    "scope",
+                    "accountId",
+                    "version",
+                    "updatedAt",
+                    "stale",
+                    "useCount",
+                    "lastUsedAt",
+                    "recipe",
+                    "accountValueLast4"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The template was changed; reload it (TEMPLATE_CHANGED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -43689,6 +46901,594 @@
           },
           "429": {
             "description": "Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/recurring/calendar": {
+      "get": {
+        "operationId": "listRecurringCalendar",
+        "summary": "The calendar of regular payments: the charges from a date over 1–366 days with the loans' monthly payments, the month's and the year's totals, the current period (BUD-07 FR 7, FR 16, FR 19)",
+        "tags": [
+          "recurring"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "recurring.payments",
+          "flags": [
+            "recurring.payments"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "The first day, today by default; from 429 days before today to 366 days after it",
+            "schema": {
+              "type": "string",
+              "maxLength": 10
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "description": "How many days, 1–366; 30 by default (FR 7 «горизонт»)",
+            "schema": {
+              "type": "string",
+              "maxLength": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The charges in the range, the loans, the totals and the period, at today's rates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "payment",
+                              "loan"
+                            ]
+                          },
+                          "paymentId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "accountId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "expense",
+                              "income"
+                            ]
+                          },
+                          "subscription": {
+                            "type": "boolean"
+                          },
+                          "variable": {
+                            "type": "boolean"
+                          },
+                          "dueOn": {
+                            "type": "string"
+                          },
+                          "expectedAmount": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "paid",
+                              "paid-late",
+                              "expected",
+                              "overdue",
+                              "skipped"
+                            ]
+                          },
+                          "overdueDays": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "transactionId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "paidOn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "counted": {
+                            "type": "boolean"
+                          },
+                          "interest": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "paymentId",
+                          "accountId",
+                          "name",
+                          "type",
+                          "subscription",
+                          "variable",
+                          "dueOn",
+                          "expectedAmount",
+                          "status",
+                          "overdueDays",
+                          "transactionId",
+                          "paidOn",
+                          "counted",
+                          "interest"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "loans": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "accountId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "monthlyPayment": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "annualRate": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "accountId",
+                          "name",
+                          "monthlyPayment",
+                          "annualRate"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "currency": {
+                          "type": "string"
+                        },
+                        "month": {
+                          "type": "string"
+                        },
+                        "expenses": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "subscriptions": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "loans": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "incomes": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "yearExpenses": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "yearIncomes": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "approximate": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "month",
+                        "expenses",
+                        "subscriptions",
+                        "loans",
+                        "incomes",
+                        "yearExpenses",
+                        "yearIncomes",
+                        "approximate"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "period": {
+                      "type": "object",
+                      "properties": {
+                        "month": {
+                          "type": "string"
+                        },
+                        "charges": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "paid": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "overdue": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "remaining": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "approximate": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "month",
+                        "charges",
+                        "paid",
+                        "overdue",
+                        "remaining",
+                        "approximate"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "from",
+                    "to",
+                    "items",
+                    "loans",
+                    "totals",
+                    "period"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -59911,6 +63711,649 @@
         }
       }
     },
+    "/v1/transactions/{transactionId}/not-transfer": {
+      "post": {
+        "operationId": "dismissTransfer",
+        "summary": "«Не пара»: the pair is never proposed as a transfer again, even after «Роз'єднати» (IMP-03 FR 12); nothing else changes",
+        "tags": [
+          "transactions"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "transactions.transfers",
+          "flags": [
+            "transactions.transfers"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "transactionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "counterpartId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "counterpartId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The transaction",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "accountId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "amount": {
+                      "type": "object",
+                      "properties": {
+                        "amount": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "amount",
+                        "currency"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "income",
+                        "expense"
+                      ]
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "counterparty": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "posted",
+                        "pending"
+                      ],
+                      "x-extensible-enum": true
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "manual",
+                        "imported"
+                      ],
+                      "x-extensible-enum": true
+                    },
+                    "hidden": {
+                      "type": "boolean"
+                    },
+                    "split": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {
+                              "type": "string",
+                              "enum": [
+                                "categories",
+                                "months"
+                              ]
+                            },
+                            "needsReview": {
+                              "type": "boolean"
+                            },
+                            "parts": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "categoryId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "month": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "amount": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "categoryId",
+                                  "month",
+                                  "amount"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "mode",
+                            "needsReview",
+                            "parts"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "transfer": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "side": {
+                              "type": "string",
+                              "enum": [
+                                "outflow",
+                                "inflow"
+                              ]
+                            },
+                            "counterpartId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "date": {
+                              "type": "string"
+                            },
+                            "fee": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "rate": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "rate": {
+                                      "type": "string"
+                                    },
+                                    "date": {
+                                      "type": "string"
+                                    },
+                                    "source": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "rate",
+                                    "date",
+                                    "source"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "side",
+                            "counterpartId",
+                            "date",
+                            "fee",
+                            "currencyDifference",
+                            "rate"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mergedInto": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "mergedDuplicates": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "note": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "oneOff": {
+                      "type": "boolean"
+                    },
+                    "review": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "queued",
+                            "confirmed"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "x-extensible-enum": true
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "recordedAt": {
+                      "type": "string"
+                    },
+                    "bankDescription": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "balanceAfter": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "importedFrom": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "batchId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "fileId": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "row": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "batchId",
+                            "fileId",
+                            "row"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "originalAmount": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "exchangeRate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "valueDate": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bankReference": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "bankFee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "accountId",
+                    "amount",
+                    "type",
+                    "date",
+                    "counterparty",
+                    "description",
+                    "status",
+                    "source",
+                    "hidden",
+                    "split",
+                    "transfer",
+                    "mergedInto",
+                    "mergedDuplicates",
+                    "note",
+                    "tags",
+                    "oneOff",
+                    "review",
+                    "version",
+                    "recordedAt",
+                    "bankDescription",
+                    "balanceAfter",
+                    "importedFrom",
+                    "originalAmount",
+                    "exchangeRate",
+                    "valueDate",
+                    "bankReference",
+                    "bankFee"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The account is closed (ACCOUNT_CLOSED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/transactions/{transactionId}/one-off": {
       "put": {
         "operationId": "setTransactionOneOff",
@@ -65071,7 +69514,7 @@
     "/v1/transfer-proposals": {
       "get": {
         "operationId": "listTransferProposals",
-        "summary": "«Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself",
+        "summary": "«Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer, scored 0–100 (at least 55) and one-to-one; the system never marks them itself",
         "tags": [
           "transfer-matching"
         ],
@@ -65084,7 +69527,7 @@
         },
         "responses": {
           "200": {
-            "description": "The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow",
+            "description": "The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow, «Не пара» POST /v1/transactions/{outflow}/not-transfer with the inflow",
             "content": {
               "application/json": {
                 "schema": {
@@ -65312,6 +69755,86 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "score": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "confidence": {
+                            "type": "string",
+                            "enum": [
+                              "high",
+                              "medium",
+                              "low"
+                            ]
+                          },
+                          "evidence": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "code": {
+                                  "type": "string",
+                                  "enum": [
+                                    "exact-amount",
+                                    "amount-less-fee",
+                                    "rate-within-1",
+                                    "rate-within-3",
+                                    "same-day",
+                                    "days-apart",
+                                    "same-wallet-group"
+                                  ],
+                                  "x-extensible-enum": true
+                                },
+                                "points": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "days": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "code",
+                                "points",
+                                "days"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "ambiguousWith": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "transactionId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "score": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "transactionId",
+                                "score"
+                              ],
+                              "additionalProperties": false
+                            }
                           }
                         },
                         "required": [
@@ -65325,7 +69848,11 @@
                           "converted",
                           "difference",
                           "bankRate",
-                          "rateBand"
+                          "rateBand",
+                          "score",
+                          "confidence",
+                          "evidence",
+                          "ambiguousWith"
                         ],
                         "additionalProperties": false
                       }
@@ -65534,6 +70061,9 @@
               "IMPORT_APPLY_UNSUPPORTED",
               "IMPORT_ROLLBACK_EXPIRED",
               "RECIPE_INVALID",
+              "TEMPLATE_CHANGED",
+              "TEMPLATE_NAME_TAKEN",
+              "TEMPLATE_STALE",
               "UNSUPPORTED_MEDIA_TYPE",
               "LIMIT_REACHED",
               "RATE_LIMITED",
@@ -65553,7 +70083,7 @@
             "type": "string"
           },
           "currentVersion": {
-            "description": "VERSION_CONFLICT: the current version of the record",
+            "description": "VERSION_CONFLICT, TEMPLATE_CHANGED: the current version of the record",
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991

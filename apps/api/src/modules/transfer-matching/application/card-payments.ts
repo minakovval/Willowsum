@@ -34,7 +34,7 @@ export async function markCardPayments(
   fresh: FreshSides,
 ): Promise<number> {
   if (!(await deps.enabled(householdId))) return 0;
-  const { proposals } = await listProposals(deps, householdId);
+  const { proposals, candidates } = await listProposals(deps, householdId);
   if (proposals.length === 0) return 0;
   const ids = "transactionIds" in fresh ? new Set(fresh.transactionIds) : null;
   const batchId = "importBatchId" in fresh ? fresh.importBatchId : null;
@@ -49,7 +49,7 @@ export async function markCardPayments(
   if (!proposals.some((p) => isFresh(p.outflow.transactionId) || isFresh(p.inflow.transactionId))) return 0;
   const cards = await deps.cards(householdId, [...new Set(proposals.map((p) => p.inflow.accountId))]);
   let marked = 0;
-  for (const p of cardPaymentsOf(proposals, cards, isFresh))
+  for (const p of cardPaymentsOf(proposals, cards, isFresh, candidates))
     if (await deps.mark(householdId, actorAccountId, p.outflow.transactionId, p.inflow.transactionId))
       marked++;
   return marked;

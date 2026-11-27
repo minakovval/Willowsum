@@ -67,8 +67,11 @@ function call(space: Space, method: "GET" | "POST" | "DELETE", url: string, body
 const save = (space: Space, recipe: unknown, name = "Синтетичний банк, CSV", as: As = {}) =>
   call(space, "POST", "/v1/import/recipes", { name, recipe }, as);
 
+let named = 0;
+
 async function newRecipe(space: Space, recipe: unknown = FULL_RECIPE): Promise<string> {
-  const res = await save(space, recipe);
+  // IMP-07 FR 2: a name is unique in its scope.
+  const res = await save(space, recipe, `Синтетичний банк ${++named}`);
   expect(res.statusCode, res.body).toBe(201);
   return res.json().id as string;
 }
@@ -162,7 +165,21 @@ describe("IMP-06@PoC: recipes of a space", () => {
     const list = await call(space, "GET", "/v1/import/recipes");
     expect(list.json()).toEqual({
       items: [
-        { id, name: "Синтетичний банк, CSV", schemaVersion: 1, fingerprint, createdAt: res.json().createdAt },
+        {
+          id,
+          name: "Синтетичний банк, CSV",
+          schemaVersion: 1,
+          fingerprint,
+          createdAt: res.json().createdAt,
+          // IMP-07 FR 1, FR 2, FR 5, FR 13.
+          scope: "space",
+          accountId: null,
+          version: 1,
+          updatedAt: res.json().createdAt,
+          stale: false,
+          useCount: 0,
+          lastUsedAt: null,
+        },
       ],
       nextCursor: null,
     });

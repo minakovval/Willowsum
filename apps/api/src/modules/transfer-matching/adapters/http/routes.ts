@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
 import { listProposals } from "../../application/index.ts";
-import type { TransferProposal, TransferSide } from "../../domain/index.ts";
+import type { ChosenProposal, TransferSide } from "../../domain/index.ts";
 import { transferMatchingServices } from "./services.ts";
 
 /**
@@ -50,6 +50,34 @@ const proposalSchema = z.object({
   bankRate: z.string().nullable(),
   /** IMP-03@PoC FR 4: two currencies — the bank's rate within 1 % or within 3 % of the reference; one currency — null. */
   rateBand: z.enum(["within-1", "within-3"]).meta({ "x-extensible-enum": true }).nullable(),
+  /** IMP-03@PoC FR 3: the score 0–100, the sum of the evidence's points; a proposal has at least 55. */
+  score: z.number().int().min(0).max(100),
+  /** IMP-03@PoC FR 3: high from 80, medium from 65, else low. */
+  confidence: z.enum(["high", "medium", "low"]),
+  /** IMP-03@PoC FR 4, FR 17: «чому ці операції» — the evidence and its points. */
+  evidence: z.array(
+    z.object({
+      code: z
+        .enum([
+          "exact-amount",
+          "amount-less-fee",
+          "rate-within-1",
+          "rate-within-3",
+          "same-day",
+          "days-apart",
+          "same-wallet-group",
+        ])
+        .meta({ "x-extensible-enum": true }),
+      points: z.number().int(),
+      /** `days-apart`: the days between the sides; else null. */
+      days: z.number().int().nullable(),
+    }),
+  ),
+  /**
+   * IMP-03@PoC FR 7: «неоднозначно з…» — other candidates within 5 points that share a side with this pair (the
+   * transaction that would take the other side, and that pair's score), best first; empty when none.
+   */
+  ambiguousWith: z.array(z.object({ transactionId: z.uuid(), score: z.number().int() })),
 });
 
 const side = (s: TransferSide): z.input<typeof sideSchema> => ({
@@ -59,7 +87,7 @@ const side = (s: TransferSide): z.input<typeof sideSchema> => ({
   date: s.date,
 });
 
-function present(p: TransferProposal): z.input<typeof proposalSchema> {
+function present(p: ChosenProposal): z.input<typeof proposalSchema> {
   const cross = p.kind === "cross-currency" ? p : null;
   return {
     outflow: side(p.outflow),
@@ -73,6 +101,10 @@ function present(p: TransferProposal): z.input<typeof proposalSchema> {
     difference: cross?.difference.toJSON() ?? null,
     bankRate: cross?.bankRate.toFixed() ?? null,
     rateBand: cross?.rateBand ?? null,
+    score: p.score,
+    confidence: p.confidence,
+    evidence: p.evidence.map((e) => ({ code: e.code, points: e.points, days: e.days ?? null })),
+    ambiguousWith: p.ambiguousWith.map((a) => ({ transactionId: a.transactionId, score: a.score })),
   };
 }
 
@@ -82,12 +114,12 @@ export const listTransferProposalsRoute = defineRoute({
   path: "/v1/transfer-proposals",
   operationId: "listTransferProposals",
   summary:
-    "«Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer; the system never marks them itself",
+    "«Пари · N»: pairs of a debit and a credit on two own accounts (or two wallets of one account in two currencies — an exchange) within 3 days that look like one transfer, scored 0–100 (at least 55) and one-to-one; the system never marks them itself",
   access: { permission: "household.data.read", feature: FEATURE },
   response: {
     status: 200,
     description:
-      "The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow",
+      "The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow, «Не пара» POST /v1/transactions/{outflow}/not-transfer with the inflow",
     schema: z.object({
       items: z.array(proposalSchema),
       /** N of «Пари · N». */

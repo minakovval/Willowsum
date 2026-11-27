@@ -408,3 +408,42 @@ export async function createTransfer(
     return { kind: "ok", outflow: out, inflow: into, handOffs };
   });
 }
+
+/**
+ * IMP-03@PoC FR 12 «Не пара» on `id` with `counterpartId`: the pair is never proposed again (module transfer-matching's
+ * candidates leave it out), even after «Роз'єднати». The pair must be one «Підтвердити» could take (domain orderPair:
+ * both posted, shown, not split, in no transfer, a debit and a credit on two accounts or two wallets); nothing else
+ * changes — no category, no journal event. Twice: nothing changes. The audit entry is the transaction's the action was
+ * on (`notTransferOf`, FR 19). Both rows locked in the order of their ids, as «Підтвердити» locks them, so the two
+ * never interleave.
+ */
+export async function dismissTransfer(
+  deps: TransactionsDeps,
+  inTransactions: InTransactions,
+  caller: Caller,
+  id: string,
+  counterpartId: string,
+): Promise<TransferResult> {
+  const householdId = caller.householdId;
+  return inTransactions(async (tx) => {
+    const [current, counterpart] = await lockBoth(tx, householdId, id, counterpartId);
+    if (!current) return { kind: "not-found" };
+    // Another space's transaction and an unknown one answer the same (П-5).
+    if (!counterpart) return { kind: "invalid", issues: [{ field: "counterpartId", issue: "not_found" }] };
+    const pair = orderPair(current, counterpart);
+    if (Array.isArray(pair)) return { kind: "invalid", issues: pair };
+    if (await anyClosed(deps, tx, householdId, [current])) return { kind: "closed" };
+    if (!(await tx.insertTransferDismissal(householdId, pair.outflow.id, pair.inflow.id)))
+      return { kind: "ok", transaction: current, handOffs: [] };
+    const row = await tx.update(householdId, { ...current, version: current.version + 1 });
+    const handOff: TransactionHandOff = {
+      transactionId: row.id,
+      actorAccountId: caller.accountId,
+      action: "not-transfer",
+      version: row.version,
+      audit: [{ field: "notTransferOf", before: null, after: counterpartId, sensitive: false }],
+    };
+    await tx.enqueueHandOff(householdId, handOff);
+    return { kind: "ok", transaction: row, handOffs: [handOff] };
+  });
+}

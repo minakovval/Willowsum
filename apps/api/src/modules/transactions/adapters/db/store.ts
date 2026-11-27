@@ -377,6 +377,14 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       );
       return (rowCount ?? 0) > 0;
     },
+    async insertTransferDismissal(householdId, outflowId, inflowId) {
+      const { rowCount } = await q.query(
+        `INSERT INTO transfer_dismissals (household_id, outflow_id, inflow_id) VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [householdId, outflowId, inflowId],
+      );
+      return (rowCount ?? 0) > 0;
+    },
     lockAccounts: (householdId, accountIds) => lockAccounts(q, householdId, accountIds),
     async lockDuplicates(householdId) {
       await q.query(`SELECT pg_advisory_xact_lock(hashtextextended('transactions.duplicates:' || $1, 0))`, [
@@ -559,8 +567,8 @@ export interface CandidateSide {
  * The candidate pairs of a space for module transfer-matching (FIN-03 FR 5): a debit and a credit on two accounts (or,
  * IMP-03 FR 2, an exchange: on two wallets of one account in two currencies) within
  * `windowDays`, both posted, shown, not split and in no transfer; in one currency the credit at most the debit and at
- * least `sameCurrencyMinShare` of it (the rule of transfer-matching decides the rest, in two currencies by the rate).
- * Newest first; at most `limit` pairs.
+ * least `sameCurrencyMinShare` of it (the rule of transfer-matching decides the rest, in two currencies by the rate);
+ * never a pair the user called «Не пара» (IMP-03 FR 12). Newest first; at most `limit` pairs.
  */
 export async function transferCandidates(
   q: ModuleQueryRunner,
@@ -593,6 +601,8 @@ export async function transferCandidates(
         AND o.split_mode IS NULL AND i.split_mode IS NULL AND o.transfer_id IS NULL AND i.transfer_id IS NULL
         AND i.occurred_on BETWEEN o.occurred_on - $2::int AND o.occurred_on + $2::int
         AND (i.currency <> o.currency OR (i.amount <= -o.amount AND i.amount >= -o.amount * $3::numeric))
+        AND NOT EXISTS (SELECT 1 FROM transfer_dismissals d
+                         WHERE d.household_id = o.household_id AND d.outflow_id = o.id AND d.inflow_id = i.id)
       ORDER BY least(o.occurred_on, i.occurred_on) DESC, o.id, i.id
       LIMIT $4`,
     [householdId, query.windowDays, query.sameCurrencyMinShare, query.limit],
@@ -948,6 +958,31 @@ export async function accountsPaidIn(
     [householdId, [...accountIds], from, to],
   );
   return new Set(rows.map((r) => r.account_id));
+}
+
+/**
+ * BUD-07@PoC FR 16 as module recurring reads it: the payments to these accounts (a loan's) in the dates (YYYY-MM-DD, both
+ * included) — shown transactions with a positive amount, a side of a transfer too, as `accountsPaidIn` counts them —
+ * oldest first; at most the newest `PAYMENTS_TO_ACCOUNTS_MAX` (a bound on the read: the caller reads 430 days at most).
+ */
+export const PAYMENTS_TO_ACCOUNTS_MAX = 5000;
+
+export async function paymentsToAccounts(
+  q: ModuleQueryRunner,
+  householdId: string,
+  accountIds: readonly string[],
+  from: string,
+  to: string,
+): Promise<{ accountId: string; transactionId: string; date: string }[]> {
+  if (accountIds.length === 0) return [];
+  const { rows } = await q.query<{ id: string; account_id: string; occurred_on: string }>(
+    `SELECT id, account_id, occurred_on::text AS occurred_on FROM transactions
+      WHERE household_id = $1 AND account_id = ANY($2::uuid[]) AND NOT hidden AND merged_into IS NULL
+        AND amount > 0 AND occurred_on BETWEEN $3::date AND $4::date
+      ORDER BY occurred_on DESC, id LIMIT ${PAYMENTS_TO_ACCOUNTS_MAX}`,
+    [householdId, [...accountIds], from, to],
+  );
+  return rows.map((r) => ({ accountId: r.account_id, transactionId: r.id, date: r.occurred_on })).reverse();
 }
 
 /**

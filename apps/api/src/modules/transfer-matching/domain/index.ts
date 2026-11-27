@@ -2,3 +2,4 @@
 // @willowsum/domain-kernel, zod, decimal.js.
 export * from "./matching.ts";
 export * from "./card-payments.ts";
+export * from "./scoring.ts";
