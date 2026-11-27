@@ -291,3 +291,32 @@ describe("#363: pnpm local:dev on a machine where other programs hold ports", ()
     expect(await allGone(pids, 30_000)).toEqual([]);
   }, 240_000);
 });
+
+describe("NFR-01@PoC FR 3: pnpm local:dev --rotate-data-keys — the data-key rotation with the app stopped", () => {
+  it("NFR-01@PoC FR 3: prepares the database, prints the rotation's counts and exits without starting any process", async () => {
+    const child = spawn(process.execPath, ["scripts/local-dev.ts", "--rotate-data-keys", "--dry-run"], {
+      cwd: apiDir,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        PATH: process.env["PATH"] ?? "",
+        HOME: process.env["HOME"] ?? "",
+        DATABASE_URL: adminUrl,
+        WS_LOCAL_DEV_DATABASE: database,
+        WS_LOCAL_DEV_STATE_DIR: stateDir,
+        WS_LOCAL_DEV_WEB_PORT: String(webPort),
+        WS_LOCAL_DEV_KMS_KEY_FILE: path.join(stateDir, "kms", "local-kms-key.json"),
+        [HOLDER_PID_ENV]: holderPid,
+      },
+    });
+    started.push(child);
+    let out = "";
+    child.stdout!.on("data", (d: Buffer) => (out += d.toString()));
+    child.stderr!.on("data", (d: Buffer) => (out += d.toString()));
+    const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+    expect(code, out).toBe(0);
+    expect(out).toMatch(/Dry run: \d+ space\(s\) to get a new data key/);
+    expect(out).not.toContain("Willowsum is running");
+    // No role process of this run is left: the pids file is gone or holds none of ours.
+    if (existsSync(pidsFile)) expect(children()).toEqual([]);
+  }, 180_000);
+});

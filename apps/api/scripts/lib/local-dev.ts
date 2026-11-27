@@ -67,6 +67,12 @@ export function localDevSettings(
 export interface LocalDevOptions {
   /** Drop the development database first and start empty. */
   readonly fresh: boolean;
+  /**
+   * NFR-01@PoC FR 3: prepare the database, replace the data keys made under the fixed-label test key
+   * (scripts/kms-rotate-data-keys.ts; `dryRun`: only count; `abort`: undo an unfinished replacement) and stop, with
+   * no process started.
+   */
+  readonly rotateDataKeys?: { readonly dryRun: boolean; readonly abort?: true };
 }
 
 /** `--fresh` drops the database: only the development one, never a `pnpm db:test` database another run may be using (#401). */
@@ -74,15 +80,26 @@ export function assertFreshAllowed(database: string, fresh: boolean): void {
   if (fresh && database !== DEV_DATABASE) throw new Error("--fresh recreates only the development database");
 }
 
-export const LOCAL_DEV_USAGE = "usage: pnpm local:dev [--fresh]";
+export const LOCAL_DEV_USAGE = "usage: pnpm local:dev [--fresh | --rotate-data-keys [--dry-run | --abort]]";
 
 export function parseLocalDevArgs(argv: readonly string[]): LocalDevOptions {
   let fresh = false;
+  let rotate = false;
+  let dryRun = false;
+  let abort = false;
   for (const arg of argv) {
     if (arg === "--fresh") fresh = true;
+    else if (arg === "--rotate-data-keys") rotate = true;
+    else if (arg === "--dry-run") dryRun = true;
+    else if (arg === "--abort") abort = true;
     else throw new Error(`unknown option: ${arg}`);
   }
-  return { fresh };
+  if ((dryRun || abort) && !rotate) throw new Error("--dry-run and --abort go with --rotate-data-keys");
+  if (dryRun && abort) throw new Error("--abort and --dry-run do not go together");
+  // A fresh database has no old keys; dropping it on the way to a rotation would lose the data the rotation is for.
+  if (fresh && rotate) throw new Error("--rotate-data-keys works on the existing database, not with --fresh");
+  if (!rotate) return { fresh };
+  return { fresh, rotateDataKeys: abort ? { dryRun, abort: true } : { dryRun } };
 }
 
 /** The same server as `adminUrl` (a superuser URL), another database. */

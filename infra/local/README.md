@@ -1,6 +1,6 @@
 # Local environment
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-26 (the installation's master key file, NFR-01@PoC FR 3; 2026-11-20: one file storage for every process; 2026-11-18: `pnpm local:backup`, `pnpm local:restore`; 2026-11-16: `pnpm local:dev`; free ports, closing the window, leftovers — #363)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-27 (replacing the data keys of spaces made under the fixed-label key, `pnpm local:dev --rotate-data-keys`, NFR-01@PoC FR 3; 2026-11-26: the installation's master key file, NFR-01@PoC FR 3; 2026-11-20: one file storage for every process; 2026-11-18: `pnpm local:backup`, `pnpm local:restore`; 2026-11-16: `pnpm local:dev`; free ports, closing the window, leftovers — #363)
 
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
@@ -86,6 +86,29 @@ CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machin
   cannot be opened again**: keep a copy of it (below). A missing or wrong key file never becomes a new key over your
   data: `pnpm local:dev` stops with «… space key(s) in this database do not open with the installation's key file …»
   and changes nothing; put the saved copy back and start again.
+- **Replacing old data keys** (NFR-01@PoC FR 3; the security review of #726). The re-wrap protects the wrap, not the
+  data key. `pnpm local:dev --rotate-data-keys` gives every space whose data key may ever have been wrapped by the
+  fixed-label key (every space made before this version, `space_keys.exposed`) a new data key under the key file,
+  seals all of its values again with it (account numbers, the account binding of import templates and their versions,
+  parsed statements, stored files; in batches, each in one transaction) and then retires the old key. It prepares the
+  database like a normal start, holds the cluster lock and **starts no process**, so the app is stopped while it runs.
+  `--dry-run` only counts («Dry run: N space(s) to get a new data key, M sealed value(s) …»). A stop in the middle
+  (Ctrl+C, a crash) loses nothing: the new key and the finished parts are kept, the space's values cannot be opened
+  until you run the command again (`SPACE_KEY_ROTATING`), and the repeat carries on without sealing anything twice.
+  **Never restore a database copy made before the run once it has started**: `pnpm local:backup` holds the database
+  only, the stored files are sealed again in place, and the old database has no wrap of the new key — the files
+  already sealed again would never open. Finish by running the command again instead, or undo it:
+  `pnpm local:dev --rotate-data-keys --abort` seals every value of an unfinished space back with its old key and
+  discards the new key («Undid the unfinished replacement of N of N space(s)…»); the old key stays, so the spaces
+  work as before and a later run replaces it again. Before the first write the command opens every value of each
+  space; a value that opens with neither key (damaged before the run) stops that space before it begins — the report
+  names only the module and the count («… open with neither key (accounts: 1) …»), the space keeps its old key and
+  works as before; tell the lead the module and the count. Only one run at a time: while one (a replacement or
+  `--abort`) is running, a second is refused («Another kms:rotate-data-keys run … is using this database», exit 2)
+  and changes nothing. It refuses to run without `WS_REAL_DATA=true` and the key file. The same by hand: `pnpm --filter @willowsum/api
+  kms:rotate-data-keys [--dry-run | --abort] [--batch-size N]` with the processes' configuration and the processes stopped.
+  After it reports «Replaced the data keys of N of N space(s)…» **delete every copy of the database made before** and
+  make a new one: the old copies hold the old data keys, which the repository opens.
 - **Confirming an email.** The synthetic mail adapter keeps letters inside the API process. After signing up, type
   the email in the terminal and press Enter: it prints the confirmation link. `limits` clears the sign-up limits.
 - **Data is kept** between runs (`ws_dev`). `pnpm local:dev --fresh` drops it and starts empty; `pnpm local:reset`
@@ -127,9 +150,42 @@ Docker стирає її без вороття, тому час від часу 
    відкриває жодного зашифрованого поля (IBAN, номери полісів, збережені файли). **Копії, зроблені до переобгортання**
    (до першого старту, на якому `pnpm local:dev` написав «Re-wrapped N of N space key(s)…»), захищені лише ключем
    фіксованої мітки з репозиторію — разом зі значеннями, запечатаними пізніше: видаліть їх усюди, де вони є, і зробіть
-   нову копію. Збережіть копію файлу ключа один раз (і після ротації) **окремо** від копій
+   нову копію. Повністю закриває це лише заміна ключів даних (розділ нижче, «Замінити ключі даних старих
+   просторів»): після неї видаліть **усі** копії, зроблені до неї. Збережіть копію файлу ключа один раз (і після ротації) **окремо** від копій
    бази — наприклад, у менеджері паролів або на іншому диску; ніколи не в одній папці чи одному архіві з `.dump`.
    Команда відмовляється писати копію в папку файлу ключа і після кожної копії нагадує про це.
+
+**Замінити ключі даних старих просторів (один раз)**
+
+Простори, створені до файлу ключа, мали ключ даних, обгорнутий ключем фіксованої мітки з репозиторію. Переобгортання
+захистило обгортку, але сам ключ даних лишився тим самим, і старі копії бази його відкривають. Ця команда дає кожному
+такому простору новий ключ даних і заново запечатує ним усі його значення.
+
+1. Зупиніть `pnpm local:dev` (Ctrl+C). Зробіть свіжу копію (`pnpm local:backup`) — вона знадобиться лише якщо заміна
+   ще не почалась (наприклад, не пройшла підготовка бази). **Копія бази не містить збережених файлів** (оригінали
+   імпорту лежать у сховищі файлів, поза базою), а заміна перезапечатує їх на місці новим ключем. Тому **після початку
+   заміни цю копію не відновлюйте**: стара база не має нового ключа, і вже перезапечатані файли не відкрилися б ніколи.
+   Щось пішло не так під час заміни — запускайте ту саму команду ще раз (крок 3), а не `pnpm local:restore`.
+2. Перевірка без змін: `pnpm local:dev --rotate-data-keys --dry-run` — друкує, скільки просторів і значень буде
+   замінено, і нічого не змінює.
+3. Заміна: `pnpm local:dev --rotate-data-keys`. Команда готує базу як звичайний старт, але програму не запускає; чекайте
+   «Replaced the data keys of N of N space(s)…». Перервалося (Ctrl+C, вимкнення): запустіть ту саму команду ще раз —
+   вона продовжить з того місця, нічого не втративши і нічого не запечатавши двічі. Поки заміна не завершена, значення
+   цього простору не відкриваються (`SPACE_KEY_ROTATING`). Хочете скасувати незавершену заміну:
+   `pnpm local:dev --rotate-data-keys --abort` — запечатує всі значення назад старим ключем і відкидає новий
+   («Undid the unfinished replacement of N of N space(s)…»); старий ключ лишається, простір працює як раніше, а
+   наступний запуск кроку 3 замінить ключ знову.
+   Перед першим записом команда відкриває кожне значення простору. Значення, яке не відкривається жодним ключем
+   (пошкоджене ще до заміни), зупиняє цей простір до початку: звіт називає лише модуль і кількість
+   («… open with neither key (accounts: 1) …»), простір лишається зі старим ключем і працює як раніше. Перешліть
+   модуль і кількість ведучому; інші простори замінюються як звичайно.
+   Одночасно працює лише один запуск: поки триває заміна або `--abort`, другий запуск відмовляє («Another
+   kms:rotate-data-keys run … is using this database», код 2) і нічого не змінює.
+4. **Видаліть усі копії бази, зроблені до заміни** (кожен старий `.dump` у `~/Willowsum-backups`, на інших дисках, у
+   хмарі), потім зробіть нову копію: `pnpm local:backup`. Файл ключа лишається тим самим — нова копія файлу ключа не
+   потрібна.
+5. Повторний запуск нічого не робить («Replaced the data keys of 0 of 0 space(s)…»): простори, створені вже з файлом
+   ключа, заміни не потребують.
 
 **Відновити з файлу**
 

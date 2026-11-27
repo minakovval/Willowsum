@@ -148,3 +148,6 @@ export function createImportRecipesReader(db: ModuleDatabase): ImportRecipesRead
     },
   };
 }
+
+// NFR-01@PoC FR 3: the sealed values of a space, for the data-key rotation (scripts/kms-rotate-data-keys.ts).
+export { importRecipesResealPart } from "./adapters/db/reseal.ts";

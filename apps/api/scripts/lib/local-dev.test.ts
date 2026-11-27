@@ -27,6 +27,27 @@ describe("CICD-04 FR 1: pnpm local:dev — the whole app locally with one comman
     expect(() => parseLocalDevArgs(["--prod"])).toThrow(/unknown option/);
   });
 
+  it("NFR-01@PoC FR 3: --rotate-data-keys [--dry-run | --abort] runs the data-key rotation on the existing database, never with --fresh", () => {
+    expect(parseLocalDevArgs(["--rotate-data-keys"])).toEqual({
+      fresh: false,
+      rotateDataKeys: { dryRun: false },
+    });
+    expect(parseLocalDevArgs(["--rotate-data-keys", "--dry-run"])).toEqual({
+      fresh: false,
+      rotateDataKeys: { dryRun: true },
+    });
+    expect(parseLocalDevArgs(["--rotate-data-keys", "--abort"])).toEqual({
+      fresh: false,
+      rotateDataKeys: { dryRun: false, abort: true },
+    });
+    expect(() => parseLocalDevArgs(["--dry-run"])).toThrow(/--rotate-data-keys/);
+    expect(() => parseLocalDevArgs(["--abort"])).toThrow(/--rotate-data-keys/);
+    expect(() => parseLocalDevArgs(["--rotate-data-keys", "--abort", "--dry-run"])).toThrow(
+      /do not go together/,
+    );
+    expect(() => parseLocalDevArgs(["--fresh", "--rotate-data-keys"])).toThrow(/not with --fresh/);
+  });
+
   it("uses its own persistent database on the same server", () => {
     expect(databaseUrlFor("postgres://u:p@127.0.0.1:5432/willowsum", DEV_DATABASE)).toBe(
       "postgres://u:p@127.0.0.1:5432/ws_dev",

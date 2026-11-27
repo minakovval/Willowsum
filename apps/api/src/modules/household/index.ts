@@ -6,6 +6,7 @@ import { defineModule } from "../../platform/modules/define.ts";
 import { unavailableKeyManagement, type KeyManagement } from "../../platform/adapters/kms/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import { databaseSpacesStore, householdRoutes, spacesOfAccount } from "./adapters/index.ts";
+import { keyRef } from "./domain/index.ts";
 import {
   destroySpaceKey,
   ensureFirstSpace,
@@ -15,9 +16,14 @@ import {
   openField,
   rewrapFromSource,
   rewrapSpaceKeys,
+  abortDataKeyRotations,
+  rotateDataKeys,
   unopenableSpaceKeys,
   sealBytes,
   sealField,
+  type DataKeyAbortResult,
+  type DataKeyRotationOptions,
+  type DataKeyRotationResult,
   type FieldOpener,
   type RewrapFromResult,
   type RewrapResult,
@@ -46,11 +52,15 @@ export {
 export type { SpaceKeyErrorCode, SpaceRole } from "./domain/index.ts";
 export {
   openWithFieldOpener,
+  RotationTargetError,
   SEAL_BYTES_MAX,
   SEAL_MAX_LENGTH,
   wipeFieldOpener,
 } from "./application/index.ts";
 export type {
+  DataKeyAbortResult,
+  DataKeyRotationOptions,
+  DataKeyRotationResult,
   FieldOpener,
   RewrapFromResult,
   RewrapResult,
@@ -85,6 +95,19 @@ export interface SpaceKeys {
   rewrapFrom(source: RewrapSource, options: { readonly dryRun: boolean }): Promise<RewrapFromResult>;
   /** Space keys not wrapped by `source` that this KMS cannot unwrap: a lost or wrong key file (NFR-01@PoC FR 3). */
   unopenable(source: RewrapSource): Promise<number>;
+  /**
+   * NFR-01@PoC FR 3: replaces the data key of every space whose key may have been wrapped by the fixed-label test key
+   * (or whose replacement did not finish) and seals its values again with the new key, through `options.parts` (every
+   * module's sealed values); `dryRun` only counts. Resumable and idempotent. The command `kms:rotate-data-keys`.
+   */
+  rotateDataKeys(options: DataKeyRotationOptions): Promise<DataKeyRotationResult>;
+  /**
+   * NFR-01@PoC FR 3: undoes every unfinished replacement — the space's values sealed back with its old key, the new key
+   * discarded; the old key stays (still exposed). `kms:rotate-data-keys --abort`.
+   */
+  abortDataKeyRotations(
+    options: Pick<DataKeyRotationOptions, "source" | "parts" | "batchSize">,
+  ): Promise<DataKeyAbortResult>;
   /** Destroys the space's key (ARC-06 FR 5, NFR-12 FR 3): its sealed values can no longer be opened. */
   destroy(householdId: string): Promise<{ readonly destroyed: boolean }>;
 }
@@ -182,6 +205,38 @@ function spaceKeyDeps(
           changes: [{ field: "masterKeyVersion", before, after, sensitive: false }],
         });
       },
+      keyReplaced: async (householdId, oldKeyId, newKeyId) => {
+        await audit.record(householdId, {
+          actor: { kind: "system" },
+          channel: "system",
+          entity: { type: "household.space-key", id: newKeyId },
+          action: "create",
+          changes: [
+            {
+              field: "encryptionKeyRef",
+              before: keyRef.live(oldKeyId),
+              after: keyRef.live(newKeyId),
+              sensitive: false,
+            },
+          ],
+        });
+        await audit.record(householdId, {
+          actor: { kind: "system" },
+          channel: "system",
+          entity: { type: "household.space-key", id: oldKeyId },
+          action: "delete",
+          changes: [],
+        });
+      },
+      keyRotationAborted: async (householdId, newKeyId) => {
+        await audit.record(householdId, {
+          actor: { kind: "system" },
+          channel: "system",
+          entity: { type: "household.space-key", id: newKeyId },
+          action: "delete",
+          changes: [],
+        });
+      },
       keyDestroyed: async (id) => {
         await audit.recordPlatform({
           actor: { kind: "system" },
@@ -211,6 +266,8 @@ export function createSpaceKeys(
     rewrapAll: () => rewrapSpaceKeys(keyDeps),
     rewrapFrom: (source, options) => rewrapFromSource(keyDeps, source, options),
     unopenable: (source) => unopenableSpaceKeys(keyDeps, source),
+    rotateDataKeys: (options) => rotateDataKeys(keyDeps, options),
+    abortDataKeyRotations: (options) => abortDataKeyRotations(keyDeps, options),
     destroy: (householdId) => destroySpaceKey(keyDeps, householdId),
   };
 }

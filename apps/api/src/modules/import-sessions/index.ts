@@ -257,3 +257,6 @@ export function createImportSessionsCleanup(options: {
     },
   };
 }
+
+// NFR-01@PoC FR 3: the sealed values of a space, for the data-key rotation (scripts/kms-rotate-data-keys.ts).
+export { importSessionsResealPart } from "./adapters/db/reseal.ts";

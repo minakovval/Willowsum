@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import type { KeyManagement } from "../../../platform/adapters/kms/index.ts";
+import { isFixedLabelVersion, type KeyManagement } from "../../../platform/adapters/kms/index.ts";
 import { keyRef, SpaceKeyError, type StoredSpaceKey } from "../domain/index.ts";
 import type { SpacesStore, SpacesTx } from "./spaces.ts";
 
@@ -20,6 +20,13 @@ export interface SpaceKeyAudit {
    * or the space's id for a space destroyed before it ever had a key.
    */
   keyDestroyed(id: string): Promise<void>;
+  /**
+   * NFR-01@PoC FR 3: the space's data key was replaced by a new one and its values sealed again with it; the old key is
+   * retired (its wrap deleted). The space's own log: the new key made, the old one gone.
+   */
+  keyReplaced(householdId: string, oldKeyId: string, newKeyId: string): Promise<void>;
+  /** NFR-01@PoC FR 3: an unfinished replacement was undone; its new key is discarded (the space's own log). */
+  keyRotationAborted(householdId: string, newKeyId: string): Promise<void>;
 }
 
 export interface SpaceKeysDeps {
@@ -54,6 +61,8 @@ export async function newSpaceKey(kms: KeyManagement, householdId: string): Prom
       keyId: randomUUID(),
       masterKeyVersion: wrapped.masterKeyVersion,
       wrappedKey: Buffer.from(wrapped.ciphertext).toString("base64url"),
+      // NFR-01@PoC FR 3: a key wrapped by the fixed-label test key is replaced by the data-key rotation.
+      exposed: isFixedLabelVersion(wrapped.masterKeyVersion),
     };
   } finally {
     dataKey.fill(0);
@@ -64,7 +73,11 @@ export async function newSpaceKey(kms: KeyManagement, householdId: string): Prom
  * The data key of a stored wrap, as a Buffer over the very bytes the KMS returned (no copy), so the caller's
  * `fill(0)` wipes them.
  */
-async function unwrapStored(kms: KeyManagement, householdId: string, key: StoredSpaceKey): Promise<Buffer> {
+export async function unwrapStored(
+  kms: KeyManagement,
+  householdId: string,
+  key: StoredSpaceKey,
+): Promise<Buffer> {
   const bytes = await kms.unwrap(
     { masterKeyVersion: key.masterKeyVersion, ciphertext: Buffer.from(key.wrappedKey, "base64url") },
     { space: householdId },
@@ -76,7 +89,7 @@ function aad(householdId: string, field: string): Buffer {
   return Buffer.from(`household:${householdId}|field:${field}`, "utf8");
 }
 
-function checkField(field: string): void {
+export function checkField(field: string): void {
   if (!FIELD_RE.test(field)) throw new Error("A sealed field is named like an audit field (camelCase, ≤ 63)");
 }
 
@@ -85,10 +98,14 @@ async function withDataKey<T>(
   householdId: string,
   work: (key: Buffer) => T,
 ): Promise<T> {
-  const { ref, key } = await deps.store.inSpace(householdId, async (tx) => ({
+  const { ref, key, rotating } = await deps.store.inSpace(householdId, async (tx) => ({
     ref: await tx.encryptionKeyRef(householdId),
     key: await tx.spaceKey(householdId),
+    rotating: (await tx.keyRotation(householdId)) !== null,
   }));
+  // NFR-01@PoC FR 3: while the space's data key is being replaced, its values are under two keys; nothing is sealed
+  // (it would be under the old one) or opened until the rotation is done (kms:rotate-data-keys, run again).
+  if (rotating) throw new SpaceKeyError("SPACE_KEY_ROTATING");
   if (!key)
     throw new SpaceKeyError(
       ref?.startsWith(keyRef.destroyedPrefix) ? "SPACE_KEY_DESTROYED" : "SPACE_KEY_MISSING",
@@ -111,13 +128,16 @@ export async function sealField(
   checkField(field);
   if (plaintext.length > SEAL_MAX_LENGTH)
     throw new Error(`A sealed value is at most ${SEAL_MAX_LENGTH} characters`);
-  return withDataKey(deps, householdId, (key) => {
-    const iv = randomBytes(IV_BYTES);
-    const cipher = createCipheriv("aes-256-gcm", key, iv);
-    cipher.setAAD(aad(householdId, field));
-    const body = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-    return SEAL_PREFIX + Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url");
-  });
+  return withDataKey(deps, householdId, (key) => encryptField(key, householdId, field, plaintext));
+}
+
+/** A value sealed with `key` for the space and field (`ws1.…`); the caller checked the field and the length. */
+export function encryptField(key: Uint8Array, householdId: string, field: string, plaintext: string): string {
+  const iv = randomBytes(IV_BYTES);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(aad(householdId, field));
+  const body = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  return SEAL_PREFIX + Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url");
 }
 
 /** The value `sealField` sealed for this space and field; anything else is `SEALED_VALUE_INVALID`. */
@@ -132,7 +152,7 @@ export async function openField(
   return withDataKey(deps, householdId, (key) => decryptField(key, householdId, field, bytes));
 }
 
-function sealedBytes(sealed: string): Buffer {
+export function sealedBytes(sealed: string): Buffer {
   if (typeof sealed !== "string" || !SEALED_RE.test(sealed)) throw new SpaceKeyError("SEALED_VALUE_INVALID");
   const bytes = Buffer.from(sealed.slice(SEAL_PREFIX.length), "base64url");
   if (bytes.length < IV_BYTES + TAG_BYTES) throw new SpaceKeyError("SEALED_VALUE_INVALID");
@@ -140,7 +160,7 @@ function sealedBytes(sealed: string): Buffer {
 }
 
 /** Any failure — a wrong key, space or field, a key of the wrong length, a changed byte — is `SEALED_VALUE_INVALID`. */
-function decryptField(key: Uint8Array, householdId: string, field: string, bytes: Buffer): string {
+export function decryptField(key: Uint8Array, householdId: string, field: string, bytes: Buffer): string {
   try {
     const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(0, IV_BYTES));
     decipher.setAAD(aad(householdId, field));
@@ -207,7 +227,7 @@ export const SEAL_BYTES_MAX = 32 * 1024 * 1024;
 const BYTES_VERSION = 1;
 const PURPOSE_RE = /^[a-z][a-z0-9-]{0,30}:[A-Za-z0-9-]{1,64}$/;
 
-function checkPurpose(purpose: string): void {
+export function checkPurpose(purpose: string): void {
   if (!PURPOSE_RE.test(purpose)) throw new Error("A sealed payload's purpose is «<kind>:<id>»");
 }
 
@@ -229,13 +249,41 @@ export async function sealBytes(
   checkPurpose(purpose);
   if (plaintext.length > SEAL_BYTES_MAX)
     throw new Error(`A sealed payload is at most ${SEAL_BYTES_MAX} bytes`);
-  return withDataKey(deps, householdId, (key) => {
-    const iv = randomBytes(IV_BYTES);
-    const cipher = createCipheriv("aes-256-gcm", key, iv);
-    cipher.setAAD(bytesAad(householdId, purpose));
-    const body = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-    return Buffer.concat([Buffer.from([BYTES_VERSION]), iv, cipher.getAuthTag(), body]);
-  });
+  return withDataKey(deps, householdId, (key) => encryptBytes(key, householdId, purpose, plaintext));
+}
+
+/** Bytes sealed with `key` for the space and purpose; the caller checked the purpose and the size. */
+export function encryptBytes(
+  key: Uint8Array,
+  householdId: string,
+  purpose: string,
+  plaintext: Uint8Array,
+): Buffer {
+  const iv = randomBytes(IV_BYTES);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(bytesAad(householdId, purpose));
+  const body = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+  return Buffer.concat([Buffer.from([BYTES_VERSION]), iv, cipher.getAuthTag(), body]);
+}
+
+/** The bytes sealed with `key` for the space and purpose; anything else is `SEALED_VALUE_INVALID`. */
+export function decryptBytes(
+  key: Uint8Array,
+  householdId: string,
+  purpose: string,
+  sealed: Uint8Array,
+): Buffer {
+  const bytes = Buffer.from(sealed.buffer, sealed.byteOffset, sealed.length);
+  if (bytes.length < 1 + IV_BYTES + TAG_BYTES || bytes[0] !== BYTES_VERSION)
+    throw new SpaceKeyError("SEALED_VALUE_INVALID");
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(1, 1 + IV_BYTES));
+    decipher.setAAD(bytesAad(householdId, purpose));
+    decipher.setAuthTag(bytes.subarray(1 + IV_BYTES, 1 + IV_BYTES + TAG_BYTES));
+    return Buffer.concat([decipher.update(bytes.subarray(1 + IV_BYTES + TAG_BYTES)), decipher.final()]);
+  } catch {
+    throw new SpaceKeyError("SEALED_VALUE_INVALID");
+  }
 }
 
 /** The bytes `sealBytes` sealed for this space and purpose; anything else is `SEALED_VALUE_INVALID`. */
@@ -249,16 +297,7 @@ export async function openBytes(
   const bytes = Buffer.from(sealed.buffer, sealed.byteOffset, sealed.length);
   if (bytes.length < 1 + IV_BYTES + TAG_BYTES || bytes[0] !== BYTES_VERSION)
     throw new SpaceKeyError("SEALED_VALUE_INVALID");
-  return withDataKey(deps, householdId, (key) => {
-    try {
-      const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(1, 1 + IV_BYTES));
-      decipher.setAAD(bytesAad(householdId, purpose));
-      decipher.setAuthTag(bytes.subarray(1 + IV_BYTES, 1 + IV_BYTES + TAG_BYTES));
-      return Buffer.concat([decipher.update(bytes.subarray(1 + IV_BYTES + TAG_BYTES)), decipher.final()]);
-    } catch {
-      throw new SpaceKeyError("SEALED_VALUE_INVALID");
-    }
-  });
+  return withDataKey(deps, householdId, (key) => decryptBytes(key, householdId, purpose, bytes));
 }
 
 /**
@@ -447,6 +486,8 @@ export async function destroySpaceKey(
       await tx.lockSpace(householdId);
       const now = await read(tx);
       if (now.ref !== seen.ref || now.key?.keyId !== seen.key?.keyId) return false;
+      // A replacement of the data key in progress holds the new key's wrap: it goes with the key (NFR-01@PoC FR 3).
+      await tx.deleteKeyRotation(householdId);
       if (seen.key) {
         await tx.deleteSpaceKey(householdId, seen.key.keyId);
         if (
