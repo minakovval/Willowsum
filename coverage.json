@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-27T11:02:03.199Z",
-  "sha": "2ffbef9b134b3ade3367a57d5eff82dfe152cd1c",
+  "generatedAt": "2026-11-27T11:59:50.464Z",
+  "sha": "56ba0f2f3502aeb8318c601f6f71979287f49e2a",
   "releases": [
     {
       "release": "PoC",
@@ -12,16 +12,16 @@
         "total": 1428
       },
       "AC": {
-        "covered": 687,
-        "total": 1134
+        "covered": 689,
+        "total": 1135
       },
       "EC": {
         "covered": 131,
         "total": 211
       },
       "items": {
-        "covered": 1681,
-        "total": 2773
+        "covered": 1683,
+        "total": 2774
       }
     },
     {
@@ -32,16 +32,16 @@
         "total": 1205
       },
       "AC": {
-        "covered": 389,
-        "total": 1036
+        "covered": 391,
+        "total": 1037
       },
       "EC": {
         "covered": 89,
         "total": 245
       },
       "items": {
-        "covered": 906,
-        "total": 2486
+        "covered": 908,
+        "total": 2487
       }
     },
     {
@@ -2924,16 +2924,16 @@
         "total": 6
       },
       "AC": {
-        "covered": 7,
-        "total": 8
+        "covered": 9,
+        "total": 9
       },
       "EC": {
         "covered": 0,
         "total": 1
       },
       "items": {
-        "covered": 13,
-        "total": 15
+        "covered": 15,
+        "total": 16
       },
       "fingerprintErrors": 0,
       "status": "у роботі"
