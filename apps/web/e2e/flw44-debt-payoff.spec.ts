@@ -100,7 +100,7 @@ test.describe("with debts", () => {
     await world.api("POST", "/v1/budget", { firstPeriod: month, incomePlan: eur("4000.00") }, [201]);
   });
 
-  test("FLW-44@PoC FR 1, AC8: «Борги» lists every loan with the balance, the annual rate, the regular payment and the end date; a credit card without «Зменшувати на … / міс.» shows its balance and the hint to enter it (owner, 2026-11-27)", async () => {
+  test("FLW-44@PoC FR 1, AC8: «Борги» lists every loan with the balance, the annual rate, the regular payment and the end date; a credit card without «Гасити щомісяця: …» shows its balance and the hint to enter it (owner, 2026-11-27)", async () => {
     await open("/planning/debts");
     const row = (name: string) => main().getByRole("row", { name: new RegExp(`^${name}`) });
     const auto = await text(row("Автокредит"));
@@ -117,13 +117,13 @@ test.describe("with debts", () => {
     await expect(main().getByText("Боргів", { exact: true })).toBeVisible();
   });
 
-  test("FLW-44@PoC AC9, FR 1: the card of 1 000 € with «Зменшувати на … / міс.» 200 € — paid off in 5 months, no interest; saved as the card's plan, the list shows the amount and the end date", async () => {
+  test("FLW-44@PoC AC9, FR 1: the card of 1 000 € with «Гасити щомісяця: …» 200 € — paid off in 5 months, no interest; saved as the card's plan, the list shows the amount and the end date", async () => {
     await open("/planning/debts/plan");
     await main().getByRole("combobox", { name: "Борг" }).selectOption({ label: "Visa" });
     await expect(main().getByLabel("Ставка річних, %")).toHaveCount(0);
     await expect(main().getByLabel("Регулярний платіж / міс.")).toHaveCount(0);
     await expect(main()).toContainText("Вкажіть, скільки щомісяця гасите з картки");
-    await main().getByLabel("Зменшувати на … / міс.").fill("200");
+    await main().getByLabel("Гасити щомісяця: …").fill("200");
     // 1 000 ÷ 200 = 5 months, rounded up; no interest on a card.
     await expect(main()).toContainText("Погашення через 5 міс.");
     await expect(main()).toContainText("відсотки за весь строк 0,00 €");
@@ -201,7 +201,7 @@ test.describe("with debts", () => {
     // The minimums: 300 + 200 (the card) + 200 + 100 = 800 €; the card asks for nothing more.
     const total = main().getByRole("textbox", { name: /Усього на борги/ });
     await expect(total).toHaveValue(/800,00/);
-    await expect(main().getByRole("textbox", { name: /Зменшувати на/ })).toHaveCount(0);
+    await expect(main().getByRole("textbox", { name: /Гасити щомісяця|гасити … \/ міс\./ })).toHaveCount(0);
     await total.fill("700");
     await expect(main()).toContainText("Сума менша за мінімальні платежі (800,00 €)");
     await total.fill("1000");

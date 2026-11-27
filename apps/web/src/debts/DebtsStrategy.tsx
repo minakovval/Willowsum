@@ -28,7 +28,7 @@ const KINDS: readonly { id: Kind; label: MessageKey; hint: MessageKey }[] = [
  * (`POST /v1/debts/strategy`); the difference is shown neutrally, with no «recommended» mark and no advice.
  * The minimum payments are fixed: a debt's own payment, or for a debt that has none (a credit card: FIN-01 gives it no
  * payment; owner 2026-11-16, «3 а») the minimum payment and the rate entered here, sent as `debts[]`. A credit card
- * takes part with its «Зменшувати на … / міс.» as a fixed payment and no rate (FLW-44@PoC FR 4, owner decision
+ * takes part with its «Гасити щомісяця: …» as a fixed payment and no rate (FLW-44@PoC FR 4, owner decision
  * 2026-11-27): from its saved plan, or entered here; without it, the card takes no part.
  */
 export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
@@ -40,6 +40,8 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
     picked && currencies.includes(picked) ? picked : (currencies[0] ?? debts[0]!.balance.currency);
   const minimum = minimumTotal(debts, currency, entries);
   const needs = debts.filter(needsEntry);
+  // Only cards miss data: their one missing item is the monthly amount (owner decision 2026-11-27), the other debts need a rate and a payment.
+  const needsText = t(needs.every(isCard) ? "debts.card.amountHint" : "debts.strategy.enter");
   const [typed, setTyped] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>("avalanche");
   const group = useId();
@@ -108,8 +110,8 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
       </section>
 
       {needs.length > 0 ? (
-        <section className="ws-card debts-scenario" aria-label={t("debts.strategy.enter")}>
-          <p className="ws-muted debts-small">{t("debts.strategy.enter")}</p>
+        <section className="ws-card debts-scenario" aria-label={needsText}>
+          <p className="ws-muted debts-small">{needsText}</p>
           {needs.map((d) => {
             const e = entries[d.accountId] ?? { min: null, rate: "" };
             const set = (patch: Partial<typeof e>) =>

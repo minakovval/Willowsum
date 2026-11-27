@@ -52,7 +52,7 @@ const stuckLoan: Debt = {
   },
   progress: { paidPercent: 27, remainingMonths: null, plan: { status: "behind", amount: eur("15.50") } },
 };
-/** A credit card without «Зменшувати на … / міс.» (FLW-44@PoC FR 1): no rate, no payment, no calculation yet. */
+/** A credit card without «Гасити щомісяця: …» (FLW-44@PoC FR 1): no rate, no payment, no calculation yet. */
 const card: Debt = {
   accountId: CARD,
   kind: "credit-card",
@@ -192,7 +192,7 @@ describe("BUD-19@PoC S-143 «Борги»", () => {
     );
   });
 
-  it("FLW-44@PoC FR 1, AC8: a credit card without «Зменшувати на … / міс.» shows its balance and the hint to enter it — no rate, payment, end date or «не зменшується» note", async () => {
+  it("FLW-44@PoC FR 1, AC8: a credit card without «Гасити щомісяця: …» shows its balance and the hint to enter it — no rate, payment, end date or «не зменшується» note", async () => {
     renderAt("#/planning/debts", withDebts([loan, card]).client);
     const row = (await screen.findByText("Універсальна")).closest("tr")!;
     expect(within(row).getByText("800,00 €")).toBeTruthy();
@@ -833,11 +833,11 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
 });
 
 /**
- * FLW-44@PoC / BUD-19@PoC: a credit card in «План погашення» and «Стратегія» with the user's «Зменшувати на … / міс.»
- * (owner decision 2026-11-27). Texts «Зменшувати на … / міс.» and «Вкажіть, скільки щомісяця гасите з картки» —
+ * FLW-44@PoC / BUD-19@PoC: a credit card in «План погашення» and «Стратегія» with the user's «Гасити щомісяця: …»
+ * (owner decision 2026-11-27). Texts «Гасити щомісяця: …» and «Вкажіть, скільки щомісяця гасите з картки» —
  * варіант від агента, потребує погодження (canvas PocPlanDebtsTexts).
  */
-describe("FLW-44@PoC a credit card with «Зменшувати на … / міс.»", () => {
+describe("FLW-44@PoC a credit card with «Гасити щомісяця: …»", () => {
   const noInterest = calc(4, "2027-03", "0", [
     ["2026-12", "600.00"],
     ["2027-01", "400.00"],
@@ -853,7 +853,7 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
     renderTab("plan", api.client);
     // The prompt in place of the result and the field's hint.
     expect(await screen.findAllByText("Вкажіть, скільки щомісяця гасите з картки")).toHaveLength(2);
-    const amount = field(/Зменшувати на … \/ міс\./);
+    const amount = field(/Гасити щомісяця: …/);
     expect(amount.getAttribute("value")).toBe("");
     expect(field(/Залишок/).getAttribute("value")).toMatch(/800,00/);
     expect(screen.queryByRole("textbox", { name: /Ставка річних/ })).toBeNull();
@@ -871,7 +871,7 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
       [`PUT /v1/debts/${CARD}/plan`]: { status: 200, body: {} },
     });
     renderTab("plan", api.client);
-    fireEvent.change(await screen.findByRole("textbox", { name: /Зменшувати на/ }), {
+    fireEvent.change(await screen.findByRole("textbox", { name: /Гасити щомісяця|гасити … \/ міс\./ }), {
       target: { value: "200" },
     });
     expect(await screen.findByText("Погашення через 4 міс.")).toBeTruthy();
@@ -893,7 +893,7 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
     });
     renderTab("plan", api.client);
     expect(await screen.findByText("Погашення через 4 міс.")).toBeTruthy();
-    expect(field(/Зменшувати на/).getAttribute("value")).toMatch(/200,00/);
+    expect(field(/Гасити щомісяця/).getAttribute("value")).toMatch(/200,00/);
     expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({});
   });
 
@@ -932,7 +932,7 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
     const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
     expect(total.getAttribute("value")).toMatch(/350,00/);
     // A card with its amount asks for nothing.
-    expect(screen.queryByRole("textbox", { name: /Зменшувати на/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Гасити щомісяця|гасити … \/ міс\./ })).toBeNull();
     expect(await screen.findAllByText("Усі борги погашено за 30 міс.")).toHaveLength(2);
     expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
       total: { amount: "350", currency: "EUR" },
@@ -946,7 +946,7 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
     expect(api.calls.length).toBe(before);
   });
 
-  it("FLW-44@PoC AC8, FR 4: a card without the amount takes no part; its «Зменшувати на … / міс.» entered here sends the amount only, never a rate", async () => {
+  it("FLW-44@PoC AC8, FR 4: a card without the amount takes no part; its «Гасити щомісяця: …» entered here sends the amount only, never a rate", async () => {
     const api = fakeApi({
       "GET /v1/debts": { status: 200, body: { debts: [rated, card] } },
       "POST /v1/debts/strategy": (call: { body?: unknown }) => ({
@@ -958,9 +958,11 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
       }),
     });
     renderTab("strategy", api.client);
-    const amount = await screen.findByRole("textbox", { name: /Зменшувати на … \/ міс\.: Універсальна/ });
+    const amount = await screen.findByRole("textbox", { name: /Універсальна: гасити … \/ міс\./ });
     expect(screen.queryByRole("textbox", { name: /Ставка річних, %: Універсальна/ })).toBeNull();
-    expect(screen.getByText("Вкажіть, скільки щомісяця гасите з картки")).toBeTruthy();
+    // Only a card's amount is missing: the intro is the card hint (owner decision 2026-11-27), not the request for a minimum and a rate.
+    expect(screen.getAllByText("Вкажіть, скільки щомісяця гасите з картки")).toHaveLength(2);
+    expect(screen.queryByText(/Вкажіть мінімальний платіж і ставку/)).toBeNull();
     await waitFor(() => expect(api.calls.some((c) => c.path === "/v1/debts/strategy")).toBe(true));
     expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
       total: { amount: "150", currency: "EUR" },
@@ -976,5 +978,15 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
         debts: [{ accountId: CARD, minimumPayment: "200.00" }],
       }),
     );
+  });
+
+  it("FLW-44@PoC FR 4: when a loan lacks its terms as well as the card its amount, the intro is the request for a minimum payment and a rate", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [{ ...visa, monthlyPayment: null }, card] } },
+      "POST /v1/debts/strategy": { status: 200, body: both },
+    });
+    renderTab("strategy", api.client);
+    expect(await screen.findByText(/Вкажіть мінімальний платіж і ставку/)).toBeTruthy();
+    expect(screen.getAllByText("Вкажіть, скільки щомісяця гасите з картки")).toHaveLength(1);
   });
 });
