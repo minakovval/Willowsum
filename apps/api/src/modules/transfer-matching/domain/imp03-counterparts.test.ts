@@ -47,7 +47,7 @@ describe("IMP-03@PoC FR 24: the candidates of «Позначити як пере
     expect(c.inflow.transactionId).toBe("t-other");
   });
 
-  it("IMP-03@PoC FR 24: chosen on the credit side the debit is the candidate; a credit above the debit is listed but not markable", () => {
+  it("IMP-03@PoC FR 24: chosen on the credit side the debit is the candidate; a credit above the debit is not markable (the search never lists one)", () => {
     const c = counterpartOf(chosen("2050.00"), candidate("-2000.00"), null);
     expect(c.outflow.transactionId).toBe("t-other");
     expect(c).toMatchObject({ kind: "same-currency", markable: false });
@@ -68,14 +68,32 @@ describe("IMP-03@PoC FR 24: the candidates of «Позначити як пере
     expect(c.markable).toBe(true);
   });
 
-  it("IMP-03@PoC FR 24: in another currency without a known rate — still a candidate, no difference shown", () => {
+  it("IMP-03@PoC FR 24: in another currency without a known rate — still a candidate, no difference shown, not markable (`rate_unavailable`)", () => {
     const c = counterpartOf(chosen("-2000.00"), candidate("80000.00", "UAH"), null);
     expect(c).toMatchObject({
       kind: "cross-currency",
       rate: null,
       converted: null,
       difference: null,
-      markable: true,
+      markable: false,
+    });
+  });
+
+  it("IMP-03@PoC FR 24, FR 21: a rate of another pair of currencies is never used for the difference", () => {
+    const wrong = {
+      base: "UAH",
+      quote: "EUR",
+      rate: new Decimal("0.025"),
+      date: "2026-10-10",
+      source: "nbu",
+    };
+    const c = counterpartOf(chosen("-2000.00"), candidate("80000.00", "UAH"), wrong);
+    expect(c).toMatchObject({
+      kind: "cross-currency",
+      rate: null,
+      converted: null,
+      difference: null,
+      markable: false,
     });
   });
 

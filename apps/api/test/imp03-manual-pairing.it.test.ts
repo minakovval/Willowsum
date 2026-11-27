@@ -345,19 +345,31 @@ describe("IMP-03@PoC FR 24: «Позначити як переказ» lists the
     expect(await candidates(space, out.id)).toMatchObject({ items: [], more: false });
   });
 
-  it("IMP-03@PoC FR 24: the bounds are inclusive — 7 days and exactly ±5 %; nearest date first, then the nearer amount", async () => {
+  it("IMP-03@PoC FR 24: the bounds are inclusive — 7 days, the debit itself and exactly 5 % below it; a credit above the debit is no candidate; nearest date first, then the nearer amount", async () => {
     const { space, current, savings } = await twoAccounts();
     const out = await add(space, current, "-2000.00", "2026-10-10");
-    await add(space, savings, "2100.00", "2026-10-17");
+    await add(space, savings, "2000.01", "2026-10-10"); // above the debit (owner, 2026-11-27)
+    await add(space, savings, "2050.00", "2026-10-11"); // above the debit, within 5 %
+    await add(space, savings, "1899.99", "2026-10-11"); // just over 5 % below
     await add(space, savings, "1900.00", "2026-10-03");
     await add(space, savings, "1990.00", "2026-10-11");
     await add(space, savings, "2000.00", "2026-10-11");
     const { items } = await candidates(space, out.id);
-    expect(amountsOf(items)).toEqual(["2000 EUR", "1990 EUR", "1900 EUR", "2100 EUR"]);
-    // A credit above the debit is listed (±5 %) but «Позначити як переказ» refuses it: the difference is never a gain.
-    const above = items.find((c) => Number(c.amount.amount) === 2100)!;
-    expect(above.markable).toBe(false);
-    expect((await mark(space, out.id, above.transactionId)).statusCode).toBe(400);
+    expect(amountsOf(items)).toEqual(["2000 EUR", "1990 EUR", "1900 EUR"]);
+    expect(items.every((c) => c.markable)).toBe(true);
+  });
+
+  it("IMP-03@PoC FR 24: chosen on the credit side — only a debit not below the credit, at most 5 % of the credit above it", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const into = await add(space, savings, "2000.00", "2026-10-10");
+    await add(space, current, "-1999.99", "2026-10-10"); // the credit would exceed the debit
+    await add(space, current, "-2100.01", "2026-10-10"); // just over 5 % above
+    await add(space, current, "-2100.00", "2026-10-11");
+    await add(space, current, "-2000.00", "2026-10-12");
+    const { items } = await candidates(space, into.id);
+    expect(amountsOf(items)).toEqual(["-2100 EUR", "-2000 EUR"]);
+    expect(items.every((c) => c.markable)).toBe(true);
+    expect(Number(items[0]!.difference?.amount)).toBe(-100);
   });
 
   it("IMP-03@PoC FR 24: chosen on the credit side — the debits are the candidates", async () => {
@@ -381,6 +393,46 @@ describe("IMP-03@PoC FR 24: «Позначити як переказ» lists the
     expect((await dismiss(space, out.id, free.id)).statusCode).toBe(200);
     const { items } = await candidates(space, out.id);
     expect(items.map((c) => c.transactionId)).toEqual([free.id]);
+  });
+
+  it("IMP-03@PoC FR 24: never a candidate — a pending, a hidden or a split credit; only the free one is listed", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const out = await add(space, current, "-500.00", "2026-10-10");
+    const pending = await add(space, savings, "500.00", "2026-10-10");
+    const hidden = await add(space, savings, "500.00", "2026-10-10");
+    const split = await add(space, savings, "500.00", "2026-10-10");
+    const free = await add(space, savings, "500.00", "2026-10-11");
+    await db.owner.query(`UPDATE transactions.transactions SET status = 'pending' WHERE id = $1`, [
+      pending.id,
+    ]);
+    await db.owner.query(`UPDATE transactions.transactions SET hidden = true WHERE id = $1`, [hidden.id]);
+    await db.owner.query(`UPDATE transactions.transactions SET split_mode = 'months' WHERE id = $1`, [
+      split.id,
+    ]);
+    const { items } = await candidates(space, out.id);
+    expect(items.map((c) => c.transactionId)).toEqual([free.id]);
+  });
+
+  it("IMP-03@PoC FR 24, FR 2: another wallet of the same account is a candidate (an exchange); the same wallet is not", async () => {
+    const space = await newSpace();
+    const res = await call(space, "POST", "/v1/accounts", {
+      kind: "current",
+      name: "Картка мультивалютна",
+      balance: { amount: "5000.00", currency: "UAH" },
+      balanceDate: "2026-01-01",
+      extraCurrencies: [{ amount: "0.00", currency: "EUR", date: "2026-01-01" }],
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const card = res.json().id as string;
+    // A known reference rate, so the exchange can be marked (a pair in two currencies without one is not markable);
+    // in May, after the no-rate case of March below.
+    await rate("2026-05-04", "EUR", "44.0000");
+    const out = await add(space, card, "-1000.00", "2026-05-04", "UAH");
+    await add(space, card, "1000.00", "2026-05-04", "UAH"); // the same wallet
+    const into = await add(space, card, "22.50", "2026-05-04", "EUR");
+    const { items } = await candidates(space, out.id);
+    expect(items.map((c) => c.transactionId)).toEqual([into.id]);
+    expect(items[0]).toMatchObject({ kind: "cross-currency", markable: true });
   });
 
   it("IMP-03@PoC FR 24: a transaction already in a transfer has no candidates — 400 `in_transfer`; an unknown one — 404", async () => {
@@ -490,5 +542,95 @@ describe("IMP-03@PoC: the pairing service already in place", () => {
     expect(before.map((r) => r.id).sort()).toEqual([out.id, into.id].sort());
     expect((await mark(space, out.id, into.id)).statusCode).toBe(200);
     expect(await budgetRead(space.householdId, [current, savings], "2026-10-01", "2026-10-31")).toEqual([]);
+  });
+});
+
+describe("IMP-03@PoC FR 24: security — the candidates of one space, the cap and the flag", () => {
+  it("IMP-03@PoC FR 24: another space's credit that would match is never a candidate — no id, account or amount of it", async () => {
+    const { space, current } = await twoAccounts();
+    const out = await add(space, current, "-612.34", "2026-10-10");
+    const other = await newSpace();
+    const otherAccount = await createAccount(other, "0.00");
+    const theirs = await add(other, otherAccount, "612.34", "2026-10-10");
+    const res = await candidatesRes(space, out.id);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().items).toEqual([]);
+    expect(res.body).not.toContain(theirs.id);
+    expect(res.body).not.toContain(otherAccount);
+  });
+
+  it("IMP-03@PoC FR 24: a hidden or pending transaction is never a candidate, and a pending chosen one has none", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const out = await add(space, current, "-400.00", "2026-10-12");
+    const dup = await add(space, savings, "400.00", "2026-10-12");
+    await add(space, savings, "400.00", "2026-10-12"); // FR 18: its copy, so it may be hidden
+    expect((await call(space, "POST", `/v1/transactions/${dup.id}/hide`)).statusCode).toBe(200);
+    const pending = await call(space, "POST", "/v1/transactions", {
+      accountId: savings,
+      amount: { amount: "400.00", currency: "EUR" },
+      date: "2026-10-12",
+      status: "pending",
+    });
+    expect(pending.statusCode, pending.body).toBe(201);
+    const ids = (await candidates(space, out.id)).items.map((c) => c.transactionId);
+    expect(ids).toHaveLength(1);
+    expect(ids).not.toContain(dup.id);
+    expect(ids).not.toContain(pending.json().id);
+    const res = await candidatesRes(space, pending.json().id);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().errors).toEqual([{ in: "path", path: "transactionId", issue: "pending" }]);
+  });
+
+  it("IMP-03@PoC FR 24: equal amounts are markable (no fee); 50 candidates — `more` false, 51 — 50 listed and `more` true", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const out = await add(space, current, "-1000.00", "2026-10-10");
+    for (let i = 0; i < 50; i++) await add(space, savings, "1000.00", "2026-10-11");
+    const fifty = await candidates(space, out.id);
+    expect(fifty.items).toHaveLength(50);
+    expect(fifty.more).toBe(false);
+    expect(fifty.items[0]).toMatchObject({ kind: "same-currency", markable: true });
+    expect(Number(fifty.items[0]!.difference?.amount)).toBe(0);
+    await add(space, savings, "1000.00", "2026-10-12");
+    const more = await candidates(space, out.id);
+    expect(more.items).toHaveLength(50);
+    expect(more.more).toBe(true);
+  });
+});
+
+describe("IMP-03@PoC FR 24: security — a split transaction is no side", () => {
+  it("IMP-03@PoC FR 24: a split debit is never a candidate", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const into = await add(space, savings, "300.00", "2026-10-11");
+    const split = await add(space, current, "-300.00", "2026-10-10");
+    const free = await add(space, current, "-300.00", "2026-10-12");
+    const food = (await call(space, "GET", "/v1/categories"))
+      .json()
+      .groups.flatMap((g: { categories: { id: string; kind: string }[] }) => g.categories)
+      .find((c: { kind: string }) => c.kind === "expense").id;
+    const res = await call(space, "POST", `/v1/transactions/${split.id}/split`, {
+      mode: "months",
+      startMonth: "2026-10",
+      months: 2,
+      categoryId: food,
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const ids = (await candidates(space, into.id)).items.map((c) => c.transactionId);
+    expect(ids).toEqual([free.id]);
+  });
+});
+
+describe("IMP-03@PoC FR 24: security — `markable` tells what «Поєднати в пару» answers", () => {
+  it("IMP-03@PoC FR 24: a candidate in another currency with no known rate is listed but not markable — the mark answers `rate_unavailable`", async () => {
+    const { space, current } = await twoAccounts();
+    const uah = await createAccount(space, "0.00", "UAH");
+    const out = await add(space, current, "-100.00", "2026-03-10");
+    const into = await add(space, uah, "4100.00", "2026-03-11", "UAH");
+    const { items } = await candidates(space, out.id);
+    expect(items.map((c) => c.transactionId)).toEqual([into.id]);
+    expect(items[0]).toMatchObject({ kind: "cross-currency", rate: null, difference: null });
+    const res = await mark(space, out.id, into.id);
+    expect(res.statusCode).toBe(400);
+    expect(res.json().errors).toEqual([{ in: "body", path: "counterpartId", issue: "rate_unavailable" }]);
+    expect(items[0]!.markable).toBe(false);
   });
 });

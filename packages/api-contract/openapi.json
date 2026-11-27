@@ -69539,7 +69539,7 @@
     "/v1/transactions/{transactionId}/transfer-candidates": {
       "get": {
         "operationId": "listTransferCounterparts",
-        "summary": "«Позначити як переказ»: the free transactions of the opposite direction on other own accounts within 7 days before or after, in the same currency within ±5 % of the amount (another currency — any amount), for «Поєднати в пару» (IMP-03 FR 24)",
+        "summary": "«Позначити як переказ»: the free transactions of the opposite direction on other own accounts within 7 days before or after, in the same currency a credit not above the debit, at most 5 % of the amount below it (another currency — any amount), for «Поєднати в пару» (IMP-03 FR 24)",
         "tags": [
           "transfer-matching"
         ],

@@ -144,11 +144,11 @@ const counterpartSchema = sideSchema.extend({
   kind: z.enum(["same-currency", "cross-currency"]).meta({ "x-extensible-enum": true }),
   /**
    * One currency: the credit plus the debit — negative or zero, the fee that becomes an expense «Комісії банку» once
-   * paired (FR 24, FR 9); positive, the credit exceeds the debit (`markable` false). Two currencies: the credit less the
+   * paired (FR 24, FR 9); never positive, as a credit above the debit is no candidate. Two currencies: the credit less the
    * debit at the reference `rate` (FR 21, unrounded), null without a rate.
    */
   difference: moneySchema.nullable(),
-  /** «Поєднати в пару» (`POST /v1/transactions/{id}/transfer`) accepts the pair; false — it answers `amount_mismatch`. */
+  /** «Поєднати в пару» (`POST /v1/transactions/{id}/transfer`) accepts the pair; false — it answers `amount_mismatch` (one currency) or `rate_unavailable` (two, no reference rate). */
   markable: z.boolean(),
   /** Two currencies: the reference rate, 1 unit of the debit's currency in the credit's; else, or none known, null. */
   rate: z.object({ rate: z.string(), date: z.string(), source: z.string() }).nullable(),
@@ -187,7 +187,7 @@ export const listTransferCounterpartsRoute = defineRoute({
   path: "/v1/transactions/{transactionId}/transfer-candidates",
   operationId: "listTransferCounterparts",
   summary:
-    "«Позначити як переказ»: the free transactions of the opposite direction on other own accounts within 7 days before or after, in the same currency within ±5 % of the amount (another currency — any amount), for «Поєднати в пару» (IMP-03 FR 24)",
+    "«Позначити як переказ»: the free transactions of the opposite direction on other own accounts within 7 days before or after, in the same currency a credit not above the debit, at most 5 % of the amount below it (another currency — any amount), for «Поєднати в пару» (IMP-03 FR 24)",
   access: { permission: "household.data.write", feature: FEATURE },
   request: { params: z.object({ transactionId: z.uuid() }) },
   response: {

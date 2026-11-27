@@ -4,8 +4,9 @@ import { transferDate, type TransferSide } from "./matching.ts";
 /**
  * IMP-03@PoC FR 24 — «Позначити як переказ» (ручне поєднання), pure: the candidates for the other side of a transaction
  * the user pairs by hand. The transactions module's search gives the free transactions of the opposite direction on the
- * other own accounts within 7 days before or after the chosen one, in its currency within ±5 % of its amount (for a
- * debit of 2 000,00 EUR — 1 900,00–2 100,00 EUR), in another currency any amount; here each candidate gets what its row
+ * other own accounts within 7 days before or after the chosen one, in its currency a credit not above the debit and at
+ * most 5 % of the chosen amount below it (for a debit of 2 000,00 EUR — credits of 1 900,00–2 000,00 EUR; for a credit of
+ * 2 000,00 EUR — debits of 2 000,00–2 100,00 EUR; owner, 2026-11-27), in another currency any amount; here each candidate gets what its row
  * shows once chosen: in one currency the difference of the amounts that becomes an expense «Комісії банку», in two the
  * line of the difference with the pair's rate next to the reference one, as on the proposal card (FR 21). The rules of
  * the automatic proposals (the windows of FR 5, the score) do not apply: the choice is the user's.
@@ -13,7 +14,7 @@ import { transferDate, type TransferSide } from "./matching.ts";
 
 /** FR 24: candidates dated at most this many days before or after the chosen transaction. */
 export const COUNTERPART_WINDOW_DAYS = 7;
-/** FR 24: in one currency a candidate's amount is within this share of the chosen one's, either way. */
+/** FR 24: in one currency the credit is below the debit by at most this share of the chosen amount, never above it. */
 export const COUNTERPART_AMOUNT_SHARE = new Decimal("0.05");
 /** The most candidates one read lists; `more` tells there were others. */
 export const COUNTERPARTS_MAX = 50;
@@ -55,7 +56,8 @@ export type Counterpart = CounterpartTransaction & {
         readonly kind: "same-currency";
         /**
          * The credit plus the debit: negative or zero — the fee, an expense «Комісії банку» once paired (FR 24, FR 9);
-         * positive — the credit exceeds the debit, which «Позначити як переказ» refuses (`markable` false).
+         * positive — the credit exceeds the debit, which «Позначити як переказ» refuses (`markable` false); the search
+         * never lists such a candidate (FR 24, owner 2026-11-27).
          */
         readonly difference: Money;
         readonly markable: boolean;
@@ -70,7 +72,8 @@ export type Counterpart = CounterpartTransaction & {
         readonly difference: Money | null;
         /** FR 21: the pair's rate — credit ÷ debit, 1 unit of the debit's currency in the credit's, 18 decimals. */
         readonly bankRate: Decimal;
-        readonly markable: true;
+        /** False without a usable reference rate: «Позначити як переказ» answers `rate_unavailable`. */
+        readonly markable: boolean;
       }
   );
 
@@ -133,6 +136,6 @@ export function counterpartOf(
     converted,
     difference: converted === null ? null : credit.minus(converted),
     bankRate,
-    markable: true,
+    markable: converted !== null,
   };
 }

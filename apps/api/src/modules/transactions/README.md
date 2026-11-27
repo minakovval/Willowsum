@@ -311,7 +311,7 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   `TransferCandidates.counterpartsOf(householdId, transactionId, { windowDays, amountShare, limit })` (IMP-03 п. 24,
   «Позначити як переказ») — обрана транзакція простору (`chosen`: сторона, стан, прихована, розділена, у переказі; null —
   немає) і вільні транзакції протилежного напрямку на іншому рахунку (або в іншій валюті того самого) в межах
-  `windowDays` до або після, у тій самій валюті в межах `amountShare` суми в обидва боки, в іншій — будь-яка сума; з
+  `windowDays` до або після, у тій самій валюті зарахування не більше за списання і менше за нього щонайбільше на `amountShare` обраної суми, в іншій — будь-яка сума; з
   `counterparty` і `description`; за днями між ними, потім різницею сум; до `limit`. Пари «Не пара» тут лишаються
   (лише читання).
 - `createTransferMarking(db, { accounts, ledger, audit, newId, rates })` → `TransferMarking.mark(householdId,
