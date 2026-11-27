@@ -71,6 +71,11 @@ export interface FormDialogProps extends Pick<
    * типу «Кредит» · …»), by step; still one hint per step. Left out or undefined: the general hint.
    */
   hints?: readonly (string | undefined)[] | undefined;
+  /**
+   * CMP-21@PoC FR 24: the form has unsaved changes, so closing it (✕, Esc, «Скасувати») first asks «Зберегти зміни?»
+   * in the same dialog. Left out: the dialog compares the values of its own controls with those it opened with.
+   */
+  dirty?: boolean | undefined;
   /** The step's content: the fields of `form.step`, one column, each full width, the label above. */
   children: (form: FormDialogState) => ReactNode;
 }
@@ -114,6 +119,7 @@ export function FormDialog({
   editing = false,
   reason,
   hints,
+  dirty,
   children,
 }: FormDialogProps) {
   const { t, locale } = useI18n();
@@ -124,6 +130,26 @@ export function FormDialog({
   const stepsRef = useRef<HTMLDivElement | null>(null);
   const moved = useRef(false);
   const base = useId();
+  const [confirming, setConfirming] = useState(false);
+  const baseline = useRef<ReadonlyMap<Element, string> | null>(null);
+  // The values the form opened with, to tell later whether anything changed (after the consumer's first paint).
+  useLayoutEffect(() => {
+    if (!open) baseline.current = null;
+  }, [open]);
+  const attach = (el: HTMLDivElement | null) => {
+    stepsRef.current = el;
+    if (el && baseline.current === null) baseline.current = signature(el);
+  };
+  const changed = () =>
+    dirty ?? (baseline.current !== null && differs(baseline.current, signature(stepsRef.current)));
+  // CMP-21@PoC FR 24: unsaved changes turn the same dialog into «Зберегти зміни?», never a second dialog.
+  const refocus = useRef(false);
+  const requestClose = () => {
+    if (changed()) {
+      refocus.current = true;
+      setConfirming(true);
+    } else onClose();
+  };
   // Opening again starts the form afresh: step 1, nothing left yet (state adjusted during render).
   const [wasOpen, setWasOpen] = useState(open);
   if (wasOpen !== open) {
@@ -132,6 +158,7 @@ export function FormDialog({
       setCurrent(0);
       setVisited(new Set(editing ? range(count) : [0]));
       setTouched(new Set());
+      setConfirming(false);
     }
   }
 
@@ -196,7 +223,7 @@ export function FormDialog({
 
   const last = current === count - 1;
   const actions: DialogAction[] = [
-    { label: t("dialog.form.cancel"), onClick: onClose },
+    { label: t("dialog.form.cancel"), onClick: requestClose },
     ...(current > 0 ? [{ label: t("dialog.form.back"), onClick: () => go(current - 1) }] : []),
     ...(last
       ? []
@@ -221,47 +248,81 @@ export function FormDialog({
   const hinted = (i: number) => fields.some((f) => f.required && stepOf(f) === i);
   const hint = requiredHint(t("dialog.form.requiredHint"));
 
+  const keepEditing = () => {
+    refocus.current = true;
+    setConfirming(false);
+  };
+  const asking = confirming && open;
+  // The form is hidden while the question shows (and back): focus goes to «Редагувати далі», then to the first field
+  // of the current step, never to <body> (CMP-21 «Клавіатура і екранний читач»: focus on the safe action).
+  useLayoutEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    const dlg = stepsRef.current?.closest("dialog");
+    const target = asking
+      ? dlg?.querySelector<HTMLElement>(".ws-dialog-action")
+      : stepsRef.current?.querySelector<HTMLElement>(
+          `[data-step="${current}"] :is(input, select, textarea, button):not([disabled])`,
+        );
+    target?.focus();
+  }, [asking, current]);
   return (
     <Dialog
       open={open}
-      onClose={onClose}
-      title={title}
-      text={text}
-      icon={icon}
-      tone={tone}
-      closeLabel={closeLabel}
+      onClose={asking ? keepEditing : requestClose}
+      title={asking ? t("dialog.form.unsaved.title") : title}
+      text={asking ? t("dialog.form.unsaved.text") : text}
+      icon={asking ? "edit" : icon}
+      tone={asking ? "info" : tone}
+      alert={asking ? true : undefined}
+      closeLabel={asking ? undefined : closeLabel}
       align="start"
-      bar="form"
+      bar={asking ? "equal" : "form"}
       busy={busy}
       error={error}
-      note={note}
-      actions={actions}
+      note={asking ? (formValid ? undefined : note) : note}
+      actions={
+        asking
+          ? [
+              { label: t("dialog.form.unsaved.edit"), onClick: keepEditing },
+              { label: t("dialog.form.unsaved.discard"), variant: "danger", onClick: onClose },
+              {
+                label: t("dialog.form.unsaved.save"),
+                variant: "primary",
+                disabled: !formValid,
+                onClick: onSubmit,
+              },
+            ]
+          : actions
+      }
     >
-      <FormContext.Provider value={{ fields, shows }}>
-        {count > 1 && steps ? (
-          <Stepper steps={steps.map((s, i) => ({ label: s.label, state: stateOf(i) }))} onSelect={go} />
-        ) : null}
-        <div ref={stepsRef} className="ws-form-steps">
-          {range(count).map((i) => (
-            <div
-              key={i}
-              id={`${base}-step-${i}`}
-              className="ws-form-step"
-              data-step={i}
-              tabIndex={-1}
-              inert={i !== current || undefined}
-              aria-hidden={i !== current || undefined}
-            >
-              {hints?.[i] !== undefined ? (
-                <p className="ws-form-hint">{hints[i]}</p>
-              ) : hinted(i) ? (
-                <p className="ws-form-hint">{hint}</p>
-              ) : null}
-              {children({ step: i, errorOf, leave })}
-            </div>
-          ))}
-        </div>
-      </FormContext.Provider>
+      <div className="ws-form-body" hidden={asking || undefined} inert={asking || undefined}>
+        <FormContext.Provider value={{ fields, shows }}>
+          {count > 1 && steps ? (
+            <Stepper steps={steps.map((s, i) => ({ label: s.label, state: stateOf(i) }))} onSelect={go} />
+          ) : null}
+          <div ref={attach} className="ws-form-steps">
+            {range(count).map((i) => (
+              <div
+                key={i}
+                id={`${base}-step-${i}`}
+                className="ws-form-step"
+                data-step={i}
+                tabIndex={-1}
+                inert={i !== current || undefined}
+                aria-hidden={i !== current || undefined}
+              >
+                {hints?.[i] !== undefined ? (
+                  <p className="ws-form-hint">{hints[i]}</p>
+                ) : hinted(i) ? (
+                  <p className="ws-form-hint">{hint}</p>
+                ) : null}
+                {children({ step: i, errorOf, leave })}
+              </div>
+            ))}
+          </div>
+        </FormContext.Provider>
+      </div>
     </Dialog>
   );
 }
@@ -304,6 +365,25 @@ export function FormMore({ label, fields: ids, children }: FormMoreProps) {
       </div>
     </section>
   );
+}
+
+/** The value of every control inside `root`, by element: what «Зберегти зміни?» compares (CMP-21@PoC FR 24). */
+function signature(root: HTMLElement | null): ReadonlyMap<Element, string> {
+  const values = new Map<Element, string>();
+  if (!root) return values;
+  // Native controls by value; a listbox trigger (SearchSelect, ListButton) is a button, so its shown choice counts too.
+  // The transient search box inside an open SearchSelect (`role="combobox"`) is not a form value.
+  for (const el of root.querySelectorAll<HTMLInputElement>('input:not([role="combobox"]), select, textarea'))
+    values.set(el, el.type === "checkbox" || el.type === "radio" ? String(el.checked) : el.value);
+  for (const el of root.querySelectorAll<HTMLElement>('[aria-haspopup="listbox"]'))
+    values.set(el, el.textContent ?? "");
+  return values;
+}
+
+/** A control the form opened with now shows another value. A control that mounted later (loaded options) is not a change. */
+function differs(before: ReadonlyMap<Element, string>, now: ReadonlyMap<Element, string>): boolean {
+  for (const [el, value] of before) if (now.has(el) && now.get(el) !== value) return true;
+  return false;
 }
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i);

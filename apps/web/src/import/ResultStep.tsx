@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { formatNumber, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { Button, Dialog, EmptyState, ErrorState, Icon, Segmented, Skeleton, Stepper } from "@willowsum/ui";
+import { Button, Dialog, EmptyState, ErrorState, Icon, Skeleton, Stepper } from "@willowsum/ui";
 import type { IconName } from "@willowsum/ui";
 import { importPath, transactionPath, TRANSACTIONS } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
@@ -477,7 +477,8 @@ function RollbackLine({
   const { t, locale } = useI18n();
   const [now] = useState(() => Date.now());
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<RollbackMode>("keep-changed");
+  // IMP-04@PoC FR 8, IMP-16@PoC FR 4 (owner, 2026-11-26): the box is on by default; off rolls back every transaction.
+  const [keepManual, setKeepManual] = useState(true);
   const { batch } = result;
   if (batch.state !== "applied") return null;
   if (!canRollback(batch, now))
@@ -497,6 +498,7 @@ function RollbackLine({
         label={t("importResult.rollback.action")}
         onClick={() => {
           onOpen();
+          setKeepManual(true);
           setOpen(true);
         }}
       />
@@ -518,22 +520,17 @@ function RollbackLine({
             busyLabel: t("importResult.rollback.busy"),
             variant: "danger",
             onClick: () => {
-              void onRollback(mode).then((done) => {
+              void onRollback(keepManual ? "keep-changed" : "all").then((done) => {
                 if (done) setOpen(false);
               });
             },
           },
         ]}
       >
-        <Segmented
-          legend={t("importResult.rollback.mode.label")}
-          options={[
-            { value: "keep-changed", label: t("importResult.rollback.mode.keep") },
-            { value: "all", label: t("importResult.rollback.mode.all") },
-          ]}
-          value={mode}
-          onChange={(v) => setMode(v as RollbackMode)}
-        />
+        <label className="imp-result-keep">
+          <input type="checkbox" checked={keepManual} onChange={(e) => setKeepManual(e.target.checked)} />
+          <span>{t("importResult.rollback.keepManual")}</span>
+        </label>
       </Dialog>
     </div>
   );

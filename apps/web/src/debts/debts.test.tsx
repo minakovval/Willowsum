@@ -152,7 +152,7 @@ describe("BUD-19@PoC S-143 «Борги»", () => {
   });
 
   it("BUD-19@PoC FR 3: a debt whose payment does not cover the monthly interest shows no date — «За цих умов борг не зменшується»", async () => {
-    renderAt("#/planning/debts", withDebts([card]).client);
+    renderAt("#/planning/debts", withDebts([{ ...card, kind: "loan" }]).client);
     const note = await screen.findByText("«Універсальна»: за цих умов борг не зменшується.");
     expect(note.closest('[role="note"]')).toBeTruthy();
     const row = screen.getAllByText("Універсальна")[0]!.closest("tr")!;
@@ -161,6 +161,23 @@ describe("BUD-19@PoC S-143 «Борги»", () => {
     expect(screen.getByRole("link", { name: "План погашення" }).getAttribute("href")).toBe(
       "#/planning/debts/plan",
     );
+  });
+
+  it("FLW-44@PoC FR 1: a credit card shows only its balance — no rate, payment, end date, progress or «не зменшується» note, and the summary does not say «крім» for it", async () => {
+    renderAt("#/planning/debts", withDebts([loan, card]).client);
+    const row = (await screen.findByText("Універсальна")).closest("tr")!;
+    expect(within(row).getByText("5 000,00 €")).toBeTruthy();
+    expect(within(row).queryByText(/%/)).toBeNull();
+    expect(within(row).queryByText("90,00 €")).toBeNull();
+    expect(within(row).queryByText(/через|Борг не зменшується|Немає ставки/)).toBeNull();
+    expect(within(row).queryByRole("progressbar")).toBeNull();
+    expect(within(row).getAllByText("—").length).toBe(4);
+    expect(screen.queryByText(/Універсальна»: за цих умов/)).toBeNull();
+    const summary = screen.getByRole("region", { name: "Підсумок боргів" });
+    expect(within(summary).getByText("Боргів").nextElementSibling?.textContent).toBe("2");
+    expect(within(summary).queryByText(/крім/)).toBeNull();
+    // The loan beside it keeps every column.
+    expect(within(screen.getByText("Автокредит").closest("tr")!).getByText(/через/)).toBeTruthy();
   });
 
   it("BUD-19@PoC FR 10: the result is marked «Розрахунок за введеними даними, не фінансова порада»", async () => {

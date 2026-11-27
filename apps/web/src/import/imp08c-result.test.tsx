@@ -464,18 +464,22 @@ describe("IMP-05@PoC FR 11, IMP-01@PoC FR 11 — a refused apply (all rows or no
 });
 
 describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
-  it("IMP-04@PoC FR 8: the line names the 7 days and the moment; «Відкотити партію» opens a dialog that keeps the changed ones by default", async () => {
+  it("IMP-04@PoC FR 8 and IMP-16@PoC FR 4: the line names the 7 days and the moment; «Відкотити партію» opens a dialog with «Залишити змінені вручну» on by default", async () => {
     const { client } = api();
     renderAt(at, client);
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     expect(screen.getByText(/Партію можна відкотити протягом 7 днів\. Відкотити можна до /)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     const dialog = await screen.findByRole("dialog", { name: "Відкотити партію?" });
-    expect(within(dialog).getByRole("radio", { name: "Залишити змінені" })).toHaveProperty("checked", true);
-    expect(within(dialog).getByRole("radio", { name: "Відкотити все" })).toHaveProperty("checked", false);
+    // IMP-16@PoC FR 4, AC2 (owner, 2026-11-26): one box «Залишити змінені вручну», on by default.
+    expect(within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" })).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(within(dialog).queryByRole("radio")).toBeNull();
   });
 
-  it("IMP-04@PoC AC7: «Залишити змінені» sends the mode, then the result shows the batch rolled back with what was rolled back and kept", async () => {
+  it("IMP-04@PoC AC7 and IMP-16@PoC AC2: «Залишити змінені вручну» on sends the mode keep-changed, then the result shows the batch rolled back with what was rolled back and kept", async () => {
     let rolled = false;
     const { client, calls } = api({
       [`POST /v1/import/batches/${BATCH}/rollback`]: () => {
@@ -517,7 +521,7 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("IMP-04@PoC FR 8: «Відкотити все» sends the mode all", async () => {
+  it("IMP-04@PoC FR 8 and IMP-16@PoC FR 4: with «Залишити змінені вручну» off the dialog sends the mode all", async () => {
     const { client, calls } = api({
       [`POST /v1/import/batches/${BATCH}/rollback`]: () => ({
         status: 200,
@@ -537,10 +541,26 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("radio", { name: "Відкотити все" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Відкотити" }));
     await waitFor(() => expect(posts(calls, "/rollback")).toHaveLength(1));
     expect(posts(calls, "/rollback")[0]!.body).toEqual({ mode: "all" });
+  });
+
+  it("IMP-16@PoC FR 4: «Залишити змінені вручну» is on again each time the dialog opens, after it was switched off and cancelled", async () => {
+    const { client } = api();
+    renderAt(at, client);
+    await screen.findByRole("heading", { name: "Імпорт завершено" });
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    let dialog = await screen.findByRole("dialog");
+    const box = () => within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" });
+    fireEvent.click(box());
+    expect(box()).toHaveProperty("checked", false);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    dialog = await screen.findByRole("dialog");
+    expect(box()).toHaveProperty("checked", true);
   });
 
   it("IMP-04@PoC AC8: after the 7 days the step says «Строк відкату минув» and offers no rollback; the server's refusal reads the same in the dialog", async () => {

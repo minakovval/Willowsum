@@ -158,7 +158,7 @@ describe("IMP-08@PoC c) follow-ups of #677 (security probes, issue #678)", () =>
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     let dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("radio", { name: "Відкотити все" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" }));
     fireEvent.click(within(dialog).getByRole("button", { name: /Скасувати|Залишити/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(posts(calls, "/rollback")).toHaveLength(0);

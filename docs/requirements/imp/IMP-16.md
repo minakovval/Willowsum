@@ -30,7 +30,7 @@
 - [MVP] Спільні правила: П-10
 - Сценарії: UC-IMP-19, UC-IMP-20
 - Модуль: import-sessions, ledger
-- [лише PoC] Перевіряється: `apps/api/test/imp04-rollback.it.test.ts`, `apps/api/src/modules/transactions/application/imp16-rollback.test.ts`, `apps/api/src/modules/import-sessions/application/imp16-rollback-window.test.ts`, `apps/api/test/sec666-rollback.it.test.ts`, `apps/api/src/modules/transactions/application/sec666-rollback.test.ts`, `apps/api/src/modules/import-sessions/application/sec666-rollback-window.test.ts`, `apps/api/test/sec728-rollback-preview.it.test.ts`
+- [лише PoC] Перевіряється: `apps/api/test/imp04-rollback.it.test.ts`, `apps/api/src/modules/transactions/application/imp16-rollback.test.ts`, `apps/api/src/modules/import-sessions/application/imp16-rollback-window.test.ts`, `apps/api/test/sec666-rollback.it.test.ts`, `apps/api/src/modules/transactions/application/sec666-rollback.test.ts`, `apps/api/src/modules/import-sessions/application/sec666-rollback-window.test.ts`, `apps/web/src/import/imp08c-result.test.tsx`, `apps/web/src/import/imp08c-result.sec.test.tsx`, `apps/api/test/sec728-rollback-preview.it.test.ts`
 - [MVP] Перевіряється: —
 
 [лише PoC] **Мета.** Як користувач, що помилково імпортував файл, я хочу скасувати всю партію однією дією, щоб залишки, бюджет і звіти стали такими, як до імпорту, а історія лишилася чесною.

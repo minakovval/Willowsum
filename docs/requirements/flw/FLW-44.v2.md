@@ -10,7 +10,7 @@
 - Спільні правила: П-1, П-8, П-17, SCR-02
 - Сценарії: UC-AST-32, UC-AST-33, UC-AST-36, UC-BUD-102, UC-BUD-103, UC-BUD-104, UC-BUD-105
 - Модуль: debt-payoff, liabilities
-- Перевіряється: `apps/web/e2e/flw44-debt-payoff.spec.ts`
+- Перевіряється: `apps/web/e2e/flw44-debt-payoff.spec.ts`, `apps/web/src/debts/debts.test.tsx`
 
 **Мета.** Як Owner, Admin або власник зобов'язання, я хочу побачити, коли закінчаться борги і скільки відсотків можна заощадити додатковими платежами.
 

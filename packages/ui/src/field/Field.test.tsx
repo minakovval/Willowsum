@@ -118,6 +118,25 @@ describe("CMP-02@PoC Field", () => {
     expect(spy).toHaveBeenLastCalledWith(null, "places");
   });
 
+  it("CMP-02@PoC AC9 and CMP-02@PoC FR9: «12» in a euro field is only padded with zeros on leaving — «12,00», no error, the value «12.00»; «12,345» is never rounded to «12,35» and never saved", () => {
+    const spy = vi.fn();
+    render(wrap(<Amount label="Сума" currency="EUR" spy={spy} />));
+    const input = screen.getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "12" } });
+    fireEvent.blur(input);
+    expect(input.value).toBe("12,00");
+    expect(input.getAttribute("aria-invalid")).toBeNull();
+    expect(fieldOf(input).querySelector(".ws-field-error")).toBeNull();
+    expect(spy).toHaveBeenLastCalledWith("12.00", null);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "12,345" } });
+    fireEvent.blur(input);
+    expect(input.value).toBe("12,345");
+    expect(spy).toHaveBeenLastCalledWith(null, "places");
+    expect(spy).not.toHaveBeenCalledWith("12.35", null);
+  });
+
   it("CMP-02@PoC AC2: a new currency checks the amount again — «1200,5» is refused for JPY, «1,234» refused for EUR is valid for KWD; `places` overrides the digits of `Intl`", () => {
     const spy = vi.fn();
     const { rerender } = render(wrap(<Amount label="Сума" currency="EUR" spy={spy} />));

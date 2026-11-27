@@ -100,7 +100,7 @@ test.describe("with debts", () => {
     await world.api("POST", "/v1/budget", { firstPeriod: month, incomePlan: eur("4000.00") }, [201]);
   });
 
-  test("FLW-44@PoC FR 1: «Борги» lists every credit account with the balance, the annual rate, the regular payment and the end date; a card without a payment says what is missing", async () => {
+  test("FLW-44@PoC FR 1: «Борги» lists every loan with the balance, the annual rate, the regular payment and the end date; a credit card shows its balance only (owner, 2026-11-26)", async () => {
     await open("/planning/debts");
     const row = (name: string) => main().getByRole("row", { name: new RegExp(`^${name}`) });
     const auto = await text(row("Автокредит"));
@@ -109,7 +109,11 @@ test.describe("with debts", () => {
     expect(auto).toContain("18,0 %");
     expect(auto).toContain("300,00 €");
     expect(auto).toContain(`через ${calc.months} міс.`);
-    expect(await text(row("Visa"))).toContain("Немає ставки або платежу");
+    // The card has no rate, payment or end date to show, and no «Немає ставки або платежу» either: balance only.
+    const visa = await text(row("Visa"));
+    expect(visa).toContain("2 000,00 €");
+    expect(visa).not.toMatch(/%|через|Немає ставки|Борг не зменшується/);
+    expect(visa).not.toContain("24,0");
     await expect(main().getByText("Боргів", { exact: true })).toBeVisible();
   });
 
