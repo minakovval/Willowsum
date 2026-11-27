@@ -4,7 +4,8 @@
 // the tests feed canned answers; nothing here writes to GitHub.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { verdictOf } from './daily.mjs';
+import { STOP_LINE, verdictOf } from './daily.mjs';
+import { classifyFiles } from './paths.mjs';
 
 const run = promisify(execFile);
 const sleepReal = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -78,11 +79,11 @@ export function syncNeeded({ count, mainFiles, prFiles }) {
   return bad.length ? { needed: true, text: `sync: ${bad.join(' ')}` } : { needed: false, text: 'no sync needed' };
 }
 
-async function syncLine(gh, n, head) {
+async function syncLine(gh, head, prFileObjs) {
   const cmp = await json(gh, [`repos/{owner}/{repo}/compare/${head}...main`]);
   const files = cmp.files ?? [];
   const mainFiles = files.flatMap((f) => [f.filename, ...(f.previous_filename ? [f.previous_filename] : [])]);
-  const prFiles = (await paged(gh, `repos/{owner}/{repo}/pulls/${n}/files?per_page=100`)).flatMap((f) => [f.filename, ...(f.previous_filename ? [f.previous_filename] : [])]);
+  const prFiles = prFileObjs.flatMap((f) => [f.filename, ...(f.previous_filename ? [f.previous_filename] : [])]);
   const r = syncNeeded({ count: files.length, mainFiles, prFiles });
   return { ok: !r.needed, text: r.text };
 }
@@ -103,8 +104,13 @@ export async function evaluate(n, { gh, sleep = sleepReal } = {}) {
   const pr = await json(gh, [`repos/{owner}/{repo}/pulls/${n}`]);
   const head = pr.head.sha;
   const labels = (pr.labels ?? []).map((l) => l.name);
-  const sensitive = labels.some((l) => l === 'sensitive' || l.startsWith('sensitive:'));
-  const reviews = await paged(gh, `repos/{owner}/{repo}/pulls/${n}/reviews?per_page=100`);
+  const prFileObjs = await paged(gh, `repos/{owner}/{repo}/pulls/${n}/files?per_page=100`);
+  // Sensitive by label or by paths (as the daily check): a removed or not yet applied label does not drop the security verdict.
+  const sensitive = labels.some((l) => l === 'sensitive' || l.startsWith('sensitive:')) || classifyFiles(prFileObjs, { truncated: prFileObjs.length >= 3000 }).sensitive;
+  // Reviews are written from the owner's account (ADR-0008, as lib/daily.mjs): a review from any other account is no
+  // verdict and does not move the «since the last review» window. No known owner → no verdict (fail closed).
+  const owner = pr.base?.repo?.owner?.login;
+  const reviews = (await paged(gh, `repos/{owner}/{repo}/pulls/${n}/reviews?per_page=100`)).filter((r) => owner && r.user?.login === owner);
   const lines = [];
   const add = (ok, text) => lines.push({ ok, text });
   add(true, `head ${head}${sensitive ? ' (sensitive)' : ''}`);
@@ -122,18 +128,19 @@ export async function evaluate(n, { gh, sleep = sleepReal } = {}) {
     add(has, has ? 'owner-decision: body has a «Рішення власника (» line (the decision log: lead checks)' : 'owner-decision: body has no «Рішення власника (» line');
   }
   const state = await mergeState(gh, n, sleep);
-  add(state !== 'dirty' && state !== 'unknown', `mergeable_state: ${state}${state === 'dirty' ? ' (conflict; CI does not run on it)' : state === 'unknown' ? ' (still unknown, ask again)' : ''}`);
-  const sync = await syncLine(gh, n, head);
+  add(typeof state === 'string' && !['dirty', 'unknown', 'draft'].includes(state), `mergeable_state: ${state}${state === 'dirty' ? ' (conflict; CI does not run on it)' : state === 'unknown' ? ' (still unknown, ask again)' : ''}`);
+  const sync = await syncLine(gh, head, prFileObjs);
   add(sync.ok, sync.text);
 
   // Comments since the last review: the lead reads them (owner «stop», questions).
   const comments = await paged(gh, `repos/{owner}/{repo}/issues/${n}/comments?per_page=100`);
   const lastReview = Math.max(0, ...reviews.filter((r) => r.submitted_at).map((r) => Date.parse(r.submitted_at)));
-  const fresh = comments.filter((c) => Date.parse(c.created_at) > lastReview);
+  // Owner «stop» lines are listed whenever they were written: a later review does not hide them.
+  const fresh = comments.filter((c) => Date.parse(c.created_at) > lastReview || (c.user?.login === owner && STOP_LINE.test(c.body ?? '')));
   const ready = lines.every((l) => l.ok);
   const out = lines.map((l) => `${l.ok ? 'ok  ' : 'FAIL'} ${l.text}`);
-  out.push(fresh.length ? `READ ${fresh.length} comment(s) since the last review (read them; owner «stop» or questions block the merge):` : 'READ no comments since the last review');
-  for (const c of fresh) out.push(`     ${c.user?.login}\t${c.created_at}\t${(c.body ?? '').slice(0, 200).replace(/\s+/g, ' ')}`);
+  out.push(fresh.length ? `READ ${fresh.length} comment(s) since the last review or owner «stop» (read them; owner «stop» or questions block the merge):` : 'READ no comments since the last review');
+  for (const c of fresh) out.push(`     ${c.user?.login}\t${c.created_at}\t${(c.body ?? '').slice(0, 200).replace(/\s+/g, ' ').replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, '?')}`);
   out.push(ready ? 'READY' : 'NOT READY');
   return { ready, lines: out };
 }

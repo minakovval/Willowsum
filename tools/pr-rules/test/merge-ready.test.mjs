@@ -6,7 +6,7 @@ import { evaluate, latestVerdict, main, syncNeeded, waitCi } from '../lib/merge-
 
 const HEAD = 'a'.repeat(40);
 const OLD = 'b'.repeat(40);
-const review = (id, commit, body, at = `2026-11-2${id}T10:00:00Z`) => ({ id, commit_id: commit, body, submitted_at: at, state: 'COMMENTED' });
+const review = (id, commit, body, at = `2026-11-2${id}T10:00:00Z`) => ({ id, commit_id: commit, body, submitted_at: at, state: 'COMMENTED', user: { login: 'owner' } });
 const run = (name, status = 'completed', conclusion = 'success') => ({ name, status, conclusion });
 
 /** Fake `gh api`: `world` holds one PR; answers by path, in the shape `--paginate --slurp` gives. */
@@ -21,6 +21,7 @@ function world(over = {}) {
     states: undefined, // successive mergeable_state answers
     ...over,
   };
+  w.pr = { base: { repo: { owner: { login: 'owner' } } }, ...w.pr };
   const calls = [];
   const gh = async (args) => {
     const path = args[0];
