@@ -1,12 +1,12 @@
 # Lead communication and process-change queue
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
 
 Read when you write to the owner or when you find a process change.
 
 ## Writing to the owner
 
-1. Language: SKILL.md «Мовчання в чаті» («Лише українською…»).
+1. Language: SKILL.md «Мовчання в чаті» («Лише українською…»); the `Stop` hook `tools/lead-hooks/owner-language.mjs` checks it.
 2. When to write and when to stay silent: SKILL.md «Мовчання в чаті»; batching the questions: SKILL.md §2.
 3. No purely technical questions (permission-classifier denials, implementation choices, worker counts, test
    layout and the like): decide and record it in the decision log. Owner questions are only about product, scope,

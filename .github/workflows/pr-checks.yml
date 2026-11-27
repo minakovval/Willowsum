@@ -64,7 +64,7 @@ jobs:
       # second, so they run here, in the job that runs on every PR, instead of behind a path filter.
       - name: Token report unit tests
         run: node --test 'tools/token-report/**/*.test.mjs'
-      # The lead's SessionStart hook after compaction (.claude/settings.json; owner, 2026-11-15, #178): offline, instant.
+      # The lead's hooks (.claude/settings.json): SessionStart after compaction, Stop for the owner's language. Offline, instant.
       - name: Lead hook unit tests
         run: node --test 'tools/lead-hooks/**/*.test.mjs'
       # Structure, release/priority, self-containedness, acceptance criteria, the fact registry
