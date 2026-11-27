@@ -202,6 +202,29 @@ describe("BUD-03@PoC: overspend", () => {
     expect(s.daily.isZero()).toBe(true);
   });
 
+  it("BUD-03@PoC FR 10: with at least one limit the budget is the sum of the limits and «витрачено» is every expense of the period, «Поза планом» included", () => {
+    // Limits 1 000 € + 2 000 € with 2 900 € spent in them: within the limits, but 200 € outside the plan make 3 100 €.
+    const s = spendable({
+      ...AC1,
+      lines: [line("rent", "1000", "1000", true), line("cafe", "2000", "1900")],
+      outsidePlan: eur("200"),
+      obligations: { recurring: [], debtMinimums: [] },
+      goalContributions: zero,
+      // The expected income less the planned savings is no budget while there is a limit.
+      plannedSavings: eur("100000"),
+    });
+    expect(s.spent).toEqual(eur("3100"));
+    expect(s.overspend).toEqual({ amount: eur("100"), base: eur("2000") });
+    // Without the spending outside the plan, the same limits are not overspent.
+    expect(
+      spendable({
+        ...AC1,
+        lines: [line("rent", "1000", "1000", true), line("cafe", "2000", "1900")],
+        outsidePlan: zero,
+      }).overspend,
+    ).toBeNull();
+  });
+
   it("BUD-03@PoC FR 10: without limits the budget is the expected income less the planned savings; spending «Поза планом» counts", () => {
     const s = spendable({
       ...AC1,

@@ -126,6 +126,13 @@ const transferSchema = z.object({
   date: z.string(),
   /** FR 8: in one currency the difference, an expense «Комісії банку» (negative); null — none or two currencies. */
   fee: moneySchema.nullable(),
+  /**
+   * FR 8 (owner, 2026-11-26, decision 11): two currencies — the credit actually received less the debit at the official
+   * rate of the date, in the credit's currency, counted in the budget in «Комісії банку»: negative — a loss (an
+   * expense), positive — a gain (an income); the journal keeps it on «Валютна різниця». Null — one currency (see `fee`)
+   * or no difference.
+   */
+  currencyDifference: moneySchema.nullable(),
   /** FR 8: two currencies — 1 unit of the inflow's currency in the outflow's, the official rate of the date. */
   rate: z.object({ rate: z.string(), date: z.string(), source: z.string() }).nullable(),
 });
@@ -281,6 +288,7 @@ function transferOut(id: string, view: TransferView | undefined): z.input<typeof
     counterpartId: outflow ? link.inflowId : link.outflowId,
     date: view.date,
     fee: view.fee?.toJSON() ?? null,
+    currencyDifference: view.currencyDifference?.toJSON() ?? null,
     rate:
       link.rate === null
         ? null
@@ -463,14 +471,35 @@ export const createTransactionRoute = defineRoute({
   },
   response: { status: 201, description: "The new transaction", schema: transactionSchema },
   handler: async ({ body }, ctx) => {
-    const { deps } = transactionsServices(ctx);
+    const { deps, cardPayments } = transactionsServices(ctx);
     const result = await ctx.inHousehold((q) =>
       createTransaction(deps, transactionsTx(q), caller(ctx), body),
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
     await handOffNow(ctx, deps, result.handOff);
-    return shown(ctx, result.transaction);
+    // BUD-01 FR 7 (#722 D): a payment to a credit card from an own account is a transfer at once; the transaction is
+    // created either way — a failure here leaves the pair a proposal in «Пари».
+    const marked = cardPayments
+      ? await cardPayments
+          .markFor(ctx.principal.householdId, ctx.principal.userId, {
+            transactionIds: [result.transaction.id],
+          })
+          .catch((error: unknown) => {
+            logEvent("transactions.card_payment_deferred", "warn", {
+              "ws.module": MODULE,
+              "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+            });
+            return 0;
+          })
+      : 0;
+    const row =
+      marked > 0
+        ? await ctx.inHousehold((q) =>
+            transactionsTx(q).find(ctx.principal.householdId, result.transaction.id),
+          )
+        : null;
+    return shown(ctx, row ?? result.transaction);
   },
 });
 

@@ -1,6 +1,12 @@
 // Public interface of the transfer-matching module (ARC-01 FR 2). Other modules import only this file.
 import { defineModule } from "../../platform/modules/define.ts";
-import { listProposals, type ProposalDeps } from "./application/index.ts";
+import {
+  listProposals,
+  markCardPayments,
+  type CardPaymentDeps,
+  type FreshSides,
+  type ProposalDeps,
+} from "./application/index.ts";
 import { transferMatchingRoutes } from "./adapters/index.ts";
 
 export const transferMatchingModule = defineModule({
@@ -50,5 +56,25 @@ export function createImportBatchProposals(deps: ProposalDeps): ImportBatchPropo
       ).length;
       return { count, more };
     },
+  };
+}
+
+/**
+ * BUD-01@PoC FR 7, AC4 (#722 D): the exception to «лише пропозиція» — right after new transactions arrive, each
+ * unambiguous pair «списання з власного рахунку простору — зарахування на кредитну картку простору» with a new side
+ * becomes a transfer at once through the transactions module's mark (journal, audit). `fresh` names the new sides: the
+ * ids of transactions entered by hand, or an import batch (its written rows). How many pairs were marked. Idempotent:
+ * a marked pair is no proposal any more, and a repeated import writes no new side.
+ */
+export interface CardPaymentTransfers {
+  markFor(householdId: string, actorAccountId: string, fresh: FreshSides): Promise<number>;
+}
+export type { CardPaymentDeps, FreshSides };
+
+/** `deps`: as for `createTransferMatchingServices`, plus the space's credit cards, the transfers flag and the mark. */
+export function createCardPaymentTransfers(deps: CardPaymentDeps): CardPaymentTransfers {
+  return {
+    markFor: (householdId, actorAccountId, fresh) =>
+      markCardPayments(deps, householdId, actorAccountId, fresh),
   };
 }

@@ -68,6 +68,7 @@ import { maskNumbers } from "../../domain/index.ts";
 export { maskNumbers };
 import { storageRejection } from "../parse-ports.ts";
 import { handOffNow, importSessionsServices } from "./services.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 
 /**
  * Import batches (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 12, FR 13, FR 21; IMP-19@PoC FR 5; wave 2 row 39): create
@@ -998,6 +999,18 @@ export const applyImportBatchRoute = defineRoute({
       ),
     );
     await handOffNow(audit, householdId, handOffs);
+    // BUD-01 FR 7 (#722 D): the batch's payments to a credit card from an own account become transfers at once — only
+    // by the apply that wrote the batch (a stored result writes nothing, so nothing is marked again). The apply stands
+    // either way: a failure here leaves the pairs proposals in «Пари».
+    if (result.first && apply.cardPayments)
+      await apply.cardPayments
+        .markFor(householdId, userId, { importBatchId: params.batchId })
+        .catch((error: unknown) =>
+          logEvent("import_sessions.card_payment_deferred", "warn", {
+            "ws.module": "import-sessions",
+            "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+          }),
+        );
     const run = routeTx(ctx);
     const batch = await run((tx) => tx.findBatch(params.batchId));
     if (!batch) throw new ApiProblem("NOT_FOUND");
@@ -1152,6 +1165,61 @@ export const rollbackImportBatchRoute = defineRoute({
   },
 });
 
+/**
+ * IMP-16@PoC FR 4, IMP-04@PoC FR 8 (owner, 2026-11-26, decision 13): what the dialog «Відкотити партію? Буде відкочено
+ * N транзакцій; змінені вручну транзакції (M) збережуться» says before it is confirmed. Read like «Результат» (any role
+ * of the space, a scoped member — 404): only counts of what the reader may see already; the rollback itself stays the
+ * Owner's (`POST …/rollback`).
+ */
+export const getImportBatchRollbackRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/import/batches/{batchId}/rollback",
+  operationId: "getImportBatchRollback",
+  summary:
+    "The rollback dialog before it is confirmed (IMP-16 FR 4): how many transactions «Відкотити» takes with «Залишити змінені вручну» on, how many the person changed after the apply (kept with it on, rolled back with it off) and how many are sides of a transfer (kept either way); null while the batch cannot be rolled back (not applied, still applying, past the 7 days or rolled back)",
+  access: READ,
+  request: { params: batchParams },
+  response: {
+    status: 200,
+    description: "The batch and the counts of its rollback dialog",
+    schema: z.object({
+      batch: batchSchema,
+      rollback: z
+        .object({
+          /** N: rolled back with «Залишити змінені вручну» on; with it off — `transactions + changed`. */
+          transactions: z.number().int(),
+          /** M: changed by the person after the apply (a category «вручну», a split, a note of their own). */
+          changed: z.number().int(),
+          /** Sides of a transfer: kept either way (IMP-16 FR 6). */
+          transfers: z.number().int(),
+        })
+        .nullable(),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    const { deps, apply } = importSessionsServices(ctx);
+    if (!apply) throw new ApiProblem("INTERNAL");
+    const run = routeTx(ctx);
+    // The batch of the session's space only: another space's (or none) is «not found» before module transactions is asked.
+    const batch = await run((tx) => tx.findBatch(params.batchId));
+    if (!batch) throw new ApiProblem("NOT_FOUND");
+    const open =
+      batch.state === "applied" &&
+      !batch.applying &&
+      !!batch.appliedAt &&
+      deps.now() <= rollbackUntil(batch.appliedAt);
+    const preview = open
+      ? await apply.transactions.rollbackPreview(ctx.principal.householdId, batch.id)
+      : null;
+    return {
+      batch: presentBatch(batch, await run((tx) => tx.files(batch.id))),
+      rollback: preview && { ...preview },
+    };
+  },
+});
+
 export const importSessionsRoutes = [
   createImportBatchRoute,
   listImportBatchesRoute,
@@ -1170,4 +1238,5 @@ export const importSessionsRoutes = [
   applyImportBatchRoute,
   getImportBatchResultRoute,
   rollbackImportBatchRoute,
+  getImportBatchRollbackRoute,
 ];

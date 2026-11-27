@@ -39,7 +39,12 @@ export interface ProposalDeps {
 export async function listProposals(
   deps: ProposalDeps,
   householdId: string,
-): Promise<{ readonly proposals: readonly ChosenProposal[]; readonly more: boolean }> {
+): Promise<{
+  readonly proposals: readonly ChosenProposal[];
+  /** Every scored candidate of the read (the proposals among them), for the card payments' unambiguity (BUD-01 FR 7). */
+  readonly candidates: readonly ScoredProposal[];
+  readonly more: boolean;
+}> {
   const found = await deps.candidates.candidatePairs(householdId, {
     ...candidateQuery,
     limit: CANDIDATES_MAX + 1,
@@ -57,5 +62,9 @@ export async function listProposals(
     const withScore = proposal && scored(proposal);
     if (withScore) scoredPairs.push(withScore);
   });
-  return { proposals: chooseProposals(scoredPairs), more: found.length > CANDIDATES_MAX };
+  return {
+    proposals: chooseProposals(scoredPairs),
+    candidates: scoredPairs,
+    more: found.length > CANDIDATES_MAX,
+  };
 }

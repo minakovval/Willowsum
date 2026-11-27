@@ -140,6 +140,12 @@ export const SYSTEM_TREE: readonly SystemGroup[] = parse(TREE);
 export const SERVICE_CATEGORY_KEYS = ["transfer", "adjustment"] as const;
 export type ServiceCategoryKey = (typeof SERVICE_CATEGORY_KEYS)[number];
 
+/**
+ * The system key of «Комісії банку»: FIN-03@PoC FR 8 (owner, 2026-11-26, decision 11) — the budget counts a transfer's
+ * fee and its currency difference against the official rate in it.
+ */
+export const FEE_CATEGORY_KEY = "bank-fees";
+
 /** Tones of new custom groups (lead decision): the expense tones in turn, the income tones in turn. */
 export function customGroupTone(kind: "expense" | "income", customGroupsOfKind: number): string {
   const tones = SYSTEM_TREE.filter((g) => g.kind === kind).map((g) => g.tone);

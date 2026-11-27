@@ -1,4 +1,4 @@
-import { exchangeRate, Money } from "@willowsum/domain-kernel";
+import { exchangeRate, Money, type ExchangeRate } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import { filterValue } from "../../../../platform/http/list-query.ts";
 import { defineList, type AmountGroup } from "../../../../platform/lists/list-engine.ts";
@@ -12,6 +12,7 @@ import {
   type SplitMode,
   type TransactionStatus,
   transferDate,
+  transferDifference,
   transferFee,
   type TransferLink,
   keepsOneOff,
@@ -71,6 +72,12 @@ export interface TransferView {
   readonly link: TransferLink;
   readonly date: string;
   readonly fee: Money | null;
+  /**
+   * FR 8 (owner, 2026-11-26, decision 11): two currencies — the credit actually received less the debit at the kept
+   * official rate (negative — a loss, positive — a gain of «Комісії банку»), in the credit's currency; null — one
+   * currency (that is `fee`), no difference or no rate.
+   */
+  readonly currencyDifference: Money | null;
 }
 
 interface PartRow {
@@ -108,24 +115,23 @@ export async function transfersOf(
   for (const r of rows) {
     const outflow = { amount: Money.of(r.outflow_amount, r.outflow_currency), date: r.outflow_date };
     const inflow = { amount: Money.of(r.inflow_amount, r.inflow_currency), date: r.inflow_date };
+    const rate =
+      r.rate === null
+        ? null
+        : exchangeRate({
+            base: r.inflow_currency,
+            quote: r.outflow_currency,
+            rate: r.rate,
+            date: r.rate_date!,
+            source: r.rate_source!,
+          });
+    const difference =
+      outflow.amount.currency === inflow.amount.currency ? null : transferDifference(outflow, inflow, rate);
     byId.set(r.id, {
-      link: {
-        id: r.id,
-        outflowId: r.outflow_id,
-        inflowId: r.inflow_id,
-        rate:
-          r.rate === null
-            ? null
-            : exchangeRate({
-                base: r.inflow_currency,
-                quote: r.outflow_currency,
-                rate: r.rate,
-                date: r.rate_date!,
-                source: r.rate_source!,
-              }),
-      },
+      link: { id: r.id, outflowId: r.outflow_id, inflowId: r.inflow_id, rate },
       date: transferDate(outflow, inflow),
       fee: transferFee(outflow, inflow),
+      currencyDifference: difference?.amount ?? null,
     });
   }
   return byId;
@@ -845,6 +851,70 @@ export async function budgetRows(
             amount: Money.of(p.amount, r.currency),
           })),
     oneOff: r.one_off,
+  }));
+}
+
+/**
+ * FIN-03@PoC FR 8 (owner, 2026-11-26, decision 11): the marked transfers dated (by the earlier side, edge case 1) from
+ * `from` to `to`, with both sides and the kept rate — for the budget's «Комісії банку» of a fee or a currency
+ * difference. Bounded by the space and the dates: driven by the side whose date is the transfer's
+ * (`transactions_by_date`), each other row joined by its key; one row per transfer.
+ */
+export async function transfersDatedIn(
+  q: ModuleQueryRunner,
+  householdId: string,
+  from: string,
+  to: string,
+): Promise<
+  {
+    readonly id: string;
+    readonly date: string;
+    readonly outflow: { readonly accountId: string; readonly amount: Money };
+    readonly inflow: { readonly accountId: string; readonly amount: Money };
+    readonly rate: ExchangeRate | null;
+  }[]
+> {
+  const { rows } = await q.query<{
+    id: string;
+    date: string;
+    out_account: string;
+    out_amount: string;
+    out_currency: string;
+    in_account: string;
+    in_amount: string;
+    in_currency: string;
+    rate: string | null;
+    rate_date: string | null;
+    rate_source: string | null;
+  }>(
+    `SELECT DISTINCT ON (f.id) f.id, to_char(t.occurred_on, 'YYYY-MM-DD') AS date,
+            o.account_id AS out_account, o.amount::text AS out_amount, o.currency AS out_currency,
+            i.account_id AS in_account, i.amount::text AS in_amount, i.currency AS in_currency,
+            f.rate::text AS rate, f.rate_date::text AS rate_date, f.rate_source
+       FROM transactions t
+       JOIN transfers f ON f.household_id = t.household_id AND f.id = t.transfer_id
+       JOIN transactions o ON o.household_id = f.household_id AND o.id = f.outflow_id
+       JOIN transactions i ON i.household_id = f.household_id AND i.id = f.inflow_id
+      WHERE t.household_id = $1 AND t.transfer_id IS NOT NULL AND t.occurred_on BETWEEN $2::date AND $3::date
+        AND t.occurred_on = LEAST(o.occurred_on, i.occurred_on)
+      ORDER BY f.id`,
+    [householdId, from, to],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.date,
+    outflow: { accountId: r.out_account, amount: Money.of(r.out_amount, r.out_currency) },
+    inflow: { accountId: r.in_account, amount: Money.of(r.in_amount, r.in_currency) },
+    rate:
+      r.rate === null
+        ? null
+        : exchangeRate({
+            base: r.in_currency,
+            quote: r.out_currency,
+            rate: r.rate,
+            date: r.rate_date!,
+            source: r.rate_source!,
+          }),
   }));
 }
 

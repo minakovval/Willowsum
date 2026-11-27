@@ -405,7 +405,7 @@ describe("BUD-01@PoC S-196 «Категорії»", () => {
     expect(screen.getByText("Кава з собою")).toBeTruthy();
   });
 
-  it("BUD-01@PoC AC22: «Кава з собою» held only by its limit — «Видалити» asks «Ліміт 30,00 € теж буде видалено», confirmed, the delete is sent with the confirmation and the tree is read again", async () => {
+  it("BUD-01@PoC AC23: «Кава з собою» held only by its limit — «Видалити» asks «Ліміт 30,00 € теж буде видалено», confirmed, the delete is sent with the confirmation and the tree is read again", async () => {
     const data = tree();
     const target = byName(data, "Кава з собою");
     const seen: string[] = [];

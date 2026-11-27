@@ -12,6 +12,7 @@ import {
   paymentsToAccounts,
   budgetFirstDate,
   budgetRows,
+  transfersDatedIn,
   categoriesInParts,
   transactionsWithPartIn,
   categorizableFacts,
@@ -29,6 +30,7 @@ import {
   transactionsList,
   transactionsRoutes,
   transactionsWorkerQueue,
+  transactionsTx,
   transferCandidates,
   duplicateCandidates,
   importBatchTransactions,
@@ -61,10 +63,13 @@ import {
   type AccountOperation,
   type MovementSide,
 } from "./adapters/db/cashflow-reads.ts";
+import { transferDifference } from "./domain/index.ts";
 import { transactionCreated, transactionImportMerged, type TransactionImportMerged } from "./events.ts";
 import {
   applyHandOff,
+  markTransfer,
   ROLLBACK_RECOVERY_LISTED,
+  previewRollback,
   rollbackImport,
   rolledBackImport,
   settleImport,
@@ -77,6 +82,8 @@ import {
   type ImportRollbackInput,
   type ImportRollbackResult,
   type RollbackCategory,
+  type RollbackPreview,
+  type TransferDeps,
 } from "./application/index.ts";
 import { logEvent } from "../../platform/telemetry/signals.ts";
 
@@ -180,6 +187,71 @@ export function createTransferCandidates(db: ModuleDatabase): TransferCandidates
 export type { CandidateSide };
 
 /**
+ * BUD-01@PoC FR 7, AC4 (#722 D): «Позначити як переказ» of a pair for module transfer-matching's card payments — the
+ * same mark as the route's (application markTransfer: both rows locked, the accounts' money locks, the journal's
+ * transfer event, the audit entry of each side by `actorAccountId`, the person whose import or entry brought the pair),
+ * its hand-offs run right away (the worker runs them otherwise). True — marked; false — refused (a side changed, in
+ * another transfer or of another space, an account closed, no rate): nothing changed. `db` is the transactions
+ * module's own database.
+ */
+export interface TransferMarking {
+  mark(householdId: string, actorAccountId: string, outflowId: string, inflowId: string): Promise<boolean>;
+}
+
+export function createTransferMarking(
+  db: ModuleDatabase,
+  ports: {
+    readonly accounts: HandOffDeps["accounts"];
+    readonly ledger: HandOffDeps["ledger"];
+    readonly audit: Pick<AuditLog, "record">;
+    readonly newId: () => string;
+    readonly rates: TransferDeps["rates"];
+  },
+): TransferMarking {
+  const deps: TransferDeps = {
+    accounts: ports.accounts,
+    ledger: ports.ledger,
+    audit: transactionAudit(ports.audit),
+    newId: ports.newId,
+    rates: ports.rates,
+    // Not read by the mark: no date is typed, no status set, nothing hidden.
+    today: () => {
+      throw new Error("the transfer mark reads no date");
+    },
+    statesEnabled: () => Promise.resolve(false),
+    duplicates: null,
+  };
+  return {
+    async mark(householdId, actorAccountId, outflowId, inflowId) {
+      const result = await markTransfer(
+        deps,
+        (work) => db.inHousehold(householdId, (q) => work(transactionsTx(q))),
+        { householdId, accountId: actorAccountId },
+        outflowId,
+        inflowId,
+      );
+      if (result.kind !== "ok") return false;
+      try {
+        for (const h of result.handOffs)
+          await applyHandOff(
+            deps,
+            transactionRows((work) => db.inHousehold(householdId, work)),
+            householdId,
+            h,
+          );
+      } catch (error) {
+        // The jobs are queued: the worker finishes them (class only, never a value).
+        logEvent("transactions.hand_off_deferred", "warn", {
+          "ws.module": "transactions",
+          "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+        });
+      }
+      return true;
+    },
+  };
+}
+
+/**
  * The possible duplicates (FIN-03@PoC FR 12) for module duplicate-matching, which decides by its rule: two shown
  * transactions on one account with the same amount and currency within `windowDays`, neither a side of a transfer nor
  * merged, the pair not «Не дубль». `first` is the earlier. Newest first, at most `limit`. Read only.
@@ -254,6 +326,7 @@ export {
   type ImportRollbackResult,
   type RollbackCategory,
   type RollbackMode,
+  type RollbackPreview,
   type ImportCounts,
   type ImportCreated,
   type ImportedRowInput,
@@ -297,6 +370,13 @@ export interface ImportedTransactions {
   rollback(householdId: string, input: ImportRollbackInput): Promise<ImportRollbackResult>;
   /** The batch's rollback as recorded; null — not rolled back. Read only. */
   rolledBack(householdId: string, batchId: string): Promise<Omit<ImportRollbackResult, "first"> | null>;
+  /**
+   * IMP-16@PoC FR 4 (owner, 2026-11-26, decision 13): what the rollback dialog says before it is confirmed — how many
+   * transactions the rollback takes, how many the person changed after the apply (kept with «Залишити змінені вручну»)
+   * and how many are sides of a transfer; null — rolled back already. Read only, unlocked. Throws when the port
+   * `categories` was not given.
+   */
+  rollbackPreview(householdId: string, batchId: string): Promise<RollbackPreview | null>;
   /**
    * The rollbacks recorded in `[since, before)` (at most `ROLLBACK_RECOVERY_LISTED`, earliest first), for module
    * import-sessions' recovery of a request that ended before it marked its batch. Read only.
@@ -410,6 +490,13 @@ export function createImportedTransactions(
     },
     rolledBack: (householdId, batchId) =>
       db.inHousehold(householdId, (q) => rolledBackImport(importRollbackTx(q), householdId, batchId)),
+    rollbackPreview(householdId, batchId) {
+      const categories = ports.categories;
+      if (!categories) throw new Error("the rollback preview needs module categorization's categories");
+      return db.inHousehold(householdId, (q) =>
+        previewRollback({ categories }, importRollbackTx(q), householdId, batchId),
+      );
+    },
     rolledBackSince: (householdId, since, before) =>
       db.inHousehold(householdId, (q) =>
         importRollbackTx(q).rolledBackSince(householdId, since, before, ROLLBACK_RECOVERY_LISTED),
@@ -474,7 +561,16 @@ export interface BudgetTransactions {
       readonly amount: Money;
       readonly date: string;
       readonly parts:
-        | readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[]
+        | readonly {
+            readonly categoryId: string;
+            readonly month: string | null;
+            readonly amount: Money;
+            /**
+             * FIN-03@PoC FR 8, AC31: a transfer's gain against the official rate — income of the budget under its
+             * category («Комісії банку», an expense category), never a refund of it. Absent — counted by the category.
+             */
+            readonly asIncome?: boolean;
+          }[]
         | null;
       /**
        * BUD-06@PoC FR 8 «Одноразова витрата»: counted in the fact of its period, left out of the averages (BUD-06 FR 4,
@@ -499,17 +595,71 @@ export interface OneOffSwitch {
   readonly oneOffEnabled?: (householdId: string) => Promise<boolean>;
 }
 
+/**
+ * FIN-03@PoC FR 8 (owner, 2026-11-26, decision 11): the space's «Комісії банку» (module categories, system key
+ * `bank-fees`) — the category the budget counts a transfer's fee and currency difference in; null — none. Left out (a
+ * test's server): the budget counts no transfer's difference.
+ */
+export interface TransferDifferenceCategory {
+  readonly feeCategory?: (householdId: string) => Promise<string | null>;
+}
+
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
-export function createBudgetTransactions(db: ModuleDatabase, options: OneOffSwitch = {}): BudgetTransactions {
+export function createBudgetTransactions(
+  db: ModuleDatabase,
+  options: OneOffSwitch & TransferDifferenceCategory = {},
+): BudgetTransactions {
   return {
     async inPeriod(householdId, accountIds, from, to) {
-      const rows = await db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to));
+      const own = await db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to));
+      const rows = [...own, ...(await transferDifferences(db, options, householdId, accountIds, from, to))];
       if (!rows.some((r) => r.oneOff) || (await oneOffOn(options, householdId))) return rows;
       return rows.map((r) => ({ ...r, oneOff: false }));
     },
     firstDate: (householdId, accountIds) =>
       db.inHousehold(householdId, (q) => budgetFirstDate(q, householdId, accountIds)),
   };
+}
+
+/**
+ * FIN-03@PoC FR 8, AC31; IMP-03@PoC FR 9, FR 21 (owner, 2026-11-26, decision 11): each marked transfer of the dates
+ * whose fee (one currency, on the debit's account) or currency difference (two currencies, on the credit's account) is
+ * on one of `accountIds` — one row, a part in «Комісії банку», dated by the transfer (edge case 1): negative an expense,
+ * positive an income of the budget. The sides themselves stay out (budgetRows). `id` is the transfer's.
+ */
+async function transferDifferences(
+  db: ModuleDatabase,
+  options: TransferDifferenceCategory,
+  householdId: string,
+  accountIds: readonly string[],
+  from: string,
+  to: string,
+) {
+  if (!options.feeCategory || accountIds.length === 0) return [];
+  const transfers = await db.inHousehold(householdId, (q) => transfersDatedIn(q, householdId, from, to));
+  const accounts = new Set(accountIds);
+  const differences = transfers.flatMap((t) => {
+    const d = transferDifference(t.outflow, t.inflow, t.rate);
+    if (d === null) return [];
+    const accountId = d.side === "outflow" ? t.outflow.accountId : t.inflow.accountId;
+    return accounts.has(accountId) ? [{ id: t.id, accountId, amount: d.amount, date: t.date }] : [];
+  });
+  if (differences.length === 0) return [];
+  const categoryId = await options.feeCategory(householdId);
+  if (categoryId === null) return [];
+  // A loss is spending in «Комісії банку»; a gain is income under the same category (FIN-03 AC31).
+  return differences.map((d) => ({
+    ...d,
+    parts: [
+      {
+        categoryId,
+        month: null,
+        amount: d.amount,
+        ...(d.amount.isNegative() ? {} : { asIncome: true }),
+      },
+    ],
+    oneOff: false,
+  }));
 }
 
 async function oneOffOn(options: OneOffSwitch, householdId: string): Promise<boolean> {

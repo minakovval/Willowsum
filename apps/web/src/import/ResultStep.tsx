@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { formatNumber, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { Button, Dialog, EmptyState, ErrorState, Icon, Segmented, Skeleton, Stepper } from "@willowsum/ui";
+import { Button, Dialog, EmptyState, ErrorState, Icon, Skeleton, Stepper } from "@willowsum/ui";
 import type { IconName } from "@willowsum/ui";
 import { importPath, transactionPath, TRANSACTIONS } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { canRollback, plural, tilesOf, whenText, type RefusedRow } from "./resultModel.ts";
 import type { BatchResult, RollbackMode, RolledBack } from "./resultApi.ts";
-import { useResultStep, type ResultView } from "./useResultStep.ts";
+import { useResultStep, useRollbackCounts, type CountsView, type ResultView } from "./useResultStep.ts";
 import type { Failure } from "./useReviewStep.ts";
 import { PAGE } from "./reviewApi.ts";
 import "./import.css";
@@ -477,8 +477,10 @@ function RollbackLine({
   const { t, locale } = useI18n();
   const [now] = useState(() => Date.now());
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<RollbackMode>("keep-changed");
+  // IMP-04@PoC FR 8, IMP-16@PoC FR 4 (owner, 2026-11-26): the box is on by default; off rolls back every transaction.
+  const [keepManual, setKeepManual] = useState(true);
   const { batch } = result;
+  const counts = useRollbackCounts(batch.id);
   if (batch.state !== "applied") return null;
   if (!canRollback(batch, now))
     return (
@@ -497,7 +499,9 @@ function RollbackLine({
         label={t("importResult.rollback.action")}
         onClick={() => {
           onOpen();
+          setKeepManual(true);
           setOpen(true);
+          counts.load();
         }}
       />
       <Dialog
@@ -517,24 +521,74 @@ function RollbackLine({
             label: t("importResult.rollback.confirm"),
             busyLabel: t("importResult.rollback.busy"),
             variant: "danger",
+            disabled: counts.view.kind !== "ready",
             onClick: () => {
-              void onRollback(mode).then((done) => {
+              void onRollback(keepManual ? "keep-changed" : "all").then((done) => {
                 if (done) setOpen(false);
               });
             },
           },
         ]}
       >
-        <Segmented
-          legend={t("importResult.rollback.mode.label")}
-          options={[
-            { value: "keep-changed", label: t("importResult.rollback.mode.keep") },
-            { value: "all", label: t("importResult.rollback.mode.all") },
-          ]}
-          value={mode}
-          onChange={(v) => setMode(v as RollbackMode)}
-        />
+        <label className="imp-result-keep">
+          <input type="checkbox" checked={keepManual} onChange={(e) => setKeepManual(e.target.checked)} />
+          <span>{t("importResult.rollback.keepManual")}</span>
+        </label>
+        <RollbackCountsNote view={counts.view} keepManual={keepManual} onRetry={counts.load} />
       </Dialog>
+    </div>
+  );
+}
+
+/** «Буде відкочено транзакцій: N. Змінених вручну, що збережуться: M.» (IMP-16 FR 4): the API's whole numbers, shown as they are. */
+function RollbackCountsNote({
+  view,
+  keepManual,
+  onRetry,
+}: {
+  view: CountsView;
+  keepManual: boolean;
+  onRetry: () => void;
+}) {
+  const { t } = useI18n();
+  if (view.kind === "loading")
+    return (
+      <p className="imp-result-counts" role="status">
+        {t("importResult.rollback.counts.loading")}
+      </p>
+    );
+  if (view.kind === "expired")
+    return (
+      <p className="imp-result-counts" role="alert">
+        {t("importResult.rollback.error.expired")}
+      </p>
+    );
+  if (view.kind === "error") {
+    const code = codeOf(view.failure);
+    return (
+      <div className="imp-result-counts" role="alert">
+        <p>
+          {t("importResult.rollback.counts.error")}
+          {code ? ` ${t("import.refused.code", { code })}` : ""}
+        </p>
+        <Button label={t("importResult.retry")} variant="secondary" onClick={onRetry} />
+      </div>
+    );
+  }
+  const { transactions, changed, transfers } = view.counts;
+  return (
+    <div className="imp-result-counts" role="status">
+      <p>
+        {keepManual
+          ? t("importResult.rollback.counts.keep", { count: String(transactions), changed: String(changed) })
+          : t("importResult.rollback.counts.all", {
+              count: String(transactions + changed),
+              changed: String(changed),
+            })}
+      </p>
+      {transfers > 0 ? (
+        <p>{t("importResult.rollback.counts.transfers", { count: String(transfers) })}</p>
+      ) : null}
     </div>
   );
 }

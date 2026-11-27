@@ -307,6 +307,7 @@ export function SpendDialog({
     <FormDialog
       open
       onClose={spent ? onSpent : onClose}
+      dirty={spent ? false : undefined}
       title={t("planning.goals.spend.title", { name: goal.name })}
       closeLabel={t("planning.goals.dialog.close")}
       steps={[

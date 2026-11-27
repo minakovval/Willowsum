@@ -99,9 +99,17 @@ function api(over: Handlers = {}, state = "needs-review") {
     [`GET /v1/import/batches/${BATCH}`]: () => ({ status: 200, body: detail(state) }),
     [`POST /v1/import/batches/${BATCH}/apply`]: () => ({ status: 200, body: applied() }),
     [`GET /v1/import/batches/${BATCH}/result`]: () => ({ status: 200, body: resultOf() }),
+    [`GET /v1/import/batches/${BATCH}/rollback`]: () => countsReply(),
     ...over,
   });
 }
+/** The dialog's counts (IMP-16 FR 4): 78 rolled back with the box on, 2 changed by hand, 1 side of a transfer. */
+const countsReply = (
+  rollback: Record<string, number> | null = { transactions: 78, changed: 2, transfers: 1 },
+): Reply => ({
+  status: 200,
+  body: { batch: batchOf("applied"), rollback },
+});
 const at = `#${importPath(BATCH, "result")}`;
 const posts = (calls: Call[], suffix: string) =>
   calls.filter((c) => c.method === "POST" && c.path.endsWith(suffix));
@@ -463,19 +471,99 @@ describe("IMP-05@PoC FR 11, IMP-01@PoC FR 11 — a refused apply (all rows or no
   });
 });
 
+describe("IMP-16@PoC FR 4, IMP-04@PoC FR 8 — the counts in the rollback dialog (#722 C)", () => {
+  const openDialog = async (over: Handlers = {}) => {
+    const h = api(over);
+    renderAt(at, h.client);
+    await screen.findByRole("heading", { name: "Імпорт завершено" });
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    return { ...h, dialog: await screen.findByRole("dialog", { name: "Відкотити партію?" }) };
+  };
+  const confirm = (d: HTMLElement) => within(d).getByRole("button", { name: "Відкотити" });
+
+  it("IMP-16@PoC FR 4: while the counts load the dialog says so and «Відкотити» is inactive; then it shows N to roll back and M kept (changed by hand), read from GET …/rollback", async () => {
+    let release!: (r: Reply) => void;
+    const pending = new Promise<Reply>((r) => (release = r));
+    const { dialog, calls } = await openDialog({
+      [`GET /v1/import/batches/${BATCH}/rollback`]: () => pending,
+    });
+    expect(within(dialog).getByText("Рахуємо, скільки транзакцій буде відкочено…")).toBeTruthy();
+    expect(confirm(dialog).getAttribute("aria-disabled")).toBe("true");
+    release(countsReply());
+    expect(
+      await within(dialog).findByText("Буде відкочено транзакцій: 78. Змінених вручну, що збережуться: 2."),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("Сторони переказів (1) лишаються в обох випадках.")).toBeTruthy();
+    expect(confirm(dialog).getAttribute("aria-disabled")).not.toBe("true");
+    expect(calls.filter((c) => c.method === "GET" && c.path.endsWith("/rollback"))).toHaveLength(1);
+  });
+
+  it("IMP-04@PoC FR 8: with «Залишити змінені вручну» off the dialog counts the changed ones too — 80 to roll back; no transfers line when there are none", async () => {
+    const { dialog } = await openDialog({
+      [`GET /v1/import/batches/${BATCH}/rollback`]: () =>
+        countsReply({ transactions: 78, changed: 2, transfers: 0 }),
+    });
+    await within(dialog).findByText("Буде відкочено транзакцій: 78. Змінених вручну, що збережуться: 2.");
+    expect(within(dialog).queryByText(/Сторони переказів/)).toBeNull();
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" }));
+    expect(
+      within(dialog).getByText("Буде відкочено транзакцій: 80, разом зі зміненими вручну (2)."),
+    ).toBeTruthy();
+  });
+
+  it("IMP-16@PoC FR 4: a failed read shows «Помилка» with «Код: …» and «Спробувати ще раз»; «Відкотити» stays inactive until the counts are read", async () => {
+    let fail = true;
+    const { dialog } = await openDialog({
+      [`GET /v1/import/batches/${BATCH}/rollback`]: () => (fail ? problem(500, "INTERNAL") : countsReply()),
+    });
+    expect(
+      await within(dialog).findByText(/Помилка\. Не вдалося порахувати транзакції до відкату\./),
+    ).toBeTruthy();
+    expect(confirm(dialog).getAttribute("aria-disabled")).toBe("true");
+    fail = false;
+    fireEvent.click(within(dialog).getByRole("button", { name: "Спробувати ще раз" }));
+    expect(await within(dialog).findByText(/Буде відкочено транзакцій: 78/)).toBeTruthy();
+    expect(confirm(dialog).getAttribute("aria-disabled")).not.toBe("true");
+  });
+
+  it("IMP-04@PoC AC8: counts that the server no longer gives (`rollback: null`, the 7 days are over) read «Строк відкату минув»", async () => {
+    const { dialog } = await openDialog({
+      [`GET /v1/import/batches/${BATCH}/rollback`]: () => countsReply(null),
+    });
+    expect(await within(dialog).findByText(/Помилка\. Строк відкату минув\./)).toBeTruthy();
+    expect(confirm(dialog).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("IMP-16@PoC FR 4: the counts are read again each time the dialog is opened", async () => {
+    const { dialog, calls } = await openDialog();
+    await within(dialog).findByText(/Буде відкочено транзакцій: 78/);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === "GET" && c.path.endsWith("/rollback"))).toHaveLength(2),
+    );
+  });
+});
+
 describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
-  it("IMP-04@PoC FR 8: the line names the 7 days and the moment; «Відкотити партію» opens a dialog that keeps the changed ones by default", async () => {
+  it("IMP-04@PoC FR 8 and IMP-16@PoC FR 4: the line names the 7 days and the moment; «Відкотити партію» opens a dialog with «Залишити змінені вручну» on by default", async () => {
     const { client } = api();
     renderAt(at, client);
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     expect(screen.getByText(/Партію можна відкотити протягом 7 днів\. Відкотити можна до /)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     const dialog = await screen.findByRole("dialog", { name: "Відкотити партію?" });
-    expect(within(dialog).getByRole("radio", { name: "Залишити змінені" })).toHaveProperty("checked", true);
-    expect(within(dialog).getByRole("radio", { name: "Відкотити все" })).toHaveProperty("checked", false);
+    // IMP-16@PoC FR 4, AC2 (owner, 2026-11-26): one box «Залишити змінені вручну», on by default.
+    expect(within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" })).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(within(dialog).queryByRole("radio")).toBeNull();
   });
 
-  it("IMP-04@PoC AC7: «Залишити змінені» sends the mode, then the result shows the batch rolled back with what was rolled back and kept", async () => {
+  it("IMP-04@PoC AC7 and IMP-16@PoC AC2: «Залишити змінені вручну» on sends the mode keep-changed, then the result shows the batch rolled back with what was rolled back and kept", async () => {
     let rolled = false;
     const { client, calls } = api({
       [`POST /v1/import/batches/${BATCH}/rollback`]: () => {
@@ -503,6 +591,7 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(/Буде відкочено транзакцій/);
     fireEvent.click(within(dialog).getByRole("button", { name: "Відкотити" }));
     expect(await screen.findByRole("heading", { name: "Партію відкочено" })).toBeTruthy();
     expect(posts(calls, "/rollback").map((c) => c.body)).toEqual([{ mode: "keep-changed" }]);
@@ -517,7 +606,7 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("IMP-04@PoC FR 8: «Відкотити все» sends the mode all", async () => {
+  it("IMP-04@PoC FR 8 and IMP-16@PoC FR 4: with «Залишити змінені вручну» off the dialog sends the mode all", async () => {
     const { client, calls } = api({
       [`POST /v1/import/batches/${BATCH}/rollback`]: () => ({
         status: 200,
@@ -537,10 +626,26 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("radio", { name: "Відкотити все" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Відкотити" }));
     await waitFor(() => expect(posts(calls, "/rollback")).toHaveLength(1));
     expect(posts(calls, "/rollback")[0]!.body).toEqual({ mode: "all" });
+  });
+
+  it("IMP-16@PoC FR 4: «Залишити змінені вручну» is on again each time the dialog opens, after it was switched off and cancelled", async () => {
+    const { client } = api();
+    renderAt(at, client);
+    await screen.findByRole("heading", { name: "Імпорт завершено" });
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    let dialog = await screen.findByRole("dialog");
+    const box = () => within(dialog).getByRole("checkbox", { name: "Залишити змінені вручну" });
+    fireEvent.click(box());
+    expect(box()).toHaveProperty("checked", false);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
+    dialog = await screen.findByRole("dialog");
+    expect(box()).toHaveProperty("checked", true);
   });
 
   it("IMP-04@PoC AC8: after the 7 days the step says «Строк відкату минув» and offers no rollback; the server's refusal reads the same in the dialog", async () => {
@@ -563,6 +668,7 @@ describe("IMP-04@PoC FR 8, AC7, AC8 — «Відкотити»", () => {
     await screen.findByRole("heading", { name: "Імпорт завершено" });
     fireEvent.click(screen.getByRole("button", { name: "Відкотити партію" }));
     const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText(/Буде відкочено транзакцій/);
     fireEvent.click(within(dialog).getByRole("button", { name: "Відкотити" }));
     expect(await within(dialog).findByText(/Помилка\. Строк відкату минув\./)).toBeTruthy();
     // The dialog stays open, the batch stays applied.

@@ -993,7 +993,7 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     expect(reads).toBe(2);
   });
 
-  it("BUD-01@PoC AC23: the reasons are the regular payments and merged categories, each with its count in the form of the language; a category rule is named but is no reason", async () => {
+  it("BUD-01@PoC AC24: the reasons are the regular payments and merged categories, each with its count in the form of the language; a category rule is named but is no reason", async () => {
     open({
       [`GET /v1/categories/${TRANSPORT.id}/usage`]: usage({
         recurringPayments: 1,
@@ -1045,7 +1045,7 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     expect(dialog.querySelectorAll("li")).toHaveLength(0);
   });
 
-  it("BUD-01@PoC AC22: «Продукти» held only by its limit — the confirmation says «Ліміт 400,00 € теж буде видалено», and the delete is sent with the confirmation of the limit", async () => {
+  it("BUD-01@PoC AC23: «Продукти» held only by its limit — the confirmation says «Ліміт 400,00 € теж буде видалено», and the delete is sent with the confirmation of the limit", async () => {
     const seen: string[] = [];
     const api = open({
       [`GET /v1/categories/${PRODUCTS.id}/usage`]: usage({
@@ -1066,7 +1066,7 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     expect(api.calls.filter((c) => c.method === "DELETE")).toHaveLength(1);
   });
 
-  it("BUD-01@PoC AC23: a category only a category rule refers to is deleted after the confirmation, which says the rule gets «Потребує уваги»; no confirmation of a limit is sent", async () => {
+  it("BUD-01@PoC AC24: a category only a category rule refers to is deleted after the confirmation, which says the rule gets «Потребує уваги»; no confirmation of a limit is sent", async () => {
     const seen: string[] = [];
     open({
       [`GET /v1/categories/${PRODUCTS.id}/usage`]: usage({ deletable: true, rules: 1 }),
@@ -1087,7 +1087,7 @@ describe("BUD-02@PoC i) «Бюджет»", () => {
     await waitFor(() => expect(seen).toEqual([""]));
   });
 
-  it("BUD-01@PoC AC22: when the usage could not be read, a deletable category is confirmed plainly; the server's «CATEGORY_LIMIT_CONFIRM» brings the dialog to the limit's confirmation instead of an error", async () => {
+  it("BUD-01@PoC AC23: when the usage could not be read, a deletable category is confirmed plainly; the server's «CATEGORY_LIMIT_CONFIRM» brings the dialog to the limit's confirmation instead of an error", async () => {
     let limited = false;
     const seen: string[] = [];
     open({

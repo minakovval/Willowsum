@@ -49,6 +49,7 @@ import {
 } from "./detail.ts";
 import { filteredTransactionsPath } from "./filters.ts";
 import { BankDescriptionRow, StatementFacts } from "./StatementFacts.tsx";
+import { TransferDifference } from "./TransferDifference.tsx";
 import { OneOffSwitch } from "./OneOffSwitch.tsx";
 import { SplitDialog } from "./SplitDialog.tsx";
 import "./transactionDetail.css";
@@ -303,6 +304,7 @@ export function Card({
           />
         ) : null}
       </dl>
+      <TransferDifference transaction={tx} />
       <StatementFacts transaction={tx} />
       {oneOffShown ? <OneOffSwitch transaction={tx} onSaved={replace} /> : null}
       {canSplit || similar ? (

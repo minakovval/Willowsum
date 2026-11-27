@@ -520,6 +520,38 @@
   font-size: var(--ws-text-label-size);
 }
 
+/* IMP-04@PoC FR 8, IMP-16@PoC FR 4: «Залишити змінені вручну» in the rollback dialog; a 44 px target, the long label wraps. */
+.imp-result-keep {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-block-size: var(--ws-touch-target);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-body-size);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.imp-result-keep input {
+  flex: none;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  accent-color: var(--ws-brand);
+}
+
+.imp-result-counts {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  color: var(--ws-ink);
+  font-size: var(--ws-text-body-size);
+  overflow-wrap: anywhere;
+}
+
+.imp-result-counts p {
+  margin: 0;
+}
+
 .imp-result-heading {
   margin: 0;
   padding: var(--ws-space-3) var(--ws-space-5);

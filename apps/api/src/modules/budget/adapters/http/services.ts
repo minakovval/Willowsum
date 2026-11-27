@@ -107,6 +107,7 @@ export function budgetReads(options: {
       date: string;
       period: string;
       oneOff: boolean;
+      asIncome?: boolean;
     }[] = [];
     const inDates = (date: string) => date >= from && date <= to;
     for (const r of rows) {
@@ -130,6 +131,7 @@ export function budgetReads(options: {
               date: r.date,
               period: periodOf(p.month ?? r.date),
               oneOff: r.oneOff === true,
+              ...(p.asIncome === true ? { asIncome: true } : {}),
             });
     }
     // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
@@ -187,6 +189,7 @@ export function budgetReads(options: {
         amount: item.value,
         period: inRange[i]!.period,
         oneOff: inRange[i]!.oneOff,
+        ...(inRange[i]!.asIncome === true ? { asIncome: true } : {}),
       });
     });
     // The figures sum these by category and in total: past the bound, no figure beats a wrong one or a 500.

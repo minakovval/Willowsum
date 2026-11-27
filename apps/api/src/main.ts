@@ -22,7 +22,11 @@ import {
 } from "./modules/budget/index.ts";
 import { createCashflowServices } from "./modules/cashflow/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
-import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
+import {
+  createCategoriesServices,
+  createCategoryDirectory,
+  FEE_CATEGORY_KEY,
+} from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
   createCategoryTransactions,
@@ -85,8 +89,10 @@ import {
   createTransactionWalletUsage,
   createTransactionsServices,
   createTransferCandidates,
+  createTransferMarking,
 } from "./modules/transactions/index.ts";
 import {
+  createCardPaymentTransfers,
   createImportBatchProposals,
   createTransferMatchingServices,
   createTransferProposalSides,
@@ -94,7 +100,12 @@ import {
 import { createDuplicateCheck, createDuplicateMatchingServices } from "./modules/duplicate-matching/index.ts";
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
-import { keyManagement } from "./platform/adapters/kms/index.ts";
+import {
+  keyManagement,
+  KmsKeyFileError,
+  RealDataKmsError,
+  type KeyManagement,
+} from "./platform/adapters/kms/index.ts";
 import {
   directoryObjectStorage,
   ensureBucket,
@@ -138,6 +149,24 @@ try {
 } catch (error) {
   // The message names variables only (ConfigError); nothing else is printed.
   console.error(error instanceof ConfigError ? error.message : "Configuration error");
+  process.exit(1);
+}
+
+// The master key through the KMS port (ARC-06 FR 1; NFR-01@PoC FR 3): locally the installation's key file, opened (or
+// made) before anything else. A key file that may not be used, or a real-data instance without one, stops the process;
+// the message names the file and the reason only, never a key.
+let kms: KeyManagement;
+try {
+  // A process never makes the key file: only the checked re-wrap step does (`pnpm local:dev` runs it first).
+  kms = keyManagement(config.providerMode, () => ({}), {
+    deployed: config.deployed,
+    ...config.kms,
+    createKeyFile: false,
+  });
+} catch (error) {
+  console.error(
+    error instanceof KmsKeyFileError || error instanceof RealDataKmsError ? error.message : "KMS error",
+  );
   process.exit(1);
 }
 
@@ -201,9 +230,8 @@ const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
 
 const audit = createAuditLog(databases.for("audit"));
 // Spaces (ACC-01 part c): the first space on the first sign-in, and the space of a session.
-// Keys of spaces (ARC-06 FR 1; ADR-0012): the master key only through the KMS port, chosen by WS_PROVIDER_MODE. The live
-// adapter (OCI Vault) is not built yet and fails closed: a deployed process makes no space without a key.
-const kms = keyManagement(config.providerMode, () => ({}), { deployed: config.deployed });
+// Keys of spaces (ARC-06 FR 1; ADR-0012): the master key only through the KMS port, chosen by WS_PROVIDER_MODE (kms,
+// opened right after the configuration). The live adapter (OCI Vault) is not built yet and fails closed.
 const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 
 // Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01 b): the S3-compatible storage and the key of signed links from the
@@ -293,6 +321,32 @@ const recurring = createRecurringServices({
   newId: randomUUID,
 });
 
+// BUD-01@PoC FR 7, AC4 (#722 D): a payment to a credit card from an own account of the space is a transfer at once —
+// the proposals of transfer-matching, the cards of the space (accounts' kind), the transactions module's mark; run after
+// «Нова транзакція» and after an import batch's apply, while `transactions.transfers` is on for the space.
+const cardPaymentTransfers = createCardPaymentTransfers({
+  candidates: createTransferCandidates(databases.for("transactions")),
+  rates: (requests) =>
+    createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
+  cards: async (householdId, accountIds) => {
+    const directory = createAccountDirectory(databases.for("accounts"));
+    const cards = new Set<string>();
+    for (const id of accountIds)
+      if ((await directory.postingAccount(householdId, id))?.kind === "credit-card") cards.add(id);
+    return cards;
+  },
+  enabled: (householdId) => flags.isEnabled(householdId, "transactions.transfers"),
+  mark: (householdId, actorAccountId, outflowId, inflowId) =>
+    createTransferMarking(databases.for("transactions"), {
+      accounts: createAccountDirectory(databases.for("accounts")),
+      ledger: createLedger(databases.for("ledger")),
+      audit,
+      newId: randomUUID,
+      rates: (requests) =>
+        createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
+    }).mark(householdId, actorAccountId, outflowId, inflowId),
+});
+
 // BUD-06@PoC FR 8: «Одноразова витрата» acts (leaves the averages) only while its flag is on for the space.
 const oneOffOn = (householdId: string) => flags.isEnabled(householdId, "transactions.one-off");
 
@@ -320,6 +374,17 @@ const goals = createGoalsServices({
   newId: randomUUID,
 });
 
+// FIN-03@PoC FR 8 (owner, 2026-11-26, decision 11): the budget and «Грошовий потік» count a transfer's fee and its
+// currency difference against the official rate in «Комісії банку» of the space (module categories).
+const feeCategoryDirectory = createCategoryDirectory({
+  db: databases.for("categories"),
+  audit,
+  newId: randomUUID,
+});
+const feeCategory = async (householdId: string): Promise<string | null> =>
+  (await feeCategoryDirectory.categories(householdId)).find((c) => c.systemKey === FEE_CATEGORY_KEY)?.id ??
+  null;
+
 // BUD-02 a: the space's budget services — the routes' and, BUD-01 FR 12, the category delete's (its limits).
 const budgetServices = createBudgetServices({
   categories: createCategoryDirectory({
@@ -331,6 +396,7 @@ const budgetServices = createBudgetServices({
   // BUD-06 FR 8: «Одноразова витрата» leaves the averages while `transactions.one-off` is on.
   transactions: createBudgetTransactions(databases.for("transactions"), {
     oneOffEnabled: oneOffOn,
+    feeCategory,
   }),
   categorization: createTransactionCategories(databases.for("categorization")),
   fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
@@ -436,6 +502,8 @@ const server = buildServer({
               categoryOf: createTransactionCategories(databases.for("categorization")),
               // FIN-03 FR 22 «Категорії»: the list «Транзакції» by category («Показати транзакції», BUD-01 AC 20).
               categoryTransactions: createCategoryTransactions(databases.for("categorization")),
+              // BUD-01 FR 7: «Нова транзакція» paying a credit card from an own account is a transfer at once.
+              cardPayments: cardPaymentTransfers,
             }),
             // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
             duplicateMatching: createDuplicateMatchingServices({
@@ -505,7 +573,7 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               accounts: createAccountList(databases.for("accounts")),
-              transactions: createBudgetTransactions(databases.for("transactions")),
+              transactions: createBudgetTransactions(databases.for("transactions"), { feeCategory }),
               categorization: createTransactionCategories(databases.for("categorization")),
               transfers: createTransferProposalSides({
                 candidates: createTransferCandidates(databases.for("transactions")),
@@ -581,6 +649,8 @@ const server = buildServer({
                         // IMP-16 FR 4: a category set by hand keeps a transaction of a rolled-back batch.
                         categories: createTransactionCategoryRead(databases.for("categorization")),
                       }),
+                      // BUD-01 FR 7: the batch's card payments from an own account become transfers at once.
+                      cardPayments: cardPaymentTransfers,
                     },
                     // IMP-08 FR 6: the duplicate preview reads the accounts' transactions as the apply's plan does.
                     preview: { candidates: createImportCandidates(databases.for("transactions")) },

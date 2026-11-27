@@ -1706,7 +1706,7 @@
       "y": 31860
     },
     "PocMoneyImport3Texts.dc.html": {
-      "h": 3060,
+      "h": 3300,
       "page": "poc",
       "title": "S-174 Імпорт · результат · Тексти",
       "w": 2640,
@@ -2017,7 +2017,7 @@
       "y": 13620
     },
     "PocMoneyTxDetailTexts.dc.html": {
-      "h": 2600,
+      "h": 2920,
       "page": "poc",
       "title": "S-047 Деталь транзакції · Тексти",
       "w": 1280,

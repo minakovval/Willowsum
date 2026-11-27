@@ -1899,6 +1899,15 @@
   line-height: var(--ws-text-body-sm-line);
 }
 
+/* «Зберегти зміни?» takes the dialog's place while the form stays mounted, so no value is lost (CMP-21 FR 24). */
+.ws-form-body {
+  display: contents;
+}
+
+.ws-form-body[hidden] {
+  display: none;
+}
+
 .ws-form-steps {
   display: grid;
 }
