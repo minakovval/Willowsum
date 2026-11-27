@@ -145,9 +145,11 @@ export function renderCoverage(cov) {
  * covered / total per release, the time it was computed and the main commit it was computed on. The page shows
  * only these numbers; it never estimates one that is missing.
  * @param {ReturnType<typeof computeCoverage>} cov
- * @param {{sha?: string|null, generatedAt?: string}} [meta]
+ * @param {{sha?: string|null, generatedAt?: string, features?: {titles: Map<string, string>, fingerprintErrors: Map<string, number>, blocks?: object}}} [meta]
+ *   features: the title of every requirement and the fingerprint errors per requirement ID; given, the JSON also
+ *   lists the PoC features (version 2, `featuresSummary`)
  */
-export function coverageSummary(cov, { sha = null, generatedAt = new Date().toISOString() } = {}) {
+export function coverageSummary(cov, { sha = null, generatedAt = new Date().toISOString(), features = null } = {}) {
   const releases = [];
   for (const release of SLICE_RELEASES) {
     const rs = cov.rows.filter((x) => x.release === release);
@@ -158,5 +160,52 @@ export function coverageSummary(cov, { sha = null, generatedAt = new Date().toIS
     const EC = sum('EC');
     releases.push({ release, slices: rs.length, FR, AC, EC, items: { covered: FR.covered + AC.covered + EC.covered, total: FR.total + AC.total + EC.total } });
   }
-  return { schema: 1, generatedAt, sha, releases };
+  return { schema: 1, version: 2, generatedAt, sha, releases, ...(features ? { blocks: (features.blocks?.blocks ?? []).map((b) => ({ id: b.id, name: b.name, note: b.note })), features: featuresSummary(cov, features) } : {}) };
+}
+
+/** Ukrainian names of the requirement sections (ID prefix = folder of docs/requirements). An unknown prefix shows as itself. */
+export const SECTION_NAMES = {
+  ACC: 'Рахунки', ADM: 'Адмін-панель', ADV: 'Поради та аналітика', AI: 'ШІ-помічник', ARC: 'Архітектура', AST: 'Активи', BUD: 'Бюджет',
+  CHT: 'Графіки', CICD: 'Поставка та CI/CD', CMP: 'Компоненти інтерфейсу', CRY: 'Криптоактиви', DAT: 'Дані', DOC: 'Документи', DS: 'Дизайн-система',
+  FCS: 'Прогнози', FIN: 'Фінанси', FLW: 'Потоки', GRID: 'Таблиці', IMP: 'Імпорт', INS: 'Страхування', INT: 'Інтеграції', INV: 'Інвестиції',
+  JRN: 'Подорожі користувача', L10N: 'Локалізація', LEG: 'Юридичні вимоги', NFR: 'Нефункціональні вимоги', NOT: 'Сповіщення', PLN: 'Плани', PLT: 'Платформа',
+  PRC: 'Процес вимог', RPT: 'Звіти', SCR: 'Екрани', SUB: 'Підписки', SUP: 'Підтримка', UX: 'Взаємодія', VAL: 'Валідація', VLT: 'Сейф', WGT: 'Віджети',
+};
+
+/**
+ * Block of every requirement ID from the blocks config (tools/progress-dashboard/blocks.json).
+ * @param {{blocks: {id: string, ids: string[]}[]}} config
+ * @param {string[]} ids  the PoC requirement IDs
+ * @returns {{block: Map<string, string>, unmapped: string[], duplicated: string[], stale: string[]}}
+ */
+export function assignBlocks(config, ids) {
+  const block = new Map();
+  const duplicated = new Set();
+  for (const b of config.blocks) for (const id of b.ids) {
+    if (block.has(id)) duplicated.add(id);
+    else block.set(id, b.id);
+  }
+  return { block, unmapped: ids.filter((id) => !block.has(id)), duplicated: [...duplicated], stale: [...block.keys()].filter((id) => !ids.includes(id)) };
+}
+
+/**
+ * The features of the PoC release for the progress page: one per requirement that has a PoC view. Status:
+ * «готово» — every FR, AC and EC named by a test and no fingerprint error; «у роботі» — some covered (an open PR
+ * that names the ID is added by the page, from the GitHub API); «не почато» — none covered. A requirement
+ * that is not in the PoC release is not listed.
+ * @param {ReturnType<typeof computeCoverage>} cov
+ * @param {{titles: Map<string, string>, fingerprintErrors: Map<string, number>, blocks?: {blocks: {id: string, ids: string[]}[]}|null}} meta
+ */
+export function featuresSummary(cov, { titles, fingerprintErrors, blocks = null }) {
+  const out = [];
+  const map = blocks ? assignBlocks(blocks, cov.rows.filter((x) => x.release === 'PoC').map((x) => x.id)).block : new Map();
+  for (const r of cov.rows.filter((x) => x.release === 'PoC')) {
+    const covered = r.FR.covered + r.AC.covered + r.EC.covered;
+    const total = r.FR.total + r.AC.total + r.EC.total;
+    const fp = fingerprintErrors.get(r.id) ?? 0;
+    const status = total > 0 && covered === total && fp === 0 ? 'готово' : covered > 0 ? 'у роботі' : 'не почато';
+    const prefix = r.id.slice(0, r.id.indexOf('-'));
+    out.push({ id: r.id, title: titles.get(r.id) ?? '', section: prefix, sectionName: SECTION_NAMES[prefix] ?? prefix, block: map.get(r.id) ?? 'other', FR: { covered: r.FR.covered, total: r.FR.total }, AC: { covered: r.AC.covered, total: r.AC.total }, EC: { covered: r.EC.covered, total: r.EC.total }, items: { covered, total }, fingerprintErrors: fp, status });
+  }
+  return out;
 }
