@@ -106,7 +106,11 @@ export type EvidenceCode =
   | "indicator-column"
   | "currency-column"
   | "currency-in-header"
-  | "no-currency";
+  | "no-currency"
+  /** BUD-21 FR 4: a history file's column of transfer marks (count of marked cells of the sample). */
+  | "transfer-values"
+  /** BUD-21 FR 6: the user chose this on the review step. */
+  | "user-choice";
 
 /** One piece of «why so»: a code and the numbers or words it speaks of (a column, a row, a count of cells, an example). */
 export interface Evidence {
@@ -499,7 +503,10 @@ const SINGLE: ReadonlySet<Role> = new Set(
   ROLES.filter((r) => !["description", "counterparty", "ignore"].includes(r)),
 );
 
-function headerMatch(header: string, phrases: readonly string[]): { score: number; word: string } | null {
+export function headerMatch(
+  header: string,
+  phrases: readonly string[],
+): { score: number; word: string } | null {
   const words = normalizeHeaderCell(header);
   if (!words) return null;
   let best: { score: number; word: string } | null = null;

@@ -32,6 +32,27 @@ export type {
   StatementAnalysis,
   TableAnalysis,
 } from "./analysis.ts";
+export {
+  analyzeHistoryColumns,
+  HISTORY_LIMITS,
+  HISTORY_MISSING,
+  HISTORY_ROLES,
+  historyMissing,
+  historyRows,
+  isTransferMark,
+  statementView,
+  transferValues,
+  withColumnRoles,
+} from "./history.ts";
+export type {
+  ColumnRole,
+  HistoryColumn,
+  HistoryMissing,
+  HistoryReadOptions,
+  HistoryRole,
+  HistoryRow,
+  TransferValue,
+} from "./history.ts";
 export { DATE_ORDERS } from "./values.ts";
 export type { DateOrder, DecimalSeparator, ThousandsSeparator } from "./values.ts";
 export { amountMark, headerCurrency, ISO_NUMERIC, recognizeCurrency } from "./currency.ts";

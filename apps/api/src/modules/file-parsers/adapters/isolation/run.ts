@@ -1,9 +1,10 @@
 import { runIsolated } from "../../../../platform/process/isolated.ts";
 import { wipeFieldOpener, type FieldOpener } from "../../../household/index.ts";
-import type { ReadOptions, StatementParse } from "../../application/index.ts";
+import type { HistoryParse, ReadOptions, StatementParse } from "../../application/index.ts";
 import {
   ACCOUNT_BINDINGS,
   type AccountBindingKind,
+  type HistoryReadOptions,
   type StatementOptions,
   type TableCeiling,
 } from "../../domain/index.ts";
@@ -63,6 +64,18 @@ export interface StatementParser {
   ): Promise<StatementParse>;
 }
 
+/**
+ * BUD-21@PoC FR 3, FR 4: a history file's parse in the same isolated worker, under the same limits and the same turns
+ * as a statement's; `corrections` are the user's roles and formats from the review step (FR 6).
+ */
+export interface HistoryParser {
+  parseHistory(
+    bytes: Uint8Array,
+    options?: ReadOptions,
+    corrections?: HistoryReadOptions,
+  ): Promise<HistoryParse>;
+}
+
 export interface StatementParserOptions {
   readonly memoryMb?: number;
   readonly timeoutMs?: number;
@@ -83,7 +96,23 @@ const CEILINGS: ReadonlySet<string> = new Set([
   "cell-length",
 ] satisfies TableCeiling[]);
 
-export function isolatedStatementParser(options: StatementParserOptions = {}): StatementParser {
+/** A worker's refusal as the parse's error (FR 13 ceilings, the memory and time limits, a damaged file). */
+function refused(outcome: { readonly failure: string; readonly code?: string }): StatementParseError {
+  if (outcome.failure === "memory") return new StatementParseError("PARSE_MEMORY");
+  if (outcome.failure === "timeout") return new StatementParseError("PARSE_TIMEOUT");
+  if (outcome.failure === "refused" && outcome.code !== undefined) {
+    if (outcome.code === "FILE_TOO_LARGE") return new StatementParseError("FILE_TOO_LARGE");
+    if (outcome.code === "ACCOUNT_BINDING") return new StatementParseError("ACCOUNT_BINDING");
+    const [code, ceiling] = outcome.code.split(":");
+    if (code === "TABLE_LIMIT" && ceiling && CEILINGS.has(ceiling))
+      return new StatementParseError("TABLE_LIMIT", ceiling as TableCeiling);
+  }
+  return new StatementParseError("CORRUPTED");
+}
+
+export function isolatedStatementParser(
+  options: StatementParserOptions = {},
+): StatementParser & HistoryParser {
   const limits = {
     memoryMb: options.memoryMb ?? PARSE_LIMITS.memoryMb,
     timeoutMs: options.timeoutMs ?? PARSE_LIMITS.timeoutMs,
@@ -136,16 +165,19 @@ export function isolatedStatementParser(options: StatementParserOptions = {}): S
             throw new StatementParseError("ACCOUNT_BINDING");
           return outcome.value;
         }
-        if (outcome.failure === "memory") throw new StatementParseError("PARSE_MEMORY");
-        if (outcome.failure === "timeout") throw new StatementParseError("PARSE_TIMEOUT");
-        if (outcome.failure === "refused") {
-          if (outcome.code === "FILE_TOO_LARGE") throw new StatementParseError("FILE_TOO_LARGE");
-          if (outcome.code === "ACCOUNT_BINDING") throw new StatementParseError("ACCOUNT_BINDING");
-          const [code, ceiling] = outcome.code.split(":");
-          if (code === "TABLE_LIMIT" && ceiling && CEILINGS.has(ceiling))
-            throw new StatementParseError("TABLE_LIMIT", ceiling as TableCeiling);
-        }
-        throw new StatementParseError("CORRUPTED");
+        throw refused(outcome);
+      }),
+    parseHistory: (bytes, readOptions = {}, corrections = {}) =>
+      slots.run(async () => {
+        const copy = new Uint8Array(bytes);
+        const outcome = await runIsolated<HistoryParse>(
+          url,
+          { bytes: copy, options: readOptions, statement: {}, history: corrections },
+          [copy.buffer],
+          limits,
+        );
+        if (outcome.ok) return outcome.value;
+        throw refused(outcome);
       }),
   };
 }
