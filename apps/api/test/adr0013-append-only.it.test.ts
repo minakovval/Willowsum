@@ -31,7 +31,7 @@ afterAll(async () => {
 });
 
 describe("NFR-12@PoC FR 3 / ADR-0013: only the erasure role empties a space from the append-only tables", () => {
-  it("NFR-12@PoC FR 3: the erasure roles delete the whole bound space; the neighbour is untouched", async () => {
+  it("NFR-12@PoC FR 3, ARC-11 FR 26: the erasure roles delete the whole bound space; the neighbour is untouched", async () => {
     const mine = await personWithSpace(db, "mine");
     const other = await personWithSpace(db, "other");
     const otherBefore = await spaceRows(db, other.householdId);
@@ -99,7 +99,7 @@ describe("NFR-12@PoC FR 3 / ADR-0013: only the erasure role empties a space from
     expect(await rowCount(db, person.householdId)).toBe(before);
   });
 
-  it("NFR-12@PoC FR 3: module roles, owner roles and the superuser still cannot delete or update the logs", async () => {
+  it("NFR-12@PoC FR 3, ARC-11 FR 26: module roles, owner roles and the superuser still cannot delete or update the logs", async () => {
     const person = await personWithSpace(db, "others");
     const before = await rowCount(db, person.householdId);
     const asModule = await code(

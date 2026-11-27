@@ -462,7 +462,7 @@ describe("IMP-04@PoC before the apply: the duplicate preview", () => {
     expect(applied.json().result.counts).toMatchObject({ import: 1, duplicate: 1 });
   });
 
-  it("IMP-04@PoC FR 3: the same file again — every row «дубль — уже імпортовано» with the batch it was applied in", async () => {
+  it("IMP-04@PoC FR 3, JRN-06 FR 1: the same file again — every row «дубль — уже імпортовано» with the batch it was applied in", async () => {
     const space = await newSpace();
     const first = await parsed(space, CLEAN, space.eur);
     expect((await call(space, "POST", `/v1/import/batches/${first.batchId}/apply`)).statusCode).toBe(200);

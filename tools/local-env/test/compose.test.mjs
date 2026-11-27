@@ -20,7 +20,7 @@ const ALLOWED_IMAGES = {
 
 const images = [...body.matchAll(/^\s+image:\s*(\S+)\s*$/gm)].map((m) => m[1]);
 
-test('CICD-04 local: the stack has a database, a mail server and S3-compatible storage', () => {
+test('CICD-04 FR 1, local: the stack has a database, a mail server and S3-compatible storage', () => {
   for (const service of ['postgres', 'mail', 's3']) {
     assert.match(body, new RegExp(`^  ${service}:\\s*$`, 'm'), `service ${service}`);
   }
@@ -56,7 +56,7 @@ test('CICD-12 FR1: no credential values in the compose file, only generated vari
   }
 });
 
-test('CICD-04 local: every service has a health check, so one command waits until all are ready', () => {
+test('CICD-04 FR 1, local: every service has a health check, so one command waits until all are ready', () => {
   const services = body.split(/^  (?=[a-z0-9-]+:\s*$)/m).slice(1).filter((s) => !s.startsWith('postgres-data'));
   const named = services.filter((s) => /^(postgres|mail|s3):/.test(s));
   assert.equal(named.length, 3);

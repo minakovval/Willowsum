@@ -114,7 +114,7 @@ describe("FIN-04@PoC EC1: an event in another currency than the account is recor
     expect(await balance(s.householdId, fxUsd!.id)).toBe("100");
   });
 
-  it("FIN-04@PoC EC1: the entry keeps the rate (exact decimal), its date and source, the converted amount and the difference", async () => {
+  it("FIN-04@PoC EC1, ARC-11@PoC FR 8: the entry keeps the rate (exact decimal), its date and source, the converted amount and the difference", async () => {
     const s = await space();
     const entry = await ledger.post(
       s.householdId,
@@ -271,7 +271,7 @@ describe("FIN-04@PoC EC1: an event in another currency than the account is recor
 });
 
 describe("ARC-11@PoC criterion «Перебудова кешу залишків з проводок»: the daily balance cache stays right per currency", () => {
-  it("ARC-11@PoC criterion «Перебудова кешу залишків з проводок»: cross-currency entries move each account's cache in its currency; a rebuild gives the same numbers", async () => {
+  it("ARC-11@PoC FR 21, criterion «Перебудова кешу залишків з проводок»: cross-currency entries move each account's cache in its currency; a rebuild gives the same numbers", async () => {
     const s = await space();
     for (const [date, sent, received] of [
       ["2026-06-10", "11", "10"],
@@ -406,7 +406,7 @@ describe("ARC-11@PoC criterion «Незбалансований запис у ж
     ).toBe("23514");
   });
 
-  it("ARC-11@PoC criterion «UPDATE або DELETE журналу роллю застосунку»: a rate joins only its new entry and is never changed or deleted", async () => {
+  it("ARC-11@PoC FR 13, criterion «UPDATE або DELETE журналу роллю застосунку»: a rate joins only its new entry and is never changed or deleted", async () => {
     const [old] = (
       await db.owner.query<{ id: string }>(
         `SELECT entry_id AS id FROM ledger.conversions WHERE household_id = $1 LIMIT 1`,

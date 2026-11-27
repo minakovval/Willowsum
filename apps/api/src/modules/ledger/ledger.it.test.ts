@@ -149,7 +149,7 @@ describe("FIN-04 AC1: an event becomes a posting set whose debits equal its cred
     );
   });
 
-  it("ARC-11: a repeated event (same idempotency key) returns the entry it made; concurrent repeats make one", async () => {
+  it("ARC-11 FR 10: a repeated event (same idempotency key) returns the entry it made; concurrent repeats make one", async () => {
     const s = await space();
     const event = input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("100") });
     const results = await Promise.all(Array.from({ length: 5 }, () => ledger.post(s.householdId, event)));
@@ -184,14 +184,14 @@ describe("FIN-04 AC1: an event becomes a posting set whose debits equal its cred
     expect(n.rows[0].n).toBe(0);
   });
 
-  it("ARC-11: an event type without a rule is refused", async () => {
+  it("ARC-11 FR 20: an event type without a rule is refused", async () => {
     const s = await space();
     const event = { type: "gift", account: s.cash.id, amount: eur("1") } as unknown as PostInput["event"];
     expect(await code(ledger.post(s.householdId, input(event)))).toBe("UNKNOWN_EVENT_TYPE");
   });
 });
 
-describe("FIN-04 AC2, FR 1: a posting set that fails half-way leaves nothing (one ACID transaction)", () => {
+describe("FIN-04 AC2, FR 1, ARC-11 FR 9: a posting set that fails half-way leaves nothing (one ACID transaction)", () => {
   it("the entry is written, its postings fail (a key the database refuses): no entry, no posting, no account", async () => {
     const s = await space();
     const real = databaseLedgerStore(db.databases.for("ledger"));
@@ -242,7 +242,7 @@ describe("FIN-04 AC2, FR 1: a posting set that fails half-way leaves nothing (on
 });
 
 describe("FIN-04 AC3: a change or a deletion reverses the old postings; nothing is changed in place", () => {
-  it("a changed amount: the old entry stays, a reversal offsets it, the new entry is separate", async () => {
+  it("ARC-11 FR 14: a changed amount: the old entry stays, a reversal offsets it, the new entry is separate", async () => {
     const s = await space();
     const first = await ledger.post(
       s.householdId,
@@ -268,7 +268,7 @@ describe("FIN-04 AC3: a change or a deletion reverses the old postings; nothing 
     expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-05-31")).toDecimalString()).toBe("-70");
   });
 
-  it("a deletion: the reversal returns the balance; an entry is reversed once; a reversal is not reversed", async () => {
+  it("ARC-11 FR 14: a deletion: the reversal returns the balance; an entry is reversed once; a reversal is not reversed", async () => {
     const s = await space();
     const first = await ledger.post(
       s.householdId,
@@ -316,7 +316,7 @@ describe("FIN-04 AC3: a change or a deletion reverses the old postings; nothing 
 });
 
 describe("FIN-04 AC4: the balance on 2026-06-30 is the sum of postings up to that date inclusive", () => {
-  it("entries before, on and after the date, with a reversal; and «as known at» a moment (ARC-11)", async () => {
+  it("entries before, on and after the date, with a reversal; and «as known at» a moment (ARC-11 FR 17)", async () => {
     const s = await space();
     const add = (amount: string, date: string) =>
       ledger.post(
@@ -384,7 +384,7 @@ describe("FIN-04 AC4: the balance on 2026-06-30 is the sum of postings up to tha
 });
 
 describe("ARC-03: a space sees and posts only its own journal", () => {
-  it("another space's accounts and entries do not exist for it", async () => {
+  it("ARC-11 FR 12: another space's accounts and entries do not exist for it", async () => {
     const mine = await space();
     const other = await space();
     const theirs = await ledger.post(
@@ -479,7 +479,7 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
     expect(await posting(s.savings.id, s.cash.id, "1", "EUR")).toBe("ok");
   });
 
-  it("append-only: UPDATE, DELETE and TRUNCATE are refused for the module role; the time of recording is the database's", async () => {
+  it("ARC-11 FR 13, FR 16: append-only: UPDATE, DELETE and TRUNCATE are refused for the module role; the time of recording is the database's", async () => {
     for (const table of ["entries", "postings", "accounts"]) {
       expect(await asModule(s.householdId, `UPDATE ${table} SET household_id = household_id`), table).toBe(
         "42501",
@@ -504,14 +504,14 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
     ).toBe("42501");
   });
 
-  it("append-only for every role: even the owner of the database cannot change or delete a journal row", async () => {
+  it("ARC-11 FR 13: append-only for every role: even the owner of the database cannot change or delete a journal row", async () => {
     expect(
       await code(db.owner.query(`UPDATE ledger.postings SET amount = 1 WHERE entry_id = $1`, [entryId])),
     ).toBe("42501");
     expect(await code(db.owner.query(`DELETE FROM ledger.entries WHERE id = $1`, [entryId]))).toBe("42501");
   });
 
-  it("an entry is reversed at most once, and a reversal is never reversed — by the keys", async () => {
+  it("ARC-11 FR 14: an entry is reversed at most once, and a reversal is never reversed — by the keys", async () => {
     const insertReversal = (id: string, of: string) =>
       code(
         db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
@@ -536,7 +536,7 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
   });
 });
 
-describe("FIN-04 AC6 (core): the daily integrity check finds broken entries and logs an «error» without amounts", () => {
+describe("FIN-04 AC6 (core), ARC-11 FR 24: the daily integrity check finds broken entries and logs an «error» without amounts", () => {
   it("a clean journal: nothing reported; broken rows (written past the constraints): each check counted", async () => {
     const s = await space();
     const usd = await ledger.openAccount(

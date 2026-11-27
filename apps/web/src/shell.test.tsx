@@ -51,7 +51,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("UX-09@PoC navigation", () => {
-  it("UX-09 AC1: after sign-in the app opens «Планування › Бюджет»; the sidebar has only «Гроші» and «Планування»", () => {
+  it("UX-09 AC1, JRN-05 FR 1: after sign-in the app opens «Планування › Бюджет»; the sidebar has only «Гроші» and «Планування»", () => {
     render(<App />);
     expect(window.location.hash).toBe("#/planning/budget");
     expect(h1()).toBe("Бюджет");

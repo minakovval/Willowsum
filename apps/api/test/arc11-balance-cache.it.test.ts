@@ -180,7 +180,7 @@ async function randomJournal(s: Space, seed: number, steps: number): Promise<Ent
 }
 
 describe("ARC-11@PoC «Баланси і продуктивність»: the daily balance cache", () => {
-  it("ARC-11 criterion «Перебудова кешу залишків з проводок»: the rebuild command gives the cache it replaces, to the last digit", async () => {
+  it("ARC-11 FR 21, criterion «Перебудова кешу залишків з проводок»: the rebuild command gives the cache it replaces, to the last digit", async () => {
     const s = await space();
     await randomJournal(s, 126, 40);
     const before = await cacheRows(s.householdId);
@@ -204,7 +204,7 @@ describe("ARC-11@PoC «Баланси і продуктивність»: the dai
     expect((await checkOf(s.householdId).run())["balance-cache"]).toBe(0);
   });
 
-  it("ARC-11: balanceAt gives from the cache what the postings give — random journals with back-dated entries, reversals and corrections, with and without «as known at»", async () => {
+  it("ARC-11 FR 21: balanceAt gives from the cache what the postings give — random journals with back-dated entries, reversals and corrections, with and without «as known at»", async () => {
     for (const seed of [1, 2, 3]) {
       const s = await space();
       const r = rng(1000 + seed);
@@ -311,7 +311,7 @@ describe("ARC-11@PoC «Баланси і продуктивність»: the dai
     expect((await checkOf(s.householdId).run())["balance-cache"]).toBe(0);
   });
 
-  it("ARC-11: concurrent entries on the same accounts are not lost — the version check retries the conflicts", async () => {
+  it("ARC-11 FR 22: concurrent entries on the same accounts are not lost — the version check retries the conflicts", async () => {
     const s = await space();
     const r = rng(77);
     const events = Array.from({ length: 24 }, () =>
@@ -334,7 +334,7 @@ describe("ARC-11@PoC «Баланси і продуктивність»: the dai
     expect((await checkOf(s.householdId).run())["balance-cache"]).toBe(0);
   });
 
-  it("ARC-11: a conflict on the version is retried on the fresh cache, inside the same entry's transaction", async () => {
+  it("ARC-11 FR 22: a conflict on the version is retried on the fresh cache, inside the same entry's transaction", async () => {
     const s = await space();
     // «Зовнішні кошти» exists before the race, so both entries wait only on the cache.
     await ledger.post(
@@ -403,7 +403,7 @@ describe("ARC-11@PoC «Баланси і продуктивність»: the dai
     expect((await checkOf(s.householdId).run())["balance-cache"]).toBe(0);
   });
 
-  it("ARC-11: a posting on a cached account that skips the cache is refused at commit (no stale cache is written)", async () => {
+  it("ARC-11 FR 21: a posting on a cached account that skips the cache is refused at commit (no stale cache is written)", async () => {
     const s = await space();
     const entry = await ledger.post(
       s.householdId,

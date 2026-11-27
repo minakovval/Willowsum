@@ -87,7 +87,7 @@ const payloadOf = (entry: Entry) => ({
 });
 
 describe("ARC-11@PoC: «проводку записано» in the outbox, in the transaction of its entry (issue #125)", () => {
-  it("a committed entry leaves exactly one event with ids, codes and dates only; its idempotent repeat leaves none", async () => {
+  it("ARC-11 FR 9: a committed entry leaves exactly one event with ids, codes and dates only; its idempotent repeat leaves none", async () => {
     const s = await space();
     const input = spend(s.cash, "-1234.56");
     const entry = await ledger.post(s.householdId, input);
@@ -112,7 +112,7 @@ describe("ARC-11@PoC: «проводку записано» in the outbox, in th
     expect(await events(s.householdId)).toHaveLength(1);
   });
 
-  it("a rolled-back entry leaves no event and no entry", async () => {
+  it("ARC-11 FR 9: a rolled-back entry leaves no event and no entry", async () => {
     const s = await space();
     const real = databaseLedgerStore(db.databases.for("ledger"));
     // The entry, its postings and its event are written; then the transaction fails and rolls everything back.
@@ -175,7 +175,7 @@ describe("ARC-11@PoC: «проводку записано» in the outbox, in th
 });
 
 describe("ARC-11@PoC: the outbox row itself refuses text and other fields", () => {
-  it("the event schema refuses a field beyond the ids, codes and dates", () => {
+  it("ARC-11 FR 2: the event schema refuses a field beyond the ids, codes and dates", () => {
     const entry = {
       entryId: randomUUID(),
       sourceModule: "transactions",
@@ -193,7 +193,7 @@ describe("ARC-11@PoC: the outbox row itself refuses text and other fields", () =
     expect(entryRecorded.schema.safeParse({ ...entry, eventType: "кава з молоком" }).success).toBe(false);
   });
 
-  it("the table refuses a payload string that is not a code, even from the module's own role", async () => {
+  it("ARC-11 FR 2: the table refuses a payload string that is not a code, even from the module's own role", async () => {
     const s = await space();
     const insert = (payload: unknown) =>
       code(
