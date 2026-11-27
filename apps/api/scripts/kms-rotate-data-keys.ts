@@ -8,6 +8,7 @@
  *   node scripts/kms-rotate-data-keys.ts [--dry-run | --abort] [--batch-size <1-1000>]
  */
 import { readFileSync } from "node:fs";
+import pg from "pg";
 import {
   fileKeyManagement,
   KmsKeyFileError,
@@ -24,6 +25,8 @@ import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "../src/platform/modules/rules.ts";
 import { KeyFileMismatchError } from "./lib/kms-rewrap.ts";
 import {
+  KMS_ROTATE_BUSY,
+  KMS_ROTATE_LOCK,
   KMS_ROTATE_USAGE,
   kmsRotateReport,
   parseKmsRotateArgs,
@@ -47,6 +50,7 @@ try {
 let databases: ModuleDatabases;
 let kms: KeyManagement;
 let objects: ObjectStorage | undefined;
+let lock: pg.Client;
 try {
   const config = loadConfig(process.env, "worker", modules);
   if (!config.kms.realData || config.kms.keyFile === undefined) {
@@ -75,6 +79,11 @@ try {
     context: { ...connection, user: CONTEXT_ROLE, password: database.contextPassword },
     poolSize: 1,
   });
+  lock = new pg.Client({
+    ...connection,
+    user: moduleRoleName("household"),
+    password: database.modulePasswords.get("household") ?? "",
+  });
 } catch (error) {
   console.error(
     error instanceof ConfigError || error instanceof KmsKeyFileError ? error.message : "Configuration error",
@@ -83,12 +92,21 @@ try {
 }
 
 try {
-  const result = await runKmsRotateDataKeys(databases, kms, resealParts(databases, objects), command);
-  console.log(kmsRotateReport(command, result));
-  console.log(
-    JSON.stringify({ dryRun: command.dryRun, ...(command.abort ? { abort: true } : {}), ...result }),
-  );
-  if (result.failed > 0) process.exitCode = 1;
+  await lock.connect();
+  const { rows } = await lock.query<{ held: boolean }>("SELECT pg_try_advisory_lock(hashtext($1)) AS held", [
+    KMS_ROTATE_LOCK,
+  ]);
+  if (rows[0]?.held !== true) {
+    console.error(KMS_ROTATE_BUSY);
+    process.exitCode = 2;
+  } else {
+    const result = await runKmsRotateDataKeys(databases, kms, resealParts(databases, objects), command);
+    console.log(kmsRotateReport(command, result));
+    console.log(
+      JSON.stringify({ dryRun: command.dryRun, ...(command.abort ? { abort: true } : {}), ...result }),
+    );
+    if (result.failed > 0) process.exitCode = 1;
+  }
 } catch (error) {
   // Nothing from any other error: database errors may hold connection details or values.
   console.error(
@@ -99,4 +117,5 @@ try {
   process.exitCode = 1;
 } finally {
   await databases.end();
+  await lock.end().catch(() => undefined);
 }

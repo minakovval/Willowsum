@@ -103,7 +103,9 @@ CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machin
   work as before and a later run replaces it again. Before the first write the command opens every value of each
   space; a value that opens with neither key (damaged before the run) stops that space before it begins — the report
   names only the module and the count («… open with neither key (accounts: 1) …»), the space keeps its old key and
-  works as before; tell the lead the module and the count. It refuses to run without `WS_REAL_DATA=true` and the key file. The same by hand: `pnpm --filter @willowsum/api
+  works as before; tell the lead the module and the count. Only one run at a time: while one (a replacement or
+  `--abort`) is running, a second is refused («Another kms:rotate-data-keys run … is using this database», exit 2)
+  and changes nothing. It refuses to run without `WS_REAL_DATA=true` and the key file. The same by hand: `pnpm --filter @willowsum/api
   kms:rotate-data-keys [--dry-run | --abort] [--batch-size N]` with the processes' configuration and the processes stopped.
   After it reports «Replaced the data keys of N of N space(s)…» **delete every copy of the database made before** and
   make a new one: the old copies hold the old data keys, which the repository opens.
@@ -177,6 +179,8 @@ Docker стирає її без вороття, тому час від часу 
    (пошкоджене ще до заміни), зупиняє цей простір до початку: звіт називає лише модуль і кількість
    («… open with neither key (accounts: 1) …»), простір лишається зі старим ключем і працює як раніше. Перешліть
    модуль і кількість ведучому; інші простори замінюються як звичайно.
+   Одночасно працює лише один запуск: поки триває заміна або `--abort`, другий запуск відмовляє («Another
+   kms:rotate-data-keys run … is using this database», код 2) і нічого не змінює.
 4. **Видаліть усі копії бази, зроблені до заміни** (кожен старий `.dump` у `~/Willowsum-backups`, на інших дисках, у
    хмарі), потім зробіть нову копію: `pnpm local:backup`. Файл ключа лишається тим самим — нова копія файлу ключа не
    потрібна.

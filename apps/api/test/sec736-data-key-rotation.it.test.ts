@@ -26,8 +26,8 @@ import {
 import { directoryObjectStorage } from "../src/platform/adapters/object-storage/index.ts";
 import { modulePasswordVariable } from "../src/platform/config/config.ts";
 import type { ModuleDatabases } from "../src/platform/db/module-db.ts";
-import type { ResealPart } from "../src/platform/modules/reseal.ts";
-import { resealParts } from "../scripts/lib/kms-rotate-data-keys.ts";
+import { sealedColumnsPart, type ResealPart } from "../src/platform/modules/reseal.ts";
+import { KMS_ROTATE_BUSY, KMS_ROTATE_LOCK, resealParts } from "../scripts/lib/kms-rotate-data-keys.ts";
 import { createTestDatabase } from "./db.ts";
 import { leakText } from "./leak-text.ts";
 import { apiDir, migrateRealModules, openRealModules, realModules } from "./real-modules.ts";
@@ -502,5 +502,214 @@ describe("NFR-01@PoC FR 3 (review round 1 of #736): the way out of an unfinished
     expect(await rotationRow(h)).toBeUndefined();
     expect((await keyRow(h))!.key_id).not.toBe(oldKey!.key_id);
     await allOpen(h);
+  });
+});
+
+describe("NFR-01@PoC FR 3 (security review round 2 of #736): --abort", () => {
+  const abort = (
+    keys: SpaceKeys = keysWith(installation),
+    p: readonly ResealPart[] = parts(),
+    batchSize = 1,
+  ) => keys.abortDataKeyRotations({ source, parts: p, batchSize });
+  const stopAt = (name: string) =>
+    parts().map((part) =>
+      part.name !== name ? part : { ...part, reseal: () => Promise.reject(new Error("stopped")) },
+    );
+
+  it("NFR-01@PoC FR 3: --abort after the keys are swapped changes nothing — the new key and every value stay", async () => {
+    const h = await makeSpace(legacy);
+    await rotate(keysWith(installation));
+    expect(await rotationRow(h)).toBeUndefined();
+    const [before, key] = [await snapshot(h), await keyRow(h)];
+    await abort();
+    expect(await snapshot(h)).toEqual(before);
+    expect(await keyRow(h)).toEqual(key);
+    await allOpen(h);
+  });
+
+  it("NFR-01@PoC FR 3: --abort after two parts finished brings every value back under the old key; a repeat changes nothing", async () => {
+    const h = await makeSpace(legacy);
+    const oldKey = await keyRow(h);
+    await rotate(keysWith(installation), stopAt("import-sessions"));
+    expect((await rotationRow(h))!.done_parts).toEqual(["accounts", "import-recipes"]);
+    const r = await abort();
+    expect(r.aborted).toBeGreaterThanOrEqual(1);
+    expect(await rotationRow(h)).toBeUndefined();
+    expect(await keyRow(h)).toEqual(oldKey);
+    const legacyKeys = keysWith(legacy);
+    for (const v of seeded.get(h)!) expect(await v.open(legacyKeys, await v.read())).toBe(v.plain);
+    const once = await snapshot(h);
+    await abort();
+    expect(await snapshot(h)).toEqual(once);
+    expect(await keyRow(h)).toEqual(oldKey);
+  });
+
+  it("NFR-01@PoC FR 3: an --abort stopped in the middle is finished by a repeat", async () => {
+    const h = await makeSpace(legacy);
+    const oldKey = await keyRow(h);
+    expect(await rotate(keysWith(installation), stopAt("file-storage"))).toMatchObject({ rotated: 0 });
+    const first = await abort(keysWith(installation), stopAt("import-recipes"));
+    expect(first.failed).toBeGreaterThanOrEqual(1);
+    expect(await rotationRow(h)).toBeDefined();
+    await abort();
+    expect(await rotationRow(h)).toBeUndefined();
+    expect(await keyRow(h)).toEqual(oldKey);
+    const legacyKeys = keysWith(legacy);
+    for (const v of seeded.get(h)!) expect(await v.open(legacyKeys, await v.read())).toBe(v.plain);
+  });
+
+  it("NFR-01@PoC FR 3, ARC-03: --abort leaves the values and keys of the other spaces byte for byte", async () => {
+    const safe = await makeSpace(installation);
+    const exposedIdle = await makeSpace(legacy);
+    const h = await makeSpace(legacy);
+    // Only h is stopped mid-replacement; exposedIdle is first replaced fully.
+    const onlyH = parts().map((part) =>
+      part.name !== "import-recipes"
+        ? part
+        : {
+            ...part,
+            reseal: (householdId: string, ...rest: [Parameters<ResealPart["reseal"]>[1], number]) =>
+              householdId === h ? Promise.reject(new Error("stopped")) : part.reseal(householdId, ...rest),
+          },
+    );
+    await rotate(keysWith(installation), onlyH);
+    expect(await rotationRow(h)).toBeDefined();
+    const snaps = [await snapshot(safe), await snapshot(exposedIdle)];
+    const keysBefore = [await keyRow(safe), await keyRow(exposedIdle)];
+    await abort();
+    expect([await snapshot(safe), await snapshot(exposedIdle)]).toEqual(snaps);
+    expect([await keyRow(safe), await keyRow(exposedIdle)]).toEqual(keysBefore);
+    await allOpen(safe);
+    await allOpen(exposedIdle);
+  });
+
+  it("NFR-01@PoC FR 3: --abort leaves a value neither key opens as it is and counts it", async () => {
+    const h = await makeSpace(legacy);
+    const other = await makeSpace(installation);
+    await rotate(keysWith(installation), stopAt("import-sessions"));
+    expect(await rotationRow(h)).toBeDefined();
+    const last = [...accountIds.get(h)!].sort().at(-1)!;
+    await owner.query("UPDATE accounts.accounts SET number_sealed = $3 WHERE household_id = $1 AND id = $2", [
+      h,
+      last,
+      await seeded.get(other)![0]!.read(),
+    ]);
+    const r = await abort();
+    expect(r.unopenable).toBeGreaterThanOrEqual(1);
+    expect(await rotationRow(h)).toBeUndefined();
+  });
+});
+
+describe("NFR-01@PoC FR 3 (security review round 2 of #736): one run at a time", () => {
+  const runCommand = async (args: string[]) => {
+    const u = new URL(db.url);
+    const child = spawn(process.execPath, ["scripts/kms-rotate-data-keys.ts", ...args], {
+      cwd: apiDir,
+      env: {
+        PATH: process.env["PATH"] ?? "",
+        WS_DB_HOST: u.hostname,
+        WS_DB_PORT: u.port || "5432",
+        WS_DB_NAME: u.pathname.slice(1),
+        WS_DB_SSL: "false",
+        WS_DB_PROBE_PASSWORD: password,
+        WS_DB_CONTEXT_PASSWORD: password,
+        ...Object.fromEntries(realModules.map((m) => [modulePasswordVariable(m), password])),
+        WS_REAL_DATA: "true",
+        WS_KMS_KEY_FILE: keyFile,
+        WS_FILES_DIR: filesDir,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let out = "";
+    child.stdout!.on("data", (d) => (out += d));
+    child.stderr!.on("data", (d) => (out += d));
+    const code = await new Promise<number | null>((resolve) => child.on("exit", resolve));
+    return { code, out };
+  };
+
+  it("NFR-01@PoC FR 3: while another run holds the database, --abort and a replacement are refused and change nothing", async () => {
+    const h = await makeSpace(legacy);
+    const stop = parts().map((part) => ({ ...part, reseal: () => Promise.reject(new Error("stopped")) }));
+    await rotate(keysWith(installation), stop);
+    const [before, key, rotation] = [await snapshot(h), await keyRow(h), await rotationRow(h)];
+    expect(rotation).toBeDefined();
+    const holder = new pg.Client({ connectionString: db.url });
+    await holder.connect();
+    try {
+      await holder.query("SELECT pg_advisory_lock(hashtext($1))", [KMS_ROTATE_LOCK]);
+      for (const args of [["--abort"], []]) {
+        const { code, out } = await runCommand(args);
+        expect(code).toBe(2);
+        expect(out).toContain(KMS_ROTATE_BUSY);
+      }
+      expect(await snapshot(h)).toEqual(before);
+      expect(await keyRow(h)).toEqual(key);
+      expect(await rotationRow(h)).toEqual(rotation);
+    } finally {
+      await holder.end();
+    }
+    // The lock goes with the session: the next run goes ahead.
+    const { code } = await runCommand(["--abort"]);
+    expect(code).toBe(0);
+    expect(await rotationRow(h)).toBeUndefined();
+  });
+});
+
+describe("NFR-01@PoC FR 3 (security review round 2 of #736): guards of the abort and the parts", () => {
+  it("NFR-01@PoC FR 3: an abort does not discard a replacement begun after its own pass (it refuses, the new one stays)", async () => {
+    const h = await makeSpace(legacy);
+    const stopLast = () =>
+      parts().map((part) =>
+        part.name !== "file-storage" ? part : { ...part, reseal: () => Promise.reject(new Error("stopped")) },
+      );
+    await rotate(keysWith(installation), stopLast());
+    let second: { new_key_id: string } | undefined;
+    const racing = parts().map((part) =>
+      part.name !== "file-storage"
+        ? part
+        : {
+            ...part,
+            reseal: async (
+              householdId: string,
+              resealer: Parameters<ResealPart["reseal"]>[1],
+              batchSize: number,
+            ) => {
+              if (householdId === h && !second) {
+                // Meanwhile: the first replacement is undone and a new one begins and seals three parts.
+                await keysWith(installation).abortDataKeyRotations({ source, parts: parts(), batchSize: 1 });
+                await rotate(keysWith(installation), stopLast());
+                second = await rotationRow(h);
+              }
+              return part.reseal(householdId, resealer, batchSize);
+            },
+          },
+    );
+    await keysWith(installation).abortDataKeyRotations({ source, parts: racing, batchSize: 1 });
+    expect(second).toBeDefined();
+    expect((await rotationRow(h))?.new_key_id).toBe(second!.new_key_id);
+    expect(await rotate(keysWith(installation))).toMatchObject({ rotated: expect.any(Number) as number });
+    expect(await rotationRow(h)).toBeUndefined();
+    await allOpen(h);
+  });
+
+  it("NFR-01@PoC FR 3, ARC-03: a sealed column whose statements are not bound to the space or do not lock is refused", () => {
+    const ok = {
+      keys: ["id"],
+      column: "v",
+      select: "SELECT id, v FROM t WHERE household_id = $1 AND id > $2 ORDER BY id LIMIT $3 FOR UPDATE",
+      update: "UPDATE t SET v = $3 WHERE household_id = $1 AND id = $2",
+      count: "SELECT count(*)::text AS n FROM t WHERE household_id = $1",
+      sealedFor: { kind: "field", field: "f" },
+    } as const;
+    const db = { inHousehold: () => Promise.reject(new Error("unused")) };
+    expect(() => sealedColumnsPart("p", db, [ok])).not.toThrow();
+    for (const bad of [
+      { ...ok, select: ok.select.replace("household_id = $1 AND ", "") },
+      { ...ok, update: "UPDATE t SET v = $3 WHERE id = $2" },
+      { ...ok, count: "SELECT count(*)::text AS n FROM t" },
+      { ...ok, select: ok.select.replace(" FOR UPDATE", "") },
+      { ...ok, keys: [] },
+    ])
+      expect(() => sealedColumnsPart("p", db, [bad])).toThrow(/bound to the space/);
   });
 });

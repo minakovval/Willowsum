@@ -36,6 +36,15 @@ export const ROTATED_COPIES_WARNING =
   "hold the old data keys, which the fixed-label test key in the repository opens: delete those copies everywhere " +
   "they are kept, then make a new one (`pnpm local:backup`)";
 
+/**
+ * One run at a time (review of #736): a rotation and an abort of the same space at once lose values — the abort
+ * discards the new key the rotation is still sealing with. Every run holds this session advisory lock of the database
+ * from start to end (it goes with the session, so a killed run leaves none); a second run is refused.
+ */
+export const KMS_ROTATE_LOCK = "willowsum:kms-rotate-data-keys";
+export const KMS_ROTATE_BUSY =
+  "Another kms:rotate-data-keys run (a replacement or --abort) is using this database: let it finish, then run this again";
+
 export interface KmsRotateCommand {
   readonly dryRun: boolean;
   /** Undo every unfinished replacement instead (the values back under the old key, the new key discarded). */
