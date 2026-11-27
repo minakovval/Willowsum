@@ -3179,6 +3179,135 @@
       "w": 1280,
       "x": 5440,
       "y": 55110
+    },
+    "PocMoneyRulesHistory.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-197 Правила категорій · з історії",
+      "w": 1280,
+      "x": 0,
+      "y": 88280
+    },
+    "PocMoneyRulesHistoryTexts.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "S-197 Правила категорій · з історії · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 88280
+    },
+    "PocMoneyHistoryUpload.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-298 Завантажити файл історії",
+      "w": 1280,
+      "x": 0,
+      "y": 89430
+    },
+    "PocMoneyHistoryUploadTexts.dc.html": {
+      "h": 1150,
+      "page": "poc",
+      "title": "S-298 Завантажити файл історії · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 89430
+    },
+    "PocMoneyImport1History.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-300 Імпорт · питання про файл історії",
+      "w": 1280,
+      "x": 0,
+      "y": 90580
+    },
+    "PocMoneyImport1HistoryTexts.dc.html": {
+      "h": 1000,
+      "page": "poc",
+      "title": "S-300 Імпорт · питання про файл історії · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 90580
+    },
+    "PocMoneyHistoryReview.dc.html": {
+      "h": 2280,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-299 Файл історії · Перевірка розпізнавання",
+      "w": 1280,
+      "x": 0,
+      "y": 91730
+    },
+    "PocMoneyHistoryReviewError.dc.html": {
+      "h": 970,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-299 Файл історії · бракує колонок",
+      "w": 1280,
+      "x": 1360,
+      "y": 91730
+    },
+    "PocMoneyHistoryReviewTexts.dc.html": {
+      "h": 3050,
+      "page": "poc",
+      "title": "S-299 Файл історії · Перевірка розпізнавання · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 91730
+    },
+    "PocMoneySuggestions.dc.html": {
+      "h": 1700,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-301 Пропозиції правил",
+      "w": 1280,
+      "x": 0,
+      "y": 94180
+    },
+    "PocMoneySuggestionsStates.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-301 Пропозиції правил · стани",
+      "w": 1280,
+      "x": 1360,
+      "y": 94180
+    },
+    "PocMoneySuggestionsTexts.dc.html": {
+      "h": 2300,
+      "page": "poc",
+      "title": "S-301 Пропозиції правил · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 94930
+    },
+    "PocMoneySuggestionAccept.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-302 Прийняти правила",
+      "w": 1280,
+      "x": 0,
+      "y": 96130
+    },
+    "PocMoneySuggestionEdit.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-198 Правило категорії · зміна пропозиції",
+      "w": 1280,
+      "x": 1360,
+      "y": 96130
+    },
+    "PocMoneySuggestionAcceptTexts.dc.html": {
+      "h": 1300,
+      "page": "poc",
+      "title": "S-302 Прийняти правила · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 97230
     }
   },
   "createdOnFiles": {
@@ -4629,6 +4758,21 @@
     "PocDataImport5.dc.html",
     "PocMoneyTxTexts.dc.html",
     "PocMoneyRulesTexts.dc.html",
+    "PocMoneyRulesHistory.dc.html",
+    "PocMoneyRulesHistoryTexts.dc.html",
+    "PocMoneyHistoryUpload.dc.html",
+    "PocMoneyHistoryUploadTexts.dc.html",
+    "PocMoneyImport1History.dc.html",
+    "PocMoneyImport1HistoryTexts.dc.html",
+    "PocMoneyHistoryReview.dc.html",
+    "PocMoneyHistoryReviewError.dc.html",
+    "PocMoneyHistoryReviewTexts.dc.html",
+    "PocMoneySuggestions.dc.html",
+    "PocMoneySuggestionsStates.dc.html",
+    "PocMoneySuggestionsTexts.dc.html",
+    "PocMoneySuggestionAccept.dc.html",
+    "PocMoneySuggestionEdit.dc.html",
+    "PocMoneySuggestionAcceptTexts.dc.html",
     "PocTableTexts.dc.html"
   ],
   "pages": [
