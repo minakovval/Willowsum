@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-19
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-27
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -13,108 +13,82 @@ missing, not to confirm the author's summary.
 ## 1. Load
 
 1. `AGENTS.md` (hard rules, Definition of Done).
-2. The PR: title, body, diff, CI status (GitHub tools). Take the requirement ID from the title.
-3. The requirement: `node tools/req-check/index.mjs --show <ID>@<release>` (the view of the target release,
-   its dependencies, the decisions that cite it, its coverage line), not the source `<ID>.md`, which merges
-   every release; for one not migrated yet, its single file. Plus only the sections of `docs/requirements/00-general.md` it
-   relies on.
+2. The requirement, **before** the PR body: `node tools/req-check/index.mjs --show <ID>@<release>` (the view of
+   the target release, its dependencies, decisions and coverage line), not the source `<ID>.md`; for a
+   requirement not migrated yet, its single file. Plus only the `docs/requirements/00-general.md` sections it
+   relies on. The ID is in the PR title.
+3. The PR: title, body, diff, CI status. Read the rest of the module only when a finding needs it.
 
-Read the requirement **before** the PR body, so the author's framing does not anchor you.
+**Scope on a `sensitive` PR**: you cover the requirement (FR, AC, EC and their tests), the logic and the tests.
+Security properties (data isolation, authentication, permissions, encryption, secrets, money guards) and mutation
+testing are the `security-review` session's: a security suspicion you notice goes into your review as one pointer
+line for that reviewer, not as your own finding. The owner decision and the owner's approval for cloud or
+production stay with you on every PR. On a PR without the label you check the hard rules in full (§3).
 
-**Scope on a `sensitive` PR** (owner, 2026-11-13): you cover the requirement (FR, AC, EC and their tests), the
-logic and the tests. Security properties (data isolation, authentication, permissions, encryption, secrets,
-money guards) are the `security-review` session's: do not duplicate its work; a security suspicion you notice
-goes into your review as one pointer line for that reviewer, not as your own finding. The owner decision and
-the owner's approval for cloud or production stay with you on every PR (the security reviewer does not check
-them). On a PR without the label
-you check the hard rules in full («3. Check the hard rules»).
+**Re-review**: only the fixes and your own previous findings — the diff since the head you last reviewed (§6).
+At most two rounds (§5).
 
-**Re-review** (owner, 2026-11-12): check only the fixes and your own previous findings — the diff since the
-head you last reviewed — not the whole PR again. When only the fixes changed, the lead resumes your session for it
-(owner, 2026-11-16, «2 а»; `pr-pipeline` token economy, item 2). There are at most two rounds; see «5. Report» and
-«6. Confirmation rounds».
-
-Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
-(`pr153-review/`), never a generic name like `body.md`. You do not edit the PR body, except «Reviewer patches» (§7).
+Scratchpad files: only under a prefix unique to the PR and role (`pr153-review/`), never a generic name like
+`body.md`. You do not edit the PR body, except «Reviewer patches» (§7).
 
 ## 2. Check coverage
 
-Build a table: every acceptance criterion and edge case in the requirement → the test that covers it →
-does the test actually assert the behaviour (not just render)? Missing or weak rows are findings. Start from
+Build a table: every acceptance criterion and edge case of the requirement → the test that covers it → does the
+test assert the behaviour (not just render)? Missing or weak rows are findings. Start from
 `node tools/req-check/index.mjs --coverage` (tests named by item, e.g. `BUD-03@PoC AC2`), then read the tests.
-A test named by a number that is not the item it tests is non-blocking unless it hides a missing criterion.
-Time-dependent tests: a test must not re-read `Date.now()` to choose a time window (rate limits, expiry): it fixes the time once per test or injects a clock (re-reading it made CI flaky at minute boundaries, PR #92).
-If the PR covers only part of the requirement, the body must say which criteria are left.
-Mutation testing is required only for critical modules: data isolation, money, authentication, encryption
-(owner, 2026-11-12); do not ask for it elsewhere.
+- A test named by a number that is not the item it tests is non-blocking unless it hides a missing criterion.
+- A test must not re-read `Date.now()` to choose a time window (rate limits, expiry): it fixes the time once or
+  injects a clock.
+- If the PR covers only part of the requirement, the body must say which criteria are left.
+- Mutation testing: never on a `sensitive` PR (the `security-review` session does it), and do not ask for it
+  outside critical modules (data isolation, money, authentication, encryption).
 
 ## 3. Check the hard rules
 
 A finding is blocking only if it is a security bypass, data loss or leak, or a violation of the requirement
-the PR claims (its FR/AC) or of a shared rule (AGENTS.md, П-rules) (owner, 2026-11-12). Everything else is
-non-blocking.
+the PR claims (its FR/AC) or of a shared rule (AGENTS.md, П-rules). Everything else is non-blocking.
 
 Go through [the full checklist](references/hard-rules-checklist.md) (read at every review; it lists the
-blocking cases of each area): money (no floats, dated rates), plans (entitlement interface, `402`), scope and
-roles (no leak of out-of-scope records, counts or sums), audit, privacy, vault, security, module boundaries,
+blocking cases of each area): money, plans, scope and roles, audit, privacy, vault, security, module boundaries,
 design before code, UI states and i18n, ledger (ARC-11), module card, **owner decision and the owner's approval
-for cloud or production** (checked here, also on `sensitive` PRs; lead, follow-up of #166), tests never skipped
-or weakened, requirement changes (`--impact`, sources only, views regenerated, traceability files never
-committed), new dependencies justified.
+for cloud or production** (also on `sensitive` PRs), tests never skipped or weakened, requirement changes
+(`--impact`, sources only, views regenerated, traceability files never committed), new dependencies justified.
 
-**UI texts** (PR that changes `packages/i18n/src/messages/uk.ts`, `apps/web` or `packages/ui`; Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-requirements-and-texts.md))): each
-new or changed `uk.ts` string equals, word for word, the chosen text of its screen's «Тексти» block on the canvas
-(live, or the snapshot the PR body names); a text the author added there as «варіант від агента, потребує
-погодження» is listed in the PR body; `en.ts` translates `uk.ts`; the PR adds no UI text to requirement sources.
-A mismatch breaks the shared rule (`docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва — єдине джерело») and is
-blocking. A screen with no «Тексти» block yet: the author moves the texts there in this PR (same rule).
+**UI texts** (a PR that changes `packages/i18n/src/messages/uk.ts`, `apps/web` or `packages/ui`): each new or
+changed `uk.ts` string equals, word for word, the chosen text of its screen's «Тексти» block on the canvas (live,
+or the snapshot the PR body names); a text the author added there as «варіант від агента, потребує погодження» is
+listed in the PR body; `en.ts` translates `uk.ts`; the PR adds no UI text to requirement sources. A screen with no
+«Тексти» block yet: the author moves the texts there in this PR. A mismatch breaks the shared rule
+(`docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва — єдине джерело») and is blocking.
 
-**UI screenshot** (owner, 2026-11-19; rule: [screen-from-canvas](../screen-from-canvas/SKILL.md) §6). On a PR that changes a screen or a shared UI component, open the 1280 px screenshot whose path the PR body gives and compare it with the canvas board named in the requirement or card: long names and texts wrap or truncate as on the board, nothing is one letter per line, overlapped or cut off. A missing screenshot (no path in the body, a file that does not open, not made by the Playwright step, or without long texts) is blocking, as is a layout break visible in it (it violates a shared rule).
-
+**UI screenshot** (a PR that changes a screen or a shared UI component; rule:
+[screen-from-canvas](../screen-from-canvas/SKILL.md) §6): open the 1280 px screenshot whose path the PR body
+gives and compare it with the canvas board named in the requirement or card: long names and texts wrap or
+truncate as on the board, nothing is one letter per line, overlapped or cut off. Blocking: a missing screenshot
+(no path in the body, a file that does not open, not made by the Playwright step, or without long texts) and a
+layout break visible in it.
 
 ## 4. Verify, do not speculate
 
-For each suspected defect, trace a concrete path (input or caller → wrong result). Run the relevant tests
-locally if needed. Drop findings you cannot support. Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts). Integration tests: Cloud sessions have no Docker, so `pnpm db:test` fails there unless the admin URL is given:
-`WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
-(`infra/local/README.md`).
-Load probes that need the database run only through `pnpm db:test run -- …`, each on its own database; never on a
-hand-made database (owner, 2026-11-14, #178, «так, 1–4 так, пункт 3 як пробні 2 запуски»). Mutants and repeated
-runs: Рішення власника (2026-11-15; #178, comment 6896768536; #226; #178 comment 6883738878).
-
-**Rely on CI for the full suites** (owner, 2026-11-13): do not rerun the full suites (`pnpm test`,
-`pnpm test:integration`, `pnpm test:e2e`, all of `tools/*`): CI runs them on the head. Run only the tests of the
-files the PR touches, plus mutation testing (critical modules), browser checks and targeted checks of a path you
-suspect. The review states in one line what it relied on CI for: the jobs and their result on the reviewed head
-(«CI relied on: requirements, web, api, e2e — green on <SHA>»; a job not finished or red is named as such).
-
-Servers, databases and background processes: only your slot's ports, your own `pnpm db:test` databases and
-your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
+For each suspected defect, trace a concrete path (input or caller → wrong result); run the relevant tests if
+needed. Drop findings you cannot support.
+- Before tests: `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start`.
+- Integration tests and load probes that need the database: only through `pnpm db:test run -- …`, each on its
+  own database, never a hand-made one. Cloud sessions have no Docker, so give the admin URL:
+  `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
+  (`infra/local/README.md`).
+- **Rely on CI for the full suites**: do not rerun `pnpm test`, `pnpm test:integration`, `pnpm test:e2e` or all
+  of `tools/*`. Run only the tests of the files the PR touches, browser checks and targeted checks of a path you
+  suspect. The review states in one line what it relied on CI for («CI relied on: requirements, web, api, e2e —
+  green on <SHA>»; a job not finished or red is named as such). Red CI is a finding only when the change caused it.
+- Servers, databases and background processes: only your slot's ports, your own `pnpm db:test` databases and
+  your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
 
 ## 5. Report
 
-Post one PR review:
-- **Blocking** — only as defined in «3. Check the hard rules»; each with file:line and the failing path.
-- **Non-blocking** — everything else. Record it as a follow-up only when the item is about money, data or security,
-  or breaks a requirement item: the author lists it under «Follow-ups» in the PR body and the lead opens the issue.
-  Anything smaller the author fixes in the same fix round; with no fix round you apply it per §7 (within its
-  limits), or it is not recorded. Non-blocking items never start a new round by themselves. Only in the tier
-  Фундамент you may mark an item «cheap and safe to fold in»; the lead decides whether it goes in before merge
-  (AGENTS.md step 7; tiers: [merge rules](../../references/merge-rules.md), «Review tiers»).
-- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)). When it applies: process limits.
-- A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
-- The coverage table.
-- Questions for the owner where the requirement itself is unclear on a real product question; small
-  details the author decided and recorded are not owner questions.
-
-Name the head commit you reviewed (full SHA) at the top of the review. End the review with the verdict on a
-line of its own: `Verdict: Changes requested` if anything is blocking, otherwise `Verdict: Ready`; post it as
-the review summary. A security review (sensitive areas) ends instead with a line `Security verdict: Ready` or
-`Security verdict: Changes requested`. Never write these lines inside quotes or code, and never write a line
-«Схвалюю» or «Approved»: that line is the owner's alone. The daily check of `main` (ADR-0008) reads exactly
-these lines.
-
-Post one PR review of this shape (a confirmation of a sensitive PR by one agent posts two PR reviews with commit_id, one per verdict line; pr-pipeline step 5, owner, 2026-11-14, #178):
+Post **one** PR review on the head, never an issue comment: write the text to your scratchpad file and run
+`gh api repos/{owner}/{repo}/pulls/<n>/reviews -f commit_id=<head SHA> -f event=COMMENT -F body=@<file>`
+(`-F` sends the file's text). The same for every confirmation round. Shape:
 
 ```
 Reviewed head: <full SHA>
@@ -127,27 +101,33 @@ Verdict: Ready
 _Generated by [Claude Code](https://claude.ai/code)_
 ```
 
-When something blocks, the verdict line is `Verdict: Changes requested` instead.
+- **Blocking** — only as defined in §3; each with file:line and the failing path.
+- **Non-blocking** — everything else. It is a follow-up only when it is about money, data or security, or
+  breaks a requirement item: the author lists it under «Follow-ups» in the PR body and the lead opens the issue.
+  Anything smaller the author fixes in the same fix round; with no fix round you apply it per §7 (within its
+  limits), or it is not recorded. Non-blocking items never start a new round by themselves. Only in the tier
+  Фундамент you may mark an item «cheap and safe to fold in»; the lead decides ([merge rules](../../references/merge-rules.md)).
+- A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
+- A blocking finding you can fix: give the verified patch and its test (in the review or a scratchpad file the
+  review names), so the fix agent applies it as given.
+- The coverage table.
+- Questions for the owner only where the requirement itself is unclear on a real product question; small details
+  the author decided and recorded are not owner questions.
+- A `sensitive` PR that has had no security review: say so.
 
-**Post it as a PR review on the head, never as an issue comment** (owner, 2026-11-14, #178; in #185 it went to
-the issue): write the text to your scratchpad file and run
-`gh api repos/{owner}/{repo}/pulls/<n>/reviews -f commit_id=<head SHA> -f event=COMMENT -F body=@<file>`
-(`-F`, so the file's text is sent). The same for every confirmation round.
+**Verdict line**: the last line before the footer, on its own line, never inside quotes or code:
+`Verdict: Changes requested` if anything is blocking, otherwise `Verdict: Ready` (a security review ends with
+`Security verdict: …` instead; one agent confirming a `sensitive` PR posts two reviews, one per verdict line).
+Never write «Схвалюю» or «Approved»: that line is the owner's alone. The lead merges only on a verdict that
+names the PR head, so every later commit needs a confirmation (§6; exceptions: `pr-pipeline` merge checklist).
 
-**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`, `Verdict: Ready` or `Verdict: Changes requested`, `Blocking: <file:line …, or —>`, `Owner questions: <… or —>`, `Checks: <what you ran>`. Everything else (non-blocking items, the coverage table) stays in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
+**At most two rounds.** If something blocking remains after round 2, give a ready fix with a test (a patch or
+exact code) and `Verdict: Changes requested`; after the author applies it, confirm that fix briefly, with a
+verdict that names the final head SHA.
 
-**At most two rounds** (owner, 2026-11-12). If something blocking remains after round 2, give a ready fix
-with a test in the review (a patch or exact code) and the verdict `Changes requested`; after the author
-applies it, confirm that specific fix briefly, with a verdict that names the final head SHA.
-
-The lead merges (AGENTS.md step 7, owner, 2026-11-13) only after «Ready» given on the commit being merged:
-it compares the SHA your review names with the PR head, and any later commit needs a re-review of that
-commit (owner, 2026-11-12), except a docs-only sync that leaves the PR's diff unchanged: the lead's own check
-and review stand in for it (owner, 2026-11-13; [merge rules](../../references/merge-rules.md)); the same for a
-code PR without `sensitive` with a byte-identical diff and green CI (owner, 2026-11-16; merge rules) and for a
-`sensitive` PR whose sync is mechanical and brought no foundation file (owner, 2026-11-16, «1 б»; merge rules). Once the merge conditions in AGENTS.md step 7 hold, the lead does not ask the
-owner to confirm the merge; it merges at once and tells the owner. A PR labelled `sensitive` (CI sets it from file paths) also needs
-a separate security review — say so if it has not had one; other PRs need none (owner, 2026-11-12).
+**Report to the lead**, once, at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`,
+`Verdict: Ready` or `Verdict: Changes requested`, `Blocking: <file:line …, or —>`, `Owner questions: <… or —>`,
+`Checks: <what you ran>`. Everything else stays in the review.
 
 GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
 happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
@@ -160,24 +140,25 @@ mechanical by a tree comparison; the verdict names the new head. Procedure and w
 
 ## 7. Reviewer patches
 
-An exception to «review runs in another session» (AGENTS.md, «Process» step 5); this is the only place with the
-rule, `security-review` and the others link here. You apply small patches to the PR branch yourself:
+The only exception to «review runs in another session» (AGENTS.md step 5); other skills link here. You apply
+small patches to the PR branch yourself:
 1. Only in tests, texts, comments, docs, markup and screen styles. Never in a sensitive path, tests included
-   (the categories and globs: `SENSITIVE_PATHS` in `tools/pr-rules/lib/paths.mjs`, e.g. `tools/pr-rules`,
-   migrations, auth), and never in a **security test** or a **rule file**: there a small item goes through the
-   normal fix round (the reviewer may hand the author the ready patch). Security test = a test file (`.test.` or
-   `.spec.`, its snapshot too) whose name starts with `isolation` or has a `security` or `sec<N>…` part, with
-   `.it` or without (`isolation*.test.ts`, `sec*-*.test.ts`, `security-*.test.ts`), **or** is one of these by
-   content (owner, 2026-11-19), by name: `adr0013-append-only.it.test.ts`, `bypass.it.test.ts`,
-   `no-network.test.ts`, `no-network-loaded.test.ts`, `guard.it.test.ts`, `guard-coverage.it.test.ts`, `guard-gates.it.test.ts`,
-   `leak-check-guard.test.ts`, `leak-text.test.ts`, `redaction.test.ts`; rule file = `AGENTS.md`, `CLAUDE.md`,
-   `CLAUDE.local.md` and `.claude/**`, in any folder and any letter case. E2e tests (`apps/web/e2e/**`) stay
-   allowed. The check is `reviewerPatchViolations` in `tools/pr-rules/lib/reviewer-patches.mjs` (a helper, not
-   in CI yet: check your own commit against this text).
-   A patch never switches a test off, deletes a test file, removes or changes a test, suite or assertion, and never
-   adds a directive comment: the list in [security-review](../security-review/SKILL.md) §0 «Light confirmation»
-   applies in full (a changed test title is a text patch and stays allowed).
+   (`SENSITIVE_PATHS` in `tools/pr-rules/lib/paths.mjs`, e.g. `tools/pr-rules`, migrations, auth), and never in a
+   **security test** or a **rule file**: there a small item goes through the normal fix round (you may hand the
+   author the ready patch).
+   - Security test = a test file (`.test.` or `.spec.`, its snapshot too) whose name starts with `isolation` or
+     has a `security` or `sec<N>…` part, with `.it` or without, **or** is one of: `adr0013-append-only.it.test.ts`,
+     `bypass.it.test.ts`, `no-network.test.ts`, `no-network-loaded.test.ts`, `guard.it.test.ts`,
+     `guard-coverage.it.test.ts`, `guard-gates.it.test.ts`, `leak-check-guard.test.ts`, `leak-text.test.ts`,
+     `redaction.test.ts`.
+   - Rule file = `AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md` and `.claude/**`, in any folder and any letter case.
+   - E2e tests (`apps/web/e2e/**`) stay allowed.
+   - The check is `reviewerPatchViolations` in `tools/pr-rules/lib/reviewer-patches.mjs` (a helper, not in CI:
+     check your own commit against this text).
+   - A patch never switches a test off, deletes a test file, removes or changes a test, suite or assertion, and
+     never adds a directive comment: the list in [security-review](../security-review/SKILL.md) §0 «Light
+     confirmation» applies in full (a changed test title is a text patch and stays allowed).
 2. One commit per reviewer per round, at the end of the review. At most 60 lines per PR, added plus deleted,
    across all reviewers; anything larger is a normal author fix round.
-3. Every patch is listed in the PR body under «Reviewer patches». The verdict names your new head SHA; the lead merges
-   only after green CI on that head.
+3. Every patch is listed in the PR body under «Reviewer patches». The verdict names your new head SHA; the lead
+   merges only after green CI on that head.

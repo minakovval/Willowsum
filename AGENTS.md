@@ -1,16 +1,14 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-19
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-27
 
-This is the single rule set for every agent (and human) changing this repository. It keeps the hard rules and
-the essentials; rarely needed parts are in `.claude/references/`, each linked below with «read when …». If a task conflicts with these rules, stop and ask the product owner.
+The single rule set for every agent and human changing this repository. Rarely needed parts are in
+`.claude/references/`, each linked with «read when …». If a task conflicts with these rules, stop and ask the owner.
 
-Willowsum is built from scratch, requirement by requirement, following the architecture (ARC) and delivery
-(CICD) requirements. Current phase: PoC development (design approved by the owner on 2026-11-06): build the PoC
-in the waves of the generated `release-poc.md` (see the table below) with the canvas (`design/canvas/`) as the
-visual reference. No code for a later release (PoC v2, MVP, …) until the owner has approved its design and
-started its development — [design before code](.claude/references/design-before-code.md) (read when you work
-on design or the canvas).
+Current phase: PoC development, in the waves of the generated `release-poc.md`, with the canvas
+(`design/canvas/`) as the visual reference. No code for a later release (PoC v2, MVP, …) until the owner has
+approved its design and started its development —
+[design before code](.claude/references/design-before-code.md) (read when you work on design or the canvas).
 
 ## Where things are
 
@@ -35,10 +33,9 @@ the owner's decision; never edit a view (run `node tools/req-check/index.mjs --v
 view). Before changing a requirement, screen or shared rule run `--impact <target>` and update or list every
 dependent slice (PRC-02; skill `change-requirement`).
 
-## Planned code layout
+## Code layout
 
-Created by the first tasks (ARC-01, ARC-07, CICD-02); follow it, do not invent another. `apps/web`, `packages/ui` and
-`packages/i18n` already exist (PoC shell; PoC development started 2026-11-06).
+Follow it, do not invent another. `apps/admin` and `apps/mobile` do not exist yet.
 
 | Path | Contents |
 | --- | --- |
@@ -56,7 +53,8 @@ Created by the first tasks (ARC-01, ARC-07, CICD-02); follow it, do not invent a
 
 Each module has a card (`README.md` in the module folder): purpose, requirement IDs, public interface,
 events published and consumed, owned tables. Start every task by reading the card; update it in the same
-PR when the interface changes. Create new modules only with the scaffold generator.
+PR when the interface changes. Its «Оновлено» line holds the date only: what changed goes in the PR body, not
+in that line. Create new modules only with the scaffold generator.
 
 Modules talk to each other only through their public interface and events. Never import another
 module's internals or touch its database schema. Shared code without business rules (money, dates, IDs,
@@ -67,7 +65,8 @@ errors) lives only in `packages/domain-kernel`.
 1. A task names one requirement ID (or a small group in one module). No ID → do not start.
 2. Load only the view of the target release (`--show <ID@release>` prints it with its dependencies,
    decisions and coverage), what its «Зв'язки» header names, the `00-general.md` sections it relies on, the
-   module card and that module's code. Wide searches: a read-only subagent; keep only its conclusion.
+   module card and that module's code. Wide searches: a read-only subagent when your agent type can start one
+   (keep only its conclusion), otherwise narrow greps.
 3. Follow `implement-requirement`. Tests first: one automated test per acceptance criterion and edge case.
 4. Branch `<ID>-<slug>` or the working branch the lead names; the PR title starts with the ID
    (`BUD-03: safe-to-spend widget`).
@@ -84,11 +83,11 @@ errors) lives only in `packages/domain-kernel`.
      requirement item; a smaller item is fixed in the same fix round or not recorded. Non-blocking items never start a
      round or a commit before the merge by themselves, except the reviewer patches above (merge
      rules, «Merge on Ready, follow up separately»).
-   - A re-review checks only the fixes and its own previous findings, in the same reviewer session when only the
-     fixes changed (`pr-pipeline` token economy, item 2). At most two rounds; after that
-     the reviewer supplies a ready fix with a test and confirms it with a verdict on the final head.
+   - A re-review checks only the fixes and its own previous findings (who does it: `pr-pipeline` step 5). At
+     most two rounds; after that the reviewer supplies a ready fix with a test and confirms it with a verdict on
+     the final head.
    - Mutation testing only for critical modules: data isolation, money, authentication, encryption (tier
-     Фундамент).
+     Фундамент). On a `sensitive` PR only the `security-review` session does it.
    - A recurring finding becomes a CI check or a test. Before pushing, run the local check for
      secret-shaped literals (CI job `secrets`) and, before pushing or setting a PR body,
      `git fetch origin main` and `node tools/pr-rules/index.mjs local --title "<title>" --body-file <file>`
@@ -99,19 +98,18 @@ errors) lives only in `packages/domain-kernel`.
    a job its path filter skips counts as passed — [CI minutes](.claude/references/ci-minutes.md), read when you
    change a workflow). Never skip, disable or weaken a test to get green.
 7. The lead merges (squash) only when CI is green on the latest commit and both verdicts are Ready **on that
-   exact head SHA**; any later commit needs a re-review (a sync that leaves the PR's diff unchanged — docs-only, a
-   code PR without `sensitive` with a byte-identical diff and green CI, or a `sensitive` PR whose sync is mechanical and brought no
-   foundation file — gets the lead's check and review instead, merge rules). A PR is
-   synced with `main` only when needed (`pr-pipeline` merge checklist, «Sync only when needed»). PRs that change requirements, AGENTS.md or skills
-   (label `owner-decision`) need the owner's decision recorded in the body and the decision log. Only what
-   acts on the cloud or production (`tofu apply`, deploy or release, the workflows and trust settings that do
-   it, production DNS) needs the owner's approval on the PR. Agents never write «Схвалюю» or «Approved», and
-   write `Рішення власника (YYYY-MM-DD): схвалено …` only for a decision the owner gave. Never push to `main`.
-   Full conditions, exceptions and «merge on Ready, follow up separately»:
+   exact head SHA**; any later commit needs a re-review, except a sync that leaves the PR's diff unchanged, which
+   gets the lead's check and review instead. Which syncs qualify, and when a PR is synced with `main` at all:
+   `pr-pipeline` merge checklist («The lead confirms a sync itself», «Sync only when needed»). PRs that change
+   requirements, AGENTS.md or skills (label `owner-decision`) need the owner's decision recorded in the body and
+   the decision log. Only what acts on the cloud or production (`tofu apply`, deploy or release, the workflows
+   and trust settings that do it, production DNS) needs the owner's approval on the PR. Agents never write
+   «Схвалюю» or «Approved», and write `Рішення власника (YYYY-MM-DD): схвалено …` only for a decision the owner
+   gave. Never push to `main`. Full conditions, exceptions and «merge on Ready, follow up separately»:
    [merge rules](.claude/references/merge-rules.md) (read when you merge or write «Owner decision»).
 
-The lead writes to the owner in chat only about a merge, a decision needed, a problem or the end of a session;
-no technical messages — `pr-pipeline`, «Мовчання в чаті».
+The lead writes to the owner in chat only about a merge, a decision needed, a problem or the end of a session
+(`pr-pipeline`, «Мовчання в чаті»).
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on its
 own, and list in the PR body which criteria are left.
@@ -119,12 +117,13 @@ own, and list in the PR body which criteria are left.
 **Parallel branches:** up to 7 working branches at a time — `claude/adoring-cray-feh4dh`
 and `claude/adoring-cray-feh4dh-<task>` — each in its own worktree with its own PR, test database
 (`pnpm db:test`; integration tests as `pnpm db:test run -- pnpm test:integration`, roles are cluster-wide) and
-the same rules; a branch is deleted after its PR is merged. How many agents run at once (up to 10, plus up to 8 additional Sonnet agents, owner, 2026-11-19), their slots and ports, and UI rows in parallel: `pr-pipeline` §3.
+the same rules; a branch is deleted after its PR is merged. At most 10 agents at once, plus up to 8 additional
+Sonnet agents; their slots and ports, and UI rows in parallel: `pr-pipeline` §3.
 
 **Skills** (`.claude/skills/`): `implement-requirement`, `review-pr`, `security-review`, `fix-review-findings`,
 `pr-pipeline`, `browser-task`, `sync-branch`, `change-requirement`, `deploy`, `screen-from-canvas`, `plan-wave`,
 `investigate-ci-failure` — what each does: [skills list](.claude/references/skills-list.md) (read when you pick a
-skill or add one). Token economy: `pr-pipeline`, «Token economy».
+skill or add one). Agent types for PR work (`.claude/agents/`): `pr-author`, `pr-reviewer` (`pr-pipeline` step 2).
 
 ## Hard rules
 

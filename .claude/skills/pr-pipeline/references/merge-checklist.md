@@ -26,7 +26,7 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    code depends on — at once. Among code PRs, a `sensitive` PR whose verdict is expected within ≈ 1 h merges first
    (the other is synced after it); if not so soon, merge the ready PR at once. While a `sensitive` PR in security
    review or a fix round is open, do not merge ahead of it a PR whose file list intersects its files; merge that
-   PR after it, unless it fixes a red `main` or a security issue, or the owner says otherwise (owner, 2026-11-27).
+   PR after it, unless it fixes a red `main` or a security issue, or the owner says otherwise.
    **Sync only when needed** (full syncs and their review rounds were the largest waste).
    Before every merge check `mergeable_state` (`dirty` is a conflict, CI
    does not run on it, #249; `unknown` → ask again after a few seconds; the script does it) and run the check below. Sync only when the
@@ -35,7 +35,7 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    migrations of a module the PR touches. `packages/api-contract/openapi.json` and `src/schema.ts` need no sync by
    themselves: «Contract check on main» (`.github/workflows/main-contract-check.yml`) runs `pnpm contract:check` and
    `pnpm typecheck` after every push to `main`, so a broken contract or a client that no longer compiles shows up at
-   once as a red `main` (owner, 2026-11-20). Otherwise merge with `behind_by` > 0, no sync, no confirmation (CI green and the verdicts on the PR's own head as above).
+   once as a red `main`. Otherwise merge with `behind_by` > 0, no sync, no confirmation (CI green and the verdicts on the PR's own head as above).
    CI on `main` after every merge catches the rest: **a red `main` is the top priority** — stop merging,
    start `investigate-ci-failure` on `main`, merge again only when `main` is green. The daily check of `main`
    (ADR-0008) stays. Check (from the repository root):
