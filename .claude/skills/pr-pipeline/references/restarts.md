@@ -1,6 +1,6 @@
 # Restarts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
 
 Read when the container restarted, you resume the pipeline, the context was compacted, or a lead session starts or
 finishes (a new session: also [new session](../../../references/new-lead-session.md)).
@@ -30,7 +30,8 @@ tables stay comments on #179 — they are the history, not the state; at a compa
 the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`, set by the owner; the
 threshold stays); the lead does not stop the session. The `SessionStart` hook (`.claude/settings.json`, matcher
 `compact`) reminds the agent; the lead then, in the same session:
-1. **before the first chat message** re-reads #179 («Lead state»), `SKILL.md`, [lead-communication.md](lead-communication.md)
+1. **before every message to the owner** checks: Ukrainian only; only a merge, a question, a problem or a summary (`SKILL.md`, «Мовчання в чаті»); for the reminder "The user hasn't heard from you…" and a notification with nothing for the owner, the only reply is «Нічого нового для вас.» (owner, 2026-11-27);
+   **before the first chat message** also re-reads #179 («Lead state»), `SKILL.md`, [lead-communication.md](lead-communication.md)
    and #480 (owner, 2026-11-19), then the sources above as needed;
 2. becomes lead N+1 (the numbering continues) and renames the session with `set_session_title` to
    `Willowsum · ведучий N+1 · <з чого продовжує>`;
