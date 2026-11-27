@@ -43,7 +43,7 @@ session starts or finishes.
      flaky-test fixes; (d) the **first** security review of a PR whose diff changes only test titles (the name
      strings of `it`/`test`/`describe`) and/or only requirement wording, with no item added or removed (owner,
      2026-11-27, [log](../../../../docs/decisions/log/2026-11-27-owner-process-review-35.md)): the lead checks this
-     mechanically on the diff before choosing the model; any other changed line → Opus. Mitigations, all mandatory:
+     mechanically on the diff (strict list: `security-review` §0 «Light confirmation»); any other changed line → Opus. Mitigations, all mandatory:
      - a Sonnet confirmation that finds a change to code outside tests stops and hands back to the lead, who gives
        the confirmation to Opus;
      - a Sonnet reviewer checks that no assertion was removed or weakened (compare the test diff with the head it

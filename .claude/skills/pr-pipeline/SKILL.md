@@ -54,7 +54,7 @@ proposals: [lead communication](references/lead-communication.md).
 2. **Implementer**: a new agent with `implement-requirement`, in its own worktree on its own branch
    (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`). Brief: the ID
    and slice, the exact files and sections to read, branch, worktree, slot `k` (§3), a scratchpad prefix unique
-   to the PR and role (`pr153-review/`, never a generic `body.md`), and the report.
+   to the PR and role (`pr153-review/`, never a generic `body.md`), the report, and the 5–7 most frequent reviewer findings for that module, taken from the reviews of its recent PRs (a test per criterion, a permission check, a `.catch` without a test; owner, 2026-11-27; no new self-check step).
    **Report**: at most 5 lines, fixed form — `PR`, `Head`
    (full SHA), `Result`, `Blockers`, `Owner questions`; reviewers: `PR` · `Head`, `Verdict` (`Security verdict`),
    `Blocking` (file:line), `Owner questions`, `Checks`. Everything else goes in the PR body or the review; read a verdict with
@@ -72,7 +72,7 @@ proposals: [lead communication](references/lead-communication.md).
    ([token economy](references/token-economy.md) item 2), as the PR's tier asks ([merge rules](../../references/merge-rules.md),
    «Review tiers»; name the tier in the brief): a `review-pr` reviewer and, for a PR labelled
    `sensitive`, a `security-review` reviewer — each in a session other than the author's, with the PR number and
-   head SHA. The brief asks for the verdict as a PR review with `commit_id=<head>`, never an issue comment, the PostgreSQL check (step 2), and says: «red CI is not a review finding unless the change
+   head SHA. A `review-pr` brief names the diff, the requirement files and the items the PR closes; the reviewer reads the rest of the module only when needed; `security-review` of a `sensitive` PR stays full (owner, 2026-11-27). The brief asks for the verdict as a PR review with `commit_id=<head>`, never an issue comment, the PostgreSQL check (step 2), and says: «red CI is not a review finding unless the change
    caused it; checking CI is the lead's job before merge».
 4. **Batch**: wait for both reviews, then send **one** fix request (`fix-review-findings`):
    review IDs, which patch wins where reviewers conflict (your decision), which non-blocking items are fixed in this round and which are recorded (only money, data, security or a broken requirement item → «Follow-ups»);
