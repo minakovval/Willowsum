@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-27T19:07:08.701Z",
-  "sha": "746373b8bccf71afb36da36c42719454e9b862a5",
+  "generatedAt": "2026-11-27T19:12:37.184Z",
+  "sha": "2b7b8452cfd3edb2b337f44857618f1be85cc81f",
   "releases": [
     {
       "release": "PoC",
       "slices": 153,
       "FR": {
-        "covered": 893,
-        "total": 1480
+        "covered": 895,
+        "total": 1479
       },
       "AC": {
         "covered": 689,
@@ -17,11 +17,11 @@
       },
       "EC": {
         "covered": 131,
-        "total": 212
+        "total": 211
       },
       "items": {
-        "covered": 1713,
-        "total": 2827
+        "covered": 1715,
+        "total": 2825
       }
     },
     {
@@ -29,7 +29,7 @@
       "slices": 120,
       "FR": {
         "covered": 458,
-        "total": 1259
+        "total": 1258
       },
       "AC": {
         "covered": 391,
@@ -41,7 +41,7 @@
       },
       "items": {
         "covered": 938,
-        "total": 2541
+        "total": 2540
       }
     },
     {
@@ -495,8 +495,8 @@
       "sectionName": "Архітектура",
       "block": "money",
       "FR": {
-        "covered": 23,
-        "total": 26
+        "covered": 25,
+        "total": 25
       },
       "AC": {
         "covered": 0,
@@ -507,11 +507,11 @@
         "total": 0
       },
       "items": {
-        "covered": 23,
-        "total": 26
+        "covered": 25,
+        "total": 25
       },
       "fingerprintErrors": 0,
-      "status": "у роботі"
+      "status": "готово"
     },
     {
       "id": "BUD-01",
@@ -2629,11 +2629,11 @@
       },
       "EC": {
         "covered": 3,
-        "total": 4
+        "total": 3
       },
       "items": {
         "covered": 20,
-        "total": 22
+        "total": 21
       },
       "fingerprintErrors": 0,
       "status": "у роботі"
