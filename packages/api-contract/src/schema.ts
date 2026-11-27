@@ -12203,6 +12203,11 @@ export interface operations {
                                     currency: string;
                                 } | null;
                             } | null;
+                            /** @description A credit card's «Зменшувати на … / міс.»: the payment of its saved plan; null — not given (always for a loan) */
+                            cardMonthlyAmount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                             /** @enum {string} */
                             kind: "credit-card" | "loan";
                             monthlyPayment: {
@@ -12349,13 +12354,13 @@ export interface operations {
             content: {
                 "application/json": {
                     addToPlannedExpenses?: boolean;
-                    /** @description Overrides the rate, percent a year, 0–100 */
+                    /** @description Overrides the rate, percent a year, 0–100; a credit card has none (400 not_applicable) */
                     annualRate?: string;
                     /** @description Overrides the debt; a plain non-negative decimal */
                     balance?: string;
                     /** @description «Додатковий платіж / міс.» */
                     extraMonthly?: string;
-                    /** @description Overrides the regular payment, > 0 */
+                    /** @description Overrides the regular payment, > 0; for a credit card, its «Зменшувати на … / міс.» (no interest) */
                     monthlyPayment?: string;
                     /** @description «Додати разовий платіж»: each after the regular payment of its month (later than now) */
                     oneOffs?: {
@@ -12605,13 +12610,13 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description Overrides the rate, percent a year, 0–100 */
+                    /** @description Overrides the rate, percent a year, 0–100; a credit card has none (400 not_applicable) */
                     annualRate?: string;
                     /** @description Overrides the debt; a plain non-negative decimal */
                     balance?: string;
                     /** @description «Додатковий платіж / міс.» */
                     extraMonthly?: string;
-                    /** @description Overrides the regular payment, > 0 */
+                    /** @description Overrides the regular payment, > 0; for a credit card, its «Зменшувати на … / міс.» (no interest) */
                     monthlyPayment?: string;
                     /** @description «Додати разовий платіж»: each after the regular payment of its month (later than now) */
                     oneOffs?: {

@@ -1,5 +1,5 @@
 // Synthetic debt payoff plans (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
-// One saved plan per household for a synthetic credit card (an opaque account id), its hand-off job done; the module
+// One saved plan per household for a synthetic loan (an opaque account id), its hand-off job done; the module
 // publishes no events: outbox_events gets one dispatched row for the isolation check.
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";

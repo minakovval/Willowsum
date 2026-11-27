@@ -191,17 +191,18 @@ afterEach(() => {
 });
 
 describe("BUD-19@PoC: «Борги → План погашення»", () => {
-  it("BUD-19@PoC AC1, FR 1 (server part): «Visa» 5 000 € at 24 % with 250 € — «Погашення через 26 міс.» with its month, 1 449,37 € of interest, from the liability", async () => {
+  it("BUD-19@PoC AC1, FR 1 (server part): «Visa Loan» 5 000 € at 24 % with 250 € — «Погашення через 26 міс.» with its month, 1 449,37 € of interest, from the liability", async () => {
     const space = await newSpace();
-    const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
+    const visa = await loan(space, "Visa Loan", "5000.00", "24", "250.00");
     const [d] = await debts(space);
     expect(d).toMatchObject({
       accountId: visa,
       kind: "loan",
-      name: "Visa",
+      name: "Visa Loan",
       balance: eur("5000"),
       annualRate: "24",
       monthlyPayment: eur("250"),
+      cardMonthlyAmount: null,
       termsMissing: false,
       base: { status: "paid", months: 26, payoffMonth: "2029-01", totalInterest: eur("1449.37") },
       plan: null,
@@ -325,19 +326,31 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
     expect((await call(space, "PUT", `/v1/debts/${slow}/plan`, {})).json().code).toBe("DEBT_OVER_LIMIT");
   });
 
-  it("BUD-19@PoC AC5, EC2: a card without a payment asks for it, takes no part in «Стратегія» until given", async () => {
+  it("BUD-19@PoC AC5, EC2, FLW-44@PoC FR 1: a card without «Зменшувати на … / міс.» asks for it, has no rate, takes no part in «Стратегія» until given", async () => {
     const space = await newSpace();
+    // The account may carry a rate (FIN-01), but a card has none in the plan (owner decision 2026-11-27).
     const visa = await card(space, "Visa", "5000.00", "24");
     const bare = await card(space, "Mastercard", "1500.00");
     const [v, m] = await debts(space);
-    expect(v).toMatchObject({ termsMissing: true, base: null, monthlyPayment: null, annualRate: "24" });
-    expect(m).toMatchObject({ termsMissing: true, base: null, annualRate: null });
+    for (const d of [v, m])
+      expect(d).toMatchObject({
+        kind: "credit-card",
+        termsMissing: true,
+        base: null,
+        annualRate: null,
+        monthlyPayment: null,
+        cardMonthlyAmount: null,
+      });
+    // Only the amount is asked for: no rate.
     const missing = await call(space, "POST", `/v1/debts/${bare}/scenario`, {});
     expect(missing.statusCode).toBe(400);
-    expect(missing.json().errors).toEqual([
-      { in: "body", path: "annualRate", issue: "required" },
-      { in: "body", path: "monthlyPayment", issue: "required" },
-    ]);
+    expect(missing.json().errors).toEqual([{ in: "body", path: "monthlyPayment", issue: "required" }]);
+    const rated = await call(space, "POST", `/v1/debts/${bare}/scenario`, {
+      annualRate: "18",
+      monthlyPayment: "100.00",
+    });
+    expect(rated.statusCode).toBe(400);
+    expect(rated.json().errors).toEqual([{ in: "body", path: "annualRate", issue: "not_applicable" }]);
     const strategy = await call(space, "POST", "/v1/debts/strategy", { total: eur("340.00") });
     expect(strategy.statusCode, strategy.body).toBe(200);
     expect(strategy.json()).toMatchObject({
@@ -347,10 +360,10 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
         { accountId: bare, reason: "terms-missing" },
       ],
     });
-    // Entered in the scenario, the card is calculated — and the liability keeps no payment (FR 2).
+    // Entered in the scenario, the card is calculated with no interest — and nothing is kept (FR 2).
     const entered = await call(space, "POST", `/v1/debts/${visa}/scenario`, { monthlyPayment: "250.00" });
-    expect(entered.json().base).toMatchObject({ months: 26, totalInterest: eur("1449.37") });
-    expect((await debts(space))[0]).toMatchObject({ termsMissing: true, monthlyPayment: null });
+    expect(entered.json().base).toMatchObject({ months: 20, totalInterest: eur("0") });
+    expect((await debts(space))[0]).toMatchObject({ termsMissing: true, cardMonthlyAmount: null });
   });
 
   it("BUD-19@PoC AC6, FR 2: a plan at 20 % instead of 24 % keeps 24 % in the liability; the plan keeps 20 % and its result; audited", async () => {
@@ -429,8 +442,9 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
 describe("BUD-19@PoC: «Борги → Стратегія»", () => {
   it("BUD-19@PoC AC3: Avalanche 24 months / 1 581,51 €; Snowball 25 months / 1 728,57 €, Mastercard closed earlier; both at once, no mark", async () => {
     const space = await newSpace();
-    const visa = await card(space, "Visa", "5000.00", "24");
-    const mc = await card(space, "Mastercard", "1500.00", "18");
+    // Rated loans (BUD-19 AC3 after #733: «Visa Loan», «Mastercard Loan»); the minimums overridden on the screen (FR 2).
+    const visa = await loan(space, "Visa Loan", "5000.00", "24", "150.00");
+    const mc = await loan(space, "Mastercard Loan", "1500.00", "18", "60.00");
     const res = await call(space, "POST", "/v1/debts/strategy", {
       total: eur("340.00"),
       debts: [
@@ -460,6 +474,101 @@ describe("BUD-19@PoC: «Борги → Стратегія»", () => {
       total: { amount: "500.00", currency: "GBP" },
     });
     expect(gbp.json()).toMatchObject({ included: [], excluded: [{ accountId: visa, reason: "currency" }] });
+  });
+});
+
+describe("FLW-44@PoC: a credit card in the payoff plan with the user's «Зменшувати на … / міс.» (owner decision 2026-11-27)", () => {
+  it("FLW-44@PoC AC9, FR 1: a card of 800 € with 200 € a month — paid off in 4 months, no interest; the amount is the card's plan setting, the account untouched", async () => {
+    const space = await newSpace();
+    const visa = await card(space, "Visa", "800.00", "24");
+    const saved = await call(space, "PUT", `/v1/debts/${visa}/plan`, { monthlyPayment: "200.00" });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect(saved.json()).toMatchObject({ annualRate: "0", monthlyPayment: eur("200"), months: 4 });
+    const [d] = await debts(space);
+    expect(d).toMatchObject({
+      kind: "credit-card",
+      annualRate: null,
+      monthlyPayment: null,
+      cardMonthlyAmount: eur("200"),
+      termsMissing: false,
+      base: { status: "paid", months: 4, payoffMonth: "2027-03", totalInterest: eur("0") },
+    });
+    // The account's own data is not changed (FR 3): its rate stays, it gets no payment.
+    const account = (await call(space, "GET", `/v1/accounts/${visa}`)).json();
+    expect(JSON.stringify(account)).not.toContain('"200');
+    expect(await planAudit(space.householdId, "create")).toBe(1);
+    // A rate for a card is refused on save too.
+    const rated = await call(space, "PUT", `/v1/debts/${visa}/plan`, { annualRate: "24" });
+    expect(rated.statusCode).toBe(400);
+    expect(rated.json().errors).toEqual([{ in: "body", path: "annualRate", issue: "not_applicable" }]);
+    // Deleting the plan clears the amount: no date again, no part in «Стратегія».
+    expect((await call(space, "DELETE", `/v1/debts/${visa}/plan`)).statusCode).toBe(200);
+    expect((await debts(space))[0]).toMatchObject({
+      termsMissing: true,
+      base: null,
+      cardMonthlyAmount: null,
+    });
+  });
+
+  it("FLW-44@PoC «Тлумачення ведучого»: an amount larger than what is left — the last month is the rest (850 € at 200 € — 5 months, the last 50 €)", async () => {
+    const space = await newSpace();
+    const visa = await card(space, "Visa", "850.00");
+    await call(space, "PUT", `/v1/debts/${visa}/plan`, { monthlyPayment: "200.00" });
+    const [d] = await debts(space);
+    const base = d!.base as { months: number; schedule: { balance: unknown }[] };
+    expect(base.months).toBe(5);
+    expect(base.schedule.at(-2)!.balance).toEqual(eur("50"));
+    const big = await call(space, "POST", `/v1/debts/${visa}/scenario`, { monthlyPayment: "1000.00" });
+    expect(big.json().base).toMatchObject({ months: 1, totalInterest: eur("0") });
+  });
+
+  it("FLW-44@PoC AC8: a loan and a card without the amount — only the loan is in Avalanche and Snowball", async () => {
+    const space = await newSpace();
+    const credit = await loan(space, "Кредит", "5000.00", "18", "150.00");
+    const visa = await card(space, "Visa", "800.00");
+    const res = await call(space, "POST", "/v1/debts/strategy", { total: eur("400.00") });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({
+      included: [credit],
+      excluded: [{ accountId: visa, reason: "terms-missing" }],
+    });
+    for (const k of ["avalanche", "snowball"])
+      expect(res.json()[k].debts.map((x: { accountId: string }) => x.accountId)).toEqual([credit]);
+  });
+
+  it("FLW-44@PoC AC9, FR 4: the card's 200 € is in «Усього на борги / міс.»; Avalanche puts the rest on the rated loan first, Snowball on the card (smaller); too little — refused as below the payments", async () => {
+    const space = await newSpace();
+    const credit = await loan(space, "Кредит", "5000.00", "18", "150.00");
+    const visa = await card(space, "Visa", "800.00");
+    await call(space, "PUT", `/v1/debts/${visa}/plan`, { monthlyPayment: "200.00" });
+    const res = await call(space, "POST", "/v1/debts/strategy", { total: eur("550.00") });
+    expect(res.statusCode, res.body).toBe(200);
+    const { avalanche, snowball, included } = res.json();
+    expect(included).toEqual([credit, visa]);
+    const closed = (s: { debts: { accountId: string; months: number }[] }, id: string) =>
+      s.debts.find((x) => x.accountId === id)!.months;
+    // Avalanche: the card only gets its own 200 € until the loan is paid — 800 ÷ 200 = 4 months.
+    expect(closed(avalanche, visa)).toBe(4);
+    // Snowball: the rest 200 € goes to the card first — 800 ÷ 400 = 2 months.
+    expect(closed(snowball, visa)).toBe(2);
+    expect(closed(avalanche, credit)).toBeLessThanOrEqual(closed(snowball, credit));
+    // «Усього на борги / міс.» below the loan's 150 € and the card's 200 € — the warning (400 below_minimums).
+    const low = await call(space, "POST", "/v1/debts/strategy", { total: eur("300.00") });
+    expect(low.statusCode).toBe(400);
+    expect(low.json().errors).toEqual([{ in: "body", path: "total", issue: "below_minimums" }]);
+    // A rate for a card on «Стратегія» is refused; another minimum for it is the scenario's own (FR 2).
+    const rated = await call(space, "POST", "/v1/debts/strategy", {
+      total: eur("550.00"),
+      debts: [{ accountId: visa, annualRate: "24" }],
+    });
+    expect(rated.json().errors).toEqual([
+      { in: "body", path: "debts.0.annualRate", issue: "not_applicable" },
+    ]);
+    const other = await call(space, "POST", "/v1/debts/strategy", {
+      total: eur("550.00"),
+      debts: [{ accountId: visa, minimumPayment: "400.00" }],
+    });
+    expect(closed(other.json().avalanche, visa)).toBe(2);
   });
 });
 
