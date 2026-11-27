@@ -1,15 +1,15 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-27T17:39:52.605Z",
-  "sha": "e84ceea6ba82c33649d74e85565f4f90c06f03af",
+  "generatedAt": "2026-11-27T18:17:36.864Z",
+  "sha": "371e0239d7b4db987d2dd0189523ee99bb1b54a8",
   "releases": [
     {
       "release": "PoC",
       "slices": 153,
       "FR": {
         "covered": 893,
-        "total": 1478
+        "total": 1480
       },
       "AC": {
         "covered": 689,
@@ -17,11 +17,11 @@
       },
       "EC": {
         "covered": 131,
-        "total": 211
+        "total": 212
       },
       "items": {
         "covered": 1713,
-        "total": 2824
+        "total": 2827
       }
     },
     {
@@ -29,7 +29,7 @@
       "slices": 120,
       "FR": {
         "covered": 458,
-        "total": 1257
+        "total": 1259
       },
       "AC": {
         "covered": 391,
@@ -41,7 +41,7 @@
       },
       "items": {
         "covered": 938,
-        "total": 2539
+        "total": 2541
       }
     },
     {
@@ -49,7 +49,7 @@
       "slices": 343,
       "FR": {
         "covered": 542,
-        "total": 3455
+        "total": 3457
       },
       "AC": {
         "covered": 481,
@@ -61,7 +61,7 @@
       },
       "items": {
         "covered": 1125,
-        "total": 7181
+        "total": 7183
       }
     },
     {
@@ -89,7 +89,7 @@
       "slices": 169,
       "FR": {
         "covered": 130,
-        "total": 1771
+        "total": 1772
       },
       "AC": {
         "covered": 130,
@@ -101,7 +101,7 @@
       },
       "items": {
         "covered": 304,
-        "total": 3912
+        "total": 3913
       }
     },
     {
@@ -109,7 +109,7 @@
       "slices": 60,
       "FR": {
         "covered": 28,
-        "total": 569
+        "total": 570
       },
       "AC": {
         "covered": 27,
@@ -121,7 +121,7 @@
       },
       "items": {
         "covered": 63,
-        "total": 1206
+        "total": 1207
       }
     }
   ],
@@ -771,7 +771,7 @@
       "block": "rules",
       "FR": {
         "covered": 14,
-        "total": 15
+        "total": 16
       },
       "AC": {
         "covered": 17,
@@ -783,7 +783,7 @@
       },
       "items": {
         "covered": 37,
-        "total": 38
+        "total": 39
       },
       "fingerprintErrors": 0,
       "status": "у роботі"
@@ -879,11 +879,11 @@
       },
       "EC": {
         "covered": 0,
-        "total": 11
+        "total": 12
       },
       "items": {
         "covered": 0,
-        "total": 68
+        "total": 69
       },
       "fingerprintErrors": 0,
       "status": "не почато"
@@ -3246,7 +3246,7 @@
       "block": "import",
       "FR": {
         "covered": 13,
-        "total": 16
+        "total": 17
       },
       "AC": {
         "covered": 9,
@@ -3258,7 +3258,7 @@
       },
       "items": {
         "covered": 24,
-        "total": 35
+        "total": 36
       },
       "fingerprintErrors": 0,
       "status": "у роботі"
