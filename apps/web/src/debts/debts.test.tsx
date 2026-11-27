@@ -949,7 +949,13 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
   it("FLW-44@PoC AC8, FR 4: a card without the amount takes no part; its «Зменшувати на … / міс.» entered here sends the amount only, never a rate", async () => {
     const api = fakeApi({
       "GET /v1/debts": { status: 200, body: { debts: [rated, card] } },
-      "POST /v1/debts/strategy": { status: 200, body: both },
+      "POST /v1/debts/strategy": (call: { body?: unknown }) => ({
+        status: 200,
+        body:
+          call.body && "debts" in (call.body as object)
+            ? both
+            : { ...both, included: [VISA], excluded: [{ accountId: CARD, reason: "terms-missing" }] },
+      }),
     });
     renderTab("strategy", api.client);
     const amount = await screen.findByRole("textbox", { name: /Зменшувати на … \/ міс\.: Універсальна/ });
@@ -959,6 +965,10 @@ describe("FLW-44@PoC a credit card with «Зменшувати на … / міс
     expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
       total: { amount: "150", currency: "EUR" },
     });
+    const left = (await screen.findAllByText("Універсальна")).at(-1)!.closest("tr")!;
+    expect(plain(left.textContent)).toContain(
+      "не бере участі в розрахунку · Вкажіть, скільки щомісяця гасите з картки",
+    );
     fireEvent.change(amount, { target: { value: "200" } });
     await waitFor(() =>
       expect(api.calls.filter((c) => c.path === "/v1/debts/strategy").at(-1)?.body).toEqual({

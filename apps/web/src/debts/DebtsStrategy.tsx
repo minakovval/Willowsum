@@ -313,7 +313,10 @@ function Order({ debts, result, kind }: { debts: readonly Debt[]; result: Strate
                   {money(locale, d.balance)}
                 </td>
                 <td colSpan={3} className="ws-muted">
-                  {t("debts.strategy.excluded")} · {t(`debts.strategy.reason.${x.reason}`)}
+                  {t("debts.strategy.excluded")} ·{" "}
+                  {isCard(d) && x.reason === "terms-missing"
+                    ? t("debts.card.amountHint")
+                    : t(`debts.strategy.reason.${x.reason}`)}
                 </td>
               </tr>
             );

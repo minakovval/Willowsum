@@ -440,7 +440,7 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
 });
 
 describe("BUD-19@PoC: «Борги → Стратегія»", () => {
-  it("BUD-19@PoC AC3: Avalanche 24 months / 1 581,51 €; Snowball 25 months / 1 728,57 €, Mastercard closed earlier; both at once, no mark", async () => {
+  it("BUD-19@PoC AC3: Avalanche 24 months / 1 581,51 €; Snowball 25 months / 1 728,57 €, Mastercard Loan closed earlier; both at once, no mark", async () => {
     const space = await newSpace();
     // Rated loans (BUD-19 AC3 after #733: «Visa Loan», «Mastercard Loan»); the minimums overridden on the screen (FR 2).
     const visa = await loan(space, "Visa Loan", "5000.00", "24", "150.00");
