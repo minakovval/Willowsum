@@ -43,7 +43,7 @@ const obj = (properties: Record<string, Json>, required: string[] = []): Json =>
 });
 const check = (base: Json, head: Json, on = today) => contractProblems(base, head, { today: on });
 
-describe("ARC-07 FR 3 / criterion «несумісна зміна контракту в межах версії — 0»", () => {
+describe("ARC-07 FR 3, CICD-02 FR 8 / criterion «несумісна зміна контракту в межах версії — 0»", () => {
   const base = doc({
     "/v1/things": {
       get: op({

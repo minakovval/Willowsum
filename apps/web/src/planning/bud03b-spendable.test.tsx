@@ -228,7 +228,7 @@ const sourceOf = (dialog: HTMLElement, label: string) => {
   return plain(s.querySelector(".bud-spend-source-amount")?.textContent);
 };
 
-describe("BUD-03@PoC b) S-121: the card «Можна витратити»", () => {
+describe("BUD-03@PoC b) S-121, JRN-05 FR 1: the card «Можна витратити»", () => {
   it("BUD-03@PoC AC1, FR 13: the card shows 1 300,00 € to the end of the period and 68,42 € a day with 19 days, today included", async () => {
     const fake = await open();
     expect(plain(card().getByTestId("spendable-amount").textContent)).toBe("1 300,00 €");

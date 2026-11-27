@@ -9,7 +9,7 @@ const A = "00000000-0000-4000-8000-00000000000a";
 const B = "00000000-0000-4000-8000-00000000000b";
 const SOURCE = { module: "transactions", id: "00000000-0000-4000-8000-0000000000f1" };
 
-describe("sec122 ARC-11: a lost race on the idempotency key returns the winner's entry and writes no postings", () => {
+describe("sec122 ARC-11 FR 10: a lost race on the idempotency key returns the winner's entry and writes no postings", () => {
   it("insertEntry → false: no insertPostings, the stored entry is returned", async () => {
     const winner: Entry = {
       id: "00000000-0000-4000-8000-0000000000e0",

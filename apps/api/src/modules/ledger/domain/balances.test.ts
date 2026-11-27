@@ -10,7 +10,7 @@ const C = "00000000-0000-4000-8000-00000000000c";
 const eur = (amount: string) => Money.of(amount, "EUR");
 
 describe("ARC-11: the movements of an entry on the balance cache", () => {
-  it("ARC-11: debit and credit totals per account, exact decimals, in the order of the account ids", () => {
+  it("ARC-11 FR 21: debit and credit totals per account, exact decimals, in the order of the account ids", () => {
     const moves = balanceMovements([
       { debitAccountId: C, creditAccountId: A, amount: eur("0.1") },
       { debitAccountId: C, creditAccountId: B, amount: eur("0.2") },
@@ -27,7 +27,7 @@ describe("ARC-11: the movements of an entry on the balance cache", () => {
     expect(moves.every((m) => m.debits.currency === "EUR" && m.credits.currency === "EUR")).toBe(true);
   });
 
-  it("ARC-11: a reversal's movements offset the original's on every account", () => {
+  it("ARC-11 FR 21: a reversal's movements offset the original's on every account", () => {
     const original = [
       { debitAccountId: A, creditAccountId: B, amount: eur("12.345") },
       { debitAccountId: A, creditAccountId: C, amount: eur("3150") },

@@ -11,7 +11,7 @@ import { evaluateSast } from '../lib.mjs';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), '..', 'index.mjs');
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: semgrep exiting non-zero fails the job even with clean JSON', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: semgrep exiting non-zero fails the job even with clean JSON', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ws-semgrep-exit-'));
   try {
     const fake = join(dir, 'semgrep');
@@ -25,7 +25,7 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
   }
 });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: an allowlist entry does not cover the same code in another file', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: an allowlist entry does not cover the same code in another file', () => {
   const line = 'await client.query(`ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY`);';
   const entry = { rule: 'ws-sql-template-interpolation', path: 'apps/api/src/x.ts', match: 'ALTER TABLE ${t}' };
   const result = (path) => ({ check_id: 'x.ws-sql-template-interpolation', path, start: { line: 1 }, end: { line: 1 }, extra: { severity: 'ERROR' } });
@@ -41,7 +41,7 @@ const LINES = ['', 'await client.query(`ALTER TABLE ${t} ENABLE ROW LEVEL SECURI
 const src = (_, start) => LINES[start - 1];
 const entry = (over = {}) => ({ rule: 'ws-sql-template-interpolation', path: 'apps/api/src/x.ts', match: 'ALTER TABLE ${t} ENABLE', ...over });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: an allowlist entry accepts exactly its count of findings; one more blocks', () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: an allowlist entry accepts exactly its count of findings; one more blocks', () => {
   const two = { results: [finding(2), finding(3)], errors: [] };
   const one = evaluateSast(two, { sast: [entry()], sca: [] }, src);
   assert.equal(one.allowed.length, 1);
@@ -54,7 +54,7 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
   assert.equal(fewer.stale.length, 1);
 });
 
-test('CICD-02@PoC criterion «Статичний аналіз безпеки коду»: an allowlist match shorter than 16 characters or a bad count is refused', async () => {
+test('CICD-02@PoC FR 12 «Статичний аналіз безпеки коду»: an allowlist match shorter than 16 characters or a bad count is refused', async () => {
   const { validateAllowlist } = await import('../lib.mjs');
   const base = {
     rule: 'ws-sql-template-interpolation',

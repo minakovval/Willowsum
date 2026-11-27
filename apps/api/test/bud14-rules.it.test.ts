@@ -623,7 +623,7 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     ).toHaveLength(1);
   });
 
-  it("BUD-14@PoC FR 8, FR 13: the first matching rule sets the category and is shown as «за правилом №…»; moving rules changes only what new transactions get, never the past ones", async () => {
+  it("BUD-14@PoC FR 8, FR 13, JRN-06 FR 2: the first matching rule sets the category and is shown as «за правилом №…»; moving rules changes only what new transactions get, never the past ones", async () => {
     const space = await newSpace();
     const current = await createAccount(space, "Синтетичний поточний");
     const amex = await createAccount(space, "Синтетична Amex");
