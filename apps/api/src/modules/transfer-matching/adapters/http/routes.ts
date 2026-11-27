@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
-import { listProposals } from "../../application/index.ts";
-import type { ChosenProposal, TransferSide } from "../../domain/index.ts";
+import { listCounterparts, listProposals } from "../../application/index.ts";
+import type { ChosenProposal, Counterpart, TransferSide } from "../../domain/index.ts";
 import { transferMatchingServices } from "./services.ts";
 
 /**
@@ -136,4 +136,82 @@ export const listTransferProposalsRoute = defineRoute({
   },
 });
 
-export const transferMatchingRoutes = [listTransferProposalsRoute];
+const counterpartSchema = sideSchema.extend({
+  /** «Опис» of the row: the counterparty and the description as typed or imported; null — none. */
+  counterparty: z.string().nullable(),
+  description: z.string().nullable(),
+  /** The chosen transaction's currency, or another (a currency transfer or an exchange). */
+  kind: z.enum(["same-currency", "cross-currency"]).meta({ "x-extensible-enum": true }),
+  /**
+   * One currency: the credit plus the debit — negative or zero, the fee that becomes an expense «Комісії банку» once
+   * paired (FR 24, FR 9); never positive, as a credit above the debit is no candidate. Two currencies: the credit less the
+   * debit at the reference `rate` (FR 21, unrounded), null without a rate.
+   */
+  difference: moneySchema.nullable(),
+  /** «Поєднати в пару» (`POST /v1/transactions/{id}/transfer`) accepts the pair; false — it answers `amount_mismatch` (one currency) or `rate_unavailable` (two, no reference rate). */
+  markable: z.boolean(),
+  /** Two currencies: the reference rate, 1 unit of the debit's currency in the credit's; else, or none known, null. */
+  rate: z.object({ rate: z.string(), date: z.string(), source: z.string() }).nullable(),
+  /** Two currencies: the debit at `rate`, in the credit's currency (unrounded); else null. */
+  converted: moneySchema.nullable(),
+  /** FR 21: two currencies — the pair's rate (credit ÷ debit, 18 decimals) next to the reference; else null. */
+  bankRate: z.string().nullable(),
+});
+
+function counterpart(c: Counterpart): z.input<typeof counterpartSchema> {
+  const cross = c.kind === "cross-currency" ? c : null;
+  return {
+    ...side(c),
+    counterparty: c.counterparty,
+    description: c.description,
+    kind: c.kind,
+    difference: c.difference?.toJSON() ?? null,
+    markable: c.markable,
+    rate: cross?.rate
+      ? { rate: cross.rate.rate.toString(), date: cross.rate.date, source: cross.rate.source }
+      : null,
+    converted: cross?.converted?.toJSON() ?? null,
+    bankRate: cross?.bankRate.toFixed() ?? null,
+  };
+}
+
+/**
+ * IMP-03@PoC FR 24 — «Позначити як переказ» in the menu «…» of a transaction's detail (no page «Поєднати вручну»,
+ * AC22): the candidates for its other side, nearest in date first, then in amount. A writer's action (`household.data.write`:
+ * a viewer, an advisor and a scoped member — 403); another space's transaction — 404 (П-5). Behind the release flag and
+ * feature key `transactions.transfers`; no plan limit.
+ */
+export const listTransferCounterpartsRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/transactions/{transactionId}/transfer-candidates",
+  operationId: "listTransferCounterparts",
+  summary:
+    "«Позначити як переказ»: the free transactions of the opposite direction on other own accounts within 7 days before or after, in the same currency a credit not above the debit, at most 5 % of the amount below it (another currency — any amount), for «Поєднати в пару» (IMP-03 FR 24)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  request: { params: z.object({ transactionId: z.uuid() }) },
+  response: {
+    status: 200,
+    description:
+      "The transaction and its candidates; «Поєднати в пару» is POST /v1/transactions/{transactionId}/transfer with the chosen one as `counterpartId`. Empty `items`: «Немає транзакцій для пари в межах 7 днів до або після і 5 % суми»",
+    schema: z.object({
+      transaction: sideSchema,
+      items: z.array(counterpartSchema),
+      /** The list shows its 50 nearest; there are more. */
+      more: z.boolean(),
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    if (ctx.principal.scoped) throw new ApiProblem("FORBIDDEN");
+    const { deps } = transferMatchingServices(ctx);
+    const result = await listCounterparts(deps, ctx.principal.householdId, params.transactionId);
+    if (result.kind === "not-found") throw new ApiProblem("NOT_FOUND");
+    if (result.kind === "invalid")
+      throw new ApiProblem("VALIDATION_FAILED", {
+        errors: result.issues.map((issue) => ({ in: "path" as const, path: "transactionId", issue })),
+      });
+    return { transaction: side(result.transaction), items: result.items.map(counterpart), more: result.more };
+  },
+});
+
+export const transferMatchingRoutes = [listTransferProposalsRoute, listTransferCounterpartsRoute];

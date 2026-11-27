@@ -34,8 +34,10 @@ export async function markCardPayments(
   fresh: FreshSides,
 ): Promise<number> {
   if (!(await deps.enabled(householdId))) return 0;
-  const { proposals, candidates } = await listProposals(deps, householdId);
-  if (proposals.length === 0) return 0;
+  const { proposals, candidates, more } = await listProposals(deps, householdId);
+  // #731 item 1: a capped read may miss the other candidate of a side, so a pair could only look unambiguous — mark
+  // none; the pairs stay proposals for the person.
+  if (more || proposals.length === 0) return 0;
   const ids = "transactionIds" in fresh ? new Set(fresh.transactionIds) : null;
   const batchId = "importBatchId" in fresh ? fresh.importBatchId : null;
   const sides = new Map(

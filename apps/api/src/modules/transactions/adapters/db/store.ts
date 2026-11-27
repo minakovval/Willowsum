@@ -625,6 +625,119 @@ export async function transferCandidates(
   }));
 }
 
+/** IMP-03 FR 24: the transaction «Позначити як переказ» is on, with what makes it no side of a pair. */
+export interface ChosenSide extends CandidateSide {
+  readonly status: string;
+  readonly hidden: boolean;
+  readonly split: boolean;
+  readonly inTransfer: boolean;
+}
+
+/** IMP-03 FR 24: a counterpart candidate, with the texts of its row («опис»). */
+export interface CounterpartSide extends CandidateSide {
+  readonly counterparty: string | null;
+  readonly description: string | null;
+}
+
+/**
+ * IMP-03@PoC FR 24 («Позначити як переказ» — ручне поєднання): the transaction `transactionId` of the space and the free
+ * transactions of the opposite direction that could be its other side — on another account of the space (or another
+ * currency of its account: an exchange, FR 2), posted, shown, not split and in no transfer; dated within `windowDays`
+ * before or after it; in its currency only a credit not above the debit and at most `amountShare` of the chosen amount
+ * below it (owner, 2026-11-27: the difference in one currency is only ever a fee), in another currency any amount. A
+ * pair the user called «Не пара» stays a candidate: «Не пара» stops the proposals (FR 12), not the user's own choice.
+ * Ordered by the days apart, then by the difference of the amounts (one currency first), then date and id; at most
+ * `limit`. Null `chosen` — no such transaction in the space (another space's answers the same, П-5). Read only.
+ */
+export async function counterpartCandidates(
+  q: ModuleQueryRunner,
+  householdId: string,
+  transactionId: string,
+  query: { readonly windowDays: number; readonly amountShare: string; readonly limit: number },
+): Promise<{ readonly chosen: ChosenSide | null; readonly items: CounterpartSide[] }> {
+  const found = await q.query<{
+    id: string;
+    account_id: string;
+    amount: string;
+    currency: string;
+    occurred_on: string;
+    import_batch_id: string | null;
+    status: string;
+    hidden: boolean;
+    split: boolean;
+    in_transfer: boolean;
+  }>(
+    `SELECT id, account_id, amount::text AS amount, currency, occurred_on::text AS occurred_on, import_batch_id, status,
+            hidden, split_mode IS NOT NULL AS split, transfer_id IS NOT NULL AS in_transfer
+       FROM transactions WHERE household_id = $1 AND id = $2`,
+    [householdId, transactionId],
+  );
+  const row = found.rows[0];
+  if (!row) return { chosen: null, items: [] };
+  const chosen: ChosenSide = {
+    transactionId: row.id,
+    accountId: row.account_id,
+    amount: Money.of(row.amount, row.currency),
+    date: row.occurred_on,
+    importBatchId: row.import_batch_id,
+    status: row.status,
+    hidden: row.hidden,
+    split: row.split,
+    inTransfer: row.in_transfer,
+  };
+  if (chosen.amount.isZero()) return { chosen, items: [] };
+  const { rows } = await q.query<{
+    id: string;
+    account_id: string;
+    amount: string;
+    currency: string;
+    occurred_on: string;
+    import_batch_id: string | null;
+    counterparty: string | null;
+    description: string | null;
+  }>(
+    `SELECT c.id, c.account_id, c.amount::text AS amount, c.currency, c.occurred_on::text AS occurred_on,
+            c.import_batch_id, c.counterparty, c.description
+       FROM transactions c
+      WHERE c.household_id = $1 AND c.id <> $2
+        AND sign(c.amount) = -sign($3::numeric)
+        AND (c.account_id <> $4 OR c.currency <> $5)
+        AND c.status = 'posted' AND NOT c.hidden AND c.split_mode IS NULL AND c.transfer_id IS NULL
+        AND c.occurred_on BETWEEN $6::date - $7::int AND $6::date + $7::int
+        AND (c.currency <> $5
+             OR CASE WHEN $3::numeric < 0
+                     THEN abs(c.amount) BETWEEN abs($3::numeric) * (1 - $8::numeric) AND abs($3::numeric)
+                     ELSE abs(c.amount) BETWEEN abs($3::numeric) AND abs($3::numeric) * (1 + $8::numeric) END)
+      ORDER BY abs(c.occurred_on - $6::date),
+               CASE WHEN c.currency = $5 THEN abs(abs(c.amount) - abs($3::numeric)) END NULLS LAST,
+               c.occurred_on, c.id
+      LIMIT $9`,
+    [
+      householdId,
+      transactionId,
+      row.amount,
+      row.account_id,
+      row.currency,
+      row.occurred_on,
+      query.windowDays,
+      query.amountShare,
+      query.limit,
+    ],
+  );
+  return {
+    chosen,
+    items: rows.map((r) => ({
+      transactionId: r.id,
+      accountId: r.account_id,
+      amount: Money.of(r.amount, r.currency),
+      date: r.occurred_on,
+      importBatchId: r.import_batch_id,
+      counterparty: r.counterparty,
+      description: r.description,
+    })),
+  };
+}
+
 /** The duplicates merged into each of `ids` (FIN-03 FR 11: «Об'єднано»), in the order of their ids. */
 export async function mergedOf(
   q: ModuleQueryRunner,

@@ -2432,6 +2432,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/transfer-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Позначити як переказ»: the free transactions of the opposite direction on other own accounts within 7 days before or after, in the same currency a credit not above the debit, at most 5 % of the amount below it (another currency — any amount), for «Поєднати в пару» (IMP-03 FR 24) */
+        get: operations["listTransferCounterparts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/selection-summary": {
         parameters: {
             query?: never;
@@ -28786,6 +28803,145 @@ export interface operations {
             };
             /** @description The account is closed (ACCOUNT_CLOSED); The record was changed by someone else; reload it and try again (VERSION_CONFLICT) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listTransferCounterparts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction and its candidates; «Поєднати в пару» is POST /v1/transactions/{transactionId}/transfer with the chosen one as `counterpartId`. Empty `items`: «Немає транзакцій для пари в межах 7 днів до або після і 5 % суми» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            bankRate: string | null;
+                            converted: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            counterparty: string | null;
+                            date: string;
+                            description: string | null;
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "same-currency" | "cross-currency";
+                            markable: boolean;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** Format: uuid */
+                            transactionId: string;
+                        }[];
+                        more: boolean;
+                        transaction: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            date: string;
+                            /** Format: uuid */
+                            transactionId: string;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
