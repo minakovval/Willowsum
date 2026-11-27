@@ -257,6 +257,12 @@ export function loadDecisionFiles(root) {
   return out;
 }
 
+/** The block config of the progress page; null when the file is missing (the page then shows one block). */
+function loadBlocks() {
+  const p = path.join(here, '../progress-dashboard/blocks.json');
+  return fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, 'utf8')) : null;
+}
+
 export function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   if (opts.help) {
@@ -348,10 +354,16 @@ export function main(argv = process.argv.slice(2), log = console.log) {
 
   if (opts.coverageJson) {
     const cov = computeCoverage(result.model, findMentions(loadTestFiles(opts.root)));
+    const titles = new Map([...result.model.features.values()].map((f) => [f.id, f.title]));
+    const fingerprintErrors = new Map();
+    for (const f of checkFingerprints(result.model, loadFingerprintFiles(opts.root, opts.requirements), cov.covered).findings) {
+      const id = /([A-Z][A-Z0-9]{1,4}-\d{2}[a-z]?)\.[^/]*$/.exec(f.file)?.[1];
+      if (id) fingerprintErrors.set(id, (fingerprintErrors.get(id) ?? 0) + 1);
+    }
     if (opts.sha !== null && !/^[0-9a-f]{40}$/.test(opts.sha)) throw new Error('--sha needs a full commit hash');
     const out = path.resolve(opts.root, opts.coverageJson);
     fs.mkdirSync(path.dirname(out), { recursive: true });
-    fs.writeFileSync(out, `${JSON.stringify(coverageSummary(cov, { sha: opts.sha }), null, 2)}\n`);
+    fs.writeFileSync(out, `${JSON.stringify(coverageSummary(cov, { sha: opts.sha, features: { titles, fingerprintErrors, blocks: loadBlocks() } }), null, 2)}\n`);
     log(`req-check: coverage JSON written to ${opts.coverageJson}`);
     if (!opts.coverage && !opts.checkMentions) return fingerprintExit;
   }

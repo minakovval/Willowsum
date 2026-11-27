@@ -6,7 +6,7 @@ import path from 'node:path';
 import { parseTag, formatTag, splitTag, joinTag, numberLines, parseSource, renderViews, viewReleases, convertToSource, convertRequirement, viewHeader, SOURCE_MARKER } from '../lib/source.mjs';
 import { moveItems } from '../lib/move.mjs';
 import { itemsOf } from '../lib/items.mjs';
-import { findMentions, computeCoverage, renderCoverage, danglingMentions, coverageSummary, IGNORE_MENTION } from '../lib/coverage.mjs';
+import { findMentions, computeCoverage, renderCoverage, danglingMentions, coverageSummary, featuresSummary, IGNORE_MENTION } from '../lib/coverage.mjs';
 import { runChecks } from '../lib/run.mjs';
 import { makeRegistries } from '../lib/registries.mjs';
 import { main } from '../index.mjs';
@@ -518,4 +518,41 @@ test('PR #182 security: a «Перевіряється» line outside the «Зв
   const out = renderViews('BUD-16', 'Назва', parseSource(src), ['PoC', 'PoC v2', 'MVP']);
   for (const [r, v] of out) files[`bud/BUD-16.${{ PoC: 'poc', 'PoC v2': 'poc-v2', MVP: 'mvp' }[r]}.md`] = v.text;
   assert.deepEqual(rules(check(files).findings.filter((f) => f.check === 'source')), ['source-field-outside-links']);
+});
+
+// PRC-02 (owner, 2026-11-27): the progress page lists the PoC features with a status computed from the tests.
+const featuresOf = (mentionsText, fingerprintErrors = new Map()) => {
+  const files = mentionsText === null ? [] : [{ rel: 'apps/a.test.ts', text: mentionsText }];
+  const cov = computeCoverage(check(sourced()).model, findMentions(files));
+  return featuresSummary(cov, { titles: new Map([['BUD-16', 'Назва вимоги']]), fingerprintErrors });
+};
+
+test('PRC-02 features: a requirement with no tests is «не почато»; some items named is «у роботі»; all named and no fingerprint error is «готово»', () => {
+  const none = featuresOf(null);
+  assert.deepEqual(none.map((f) => [f.id, f.status, f.items.covered]), [['BUD-16', 'не почато', 0]]);
+  assert.equal(none[0].title, 'Назва вимоги');
+  assert.deepEqual([none[0].section, none[0].sectionName], ['BUD', 'Бюджет']);
+  assert.deepEqual(none[0].FR, { covered: 0, total: 3 });
+  assert.equal(featuresOf('it("BUD-16@PoC FR 1", () => {});')[0].status, 'у роботі'); // req-check-ignore-mention
+  const all = featuresOf('it("BUD-16@PoC FR 1-3, AC1, EC1", () => {});'); // req-check-ignore-mention
+  assert.deepEqual([all[0].status, all[0].items.covered === all[0].items.total], ['готово', true]);
+});
+
+test('PRC-02 features: a fingerprint error keeps a fully covered requirement «у роботі»; PoC v2 and MVP-only requirements are not listed', () => {
+  const text = 'it("BUD-16@PoC FR 1-3, AC1, EC1", () => {});'; // req-check-ignore-mention
+  const f = featuresOf(text, new Map([['BUD-16', 2]]));
+  assert.deepEqual([f[0].status, f[0].fingerprintErrors], ['у роботі', 2]);
+  assert.ok(!f.some((x) => x.id === 'BUD-01'));
+});
+
+test('PRC-02 features: --coverage-json writes version 2 with the features and counts a fingerprint file error per requirement; the totals keep their shape', () => {
+  const root = fixture(sourced({ 'bud/BUD-16.fingerprints.json': '{\n  "PoC/FR 9": "0000000000000000"\n}\n' })); // req-check-ignore-mention
+  fs.mkdirSync(path.join(root, 'apps/web'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'apps/web/b.test.ts'), 'it("BUD-16@PoC FR 1-3, AC1, EC1", () => {});\n'); // req-check-ignore-mention
+  assert.equal(main(['--root', root, '--no-baseline', '--quiet', '--coverage-json', 'site/coverage.json'], () => {}), 0);
+  const json = JSON.parse(fs.readFileSync(path.join(root, 'site/coverage.json'), 'utf8'));
+  assert.deepEqual([json.schema, json.version], [1, 2]);
+  assert.deepEqual(Object.keys(json.releases[0]), ['release', 'slices', 'FR', 'AC', 'EC', 'items']);
+  assert.deepEqual(json.features.map((x) => [x.id, x.status, x.fingerprintErrors]), [['BUD-16', 'у роботі', 1]]);
+  fs.rmSync(root, { recursive: true, force: true });
 });
