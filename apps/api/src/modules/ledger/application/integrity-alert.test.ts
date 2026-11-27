@@ -160,7 +160,7 @@ describe("FIN-04@PoC FR 10: one letter to the product owner per discrepancy peri
   });
 });
 
-describe("FIN-04@PoC EC3: the letter could not be sent — the claim is released, the next run sends it", () => {
+describe("FIN-04@PoC EC2: the letter could not be sent — the claim is released, the next run sends it", () => {
   it("a failed send reports alert-failed with the error class only, and gives the claim back", async () => {
     const t = setup();
     const broken = findings({ "unbalanced-entry": 1 });
@@ -197,7 +197,7 @@ describe("FIN-04@PoC EC3: the letter could not be sent — the claim is released
   });
 });
 
-describe("FIN-04@PoC EC4: no recipient configured — an error event, no letter, no crash", () => {
+describe("FIN-04@PoC EC3: no recipient configured — an error event, no letter, no crash", () => {
   it("a discrepancy without a recipient reports recipient-missing and claims nothing", async () => {
     const t = setup({ recipient: false });
     await expect(t.run(findings({ "empty-entry": 1 }))).resolves.toBeUndefined();

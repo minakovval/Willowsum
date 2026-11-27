@@ -4,7 +4,7 @@ import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/te
 import { setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
- * Review of PR #131 (FIN-04@PoC FR 10, AC6, EC3), follow-ups 1 and 2: the claim of a discrepancy period on a real
+ * Review of PR #131 (FIN-04@PoC FR 10, AC6, EC2), follow-ups 1 and 2: the claim of a discrepancy period on a real
  * PostgreSQL under concurrent check instances (kills: `claim` ignoring `ON CONFLICT DO NOTHING`), and the «error»
  * event when the claim of an unsent letter cannot be given back.
  */
@@ -36,7 +36,7 @@ describe("sec131 — one letter per period under concurrent claims", () => {
 });
 
 describe("sec131 — a claim that cannot be given back is logged, not swallowed", () => {
-  it("FIN-04@PoC EC3: release-failed is an «error» event ledger.integrity_alert_release_failed with the error class only", async () => {
+  it("FIN-04@PoC EC2: release-failed is an «error» event ledger.integrity_alert_release_failed with the error class only", async () => {
     logIntegrityAlertEvent({ kind: "release-failed", errorClass: "RangeError" });
     const logged = await exportedText(telemetry);
     expect(logged).toContain("ledger.integrity_alert_release_failed");
