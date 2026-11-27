@@ -115,18 +115,14 @@ export function transferDifference(
     const minor = currencyInfo(currency).minorUnits;
     // Рішення ведучого (2026-11-26; власник не схвалював; #728): the difference is measured against the official
     // conversion rounded half to even to the credit currency's minor units, so a credit the server converted at the
-    // official rate has no difference. The kept rate is the opposite of the official one at 18 decimals (fx-rates); when
-    // it is the 18-decimal reciprocal of a short forward rate, a credit equal to the debit × that forward rate (as
-    // `transferReceived` counts it) is the server's own conversion: no difference. Otherwise the difference is the credit
-    // less the debit ÷ the kept rate.
+    // official rate has no difference. The official rate is the short one: the kept rate itself, or — when the kept rate
+    // is the 18-decimal reciprocal of a short forward rate (fx-rates) — that forward rate, as `transferReceived` uses it.
     const debit = outflow.amount.amount.negated();
-    const atRate = debit.div(rate.rate).toDecimalPlaces(minor, Decimal.ROUND_HALF_EVEN);
     const forward = new Decimal("1").div(rate.rate).toSignificantDigits(15);
-    if (
-      new Decimal("1").div(forward).toDecimalPlaces(18, Decimal.ROUND_HALF_EVEN).eq(rate.rate) &&
-      debit.times(forward).toDecimalPlaces(minor, Decimal.ROUND_HALF_EVEN).eq(inflow.amount.amount)
-    )
-      return null;
+    const official = new Decimal("1").div(forward).toDecimalPlaces(18, Decimal.ROUND_HALF_EVEN).eq(rate.rate)
+      ? debit.times(forward)
+      : debit.div(rate.rate);
+    const atRate = official.toDecimalPlaces(minor, Decimal.ROUND_HALF_EVEN);
     const difference = inflow.amount.minus(Money.of(atRate, currency));
     return difference.isZero() ? null : { amount: difference, side: "inflow" };
   } catch (error) {
