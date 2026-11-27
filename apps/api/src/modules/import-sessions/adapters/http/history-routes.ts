@@ -7,6 +7,7 @@ import {
   HISTORY_ROLES,
   ROLES,
   type HistoryParse,
+  type StatementAnalysis,
 } from "../../../file-parsers/index.ts";
 import {
   confirmHistoryFile,
@@ -16,6 +17,7 @@ import {
   HistoryConfirmed,
   HistoryNotReady,
   historyViewOf,
+  maskedAnalysis,
   parseRefusal,
   rereadHistoryFile,
   suggestedTransfers,
@@ -247,12 +249,22 @@ function presentRecognition(
   const values = accountValues(read);
   const suggested = new Set(suggestedTransfers(parsed));
   // Plain data of the analysis (readonly arrays), checked against the schema on the way out.
-  const plain = structuredClone({
+  // IMP-05 «Бізнес-правила»: an IBAN or a card number in a cell shown as an example keeps its last 4 characters, as in
+  // a statement's review (`maskedAnalysis`) and in `examples` below.
+  const masked = maskedAnalysis({
     table: parsed.table,
-    columns: parsed.columns,
+    columns: parsed.columns as unknown as StatementAnalysis["columns"],
     dates: parsed.dates,
     numbers: parsed.numbers,
     sign: parsed.sign,
+    currency: parsed.currency,
+  });
+  const plain = structuredClone({
+    table: masked.table,
+    columns: masked.columns,
+    dates: masked.dates,
+    numbers: masked.numbers,
+    sign: masked.sign,
   }) as unknown as Pick<
     z.input<typeof recognitionSchema>,
     "table" | "columns" | "dates" | "numbers" | "sign"

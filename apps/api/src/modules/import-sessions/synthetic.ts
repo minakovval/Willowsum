@@ -118,6 +118,28 @@ export const synthetic = [
         };
     },
   }),
+  // BUD-21 a: a history file's read that was refused (a code only; the read and the answers are sealed, none here). One
+  // per batch (the primary key), so one per space.
+  defineSyntheticTable({
+    table: "import_sessions.history_parses",
+    perHousehold: 1,
+    maxPerHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          batch_id: key(household.id, "batch", 0),
+          batch_file_id: key(household.id, "file", i),
+          parse_id: key(household.id, "history-parse", i),
+          state: "failed",
+          refusal_code: "TOO_MANY_ROWS",
+          engine_version: "1",
+          requested_by: key(household.id, "account", 0),
+          requested_at: "2026-10-15T10:00:00Z",
+          parsed_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
   // IMP-04 a: the stored result of applying a batch (counts only).
   defineSyntheticTable({
     table: "import_sessions.batch_applications",
