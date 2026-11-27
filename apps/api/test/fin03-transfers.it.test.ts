@@ -346,12 +346,19 @@ describe("FIN-03@PoC FR 7, FR 8: a confirmed pair is a transfer — neither inco
       date: "2026-10-13",
       fee: { amount: "-2", currency: "EUR" },
     };
-    expect(res.json().transfer).toEqual({ ...transfer, side: "outflow", counterpartId: into.id, rate: null });
+    expect(res.json().transfer).toEqual({
+      ...transfer,
+      side: "outflow",
+      counterpartId: into.id,
+      rate: null,
+      currencyDifference: null,
+    });
     expect((await get(space, into.id)).transfer).toEqual({
       ...transfer,
       side: "inflow",
       counterpartId: out.id,
       rate: null,
+      currencyDifference: null,
     });
     // The journal: one transfer event A → B of 498 EUR and the fee as the outflow's own event, both on the earlier date.
     expect((await liveEntries(space.householdId)).sort()).toEqual([
@@ -365,7 +372,7 @@ describe("FIN-03@PoC FR 7, FR 8: a confirmed pair is a transfer — neither inco
     expect((await proposals(space)).count).toBe(0);
   });
 
-  it("FIN-03@PoC FR 8: a currency transfer keeps both actual amounts; the difference goes through «Валютна різниця» at the rate of the date", async () => {
+  it("FIN-03@PoC FR 8: a currency transfer keeps both actual amounts; in the journal the difference goes through «Валютна різниця» at the rate of the date, on the transfer it is shown as a loss of 600 UAH", async () => {
     const space = await newSpace();
     const eur = await createAccount(space, "2000.00");
     const uah = await createAccount(space, "0.00", "UAH");
@@ -377,6 +384,7 @@ describe("FIN-03@PoC FR 7, FR 8: a confirmed pair is a transfer — neither inco
       side: "inflow",
       date: "2026-10-14",
       fee: null,
+      currencyDifference: { amount: "-600", currency: "UAH" },
       rate: { rate: "0.022988505747126437", date: "2026-10-14", source: "NBU" },
     });
     expect(await liveEntries(space.householdId)).toEqual([["fx-transfer", "2026-10-14"]]);

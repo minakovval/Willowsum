@@ -38,7 +38,7 @@ import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
- * BUD-01@PoC FR 12, AC22, AC23; BUD-02@PoC FR 23 (wave 2 row 221; owner decision 2026-11-26): the exact reason of the
+ * BUD-01@PoC FR 12, AC23, AC24; BUD-02@PoC FR 23 (wave 2 row 221; owner decision 2026-11-26): the exact reason of the
  * delete dialog and the category only its limit holds, through the real API on a real PostgreSQL with the real
  * categories, budget, transactions, categorization and recurring modules wired as the API process wires them. A rule
  * and a regular payment are rows of their modules written by the owner connection (their own flows are BUD-14 and

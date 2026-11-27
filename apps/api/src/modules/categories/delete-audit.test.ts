@@ -149,7 +149,7 @@ describe("BUD-01@PoC FR 12 (#277 item 4): `deleteCategory` writes the audit entr
     ]);
   });
 
-  it("BUD-01@PoC AC 22: only its limit holds it — unconfirmed, refused naming the limit and nothing changes; confirmed, module budget removes the entries, then the row goes, then one entry with them", async () => {
+  it("BUD-01@PoC AC 23: only its limit holds it — unconfirmed, refused naming the limit and nothing changes; confirmed, module budget removes the entries, then the row goes, then one entry with them", async () => {
     const first = setup(stored, [], true);
     const refused = await first.run(false);
     expect(refused).toEqual({

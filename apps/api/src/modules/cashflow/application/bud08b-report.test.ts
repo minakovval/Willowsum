@@ -109,7 +109,27 @@ const loanOp = (
 ): CashflowLoanOperation => ({ id, accountId: "loan", amount: eur(amount), date, source });
 
 describe("BUD-08@PoC b: the report", () => {
-  it("BUD-08@PoC AC1: income 6 000 €, spending 4 500 €, goals 500 €, brokerage 400 € — net flow 1 500 €, 25,0 %, 900 € to goals and investments, 600 € left", async () => {
+  it("BUD-08@PoC AC1: income 6 000 €, spending 4 500 €, goals 500 €, no brokerage account — net flow 1 500 €, 25,0 %, 500 € to goals, 1 000 € left", async () => {
+    const report = await cashflowReport(
+      deps({
+        transactions: [tx("pay", "6000", "2026-09-01"), tx("shop", "-4500", "2026-09-10")],
+        categoriesOf: { pay: "salary", shop: "food" },
+        marks: [{ goalId: "cushion", amount: eur("500"), date: "2026-09-12" }],
+      }),
+      H,
+      ["2026-09"],
+    );
+    const m = report.months[0]!;
+    const f = report.monthFlows[0]!;
+    expect(m.netFlow.toDecimalString()).toBe("1500");
+    expect(m.savingsRate?.toFixed(1)).toBe("25.0");
+    expect(f.goalContributions.toDecimalString()).toBe("500");
+    expect(f.investmentContributions.isZero()).toBe(true);
+    expect(f.leftOnAccounts.toDecimalString()).toBe("1000");
+    expect(report.periodFlows.leftOnAccounts.toDecimalString()).toBe("1000");
+  });
+
+  it("BUD-08@PoC FR 6: a transfer to a brokerage account counts as an investment contribution, one between brokerage accounts does not", async () => {
     const report = await cashflowReport(
       deps({
         transactions: [tx("pay", "6000", "2026-09-01"), tx("shop", "-4500", "2026-09-10")],

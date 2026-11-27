@@ -67,6 +67,8 @@ export interface CountedLine {
   readonly month: Month;
   readonly categoryId: string | null;
   readonly amount: Money;
+  /** FIN-03@PoC FR 8, AC31: income under its category whatever its kind (a transfer's gain in «Комісії банку»). */
+  readonly asIncome?: boolean;
 }
 
 export interface MonthFigures {
@@ -125,7 +127,7 @@ export function monthFigures(
     if (!s) continue;
     const c = resolve(categories, line.categoryId);
     if (c?.kind === "service") continue;
-    if (c?.kind === "income") s.income = s.income.plus(line.amount);
+    if (c && (c.kind === "income" || line.asIncome === true)) s.income = s.income.plus(line.amount);
     else {
       s.expenses = s.expenses.minus(line.amount);
       if (!c && !line.amount.isNegative() && !line.amount.isZero()) {

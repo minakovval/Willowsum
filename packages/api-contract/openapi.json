@@ -40041,6 +40041,254 @@
       }
     },
     "/v1/import/batches/{batchId}/rollback": {
+      "get": {
+        "operationId": "getImportBatchRollback",
+        "summary": "The rollback dialog before it is confirmed (IMP-16 FR 4): how many transactions «Відкотити» takes with «Залишити змінені вручну» on, how many the person changed after the apply (kept with it on, rolled back with it off) and how many are sides of a transfer (kept either way); null while the batch cannot be rolled back (not applied, still applying, past the 7 days or rolled back)",
+        "tags": [
+          "import-sessions"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "data.import",
+          "flags": [
+            "data.import"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The batch and the counts of its rollback dialog",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "batch": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "uploaded",
+                            "processing",
+                            "parsed",
+                            "needs-review",
+                            "failed",
+                            "applied",
+                            "rolled-back",
+                            "cancelled"
+                          ]
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "lastActionAt": {
+                          "type": "string"
+                        },
+                        "applying": {
+                          "type": "boolean"
+                        },
+                        "rollbackUntil": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "files": {
+                          "type": "object",
+                          "properties": {
+                            "accepted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "rejected": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "accepted",
+                            "rejected"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "state",
+                        "version",
+                        "createdAt",
+                        "lastActionAt",
+                        "applying",
+                        "rollbackUntil",
+                        "files"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "rollback": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "transactions": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "changed": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "transfers": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "transactions",
+                            "changed",
+                            "transfers"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "batch",
+                    "rollback"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "rollbackImportBatch",
         "summary": "«Відкотити» (IMP-04 FR 8, IMP-16): within 7 days of the apply, every transaction of the batch is rolled back by a reversal in the journal — never deleted — and what was merged into it comes back; ones the person changed are kept with «Залишити змінені» (the default); rolling back again returns the stored result",
@@ -51357,6 +51605,29 @@
                                       }
                                     ]
                                   },
+                                  "currencyDifference": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "rate": {
                                     "anyOf": [
                                       {
@@ -51391,6 +51662,7 @@
                                   "counterpartId",
                                   "date",
                                   "fee",
+                                  "currencyDifference",
                                   "rate"
                                 ],
                                 "additionalProperties": false
@@ -52254,6 +52526,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -52288,6 +52583,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -53168,6 +53464,29 @@
                                     }
                                   ]
                                 },
+                                "currencyDifference": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "rate": {
                                   "anyOf": [
                                     {
@@ -53202,6 +53521,7 @@
                                 "counterpartId",
                                 "date",
                                 "fee",
+                                "currencyDifference",
                                 "rate"
                               ],
                               "additionalProperties": false
@@ -53630,6 +53950,29 @@
                                     }
                                   ]
                                 },
+                                "currencyDifference": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
                                 "rate": {
                                   "anyOf": [
                                     {
@@ -53664,6 +54007,7 @@
                                 "counterpartId",
                                 "date",
                                 "fee",
+                                "currencyDifference",
                                 "rate"
                               ],
                               "additionalProperties": false
@@ -54382,6 +54726,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -54416,6 +54783,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -55040,6 +55408,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -55074,6 +55465,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -55670,6 +56062,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -55704,6 +56119,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -56720,6 +57136,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -56754,6 +57193,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -57783,6 +58223,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -57817,6 +58280,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -58400,6 +58864,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -58434,6 +58921,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -59019,6 +59507,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -59053,6 +59564,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -59636,6 +60148,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -59670,6 +60205,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -60267,6 +60803,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -60301,6 +60860,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -60898,6 +61458,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -60932,6 +61515,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -61496,6 +62080,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -61530,6 +62137,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -62094,6 +62702,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -62128,6 +62759,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -62769,6 +63401,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -62803,6 +63458,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -63367,6 +64023,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -63401,6 +64080,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false
@@ -63984,6 +64664,29 @@
                                 }
                               ]
                             },
+                            "currencyDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "rate": {
                               "anyOf": [
                                 {
@@ -64018,6 +64721,7 @@
                             "counterpartId",
                             "date",
                             "fee",
+                            "currencyDifference",
                             "rate"
                           ],
                           "additionalProperties": false

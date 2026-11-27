@@ -414,7 +414,7 @@ describe("IMP-16@PoC FR 2: the rollback reverses each transaction in the journal
 });
 
 describe("IMP-16@PoC FR 4: transactions the person changed after the apply", () => {
-  it("IMP-16@PoC AC2: two transactions of the batch with a category set by hand — «Залишити змінені»: 78 rolled back, 2 kept and named", async () => {
+  it("IMP-16@PoC AC2: two transactions of the batch with a category set by hand — the rollback with «Залишити змінені вручну» on (`keep-changed`): 78 rolled back, 2 kept and named", async () => {
     nowMs = start;
     const space = await newSpace();
     const batchId = await applied(space, "berezen.csv", purchases(80));
@@ -437,6 +437,62 @@ describe("IMP-16@PoC FR 4: transactions the person changed after the apply", () 
         .map((t) => t.id)
         .sort(),
     ).toEqual([a, b].sort());
+  });
+
+  it("IMP-16@PoC FR 4: before the rollback the dialog shows how many were changed by hand — 2 of 80; reading it changes nothing, and the rollback then agrees", async () => {
+    nowMs = start;
+    const space = await newSpace();
+    const batchId = await applied(space, "berezen.csv", purchases(80));
+    const all = await transactions(space.householdId);
+    await categorize(space.householdId, all[3]!.id, randomUUID());
+    await db.owner.query(
+      `UPDATE transactions.transactions SET note = 'Подарунок' WHERE household_id = $1 AND id = $2`,
+      [space.householdId, all[40]!.id],
+    );
+    nowMs = start + 2 * DAY;
+    const preview = await call(space, "GET", `/v1/import/batches/${batchId}/rollback`);
+    expect(preview.statusCode, preview.body).toBe(200);
+    expect(preview.json().rollback).toEqual({ transactions: 78, changed: 2, transfers: 0 });
+    expect(preview.json().batch).toMatchObject({ id: batchId, state: "applied" });
+    expect(await journal(space.householdId)).toEqual({ entries: 80, reversals: 0 });
+    const res = await rollback(space, batchId, "keep-changed");
+    expect(res.json().rollback.counts).toMatchObject({ rolledBack: 78, kept: 2 });
+    // Rolled back: no dialog any more.
+    expect((await call(space, "GET", `/v1/import/batches/${batchId}/rollback`)).json().rollback).toBeNull();
+  });
+
+  it("IMP-16@PoC FR 4: the dialog's counts — none past the 7 days; another space's batch is 404 like a random id; a scoped member gets 404", async () => {
+    nowMs = start;
+    const space = await newSpace();
+    const batchId = await applied(space, "kviten.csv", purchases(3));
+    nowMs = start + 8 * DAY;
+    expect((await call(space, "GET", `/v1/import/batches/${batchId}/rollback`)).json().rollback).toBeNull();
+    nowMs = start + DAY;
+    const other = await newSpace();
+    const foreign = await call(other, "GET", `/v1/import/batches/${batchId}/rollback`);
+    const random = await call(other, "GET", `/v1/import/batches/${randomUUID()}/rollback`);
+    expect(foreign.statusCode).toBe(404);
+    expect([foreign.statusCode, foreign.json().code]).toEqual([random.statusCode, random.json().code]);
+    expect(leakText(foreign.body)).not.toContain(batchId);
+    // Any role of the space reads the counts (the rollback itself stays the Owner's); a scoped member gets 404.
+    const as = (extra: { role?: string; scoped?: boolean }) =>
+      app.inject({
+        method: "GET",
+        url: `/v1/import/batches/${batchId}/rollback`,
+        headers: {
+          origin: WEB,
+          ...principalHeader({ userId: space.accountId, householdId: space.householdId, ...extra }),
+        },
+      });
+    for (const role of ["admin", "editor", "viewer"])
+      expect((await as({ role })).json().rollback, role).toEqual({
+        transactions: 3,
+        changed: 0,
+        transfers: 0,
+      });
+    const scoped = await as({ role: "editor", scoped: true });
+    expect(scoped.statusCode).toBe(404);
+    expect(leakText(scoped.body)).not.toContain(batchId);
   });
 
   it("IMP-04@PoC AC7, EC4: applied 2 days ago, one transaction re-categorized — the others reversed in the journal, none deleted, the changed one kept and named", async () => {

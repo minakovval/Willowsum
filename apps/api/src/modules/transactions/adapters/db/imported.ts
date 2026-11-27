@@ -165,6 +165,29 @@ const rollbackRecord = (r: RollbackRecordRow) => ({
  * apply's write, the batch's rows on the unique index of (batch, file, row), the rows merged into them on
  * `transactions_by_merged_into`, the record in `import_rollbacks`.
  */
+/** The rows `ids` of the space in the order of their ids, locked (`lock`, the rollback's step 3) or not (its preview). */
+async function rollbackRows(
+  q: HouseholdQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+  lock: boolean,
+): Promise<RollbackRow[]> {
+  if (ids.length === 0) return [];
+  const { rows } = await q.query<StoredRowShape & { import_batch_id: string | null; rolled_back: boolean }>(
+    `SELECT ${STORED_COLUMNS}, import_batch_id, rolled_back_at IS NOT NULL AS rolled_back FROM transactions
+      WHERE household_id = $1 AND id = ANY($2::uuid[]) ORDER BY id${lock ? " FOR UPDATE" : ""}`,
+    [householdId, [...ids]],
+  );
+  const out: RollbackRow[] = [];
+  for (const r of rows)
+    out.push({
+      ...(await storedRow(q, householdId, r)),
+      importBatchId: r.import_batch_id,
+      rolledBack: r.rolled_back,
+    });
+  return out;
+}
+
 export function importRollbackTx(q: HouseholdQueryRunner): ImportRollbackTx {
   const write = importWriteTx(q);
   const tx = transactionsTx(q);
@@ -206,24 +229,8 @@ export function importRollbackTx(q: HouseholdQueryRunner): ImportRollbackTx {
       );
       return rows.map((r) => r.id);
     },
-    async lockRows(householdId, ids) {
-      if (ids.length === 0) return [];
-      const { rows } = await q.query<
-        StoredRowShape & { import_batch_id: string | null; rolled_back: boolean }
-      >(
-        `SELECT ${STORED_COLUMNS}, import_batch_id, rolled_back_at IS NOT NULL AS rolled_back FROM transactions
-          WHERE household_id = $1 AND id = ANY($2::uuid[]) ORDER BY id FOR UPDATE`,
-        [householdId, [...ids]],
-      );
-      const out: RollbackRow[] = [];
-      for (const r of rows)
-        out.push({
-          ...(await storedRow(q, householdId, r)),
-          importBatchId: r.import_batch_id,
-          rolledBack: r.rolled_back,
-        });
-      return out;
-    },
+    lockRows: (householdId, ids) => rollbackRows(q, householdId, ids, true),
+    rollbackPreviewRows: (householdId, ids) => rollbackRows(q, householdId, ids, false),
     async markRolledBack(householdId, id, at) {
       await q.query(`UPDATE transactions SET rolled_back_at = $3 WHERE household_id = $1 AND id = $2`, [
         householdId,

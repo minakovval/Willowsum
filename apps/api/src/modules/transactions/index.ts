@@ -11,6 +11,7 @@ import {
   accountsPaidIn,
   budgetFirstDate,
   budgetRows,
+  transfersDatedIn,
   categoriesInParts,
   transactionsWithPartIn,
   categorizableFacts,
@@ -60,10 +61,12 @@ import {
   type AccountOperation,
   type MovementSide,
 } from "./adapters/db/cashflow-reads.ts";
+import { transferDifference } from "./domain/index.ts";
 import { transactionCreated, transactionImportMerged, type TransactionImportMerged } from "./events.ts";
 import {
   applyHandOff,
   ROLLBACK_RECOVERY_LISTED,
+  previewRollback,
   rollbackImport,
   rolledBackImport,
   settleImport,
@@ -76,6 +79,7 @@ import {
   type ImportRollbackInput,
   type ImportRollbackResult,
   type RollbackCategory,
+  type RollbackPreview,
 } from "./application/index.ts";
 import { logEvent } from "../../platform/telemetry/signals.ts";
 
@@ -253,6 +257,7 @@ export {
   type ImportRollbackResult,
   type RollbackCategory,
   type RollbackMode,
+  type RollbackPreview,
   type ImportCounts,
   type ImportCreated,
   type ImportedRowInput,
@@ -296,6 +301,13 @@ export interface ImportedTransactions {
   rollback(householdId: string, input: ImportRollbackInput): Promise<ImportRollbackResult>;
   /** The batch's rollback as recorded; null — not rolled back. Read only. */
   rolledBack(householdId: string, batchId: string): Promise<Omit<ImportRollbackResult, "first"> | null>;
+  /**
+   * IMP-16@PoC FR 4 (owner, 2026-11-26, decision 13): what the rollback dialog says before it is confirmed — how many
+   * transactions the rollback takes, how many the person changed after the apply (kept with «Залишити змінені вручну»)
+   * and how many are sides of a transfer; null — rolled back already. Read only, unlocked. Throws when the port
+   * `categories` was not given.
+   */
+  rollbackPreview(householdId: string, batchId: string): Promise<RollbackPreview | null>;
   /**
    * The rollbacks recorded in `[since, before)` (at most `ROLLBACK_RECOVERY_LISTED`, earliest first), for module
    * import-sessions' recovery of a request that ended before it marked its batch. Read only.
@@ -409,6 +421,13 @@ export function createImportedTransactions(
     },
     rolledBack: (householdId, batchId) =>
       db.inHousehold(householdId, (q) => rolledBackImport(importRollbackTx(q), householdId, batchId)),
+    rollbackPreview(householdId, batchId) {
+      const categories = ports.categories;
+      if (!categories) throw new Error("the rollback preview needs module categorization's categories");
+      return db.inHousehold(householdId, (q) =>
+        previewRollback({ categories }, importRollbackTx(q), householdId, batchId),
+      );
+    },
     rolledBackSince: (householdId, since, before) =>
       db.inHousehold(householdId, (q) =>
         importRollbackTx(q).rolledBackSince(householdId, since, before, ROLLBACK_RECOVERY_LISTED),
@@ -473,7 +492,16 @@ export interface BudgetTransactions {
       readonly amount: Money;
       readonly date: string;
       readonly parts:
-        | readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[]
+        | readonly {
+            readonly categoryId: string;
+            readonly month: string | null;
+            readonly amount: Money;
+            /**
+             * FIN-03@PoC FR 8, AC31: a transfer's gain against the official rate — income of the budget under its
+             * category («Комісії банку», an expense category), never a refund of it. Absent — counted by the category.
+             */
+            readonly asIncome?: boolean;
+          }[]
         | null;
       /**
        * BUD-06@PoC FR 8 «Одноразова витрата»: counted in the fact of its period, left out of the averages (BUD-06 FR 4,
@@ -498,17 +526,71 @@ export interface OneOffSwitch {
   readonly oneOffEnabled?: (householdId: string) => Promise<boolean>;
 }
 
+/**
+ * FIN-03@PoC FR 8 (owner, 2026-11-26, decision 11): the space's «Комісії банку» (module categories, system key
+ * `bank-fees`) — the category the budget counts a transfer's fee and currency difference in; null — none. Left out (a
+ * test's server): the budget counts no transfer's difference.
+ */
+export interface TransferDifferenceCategory {
+  readonly feeCategory?: (householdId: string) => Promise<string | null>;
+}
+
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
-export function createBudgetTransactions(db: ModuleDatabase, options: OneOffSwitch = {}): BudgetTransactions {
+export function createBudgetTransactions(
+  db: ModuleDatabase,
+  options: OneOffSwitch & TransferDifferenceCategory = {},
+): BudgetTransactions {
   return {
     async inPeriod(householdId, accountIds, from, to) {
-      const rows = await db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to));
+      const own = await db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to));
+      const rows = [...own, ...(await transferDifferences(db, options, householdId, accountIds, from, to))];
       if (!rows.some((r) => r.oneOff) || (await oneOffOn(options, householdId))) return rows;
       return rows.map((r) => ({ ...r, oneOff: false }));
     },
     firstDate: (householdId, accountIds) =>
       db.inHousehold(householdId, (q) => budgetFirstDate(q, householdId, accountIds)),
   };
+}
+
+/**
+ * FIN-03@PoC FR 8, AC31; IMP-03@PoC FR 9, FR 21 (owner, 2026-11-26, decision 11): each marked transfer of the dates
+ * whose fee (one currency, on the debit's account) or currency difference (two currencies, on the credit's account) is
+ * on one of `accountIds` — one row, a part in «Комісії банку», dated by the transfer (edge case 1): negative an expense,
+ * positive an income of the budget. The sides themselves stay out (budgetRows). `id` is the transfer's.
+ */
+async function transferDifferences(
+  db: ModuleDatabase,
+  options: TransferDifferenceCategory,
+  householdId: string,
+  accountIds: readonly string[],
+  from: string,
+  to: string,
+) {
+  if (!options.feeCategory || accountIds.length === 0) return [];
+  const transfers = await db.inHousehold(householdId, (q) => transfersDatedIn(q, householdId, from, to));
+  const accounts = new Set(accountIds);
+  const differences = transfers.flatMap((t) => {
+    const d = transferDifference(t.outflow, t.inflow, t.rate);
+    if (d === null) return [];
+    const accountId = d.side === "outflow" ? t.outflow.accountId : t.inflow.accountId;
+    return accounts.has(accountId) ? [{ id: t.id, accountId, amount: d.amount, date: t.date }] : [];
+  });
+  if (differences.length === 0) return [];
+  const categoryId = await options.feeCategory(householdId);
+  if (categoryId === null) return [];
+  // A loss is spending in «Комісії банку»; a gain is income under the same category (FIN-03 AC31).
+  return differences.map((d) => ({
+    ...d,
+    parts: [
+      {
+        categoryId,
+        month: null,
+        amount: d.amount,
+        ...(d.amount.isNegative() ? {} : { asIncome: true }),
+      },
+    ],
+    oneOff: false,
+  }));
 }
 
 async function oneOffOn(options: OneOffSwitch, householdId: string): Promise<boolean> {

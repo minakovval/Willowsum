@@ -363,7 +363,7 @@ describe("IMP-03@PoC FR 2, FR 4, FR 21: «обмін валют» between the wa
 });
 
 describe("IMP-03@PoC FR 9, FR 13: the user confirms an exchange; it is a transfer through «Валютна різниця»", () => {
-  it("IMP-03@PoC FR 9: «Підтвердити» the exchange — both sides «Переказ», out of income and expenses; the journal has one fx-transfer between the wallets and the difference through «Валютна різниця»", async () => {
+  it("IMP-03@PoC FR 9, FR 21: «Підтвердити» the exchange — both sides «Переказ», out of income and expenses; the journal has one fx-transfer between the wallets and the difference through «Валютна різниця»; the transfer shows the difference against the official rate, a gain «Комісії банку» of 0,03 EUR", async () => {
     const { space, card, out, into } = await ac2();
     const res = await mark(space, out.id, into.id);
     expect(res.statusCode, res.body).toBe(200);
@@ -372,15 +372,22 @@ describe("IMP-03@PoC FR 9, FR 13: the user confirms an exchange; it is a transfe
       counterpartId: into.id,
       date: "2026-03-02",
       fee: null,
+      // FR 21 (owner, 2026-11-26, decision 11): 22,50 EUR received for 1 000 UAH, 22,47 EUR at 44,50 — a gain of 0,03 EUR.
+      currencyDifference: { amount: "0.03", currency: "EUR" },
       rate: { rate: "44.5", date: "2026-03-02", source: "NBU" },
     });
-    expect((await get(space, into.id)).transfer).toMatchObject({ side: "inflow", counterpartId: out.id });
+    expect((await get(space, into.id)).transfer).toMatchObject({
+      side: "inflow",
+      counterpartId: out.id,
+      currencyDifference: { amount: "0.03", currency: "EUR" },
+    });
     expect(await liveEntries(space.householdId)).toEqual([["fx-transfer", "2026-03-02"]]);
     // Neither income nor expense: nothing goes through «Зовнішні кошти».
     expect(await externalFlow(space.householdId)).toEqual({});
     // «Валютна різниця»: 1 000 UAH come in from the UAH wallet, 22,50 EUR go out to the EUR wallet. At the reference
     // rate of the date (44,50 UAH per EUR) the UAH side is worth 22,4719… EUR, so the account gives 0,0281 EUR more
-    // than it takes: the difference of FR 9 (positive for the space), never an expense «Комісії банку».
+    // than it takes: the difference of FR 9 (positive for the space). The journal keeps it on «Валютна різниця»; the
+    // budget counts it in «Комісії банку» (FR 9, FR 21; fin03-transfer-difference.it.test.ts).
     const fx = await fxDifferencePostings(space.householdId);
     expect(fx).toEqual([
       { currency: "EUR", amount: "-22.5" },

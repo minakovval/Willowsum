@@ -22,7 +22,11 @@ import {
 } from "./modules/budget/index.ts";
 import { createCashflowServices } from "./modules/cashflow/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
-import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
+import {
+  createCategoriesServices,
+  createCategoryDirectory,
+  FEE_CATEGORY_KEY,
+} from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
   createCategoryTransactions,
@@ -333,6 +337,17 @@ const goals = createGoalsServices({
   newId: randomUUID,
 });
 
+// FIN-03@PoC FR 8 (owner, 2026-11-26, decision 11): the budget and «Грошовий потік» count a transfer's fee and its
+// currency difference against the official rate in «Комісії банку» of the space (module categories).
+const feeCategoryDirectory = createCategoryDirectory({
+  db: databases.for("categories"),
+  audit,
+  newId: randomUUID,
+});
+const feeCategory = async (householdId: string): Promise<string | null> =>
+  (await feeCategoryDirectory.categories(householdId)).find((c) => c.systemKey === FEE_CATEGORY_KEY)?.id ??
+  null;
+
 // BUD-02 a: the space's budget services — the routes' and, BUD-01 FR 12, the category delete's (its limits).
 const budgetServices = createBudgetServices({
   categories: createCategoryDirectory({
@@ -344,6 +359,7 @@ const budgetServices = createBudgetServices({
   // BUD-06 FR 8: «Одноразова витрата» leaves the averages while `transactions.one-off` is on.
   transactions: createBudgetTransactions(databases.for("transactions"), {
     oneOffEnabled: oneOffOn,
+    feeCategory,
   }),
   categorization: createTransactionCategories(databases.for("categorization")),
   fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
@@ -518,7 +534,7 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               accounts: createAccountList(databases.for("accounts")),
-              transactions: createBudgetTransactions(databases.for("transactions")),
+              transactions: createBudgetTransactions(databases.for("transactions"), { feeCategory }),
               categorization: createTransactionCategories(databases.for("categorization")),
               transfers: createTransferProposalSides({
                 candidates: createTransferCandidates(databases.for("transactions")),

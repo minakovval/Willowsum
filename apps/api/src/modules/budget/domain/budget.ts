@@ -310,6 +310,11 @@ export function withLateRates(plan: PeriodPlan, rates: PlanRates): PeriodPlan {
 export interface CountedAmount {
   readonly categoryId: string | null;
   readonly amount: Money;
+  /**
+   * FIN-03@PoC FR 8, AC31 (owner, 2026-11-26, decision 11): income of the period under its category whatever the
+   * category's kind — a transfer's gain against the official rate in «Комісії банку». Absent — by the category's kind.
+   */
+  readonly asIncome?: boolean;
 }
 
 /** A category's line of the table (FR 9): limit, spent and what is left (negative — over the limit). */
@@ -391,7 +396,7 @@ export function categoryTotals(
   for (const a of amounts) {
     const c = resolveCategory(categories, a.categoryId);
     if (c?.kind === "service") continue;
-    if (c?.kind === "income") add(income, c.id, a.amount);
+    if (c && (c.kind === "income" || a.asIncome === true)) add(income, c.id, a.amount);
     else if (c || a.amount.isNegative()) add(spent, c ? c.id : null, a.amount.negated());
   }
   return { spent, income };

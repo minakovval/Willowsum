@@ -12,7 +12,9 @@ import type { FieldIssue, TransactionStatus } from "./transactions.ts";
  * A transfer between own accounts (FIN-03@PoC FR 7–9, FR 18, FR 27, edge case 1; wave 2 row 16b), pure: two transactions
  * of the space marked as one movement — a debit on one account and a credit on another. Marked, the pair is neither
  * income nor expense; in one currency the difference is the fee (an expense «Комісії банку», FR 8); in two currencies
- * the actual amounts stay and the difference goes through «Валютна різниця». A side of a transfer is never hidden or
+ * the actual amounts stay, the journal posts the difference through «Валютна різниця», and the budget counts the
+ * difference against the official rate of the date as a loss or a gain in «Комісії банку» (FR 8, owner 2026-11-26,
+ * decision 11; `transferDifference`). A side of a transfer is never hidden or
  * split (FR 18, BUD-01 FR 6), and its account, amount, date and state stay as they are until the mark is removed (FR 9).
  */
 
@@ -88,6 +90,45 @@ export function transferFee(outflow: { amount: Money }, inflow: { amount: Money 
   if (outflow.amount.currency !== inflow.amount.currency) return null;
   const fee = outflow.amount.plus(inflow.amount);
   return fee.isZero() ? null : fee;
+}
+
+/**
+ * FR 8 (owner, 2026-11-26, decision 11; IMP-03 FR 9, FR 21): what the budget counts of a marked transfer in
+ * «Комісії банку» — in one currency the fee (`transferFee`, negative, in the debit's currency, on the debit's account);
+ * in two currencies the credit actually received less the debit at the kept official rate of the date, rounded half to
+ * even to the credit currency's minor units (as a stored amount): negative — a loss (an expense), positive — a gain
+ * (an income), in the credit's currency, on the credit's account. Zero, no kept rate, or past a stored amount — none.
+ * `rate`: 1 unit of the credit's currency in the debit's (`TransferLink.rate`).
+ */
+export function transferDifference(
+  outflow: { amount: Money },
+  inflow: { amount: Money },
+  rate: ExchangeRate | null,
+): { readonly amount: Money; readonly side: "outflow" | "inflow" } | null {
+  if (outflow.amount.currency === inflow.amount.currency) {
+    const fee = transferFee(outflow, inflow);
+    return fee === null ? null : { amount: fee, side: "outflow" };
+  }
+  if (rate === null || rate.rate.isZero()) return null;
+  const currency = inflow.amount.currency;
+  try {
+    const minor = currencyInfo(currency).minorUnits;
+    // Рішення ведучого (2026-11-26; власник не схвалював; #728): the difference is measured against the official
+    // conversion rounded half to even to the credit currency's minor units, so a credit the server converted at the
+    // official rate has no difference. The official rate is the short one: the kept rate itself, or — when the kept rate
+    // is the 18-decimal reciprocal of a short forward rate (fx-rates) — that forward rate, as `transferReceived` uses it.
+    const debit = outflow.amount.amount.negated();
+    const forward = new Decimal("1").div(rate.rate).toSignificantDigits(15);
+    const official = new Decimal("1").div(forward).toDecimalPlaces(18, Decimal.ROUND_HALF_EVEN).eq(rate.rate)
+      ? debit.times(forward)
+      : debit.div(rate.rate);
+    const atRate = official.toDecimalPlaces(minor, Decimal.ROUND_HALF_EVEN);
+    const difference = inflow.amount.minus(Money.of(atRate, currency));
+    return difference.isZero() ? null : { amount: difference, side: "inflow" };
+  } catch (error) {
+    if (error instanceof DomainError && error.code === "AMOUNT_OUT_OF_RANGE") return null;
+    throw error;
+  }
 }
 
 /** The rate a transfer in two currencies keeps (fx-rates): the inflow's currency into the outflow's on its date. */
