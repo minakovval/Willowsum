@@ -87,8 +87,10 @@ import {
   createTransactionWalletUsage,
   createTransactionsServices,
   createTransferCandidates,
+  createTransferMarking,
 } from "./modules/transactions/index.ts";
 import {
+  createCardPaymentTransfers,
   createImportBatchProposals,
   createTransferMatchingServices,
   createTransferProposalSides,
@@ -310,6 +312,32 @@ const recurring = createRecurringServices({
   newId: randomUUID,
 });
 
+// BUD-01@PoC FR 7, AC4 (#722 D): a payment to a credit card from an own account of the space is a transfer at once —
+// the proposals of transfer-matching, the cards of the space (accounts' kind), the transactions module's mark; run after
+// «Нова транзакція» and after an import batch's apply, while `transactions.transfers` is on for the space.
+const cardPaymentTransfers = createCardPaymentTransfers({
+  candidates: createTransferCandidates(databases.for("transactions")),
+  rates: (requests) =>
+    createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
+  cards: async (householdId, accountIds) => {
+    const directory = createAccountDirectory(databases.for("accounts"));
+    const cards = new Set<string>();
+    for (const id of accountIds)
+      if ((await directory.postingAccount(householdId, id))?.kind === "credit-card") cards.add(id);
+    return cards;
+  },
+  enabled: (householdId) => flags.isEnabled(householdId, "transactions.transfers"),
+  mark: (householdId, actorAccountId, outflowId, inflowId) =>
+    createTransferMarking(databases.for("transactions"), {
+      accounts: createAccountDirectory(databases.for("accounts")),
+      ledger: createLedger(databases.for("ledger")),
+      audit,
+      newId: randomUUID,
+      rates: (requests) =>
+        createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
+    }).mark(householdId, actorAccountId, outflowId, inflowId),
+});
+
 // BUD-06@PoC FR 8: «Одноразова витрата» acts (leaves the averages) only while its flag is on for the space.
 const oneOffOn = (householdId: string) => flags.isEnabled(householdId, "transactions.one-off");
 
@@ -465,6 +493,8 @@ const server = buildServer({
               categoryOf: createTransactionCategories(databases.for("categorization")),
               // FIN-03 FR 22 «Категорії»: the list «Транзакції» by category («Показати транзакції», BUD-01 AC 20).
               categoryTransactions: createCategoryTransactions(databases.for("categorization")),
+              // BUD-01 FR 7: «Нова транзакція» paying a credit card from an own account is a transfer at once.
+              cardPayments: cardPaymentTransfers,
             }),
             // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
             duplicateMatching: createDuplicateMatchingServices({
@@ -608,6 +638,8 @@ const server = buildServer({
                         // IMP-16 FR 4: a category set by hand keeps a transaction of a rolled-back batch.
                         categories: createTransactionCategoryRead(databases.for("categorization")),
                       }),
+                      // BUD-01 FR 7: the batch's card payments from an own account become transfers at once.
+                      cardPayments: cardPaymentTransfers,
                     },
                     // IMP-08 FR 6: the duplicate preview reads the accounts' transactions as the apply's plan does.
                     preview: { candidates: createImportCandidates(databases.for("transactions")) },
