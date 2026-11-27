@@ -1,0 +1,7 @@
+{
+  "name": "@willowsum/security-scan",
+  "private": true,
+  "description": "Blocking SAST (Semgrep, committed ruleset) and SCA (pnpm audit of production dependencies) for every PR (CICD-02, NFR-01). Zero dependencies; `node --test tools/security-scan` runs every test file (needs semgrep: README.md).",
+  "type": "module",
+  "main": "test/all.mjs"
+}

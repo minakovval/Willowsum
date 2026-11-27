@@ -1,0 +1,54 @@
+// Known-bad code for the Semgrep rules (tools/security-scan/semgrep/rules.yml). Each line marked `expect:` must be
+// found by that rule. The tests copy this file to a temporary folder as bad.ts; it is never compiled or run.
+import * as child_process from "node:child_process";
+import { execSync } from "node:child_process";
+import { createHash, createCipher, createCipheriv } from "node:crypto";
+import * as fs from "node:fs";
+import * as vm from "node:vm";
+
+export async function sql(client: any, pool: any, householdId: string, name: string) {
+  await client.query(`SELECT * FROM accounts WHERE name = '${name}'`); // expect: ws-sql-template-interpolation
+  await pool.query({ text: `DELETE FROM accounts WHERE id = ${householdId}` }); // expect: ws-sql-template-interpolation
+  await client.query("SELECT * FROM accounts WHERE name = '" + name + "'"); // expect: ws-sql-string-concatenation
+}
+
+export function code(input: string) {
+  eval(input); // expect: ws-eval
+  return new Function("a", input); // expect: ws-eval
+}
+
+export function sandbox(input: string) {
+  return vm.runInNewContext(input); // expect: ws-eval
+}
+
+export function shell(file: string) {
+  child_process.exec(`convert ${file} out.png`); // expect: ws-child-process-shell
+  child_process.spawn("convert", [file], { shell: true }); // expect: ws-child-process-shell
+  execSync("rm -rf " + file); // expect: ws-child-process-shell
+}
+
+export function download(req: any) {
+  const p = "/data/" + req.params.name;
+  return fs.readFileSync(p); // expect: ws-request-to-filesystem-path
+}
+
+export function back(req: any, reply: any) {
+  return reply.redirect(req.query.next); // expect: ws-request-to-redirect
+}
+
+export function render(el: any, html: string) {
+  el.innerHTML = html; // expect: ws-dom-html-sink
+}
+
+export const agent = { rejectUnauthorized: false }; // expect: ws-tls-verification-disabled
+
+export function digest(data: string) {
+  return createHash("md5").update(data).digest("hex"); // expect: ws-weak-hash
+}
+
+export function encrypt(key: Buffer, iv: Buffer) {
+  createCipher("aes-256-cbc", key); // expect: ws-weak-cipher
+  return createCipheriv("aes-256-ecb", key, iv); // expect: ws-weak-cipher
+}
+
+export const config = { password: "aaaaaaaaaaaaaaaaaaaaaaaa" }; // expect: ws-hardcoded-secret-assignment

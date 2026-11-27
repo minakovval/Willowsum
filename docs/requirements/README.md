@@ -237,7 +237,7 @@ words, «criterion «CSP без небезпечних джерел»»; a fixtu
 `req-check-ignore-mention`), and `node tools/req-check/index.mjs --check-fingerprints` (an item whose text changed
 since its fingerprint; see «Text fingerprints»).
 CI jobs: `requirements` (these checks), `traceability` (PR title starts with a requirement ID), `web`, `secrets`,
-`local-env`, `api`, `infra`.
+`security`, `local-env`, `api`, `infra`, `e2e`.
 
 **Change process (PRC-02).** Edit only sources: move scope between releases with `--move`, reword in the
 source, then regenerate the views with `--views` (never edit or hand-merge a view). Before changing a

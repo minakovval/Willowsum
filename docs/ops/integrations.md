@@ -1,6 +1,6 @@
 # Зовнішні сервіси та інтеграції
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-27
 
 Єдиний перелік усіх сторонніх сервісів, з якими Willowsum взаємодіє: для чого, через який
 обліковий запис, яким способом, де лежать облікові дані, які дані йдуть назовні і в якому стані
@@ -33,6 +33,7 @@
 | GitHub | Інструмент | Репозиторій, PR, CI (GitHub Actions), щоденна перевірка `main`, issue-алерти | Власника (`minakovval`); публічний репозиторій | git, GitHub API; Actions з мінімальними правами; OIDC до OCI | Лише вбудований `GITHUB_TOKEN`; секретів production у GitHub немає | Код і документація, без даних користувачів | Глобально | Free (для публічного репозиторію хвилини Actions на стандартних раннерах не обмежені) | CICD-01, CICD-12, ADR-0008 | Налаштовано |
 | Anthropic (Claude Code) | Інструмент | Агенти розробки і рецензування | Власника | Хмарні сесії Claude Code з доступом до репозиторію | Керує claude.ai; секретів production агенти не мають | Код; агенти працюють лише з синтетичними даними (NFR-15 п. 23) | — | Підписка власника | AGENTS.md, NFR-15 п. 23, CICD-08 | Налаштовано |
 | npm-реєстр, Docker Hub, реєстр OpenTofu | Інструмент | Залежності (pnpm, файл блокування), образи `node`/`postgres`, провайдер OCI для OpenTofu | Не потрібен | `pnpm install --frozen-lockfile`; версії й образи закріплені; нова залежність — з обґрунтуванням | — | — | Глобально | — | NFR-15 п. 22, CICD-12 | Діє |
+| PyPI (Semgrep CE), база вразливостей npm | Інструмент | Job `security`: Semgrep CE (LGPL-2.1) ставиться з PyPI за закріпленою версією і хешами кожного пакета ([`tools/security-scan/semgrep/requirements.txt`](../../tools/security-scan/semgrep/requirements.txt)); правила лише з репозиторію, без реєстру правил і телеметрії (`--metrics off`); `pnpm audit --prod` питає базу вразливостей npm-реєстру | Не потрібен | `pip install --require-hashes`, `pnpm audit` | — | Назви й версії production-залежностей з файлу блокування (публічні пакети); код у Semgrep не надсилається | Глобально | Безкоштовно | CICD-02, NFR-01 | Діє |
 
 ## Заплановано на пізніші релізи
 
@@ -56,5 +57,5 @@
 | Завдання | Що робить | Де |
 | --- | --- | --- |
 | browser-task-01 | Resend (ключ для вже підтвердженого домену, EU) і віджет Cloudflare Turnstile «Willowsum» для `willowsum.mina.yachts` | [`browser-tasks/01-mail-captcha.md`](browser-tasks/01-mail-captcha.md) |
-| browser-task-02 | Захист гілки `main` на GitHub: зміни лише через PR, без force push, обов'язкові перевірки `changes`, `requirements`, `secrets`, `traceability` | [`browser-tasks/02-main-protection.md`](browser-tasks/02-main-protection.md) |
+| browser-task-02 | Захист гілки `main` на GitHub: зміни лише через PR, без force push, обов'язкові перевірки `changes`, `requirements`, `secrets`, `security`, `traceability` | [`browser-tasks/02-main-protection.md`](browser-tasks/02-main-protection.md) |
 | OCI account | Обліковий запис OCI, MFA, бюджет, другий регіон (інструкція для власника, створена до рішення 2026-11-12) | [`infra/start/owner-setup.md`](../../infra/start/owner-setup.md) |
