@@ -4,15 +4,15 @@
 #
 # Severity: `severity: ERROR` is High or Critical (metadata.security-severity says which) and blocks the PR;
 # `WARNING` is Medium and only reported. Every rule names its CWE. A finding that is accepted goes to
-# tools/security-scan/allowlist.json with a reason, owner and review date — never a bare `nosemgrep` comment
-# (tools/security-scan/index.mjs fails on one).
+# tools/security-scan/allowlist.json with a reason, owner and review date; an inline `nosemgrep` comment has no
+# effect (index.mjs runs semgrep with --disable-nosem).
 rules:
   # --- Injection ---------------------------------------------------------------------------------------------
   - id: ws-sql-template-interpolation
     languages: [typescript, javascript]
     severity: ERROR
     message: >-
-      SQL text built with a template-literal interpolation. Pass values as parameters ($1, $2 …); an identifier
+      SQL text built with a template-literal interpolation. Pass values as numbered query parameters; an identifier
       (schema, table) comes only from a fixed list in code — then accept it in the allowlist with the reason.
     metadata:
       security-severity: High
@@ -25,7 +25,7 @@ rules:
               $DB.query({text: `...${$X}...`, ...}, ...)
       - metavariable-regex:
           metavariable: $DB
-          regex: (?i).*(client|pool|db|tx|conn|connection|sql|pg|executor|q)$
+          regex: (?i).*(client|pool|db|tx|conn|connection|sql|pg|executor|q|owner)$
       # Not a finding: a module-level UPPER_CASE constant (fixed SQL text or column list) and a value quoted by the
       # driver (`escapeIdentifier`, `escapeLiteral`) or the migration runner's `id()`.
       - metavariable-regex:
@@ -36,7 +36,7 @@ rules:
   - id: ws-sql-string-concatenation
     languages: [typescript, javascript]
     severity: ERROR
-    message: SQL text built by string concatenation. Pass values as parameters ($1, $2 …).
+    message: SQL text built by string concatenation. Pass values as numbered query parameters.
     metadata:
       security-severity: High
       cwe: "CWE-89: SQL injection"
@@ -46,7 +46,7 @@ rules:
           - pattern: $DB.query($X + "...", ...)
       - metavariable-regex:
           metavariable: $DB
-          regex: (?i).*(client|pool|db|tx|conn|connection|sql|pg|executor|q)$
+          regex: (?i).*(client|pool|db|tx|conn|connection|sql|pg|executor|q|owner)$
 
   - id: ws-eval
     languages: [typescript, javascript]

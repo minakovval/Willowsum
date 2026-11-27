@@ -32,7 +32,7 @@
 - [MVP] Спільні правила: П-1, П-9, П-15, П-16, П-24, ARC-01, ARC-03, ARC-05, ARC-07, NFR-08
 - Сценарії: —
 - Модуль: —
-- Перевіряється: tools/security-scan/test/security-semgrep.test.mjs, tools/security-scan/test/security-lib.test.mjs
+- Перевіряється: tools/security-scan/test/security-semgrep.test.mjs, tools/security-scan/test/security-lib.test.mjs, tools/security-scan/test/security-survivors.test.mjs
 
 Кожен PR проходить усі перевірки; червона перевірка блокує злиття. Вимикати, пропускати чи послаблювати тести, щоб отримати зелений статус, заборонено.
 

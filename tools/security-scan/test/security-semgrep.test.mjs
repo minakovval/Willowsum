@@ -85,7 +85,7 @@ test('CICD-02@PoC criterion «Статичний аналіз безпеки к�
     const run = spawnSync(process.execPath, [CLI, 'sast', '--semgrep', SEMGREP, dir], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     assert.equal(run.status, 1, run.stdout + run.stderr);
     assert.match(run.stdout, /::error file=[^,]*bad\.ts,line=16,title=ws-eval \(Critical\)::/);
-    assert.match(run.stdout, /::error file=[^,]*bad\.ts,line=\d+,title=ws-sql-template-interpolation \(High\)::/);
+    assert.match(run.stdout, /::error file=[^,]*bad\.ts,line=\d+,title=ws-sql-template-interpolation \(High\)::SQL text built with a template-literal interpolation\. Pass values as numbered query parameters;/);
     assert.match(run.stdout, /SAST: \d+ blocking, 0 allowlisted, 0 below High — FAILED/);
   } finally {
     rmSync(dir, { recursive: true, force: true });

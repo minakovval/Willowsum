@@ -52,3 +52,8 @@ export function encrypt(key: Buffer, iv: Buffer) {
 }
 
 export const config = { password: "aaaaaaaaaaaaaaaaaaaaaaaa" }; // expect: ws-hardcoded-secret-assignment
+
+export async function moduleOwner(db: any, name: string) {
+  await db.owner.query(`SELECT * FROM accounts WHERE name = '${name}'`); // expect: ws-sql-template-interpolation
+  await db.owner.query("SELECT * FROM accounts WHERE name = '" + name + "'"); // expect: ws-sql-string-concatenation
+}

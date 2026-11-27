@@ -1,5 +1,5 @@
 {
-  "$comment": "Accepted Semgrep and pnpm audit findings (tools/security-scan/README.md). Every entry: reason, owner, decision, review date (at most 366 days). Past its review date or matching nothing, an entry fails the job `security`. A dependency vulnerability is always an accepted risk and needs the owner's decision.",
+  "$comment": "Accepted Semgrep and pnpm audit findings (tools/security-scan/README.md). Every entry: reason, owner, decision, review date (at most 366 days); a SAST entry: rule, path, at least 16 characters of the flagged line (match) and the number of findings it accepts (count, default 1). Past its review date or matching nothing, an entry fails the job `security`. A dependency vulnerability is always an accepted risk and needs the owner's decision.",
   "sast": [
     {
       "rule": "ws-sql-template-interpolation",
@@ -159,7 +159,8 @@
       "reason": "`role` is client.escapeIdentifier(erasureRoleName(module)) and `verifier` is client.escapeLiteral(scramVerifier(password)), both in the lines above; one entry covers both interpolations of this line.",
       "owner": "lead agent",
       "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
-      "review_by": "2027-05-27"
+      "review_by": "2027-05-27",
+      "count": 2
     },
     {
       "rule": "ws-sql-template-interpolation",

@@ -9,6 +9,9 @@ export const BLOCKING_AUDIT_SEVERITIES = new Set(['high', 'critical']);
 /** The longest an allowlist entry may stay without a new review. */
 export const MAX_REVIEW_DAYS = 366;
 
+/** The shortest SAST `match`: enough code to name one line. */
+export const MIN_MATCH_LENGTH = 16;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const OWNER_DECISION = /^Рішення власника \(\d{4}-\d{2}-\d{2}\)/;
@@ -53,6 +56,11 @@ export function validateAllowlist(list, today) {
     for (const f of ['rule', 'path', 'match']) {
       if (typeof e[f] !== 'string' || e[f].trim() === '') problems.push(`${where}: "${f}" is required`);
     }
+    // A short `match` (`${t}`) would accept any line of the file; it names one line of code.
+    if (typeof e.match === 'string' && e.match.trim() !== '' && e.match.trim().length < MIN_MATCH_LENGTH) {
+      problems.push(`${where}: "match" must be at least ${MIN_MATCH_LENGTH} characters of the flagged line`);
+    }
+    if (e.count !== undefined && !(Number.isInteger(e.count) && e.count >= 1)) problems.push(`${where}: "count" must be a whole number ≥ 1`);
     common(e, where);
   });
   list.sca.forEach((e, i) => {
@@ -85,7 +93,7 @@ export function evaluateSast(report, allowlist, sourceOf, { fullScan = true } = 
   for (const e of report.errors ?? []) {
     if (e.level === 'error') errors.push(`semgrep: ${e.message ?? JSON.stringify(e.type)}`);
   }
-  const used = new Set();
+  const used = new Map();
   const blocking = [];
   const allowed = [];
   const reported = [];
@@ -103,13 +111,17 @@ export function evaluateSast(report, allowlist, sourceOf, { fullScan = true } = 
       reported.push(finding);
       continue;
     }
-    const i = allowlist.sast.findIndex((e) => e.rule === finding.rule && e.path === finding.path && finding.source.includes(e.match));
+    // An entry accepts exactly `count` findings (default 1): one more on its line, such as a new interpolation, blocks.
+    const i = allowlist.sast.findIndex(
+      (e) => e.rule === finding.rule && e.path === finding.path && finding.source.includes(e.match) && (used.get(e) ?? 0) < (e.count ?? 1),
+    );
     if (i >= 0) {
-      used.add(i);
-      allowed.push({ ...finding, entry: allowlist.sast[i] });
+      const e = allowlist.sast[i];
+      used.set(e, (used.get(e) ?? 0) + 1);
+      allowed.push({ ...finding, entry: e });
     } else blocking.push(finding);
   }
-  const stale = fullScan ? allowlist.sast.filter((_, i) => !used.has(i)) : [];
+  const stale = fullScan ? allowlist.sast.filter((e) => (used.get(e) ?? 0) < (e.count ?? 1)) : [];
   return { blocking, allowed, reported, stale, errors };
 }
 

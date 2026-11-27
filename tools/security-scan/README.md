@@ -12,8 +12,8 @@ CICD-02@PoC criteria «Статичний аналіз безпеки коду»
   `apps`, `packages`, `tools`, `infra`; tests, e2e and fixtures are excluded (`.semgrepignore` at the root).
 - **SCA:** `pnpm audit --prod` (the pnpm version of `package.json`): High and Critical advisories in production
   dependencies block; Moderate and Low are only reported.
-- **Allowlist:** [`allowlist.json`](allowlist.json). A SAST entry names the rule, the file and a piece of the
-  flagged code (`match`); an SCA entry names the GHSA id, the package and the exact versions (an updated dependency
+- **Allowlist:** [`allowlist.json`](allowlist.json). A SAST entry names the rule, the file and at least 16
+  characters of the flagged line (`match`), and accepts exactly `count` findings (default 1; one more blocks); an SCA entry names the GHSA id, the package and the exact versions (an updated dependency
   is checked again, NFR-01 EC1). Every entry has `kind` (`false-positive` or `accepted-risk`), `reason`, `owner`,
   `decision` and `review_by` (at most 366 days ahead). An accepted risk — every SCA entry — needs
   `Рішення власника (YYYY-MM-DD): …`; a false positive may carry the lead's decision. An entry past its review date
