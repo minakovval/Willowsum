@@ -27,7 +27,7 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
     expect(() => parseLocalDevArgs(["--prod"])).toThrow(/unknown option/);
   });
 
-  it("NFR-01@PoC FR 3: --rotate-data-keys [--dry-run] runs the data-key rotation on the existing database, never with --fresh", () => {
+  it("NFR-01@PoC FR 3: --rotate-data-keys [--dry-run | --abort] runs the data-key rotation on the existing database, never with --fresh", () => {
     expect(parseLocalDevArgs(["--rotate-data-keys"])).toEqual({
       fresh: false,
       rotateDataKeys: { dryRun: false },
@@ -36,7 +36,15 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
       fresh: false,
       rotateDataKeys: { dryRun: true },
     });
+    expect(parseLocalDevArgs(["--rotate-data-keys", "--abort"])).toEqual({
+      fresh: false,
+      rotateDataKeys: { dryRun: false, abort: true },
+    });
     expect(() => parseLocalDevArgs(["--dry-run"])).toThrow(/--rotate-data-keys/);
+    expect(() => parseLocalDevArgs(["--abort"])).toThrow(/--rotate-data-keys/);
+    expect(() => parseLocalDevArgs(["--rotate-data-keys", "--abort", "--dry-run"])).toThrow(
+      /do not go together/,
+    );
     expect(() => parseLocalDevArgs(["--fresh", "--rotate-data-keys"])).toThrow(/not with --fresh/);
   });
 

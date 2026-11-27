@@ -31,6 +31,44 @@ export interface ResealPart {
    * many changed. A value is replaced only if it is still the one that was read. Safe to repeat after a stop.
    */
   reseal(householdId: string, resealer: Resealer, batchSize: number): Promise<number>;
+  /**
+   * How many values of the space here `opener` cannot open, nothing written (the check before a replacement begins).
+   * Throws when the values cannot be read at all (file-storage without its storage).
+   */
+  unopenable(householdId: string, opener: Opener, batchSize: number): Promise<number>;
+}
+
+/** Opens a value without returning it (the check before a replacement): throws when it does not open. */
+export interface Opener {
+  field(field: string, sealed: string): void;
+  bytes(purpose: string, sealed: Uint8Array): void;
+}
+
+/**
+ * The `unopenable` of a part from its own walk (`reseal`, not a wrapper of the part): the walk gets a resealer that
+ * only opens, counts what does not and answers null for every value, so nothing is written.
+ */
+export function unopenableVia(walk: ResealPart["reseal"]): ResealPart["unopenable"] {
+  return async (householdId, opener, batchSize) => {
+    let failed = 0;
+    const attempt = (open: () => void): null => {
+      try {
+        open();
+      } catch {
+        failed += 1;
+      }
+      return null;
+    };
+    await walk(
+      householdId,
+      {
+        field: (field, sealed) => attempt(() => opener.field(field, sealed)),
+        bytes: (purpose, sealed) => attempt(() => opener.bytes(purpose, sealed)),
+      },
+      batchSize,
+    );
+    return failed;
+  };
 }
 
 /** Values one transaction of a part seals again, unless the command names another number. */
@@ -133,8 +171,30 @@ export function sealedColumnsPart(
   columns: readonly SealedColumn[],
 ): ResealPart {
   checkColumns(columns);
+  const reseal: ResealPart["reseal"] = async (householdId, resealer, batchSize) => {
+    let changed = 0;
+    for (const c of columns) {
+      const limit = Math.max(
+        1,
+        c.sealedFor.kind === "bytes" ? Math.min(batchSize, RESEAL_BYTES_BATCH_MAX) : batchSize,
+      );
+      let cursor: unknown[] | null = null;
+      do {
+        const from: unknown[] | null = cursor;
+        const batch: { readonly next: unknown[] | null; readonly changed: number } = await db.inHousehold(
+          householdId,
+          (q) => resealBatch(q, householdId, c, resealer, limit, from),
+        );
+        changed += batch.changed;
+        cursor = batch.next;
+      } while (cursor !== null);
+    }
+    return changed;
+  };
   return {
     name,
+    reseal,
+    unopenable: unopenableVia(reseal),
     async count(householdId) {
       let total = 0;
       for (const c of columns) {
@@ -147,26 +207,6 @@ export function sealedColumnsPart(
         total += Number(rows[0]?.n ?? 0);
       }
       return total;
-    },
-    async reseal(householdId, resealer, batchSize) {
-      let changed = 0;
-      for (const c of columns) {
-        const limit = Math.max(
-          1,
-          c.sealedFor.kind === "bytes" ? Math.min(batchSize, RESEAL_BYTES_BATCH_MAX) : batchSize,
-        );
-        let cursor: unknown[] | null = null;
-        do {
-          const from: unknown[] | null = cursor;
-          const batch: { readonly next: unknown[] | null; readonly changed: number } = await db.inHousehold(
-            householdId,
-            (q) => resealBatch(q, householdId, c, resealer, limit, from),
-          );
-          changed += batch.changed;
-          cursor = batch.next;
-        } while (cursor !== null);
-      }
-      return changed;
     },
   };
 }

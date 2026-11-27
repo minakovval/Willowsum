@@ -7,12 +7,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NUMBER_FIELD } from "../src/modules/accounts/index.ts";
 import { createAuditLog } from "../src/modules/audit/index.ts";
-import {
-  createHouseholdSpaces,
-  createSpaceKeys,
-  SpaceKeyError,
-  type SpaceKeys,
-} from "../src/modules/household/index.ts";
+import { createHouseholdSpaces, createSpaceKeys, type SpaceKeys } from "../src/modules/household/index.ts";
 import { ACCOUNT_VALUE_FIELD } from "../src/modules/import-recipes/index.ts";
 import { parsePurpose } from "../src/modules/import-sessions/application/parse.ts";
 import {
@@ -340,7 +335,7 @@ describe("NFR-01@PoC FR 3: replacing the data keys made under the fixed-label te
       code: "SPACE_KEY_ROTATING",
     });
     const first = seeded.get(stopped)![0]!;
-    await expect(first.open(keys, await stored(first))).rejects.toBeInstanceOf(SpaceKeyError);
+    await expect(first.open(keys, await stored(first))).rejects.toMatchObject({ code: "SPACE_KEY_ROTATING" });
   });
 
   it("NFR-01@PoC FR 3: the repeat carries on with the same new key; every value opens to what it was, sealed once", async () => {
@@ -444,7 +439,7 @@ describe("NFR-01@PoC FR 3: replacing the data keys made under the fixed-label te
 });
 
 describe("NFR-01@PoC FR 3: the command kms:rotate-data-keys", () => {
-  it("NFR-01@PoC FR 3: the arguments — a dry run and a batch size, nothing else", () => {
+  it("NFR-01@PoC FR 3: the arguments — a dry run or an abort, and a batch size, nothing else", () => {
     expect(parseKmsRotateArgs([])).toEqual({ dryRun: false, batchSize: 100 });
     expect(parseKmsRotateArgs(["--", "--dry-run", "--batch-size", "7"])).toEqual({
       dryRun: true,
@@ -453,6 +448,8 @@ describe("NFR-01@PoC FR 3: the command kms:rotate-data-keys", () => {
     expect(() => parseKmsRotateArgs(["--batch-size", "0"])).toThrow(/1–1000/);
     expect(() => parseKmsRotateArgs(["--batch-size", "5000"])).toThrow(/1–1000/);
     expect(() => parseKmsRotateArgs(["--force"])).toThrow(/unknown argument/);
+    expect(parseKmsRotateArgs(["--abort"])).toEqual({ dryRun: false, abort: true, batchSize: 100 });
+    expect(() => parseKmsRotateArgs(["--abort", "--dry-run"])).toThrow(/do not go together/);
   });
 
   it("NFR-01@PoC FR 3: refuses to run without the real-data mark or the key file", async () => {

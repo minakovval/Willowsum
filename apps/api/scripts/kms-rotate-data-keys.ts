@@ -3,8 +3,9 @@
  * NFR-15@PoC FR 26; the security review of #726): see lib/kms-rotate-data-keys.ts. Uses the same configuration as the
  * processes (WS_DB_*, the module passwords, the file storage, WS_REAL_DATA=true and WS_KMS_KEY_FILE) and refuses to
  * run without the real-data mark or the key file. Run it with the app stopped: `pnpm local:dev --rotate-data-keys
- * [--dry-run]` prepares the database, runs it and starts no process. Resumable and idempotent; prints counts only.
- *   node scripts/kms-rotate-data-keys.ts [--dry-run] [--batch-size <1-1000>]
+ * [--dry-run | --abort]` prepares the database, runs it and starts no process. Resumable and idempotent; prints counts
+ * only. `--abort` undoes an unfinished replacement (the values back under the old key; the old key stays).
+ *   node scripts/kms-rotate-data-keys.ts [--dry-run | --abort] [--batch-size <1-1000>]
  */
 import { readFileSync } from "node:fs";
 import {
@@ -84,7 +85,9 @@ try {
 try {
   const result = await runKmsRotateDataKeys(databases, kms, resealParts(databases, objects), command);
   console.log(kmsRotateReport(command, result));
-  console.log(JSON.stringify({ dryRun: command.dryRun, ...result }));
+  console.log(
+    JSON.stringify({ dryRun: command.dryRun, ...(command.abort ? { abort: true } : {}), ...result }),
+  );
   if (result.failed > 0) process.exitCode = 1;
 } catch (error) {
   // Nothing from any other error: database errors may hold connection details or values.

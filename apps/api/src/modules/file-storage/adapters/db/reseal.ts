@@ -1,6 +1,11 @@
 import type { ObjectStorage } from "../../../../platform/adapters/object-storage/index.ts";
 import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
-import { RESEAL_BYTES_BATCH_MAX, type ResealPart } from "../../../../platform/modules/reseal.ts";
+import {
+  RESEAL_BYTES_BATCH_MAX,
+  unopenableVia,
+  type Resealer,
+  type ResealPart,
+} from "../../../../platform/modules/reseal.ts";
 
 /**
  * NFR-01@PoC FR 3, FR 4: the space's stored files (objects sealed for `file:<id>`), sealed again with the space's new
@@ -10,7 +15,7 @@ import { RESEAL_BYTES_BATCH_MAX, type ResealPart } from "../../../../platform/mo
  * object already gone is left as it is (the file answers «not found» as before). Bytes are never logged.
  */
 export function fileStorageResealPart(db: ModuleDatabase, objects: ObjectStorage | undefined): ResealPart {
-  return {
+  const part: Omit<ResealPart, "unopenable"> = {
     name: "file-storage",
     async count(householdId) {
       const { rows } = await db.inHousehold(householdId, (q) =>
@@ -20,7 +25,7 @@ export function fileStorageResealPart(db: ModuleDatabase, objects: ObjectStorage
       );
       return Number(rows[0]?.n ?? 0);
     },
-    async reseal(householdId, resealer, batchSize) {
+    async reseal(householdId: string, resealer: Resealer, batchSize: number) {
       const limit = Math.max(1, Math.min(batchSize, RESEAL_BYTES_BATCH_MAX));
       let changed = 0;
       let after: string | null = null;
@@ -55,4 +60,6 @@ export function fileStorageResealPart(db: ModuleDatabase, objects: ObjectStorage
       return changed;
     },
   };
+  // A missing storage throws here too: such a space is refused before its replacement begins.
+  return { ...part, unopenable: unopenableVia((h, r, b) => part.reseal(h, r, b)) };
 }

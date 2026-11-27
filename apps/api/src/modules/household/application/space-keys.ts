@@ -25,6 +25,8 @@ export interface SpaceKeyAudit {
    * retired (its wrap deleted). The space's own log: the new key made, the old one gone.
    */
   keyReplaced(householdId: string, oldKeyId: string, newKeyId: string): Promise<void>;
+  /** NFR-01@PoC FR 3: an unfinished replacement was undone; its new key is discarded (the space's own log). */
+  keyRotationAborted(householdId: string, newKeyId: string): Promise<void>;
 }
 
 export interface SpaceKeysDeps {
