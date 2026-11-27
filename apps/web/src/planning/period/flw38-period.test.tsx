@@ -318,11 +318,13 @@ describe("FLW-38@PoC FR 3: the three largest changes against the average", () =>
         },
       }),
     );
-    const card = (
-      await screen.findByRole("heading", { name: /^Порівняно з середнім за 3\s+міс\.$/ })
-    ).closest("section")!;
-    await waitFor(() => expect(seen(card)).toContain("серпень–вересень 2026"));
-    expect(seen(card)).toContain("за 2 міс.");
+    await screen.findByRole("heading", { name: /^Порівняно з середнім за 3\s+міс\.$/ });
+    // The card is looked up again on every try: the heading is already there while the card loads, and the ready
+    // card replaces that section with new nodes, so a section kept from the first find is detached by then and
+    // never shows the text (a wait of asyncUtilTimeout, 5 s, = the test's own timeout).
+    const card = () => document.getElementById("per-largest-title")!.closest("section")!;
+    await waitFor(() => expect(seen(card())).toContain("серпень–вересень 2026"));
+    expect(seen(card())).toContain("за 2 міс.");
   });
 
   it("FLW-38@PoC FR 3: no history (the base is not available) — a plain sentence, not an empty list", async () => {
