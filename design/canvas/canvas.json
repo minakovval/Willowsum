@@ -3232,7 +3232,7 @@
       "y": 90580
     },
     "PocMoneyHistoryReview.dc.html": {
-      "h": 2200,
+      "h": 2280,
       "is_interactive": true,
       "page": "poc",
       "title": "S-299 Файл історії · Перевірка розпізнавання",
@@ -3241,7 +3241,7 @@
       "y": 91730
     },
     "PocMoneyHistoryReviewError.dc.html": {
-      "h": 900,
+      "h": 970,
       "is_interactive": true,
       "page": "poc",
       "title": "S-299 Файл історії · бракує колонок",
@@ -3250,7 +3250,7 @@
       "y": 91730
     },
     "PocMoneyHistoryReviewTexts.dc.html": {
-      "h": 2950,
+      "h": 3050,
       "page": "poc",
       "title": "S-299 Файл історії · Перевірка розпізнавання · Тексти",
       "w": 1280,
@@ -3281,7 +3281,7 @@
       "title": "S-301 Пропозиції правил · Тексти",
       "w": 1280,
       "x": 2720,
-      "y": 94180
+      "y": 94930
     },
     "PocMoneySuggestionAccept.dc.html": {
       "h": 900,
@@ -3307,7 +3307,7 @@
       "title": "S-302 Прийняти правила · Тексти",
       "w": 1280,
       "x": 2720,
-      "y": 96130
+      "y": 97230
     }
   },
   "createdOnFiles": {
