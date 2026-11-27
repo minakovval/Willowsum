@@ -45,6 +45,7 @@ import {
 } from "./list.ts";
 import { activeCount, filtersFromHash, NO_FILTERS } from "./filters.ts";
 import { NewTransactionDialog } from "./NewTransactionDialog.tsx";
+import { PairsPanel } from "./PairsPanel.tsx";
 import { ReviewQueue } from "./ReviewQueue.tsx";
 import { TransactionTableRow } from "./TransactionTableRow.tsx";
 import { TransactionFilters } from "./TransactionFilters.tsx";
@@ -92,6 +93,9 @@ export function TransactionsPage({
   const [adding, setAdding] = useState(newTransaction);
   const [created, setCreated] = useState(0);
   const counts = useTabCounts();
+  // IMP-03@PoC AC17: the number of «Пари · N» follows the actions of the tab.
+  const [pairsLive, setPairsLive] = useState<number | null>(null);
+  const pairs = pairsLive ?? counts.pairs;
   const close = () => {
     setAdding(false);
     if (newTransaction) window.location.replace(hrefFor(TRANSACTIONS.path));
@@ -106,7 +110,7 @@ export function TransactionsPage({
     },
     {
       id: "pairs",
-      label: counts.pairs ? t("tx.tab.pairsCount", { count: counts.pairs }) : t("tx.tab.pairs"),
+      label: pairs ? t("tx.tab.pairsCount", { count: pairs }) : t("tx.tab.pairs"),
       href: hrefFor(childPath("pairs")),
     },
   ];
@@ -134,7 +138,7 @@ export function TransactionsPage({
         ) : tab === "review" ? (
           <ReviewQueue />
         ) : (
-          <EmptyState icon={TRANSACTIONS.icon} />
+          <PairsPanel onCount={setPairsLive} />
         )}
       </PageTabs>
       <NewTransactionDialog open={adding} onClose={close} onCreated={() => setCreated((n) => n + 1)} />
