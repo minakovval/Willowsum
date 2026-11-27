@@ -7,12 +7,27 @@ export interface StoredSpaceKey {
   readonly keyId: string;
   readonly masterKeyVersion: string;
   readonly wrappedKey: string;
+  /**
+   * The key may have been wrapped by the fixed-label test key at some time (NFR-01@PoC FR 3): it is replaced by the
+   * data-key rotation (`space_keys.exposed`; absent is true). Never exposed: first wrapped by another master key.
+   */
+  readonly exposed?: boolean;
+}
+
+/** A replacement of a space's data key in progress (`space_key_rotations`): the new key's wrap, never the key. */
+export interface StoredKeyRotation {
+  readonly oldKeyId: string;
+  readonly newKey: StoredSpaceKey;
+  /** The parts of the space's data (modules with sealed values) already sealed with the new key. */
+  readonly doneParts: readonly string[];
 }
 
 export const SPACE_KEY_ERROR_CODES = [
   "SPACE_KEY_MISSING",
   "SPACE_KEY_DESTROYED",
   "SEALED_VALUE_INVALID",
+  // The space's data key is being replaced (kms:rotate-data-keys): nothing is sealed or opened until it is done.
+  "SPACE_KEY_ROTATING",
 ] as const;
 export type SpaceKeyErrorCode = (typeof SPACE_KEY_ERROR_CODES)[number];
 

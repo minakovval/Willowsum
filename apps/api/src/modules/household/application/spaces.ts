@@ -3,6 +3,7 @@ import {
   firstSpaceName,
   keyRef,
   type SpaceRole,
+  type StoredKeyRotation,
   type StoredSpaceKey,
 } from "../domain/index.ts";
 
@@ -41,6 +42,14 @@ export interface SpacesTx {
     to: Pick<StoredSpaceKey, "masterKeyVersion" | "wrappedKey">,
   ): Promise<boolean>;
   deleteSpaceKey(householdId: string, keyId: string): Promise<void>;
+  /** The replacement of the space's data key in progress, or null (NFR-01@PoC FR 3). */
+  keyRotation(householdId: string): Promise<StoredKeyRotation | null>;
+  insertKeyRotation(householdId: string, rotation: StoredKeyRotation): Promise<void>;
+  /** Records a part of the space's data as sealed with the rotation's new key; false if that rotation is gone. */
+  markRotationPart(householdId: string, newKeyId: string, part: string): Promise<boolean>;
+  /** Replaces the key `oldKeyId` by `next` (not exposed) only if it still is the space's key; true if it changed. */
+  replaceSpaceKey(householdId: string, oldKeyId: string, next: StoredSpaceKey): Promise<boolean>;
+  deleteKeyRotation(householdId: string): Promise<void>;
   /** Locks the space's record until the transaction ends (a destroy against a provisioning, ADR-0012). */
   lockSpace(householdId: string): Promise<void>;
   /** Deletes the space's record and its login → space rows (the erasure, ADR-0013); returns the member accounts. */

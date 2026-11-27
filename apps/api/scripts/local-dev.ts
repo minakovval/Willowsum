@@ -3,8 +3,10 @@
  * a person to click through — the API, worker and scheduler processes (ARC-02) and the web app's dev server, on a
  * persistent database of the `pnpm local:up` PostgreSQL, with synthetic providers only (nothing leaves the machine).
  *
- *   DATABASE_URL=<superuser URL of the local server> node scripts/local-dev.ts [--fresh]
- * (`pnpm local:dev` starts the local services and passes the URL.)
+ *   DATABASE_URL=<superuser URL of the local server> node scripts/local-dev.ts [--fresh | --rotate-data-keys [--dry-run]]
+ * (`pnpm local:dev` starts the local services and passes the URL.) `--rotate-data-keys` prepares the database the same
+ * way, replaces the data keys made under the fixed-label test key (scripts/kms-rotate-data-keys.ts) and stops without
+ * starting any process: the app is stopped while it runs, and the cluster lock keeps another `pnpm local:dev` out.
  *
  * The database is prepared the way the local environment documents it (README): `db:bootstrap` once, the
  * migrations on every start, a login for every module role with a password made for this run (never printed),
@@ -336,6 +338,23 @@ async function rewrapOffFixedLabelKey(env: NodeJS.ProcessEnv): Promise<void> {
   if ((counts.found ?? 0) > 0) console.log(lines[0]);
 }
 
+/**
+ * NFR-01@PoC FR 3: the replacement of data keys made under the fixed-label test key (scripts/kms-rotate-data-keys.ts)
+ * with a role's environment, the app stopped. It prints counts only; the exit code is the command's.
+ */
+async function rotateDataKeys(env: NodeJS.ProcessEnv, dryRun: boolean): Promise<number> {
+  const args = [path.join(apiDir, "scripts/kms-rotate-data-keys.ts"), ...(dryRun ? ["--dry-run"] : [])];
+  const child = spawn(process.execPath, args, { cwd: apiDir, env, stdio: ["ignore", "pipe", "pipe"] });
+  let out = "";
+  child.stdout!.on("data", (d: Buffer) => (out += d.toString()));
+  child.stderr!.on("data", (d: Buffer) => (out += d.toString()));
+  const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+  // The last line is the counts as JSON (for scripts); the person reads the line before it.
+  const lines = out.trim().split("\n");
+  console.log(lines.filter((l) => !l.startsWith("{")).join("\n"));
+  return code ?? 1;
+}
+
 let stopRequested = false;
 let releaseLock: () => Promise<void> = async () => {};
 async function doStop(code: number): Promise<void> {
@@ -422,6 +441,23 @@ try {
       kmsKeyFile: settings.kmsKeyFile,
     }),
   );
+  if (options.rotateDataKeys) {
+    const code = await rotateDataKeys(
+      roleEnv({
+        port: ports.worker,
+        webOrigin: web,
+        databaseUrl: devUrl,
+        password,
+        modules,
+        path: process.env["PATH"] ?? "",
+        files,
+        fileLinkKey,
+        kmsKeyFile: settings.kmsKeyFile,
+      }),
+      options.rotateDataKeys.dryRun,
+    );
+    await stop(code);
+  }
 
   for (const role of ROLES) {
     const env = roleEnv({

@@ -14,5 +14,6 @@ export {
   SPACE_KEY_ERROR_CODES,
   SpaceKeyError,
   type SpaceKeyErrorCode,
+  type StoredKeyRotation,
   type StoredSpaceKey,
 } from "./keys.ts";

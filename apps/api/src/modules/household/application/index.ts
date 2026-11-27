@@ -26,5 +26,7 @@ export type {
   SpaceKeyAudit,
   SpaceKeysDeps,
 } from "./space-keys.ts";
+export { rotateDataKeys, RotationTargetError } from "./data-key-rotation.ts";
+export type { DataKeyRotationOptions, DataKeyRotationResult } from "./data-key-rotation.ts";
 export { renameSpace } from "./settings.ts";
 export type { RenameResult, SpaceRenameAudit, SpaceSettings, SpaceSettingsTx } from "./settings.ts";

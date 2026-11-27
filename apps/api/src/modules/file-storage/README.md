@@ -1,6 +1,6 @@
 # Модуль file-storage
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-20 (`read` для кроку розбору; IMP-06 b: воркер розбору — спільний `platform/process/isolated.ts`, рядок 41)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27 (NFR-01@PoC п. 3: `fileStorageResealPart` для заміни ключів даних; раніше, 2026-11-20: `read` для кроку розбору; IMP-06 b: воркер розбору — спільний `platform/process/isolated.ts`, рядок 41)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -25,6 +25,7 @@ AC6 і рядок «Технічна межа сховища»; IMP-01@PoC п. 3
 
 `index.ts`:
 
+- `fileStorageResealPart(db, objects)` → `ResealPart` (NFR-01@PoC п. 3; `platform/modules/reseal.ts`): об'єкти збережених файлів (призначення `file:<id>`; рядки файлів пакета під `FOR UPDATE`, об'єкт замінюється цілим; без сховища при наявних файлах — помилка) простору, запечатані заново новим ключем даних під час заміни ключів (`scripts/kms-rotate-data-keys.ts`); змінюється лише запечатане значення, повтор нічого не запечатує двічі.
 - `fileStorageModule` — опис модуля (маршрутів і подій ще немає).
 - `createFileStorage({ db, audit, keys, objects, linkKey, now?, isolation?, spaceBytes? })` → `FileStorage`:
   - `store({ householdId, actorId, kind: "statement", fileName, declaredBytes?, budget, body })` → `StoredFile` — порядок:

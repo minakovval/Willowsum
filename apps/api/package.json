@@ -21,6 +21,7 @@
     "db:bootstrap": "node scripts/db-bootstrap.ts",
     "ledger:rebuild-balances": "node scripts/ledger-balances.ts rebuild",
     "kms:rewrap": "node scripts/kms-rewrap.ts",
+    "kms:rotate-data-keys": "node scripts/kms-rotate-data-keys.ts",
     "start": "node src/main.ts",
     "banks:update": "node scripts/nbu-banks.ts"
   },

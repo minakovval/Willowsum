@@ -48,20 +48,95 @@ function tx(q: ModuleQueryRunner): SpacesTx {
       return rows[0]?.ref ?? null;
     },
     async spaceKey(householdId) {
-      const { rows } = await q.query<{ key_id: string; master_key_version: string; wrapped_key: string }>(
-        `SELECT key_id, master_key_version, wrapped_key FROM space_keys WHERE household_id = $1`,
-        [householdId],
-      );
+      const { rows } = await q.query<{
+        key_id: string;
+        master_key_version: string;
+        wrapped_key: string;
+        exposed: boolean;
+      }>(`SELECT key_id, master_key_version, wrapped_key, exposed FROM space_keys WHERE household_id = $1`, [
+        householdId,
+      ]);
       const row = rows[0];
       return row
-        ? { keyId: row.key_id, masterKeyVersion: row.master_key_version, wrappedKey: row.wrapped_key }
+        ? {
+            keyId: row.key_id,
+            masterKeyVersion: row.master_key_version,
+            wrappedKey: row.wrapped_key,
+            exposed: row.exposed,
+          }
         : null;
     },
     async insertSpaceKey(householdId, key: StoredSpaceKey) {
       await q.query(
-        `INSERT INTO space_keys (household_id, key_id, master_key_version, wrapped_key) VALUES ($1, $2, $3, $4)`,
-        [householdId, key.keyId, key.masterKeyVersion, key.wrappedKey],
+        `INSERT INTO space_keys (household_id, key_id, master_key_version, wrapped_key, exposed)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [householdId, key.keyId, key.masterKeyVersion, key.wrappedKey, key.exposed ?? true],
       );
+    },
+    // Replacing a space's data key (NFR-01@PoC FR 3; migrations/0005_space_key_rotation.sql).
+    async keyRotation(householdId) {
+      const { rows } = await q.query<{
+        old_key_id: string;
+        new_key_id: string;
+        new_master_key_version: string;
+        new_wrapped_key: string;
+        done_parts: string[];
+      }>(
+        `SELECT old_key_id, new_key_id, new_master_key_version, new_wrapped_key, done_parts
+           FROM space_key_rotations WHERE household_id = $1`,
+        [householdId],
+      );
+      const row = rows[0];
+      return row
+        ? {
+            oldKeyId: row.old_key_id,
+            newKey: {
+              keyId: row.new_key_id,
+              masterKeyVersion: row.new_master_key_version,
+              wrappedKey: row.new_wrapped_key,
+              exposed: false,
+            },
+            doneParts: row.done_parts,
+          }
+        : null;
+    },
+    async insertKeyRotation(householdId, rotation) {
+      await q.query(
+        `INSERT INTO space_key_rotations
+           (household_id, old_key_id, new_key_id, new_master_key_version, new_wrapped_key, done_parts)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          householdId,
+          rotation.oldKeyId,
+          rotation.newKey.keyId,
+          rotation.newKey.masterKeyVersion,
+          rotation.newKey.wrappedKey,
+          rotation.doneParts,
+        ],
+      );
+    },
+    async markRotationPart(householdId, newKeyId, part) {
+      const { rowCount } = await q.query(
+        `UPDATE space_key_rotations
+            SET done_parts = CASE WHEN $3 = ANY (done_parts) THEN done_parts ELSE done_parts || $3::text END,
+                updated_at = now()
+          WHERE household_id = $1 AND new_key_id = $2`,
+        [householdId, newKeyId, part],
+      );
+      return rowCount === 1;
+    },
+    async replaceSpaceKey(householdId, oldKeyId, next) {
+      const { rowCount } = await q.query(
+        `UPDATE space_keys
+            SET key_id = $3, master_key_version = $4, wrapped_key = $5, exposed = false, created_at = now(),
+                rewrapped_at = NULL
+          WHERE household_id = $1 AND key_id = $2`,
+        [householdId, oldKeyId, next.keyId, next.masterKeyVersion, next.wrappedKey],
+      );
+      return rowCount === 1;
+    },
+    async deleteKeyRotation(householdId) {
+      await q.query(`DELETE FROM space_key_rotations WHERE household_id = $1`, [householdId]);
     },
     async replaceKeyRef(householdId, expected, ref) {
       const { rowCount } = await q.query(
