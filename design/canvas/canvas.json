@@ -1891,6 +1891,15 @@
       "x": 0,
       "y": 23480
     },
+    "PocMoneyPairsTexts.dc.html": {
+      "h": 2800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-059 Пари · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 23480
+    },
     "PocMoneyReconnect.dc.html": {
       "h": 800,
       "is_interactive": true,
@@ -4471,6 +4480,7 @@
     "PocMoneyMerchant.dc.html",
     "PocMoneyPairs.dc.html",
     "PocMoneyPairManual.dc.html",
+    "PocMoneyPairsTexts.dc.html",
     "PocMoneyAccounts.dc.html",
     "PocMoneyAccountsTexts.dc.html",
     "PocMoneyAccount.dc.html",

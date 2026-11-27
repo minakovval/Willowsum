@@ -1,0 +1,161 @@
+/* S-059 «Пари» and «Позначити як переказ» (IMP-03@PoC c); canvas PocMoneyPairs): tokens only. */
+.pairs {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.pairs-intro {
+  margin: 0;
+}
+
+.pairs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.pairs-list {
+  display: grid;
+  gap: var(--ws-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pairs-card {
+  display: grid;
+  gap: var(--ws-space-3);
+  min-width: 0;
+}
+
+.pairs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.pairs-head h3 {
+  margin: 0;
+}
+
+.pairs-sides {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ws-space-4);
+}
+
+.pairs-side {
+  min-width: 0;
+}
+
+.pairs-side p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pairs-side-where {
+  color: var(--ws-ink-muted);
+}
+
+.pairs-side-amount {
+  font-weight: 600;
+}
+
+.pairs-arrow {
+  color: var(--ws-ink-muted);
+}
+
+.pairs-fee {
+  padding: var(--ws-space-3);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-inset);
+}
+
+.pairs-fee p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.pairs-why {
+  margin: 0 0 var(--ws-space-1);
+}
+
+.pairs-evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2) var(--ws-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pairs-evidence li::before {
+  content: "• ";
+}
+
+.pairs-error {
+  margin: 0;
+  color: var(--ws-loss);
+  font-weight: 600;
+}
+
+.pairs-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ws-space-3);
+}
+
+/* «Позначити як переказ» (FR 24): the list of candidates in the details of a transaction. */
+.pair-candidates {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pair-candidates legend {
+  padding: 0;
+  margin-block-end: var(--ws-space-2);
+  font-weight: 600;
+}
+
+.pair-candidate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-height: var(--ws-touch-target);
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+}
+
+.pair-candidate-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pair-candidate-text span {
+  display: block;
+}
+
+.pair-candidate-amount {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pair-candidate input {
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+}
+
+.pair-candidate input:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}

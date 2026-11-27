@@ -49,6 +49,7 @@ import {
 } from "./detail.ts";
 import { filteredTransactionsPath } from "./filters.ts";
 import { BankDescriptionRow, StatementFacts } from "./StatementFacts.tsx";
+import { ManualPairDialog } from "./ManualPairDialog.tsx";
 import { TransferDifference } from "./TransferDifference.tsx";
 import { OneOffSwitch } from "./OneOffSwitch.tsx";
 import { SplitDialog } from "./SplitDialog.tsx";
@@ -150,7 +151,7 @@ function whenOf(locale: Locale, date: string, recordedAt: string): string {
   return `${day}, ${time}`;
 }
 
-type Open = "none" | "delete" | "split";
+type Open = "none" | "delete" | "split" | "pair";
 
 export function Card({
   data,
@@ -251,6 +252,10 @@ export function Card({
             setOpen("delete");
           }}
           onAction={(a) => void act(a)}
+          onPair={() => {
+            setFailure(null);
+            setOpen("pair");
+          }}
         />
         <Tooltip text={t("shell.close")}>
           <a className="ws-icon-button" href={hrefFor(TRANSACTIONS.path)} aria-label={t("shell.close")}>
@@ -343,6 +348,16 @@ export function Card({
           onClose={() => setOpen("none")}
         />
       ) : null}
+      {open === "pair" ? (
+        <ManualPairDialog
+          transaction={tx}
+          onPaired={(saved) => {
+            setOpen("none");
+            replace(saved);
+          }}
+          onClose={() => setOpen("none")}
+        />
+      ) : null}
       {merged ? (
         // FIN-03@PoC FR 11: the merged record has «Об'єднано» and the action «Роз'єднати» (edge case 4).
         <div className="txd-actions">
@@ -381,17 +396,19 @@ export function Card({
  * «…» «Ще дії» (FIN-03@PoC FR 27; canvas PocMoneyTxDetail): «Приховати транзакцію» only for a «Можливий дубль» that is
  * no side of a transfer (FR 18) — «Показати транзакцію» once hidden (FR 16); «Історія змін»; «Видалити» for a transaction
  * entered by hand, last, after a separator — not while duplicates are merged into it (the server refuses with
- * `TRANSACTION_MERGED`; «Роз'єднати» comes first). «Історія змін» opens its own page (CMP-21@PoC). «Позначити як переказ» (S-059 «Поєднати вручну», wave 2 row 139) and
- * «Об'єднати з іншою» come with their screens: the menu shows no item that does nothing (PR body).
+ * `TRANSACTION_MERGED`; «Роз'єднати» comes first). «Історія змін» opens its own page (CMP-21@PoC). «Позначити як переказ» (IMP-03@PoC FR 24: a free transaction only) opens the list of
+ * candidates; «Об'єднати з іншою» comes with its screen: the menu shows no item that does nothing (PR body).
  */
 function MoreMenu({
   data,
   onDelete,
   onAction,
+  onPair,
 }: {
   data: DetailData;
   onDelete: () => void;
   onAction: (action: DetailAction) => void;
+  onPair: () => void;
 }) {
   const t = useT();
   const tx = data.transaction;
@@ -405,6 +422,9 @@ function MoreMenu({
       icon: "eye-off",
       onSelect: () => onAction("hide"),
     });
+  // IMP-03@PoC FR 24: «Позначити як переказ» — a free transaction only (no pair, not hidden, not merged).
+  if (!tx.hidden && tx.transfer === null && tx.mergedInto === null)
+    items.push({ id: "pair", label: t("txDetail.menu.pair"), icon: "share", onSelect: onPair });
   items.push({
     id: "history",
     label: t("txDetail.menu.history"),
