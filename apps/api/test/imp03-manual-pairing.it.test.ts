@@ -555,8 +555,8 @@ describe("IMP-03@PoC FR 24: security — the candidates of one space, the cap an
     const res = await candidatesRes(space, out.id);
     expect(res.statusCode, res.body).toBe(200);
     expect(res.json().items).toEqual([]);
-    expect(res.body).not.toContain(theirs.id);
-    expect(res.body).not.toContain(otherAccount);
+    expect(leakText(res.body)).not.toContain(theirs.id);
+    expect(leakText(res.body)).not.toContain(otherAccount);
   });
 
   it("IMP-03@PoC FR 24: a hidden or pending transaction is never a candidate, and a pending chosen one has none", async () => {
