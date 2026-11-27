@@ -1,6 +1,6 @@
 # Модуль file-storage
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27 (NFR-01@PoC п. 3: `fileStorageResealPart` для заміни ключів даних; раніше, 2026-11-20: `read` для кроку розбору; IMP-06 b: воркер розбору — спільний `platform/process/isolated.ts`, рядок 41)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27 (BUD-21@PoC п. 3, рядок 233: вид файлу `history-file` — «файл історії», `0002_history_file_kind.sql`); 2026-11-27 (NFR-01@PoC п. 3: `fileStorageResealPart` для заміни ключів даних; раніше, 2026-11-20: `read` для кроку розбору; IMP-06 b: воркер розбору — спільний `platform/process/isolated.ts`, рядок 41)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -28,7 +28,7 @@ AC6 і рядок «Технічна межа сховища»; IMP-01@PoC п. 3
 - `fileStorageResealPart(db, objects)` → `ResealPart` (NFR-01@PoC п. 3; `platform/modules/reseal.ts`): об'єкти збережених файлів (призначення `file:<id>`; рядки файлів пакета під `FOR UPDATE`, об'єкт замінюється цілим; без сховища при наявних файлах — помилка) простору, запечатані заново новим ключем даних під час заміни ключів (`scripts/kms-rotate-data-keys.ts`); змінюється лише запечатане значення, повтор нічого не запечатує двічі.
 - `fileStorageModule` — опис модуля (маршрутів і подій ще немає).
 - `createFileStorage({ db, audit, keys, objects, linkKey, now?, isolation?, spaceBytes? })` → `FileStorage`:
-  - `store({ householdId, actorId, kind: "statement", fileName, declaredBytes?, budget, body })` → `StoredFile` — порядок:
+  - `store({ householdId, actorId, kind: "statement" | "history-file", fileName, declaredBytes?, budget, body })` → `StoredFile` — порядок:
     межа простору за заявленою довжиною (без читання потоку) → читання потоку під бюджетом запиту → перевірка типу і стелі в
     окремому воркері (`runIsolated` з `platform/process/isolated.ts`, спільний з file-parsers) → шифрування ключем простору → у транзакції під блокуванням меж простору (`pg_advisory_xact_lock` на
     `space-limits:<простір>`, `SPACE_LIMITS_LOCK`) повторна перевірка 100 ГіБ, рядок, об'єкт `spaces/<простір>/files/<файл>`,
@@ -80,7 +80,7 @@ household (`SpaceKeys.sealBytes` / `openBytes` — шифрування ключ
 
 Схема `file_storage`; міграції — `adapters/db/migrations/NNNN_slug.sql`.
 
-- `files` — збережений файл простору: вид (`statement`), формат і тип за вмістом, назва для завантаження, розмір оригіналу,
+- `files` — збережений файл простору: вид (`statement` або `history-file` — файл історії, BUD-21), формат і тип за вмістом, назва для завантаження, розмір оригіналу,
   SHA-256, ключ об'єкта. Самих байтів у базі немає.
 
 ## Тести

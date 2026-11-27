@@ -1,6 +1,6 @@
 # Модуль plan-catalog
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-17 (BUD-12 a: `transactions.review`; FIN-03 п. 27: `transactions.history`; FIN-03 FR 30, FR 31: `categorization.suggestions`)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-27 (BUD-21 a: `categorization.history-rules`); 2026-11-17 (BUD-12 a: `transactions.review`; FIN-03 п. 27: `transactions.history`; FIN-03 FR 30, FR 31: `categorization.suggestions`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -39,7 +39,7 @@ ARC-07@PoC (перевірка плану на кожному маршруті),
 записів, фон, «Відмінити» 24 год); маршрути `/v1/bulk-actions` перевіряють його як право; ліміту немає (DAT-03 «Ліміти
 плану»); `transactions.review` — розбір транзакцій (BUD-12@PoC a: «До розбору», `/v1/transaction-review`,
 `/v1/transactions/{id}/review/*`, «Підтвердити категорії»); ліміту немає (BUD-12 «Ліміти плану»). `transactions.history` — «Історія змін» транзакції (FIN-03@PoC п. 27, `/v1/transactions/{id}/history`); ліміту немає. `categorization.suggestions` —
-підказки категорії форми «Нова транзакція» (FIN-03@PoC FR 30, FR 31: `/v1/category-suggestions`); ліміту немає. Нові ключі додає вимога, що вводить
+підказки категорії форми «Нова транзакція» (FIN-03@PoC FR 30, FR 31: `/v1/category-suggestions`); ліміту немає. `categorization.history-rules` — файл історії з розбором (BUD-21@PoC a: `/v1/import/history-files`); ліміту в PoC немає. Нові ключі додає вимога, що вводить
 функцію; назв планів і лімітів у коді немає (AGENTS.md «Plans»). Відмова плану — 402 `PLAN_LIMIT_REACHED`.
 
 ## Залежності

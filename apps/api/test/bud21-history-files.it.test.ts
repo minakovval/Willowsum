@@ -522,7 +522,7 @@ describe("BUD-21@PoC FR 6: corrections and the confirmation", () => {
     expect((await confirm({})).statusCode).toBe(409);
   });
 
-  it("BUD-21@PoC AC10: a confirmed history file creates no transaction and is never applied — balances, budget and «До розбору» stay as they were", async () => {
+  it("BUD-21@PoC FR 1, AC10: a confirmed history file creates no transaction and is never applied — balances, budget and «До розбору» stay as they were", async () => {
     const space = await newSpace();
     const before = {
       transactions: await count("transactions.transactions WHERE household_id = $1", space.householdId),

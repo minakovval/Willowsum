@@ -44,6 +44,18 @@ describe("BUD-21@PoC FR 4: the structure and the roles of a history file", () =>
     expect(p.missing).toEqual([]);
   });
 
+  it("BUD-21@PoC FR 1: a TSV history file is read as the CSV one is — the same roles", () => {
+    const tsv = new TextEncoder().encode(
+      ["Дата\tСума\tОпис\tКатегорія", "01.03.2026\t-10,00\tКава\tКафе", "02.03.2026\t-20,00\tХліб\tЇжа"].join(
+        "\r\n",
+      ) + "\r\n",
+    );
+    const p = parseHistory(tsv);
+    expect(p.reading.delimiter.chosen.delimiter).toBe("\t");
+    expect(roles(p)).toEqual(["date", "amount", "description", "category"]);
+    expect(p.rows.map((r) => r.category)).toEqual(["Кафе", "Їжа"]);
+  });
+
   it("BUD-21@PoC FR 5: the rows as read — date, amount, description, category, subcategory, transfer mark, tags, account", () => {
     const p = parseHistory(FULL);
     expect(p.rows).toHaveLength(5);
