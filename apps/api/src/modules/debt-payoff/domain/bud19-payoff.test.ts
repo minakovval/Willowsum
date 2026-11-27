@@ -171,3 +171,26 @@ describe("BUD-19@PoC: «Прогрес»", () => {
     expect([behind.status, behind.amount.toDecimalString()]).toEqual(["behind", "50"]);
   });
 });
+
+describe("FLW-44@PoC: a credit card in «Стратегія» (owner decision 2026-11-27)", () => {
+  const loan = { id: "loan", balance: eur("5000"), annualRate: "18", minimumPayment: eur("150") };
+  const card = { id: "card", balance: eur("800"), annualRate: null, minimumPayment: eur("200") };
+
+  it("FLW-44@PoC FR 4: Avalanche puts the rest on the rated loan before the card, even when the card is first; the card has no interest", () => {
+    const avalanche = paid(simulateStrategy([card, loan], eur("550"), "avalanche"));
+    expect(avalanche.closedIn.get("card")).toBe(4);
+    // A card alone: no interest at all, 800 ÷ 200 rounded up.
+    const alone = paid(simulateStrategy([card], eur("200"), "avalanche"));
+    expect([alone.months, alone.totalInterest.toDecimalString()]).toEqual([4, "0"]);
+  });
+
+  it("FLW-44@PoC FR 4: Snowball orders the card with the loans by its balance", () => {
+    const snowball = paid(simulateStrategy([loan, card], eur("550"), "snowball"));
+    expect(snowball.closedIn.get("card")).toBe(2);
+    const bigCard = { ...card, balance: eur("9000") };
+    const s2 = paid(simulateStrategy([bigCard, loan], eur("550"), "snowball"));
+    const a2 = paid(simulateStrategy([bigCard, loan], eur("550"), "avalanche"));
+    // The loan is the smaller one now: Snowball and Avalanche both pay it first.
+    expect(s2.closedIn.get("loan")).toBe(a2.closedIn.get("loan"));
+  });
+});

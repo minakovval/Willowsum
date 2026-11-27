@@ -1,6 +1,6 @@
 # Модуль debt-payoff
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-19@PoC a: борги, сценарій, стратегії, збережені плани, прогрес)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27 (FLW-44@PoC: кредитна картка в плані із сумою «Зменшувати на … / міс.»)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -28,20 +28,25 @@ AC1–AC8 (серверні частини), граничні випадки 1, 
   областю: «бюджет і цілі» закриті політикою видимості за замовчуванням — 404 на читання, 403 на зміни; ліміту плану немає):
   - `GET /v1/debts` (`listDebts`) — борги в порядку додавання (порожньо — «Боргів не додано»): `accountId`, `kind`
     (`credit-card`, `loan`), `name`, `balance` (додатний борг), `annualRate`, `monthlyPayment`, `termsMissing` («Вкажіть
-    ставку і платіж», AC5), `base` — розрахунок за умовами зобов'язання (`status`: `paid`, `not-decreasing`, `over-limit`;
+    ставку і платіж», AC5; картка — без суми «Зменшувати на … / міс.»), `cardMonthlyAmount` — сума картки «Зменшувати на …
+    / міс.» (FLW-44@PoC FR 1, FR 4): платіж збереженого плану картки, налаштування плану, не дані рахунку; null — не
+    вказано, у кредиту завжди null; у картки `annualRate` і `monthlyPayment` — null, ставки немає, відсотки не
+    рахуються, дата — залишок ÷ сума з округленням угору, `base` — розрахунок за умовами зобов'язання (`status`: `paid`, `not-decreasing`, `over-limit`;
     `months`, `payoffMonth`, `totalInterest`, `schedule` — залишок на кінець кожного місяця, `cappedOneOffs`), `progress`
     (`paidPercent` вниз до цілого, `remainingMonths`, `plan.status`: `ahead`, `on-track`, `behind`, `none` і `amount`),
     `plan` — збережений план або null.
   - `POST /v1/debts/{accountId}/scenario` (`calculateDebtScenario`) — перевизначення `balance`, `annualRate`,
     `monthlyPayment`, `extraMonthly`, `oneOffs` (`month` пізніше поточного, `amount` > 0; до 24) у валюті боргу →
     `base`, `scenario`, `saving` («На N міс. раніше, економія X»). Нічого не записує. Без ставки чи платежу — 400
-    `annualRate`/`monthlyPayment: required`.
+    `annualRate`/`monthlyPayment: required`. Картка: `monthlyPayment` — її «Зменшувати на … / міс.» (за замовчуванням —
+    із плану), ставка 0; `annualRate` для картки — 400 `not_applicable`.
   - `PUT /v1/debts/{accountId}/plan` (`saveDebtPlan`) — «Зберегти план»: ті самі поля і `addToPlannedExpenses`; один план
     на борг, повторне збереження замінює його (`version` + 1), ті самі значення — нічого не записано. План, що не
     погашає борг, — 409 `DEBT_NOT_DECREASING` або `DEBT_OVER_LIMIT`. → 200 план.
   - `DELETE /v1/debts/{accountId}/plan` (`deleteDebtPlan`) — «Плану немає» після нього; немає плану — 404.
   - `POST /v1/debts/strategy` (`compareDebtStrategies`) — `total` («Усього на борги / міс.»), `debts` — перевизначення
-    `minimumPayment`, `annualRate` → `avalanche`, `snowball` (`months`, `payoffMonth`, `totalInterest`, `debts` — місяць
+    `minimumPayment`, `annualRate` (картка: мінімум — її «Зменшувати на … / міс.», без ставки; `annualRate` — 400
+    `not_applicable`; в Avalanche — після кредитів зі ставкою, у Snowball — за залишком) → `avalanche`, `snowball` (`months`, `payoffMonth`, `totalInterest`, `debts` — місяць
     закриття кожного), `included`, `excluded` (`terms-missing`, `currency` — інша валюта, ніж `total`, `paid-off`).
     Сума менша за мінімальні платежі — 400 `total: below_minimums`. Позначки «рекомендовано» немає.
 - `createDebtPayoffServices({ accounts, liabilities, ledger, audit, clock, newId })` → `DebtPayoffServices` — порти
