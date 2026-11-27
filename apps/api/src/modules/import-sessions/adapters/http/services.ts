@@ -28,6 +28,8 @@ import {
   type BatchesAudit,
   type BatchesDeps,
   type BatchHandOff,
+  type HistoryLabelChoice,
+  type HistoryLabelsPort,
   type Originals,
 } from "../../application/index.ts";
 
@@ -157,6 +159,26 @@ export interface ResultServices {
 export interface HistoryServices {
   readonly keys: Pick<SpaceKeys, "openBytes" | "sealBytes">;
   readonly accounts: Pick<AccountDirectory, "postingAccount">;
+  /**
+   * BUD-21 b (row 234): module categories' matching of labels (`createHistoryLabels`); absent — the step shows no
+   * matching and the confirmation creates no category.
+   */
+  readonly labels?: HistoryLabelsService;
+}
+
+/** Module categories' `HistoryLabels`, as these routes call it (bound to a batch by `history-routes.ts`). */
+export interface HistoryLabelsService {
+  plan(
+    householdId: string,
+    counts: Parameters<HistoryLabelsPort["plan"]>[0],
+    choices: readonly HistoryLabelChoice[],
+  ): ReturnType<HistoryLabelsPort["plan"]>;
+  confirm(
+    caller: { readonly householdId: string; readonly actorId: string },
+    batchId: string,
+    counts: Parameters<HistoryLabelsPort["plan"]>[0],
+    choices: readonly HistoryLabelChoice[],
+  ): ReturnType<HistoryLabelsPort["confirm"]>;
 }
 
 /** What the API process wires for the import-sessions routes (src/api.ts → `ctx.services`). */

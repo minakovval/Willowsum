@@ -4,7 +4,13 @@
  * not count; a row with neither a category nor a transfer mark is skipped, with its reason, and so is a row whose date
  * or amount could not be read. Pure: the caller gives the rows and the answer.
  */
-export const HISTORY_SKIPS = ["date-unreadable", "amount-unreadable", "no-categorisation"] as const;
+export const HISTORY_SKIPS = [
+  "date-unreadable",
+  "amount-unreadable",
+  "no-categorisation",
+  // BUD-21 EC12: a row of the label «Коригування» — a service category, no category of income or expenses.
+  "service-category",
+] as const;
 export type HistorySkip = (typeof HISTORY_SKIPS)[number];
 
 /** The ceilings of the review step's lists (FR 5): labels and account values beyond them are counted, not listed. */
@@ -33,9 +39,19 @@ export interface HistorySummary {
   readonly skipped: readonly { readonly reason: HistorySkip; readonly count: number }[];
 }
 
+/**
+ * BUD-21 FR 8, EC12 (row 234): what the matching of labels makes of a row's label — a transfer (the user, or the label
+ * «Переказ») or a row skipped (the label «Коригування»); undefined — a category.
+ */
+export type LabelAction = (
+  category: string | null,
+  subcategory: string | null,
+) => "transfer" | "skip" | undefined;
+
 export function classifyRows<R extends HistoryRowFields>(
   rows: readonly R[],
   transferValues: ReadonlySet<string>,
+  labelAction?: LabelAction,
 ): { readonly read: readonly ReadRow<R>[]; readonly summary: HistorySummary } {
   const read: ReadRow<R>[] = [];
   const skipped = new Map<HistorySkip, number>();
@@ -45,8 +61,11 @@ export function classifyRows<R extends HistoryRowFields>(
     else if (r.amount === null) skip("amount-unreadable");
     else {
       const transfer = r.transferMark !== null && transferValues.has(r.transferMark);
+      // EC5: a row with a transfer mark is a transfer; its category does not count.
+      const action = transfer ? undefined : labelAction?.(r.category, r.subcategory);
       if (!transfer && r.category === null && r.subcategory === null) skip("no-categorisation");
-      else read.push({ ...r, transfer });
+      else if (action === "skip") skip("service-category");
+      else read.push({ ...r, transfer: transfer || action === "transfer" });
     }
   }
   return {
@@ -120,4 +139,58 @@ export function accountValues(rows: readonly ReadRow[]): {
     values: values.slice(0, HISTORY_VIEW_LIMITS.accounts),
     more: values.length > HISTORY_VIEW_LIMITS.accounts,
   };
+}
+
+/**
+ * BUD-21 FR 7 (row 234): the labels of the rows read — each as printed, with how many rows have a negative and a
+ * positive amount (a zero counts as negative: «витрата» is the default type). Transfers have no label (FR 8). The
+ * module categories matches them (one label for spellings that differ in case, diacritics or spaces, EC1).
+ */
+export function labelCounts(rows: readonly ReadRow[]): {
+  readonly category: string | null;
+  readonly subcategory: string | null;
+  readonly negative: number;
+  readonly positive: number;
+}[] {
+  const counts = new Map<
+    string,
+    { category: string | null; subcategory: string | null; negative: number; positive: number }
+  >();
+  for (const r of rows) {
+    if (r.transfer || (r.category === null && r.subcategory === null)) continue;
+    const key = JSON.stringify([r.category, r.subcategory]);
+    const c = counts.get(key) ?? {
+      category: r.category,
+      subcategory: r.subcategory,
+      negative: 0,
+      positive: 0,
+    };
+    if (/^-|^[0.]+$/.test(r.amount!)) c.negative += 1;
+    else c.positive += 1;
+    counts.set(key, c);
+  }
+  return [...counts.entries()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(([, c]) => c);
+}
+
+/** A label as the confirmation resolved it (`HistoryAnswers.labels`): its spellings, its category or a transfer. */
+export interface ResolvedLabelAnswer {
+  readonly variants: readonly { readonly category: string | null; readonly subcategory: string | null }[];
+  readonly action: "category" | "transfer" | "skip";
+  readonly categoryId: string | null;
+}
+
+/**
+ * BUD-21 FR 7, AC8: the category of a history row after the confirmation, for the derivation (row 235) — the space's
+ * category its label was matched with or created as; null — a transfer, a skipped row or a label not resolved.
+ */
+export function rowCategories(
+  resolved: readonly ResolvedLabelAnswer[],
+): (row: {
+  readonly category: string | null;
+  readonly subcategory: string | null;
+}) => ResolvedLabelAnswer | null {
+  const byText = new Map<string, ResolvedLabelAnswer>();
+  for (const l of resolved)
+    for (const v of l.variants) byText.set(JSON.stringify([v.category, v.subcategory]), l);
+  return (row) => byText.get(JSON.stringify([row.category, row.subcategory])) ?? null;
 }

@@ -1,3 +1,4 @@
 // Application layer of categories: use cases, transactions, permission checks (ARC-01 FR 5).
 // Uses ports; adapters are wired in ../index.ts.
 export * from "./categories.ts";
+export * from "./history-labels.ts";

@@ -17,13 +17,18 @@ import {
   HISTORY_FILE_BYTES,
   HistoryAnswerRefused,
   HistoryConfirmed,
+  HistoryLabelRefused,
   HistoryNotReady,
+  labelActions,
   historyViewOf,
   maskedAnalysis,
   parseRefusal,
   rereadHistoryFile,
   suggestedTransfers,
   uploadHistoryFile,
+  type HistoryLabelChoice,
+  type HistoryLabelPlan,
+  type HistoryLabelsPort,
   type HistoryView,
   type HistorySpaceTx,
 } from "../../application/index.ts";
@@ -32,6 +37,7 @@ import {
   classifyRows,
   HISTORY_SKIPS,
   HISTORY_VIEW_LIMITS,
+  labelCounts,
   labelTree,
   maskNumbers,
 } from "../../domain/index.ts";
@@ -67,10 +73,19 @@ function historyServices(ctx: ProtectedContext) {
   const services = importSessionsServices(ctx);
   if (!services.history) throw new ApiProblem("INTERNAL");
   const { householdId } = ctx.principal;
-  const { keys, accounts } = services.history;
+  const { keys, accounts, labels } = services.history;
   return {
     ...services,
     accounts,
+    /** BUD-21 b: the matching of labels bound to this space, the caller and the batch; null — not wired. */
+    labels: (batchId: string): HistoryLabelsPort | null =>
+      labels
+        ? {
+            plan: (counts, choices) => labels.plan(householdId, counts, choices),
+            confirm: (counts, choices) =>
+              labels.confirm({ householdId, actorId: ctx.principal.userId }, batchId, counts, choices),
+          }
+        : null,
     open: (purpose: string, sealed: Uint8Array) => keys.openBytes(householdId, purpose, sealed),
     seal: (purpose: string, plain: Uint8Array) => keys.sealBytes(householdId, purpose, plain),
   };
@@ -86,6 +101,13 @@ function historyRefusal(error: unknown): unknown {
   if (error instanceof HistoryAnswerRefused)
     return new ApiProblem("HISTORY_ANSWER_INVALID", {
       errors: [{ in: "body", path: `${error.field}[${error.index}]`, issue: "unknown-value" }],
+    });
+  // BUD-21 FR 6, FR 7: a label's choice the file or the tree does not have; a category whose name cannot be one.
+  if (error instanceof HistoryLabelRefused)
+    return new ApiProblem("HISTORY_ANSWER_INVALID", {
+      errors: [
+        { in: "body", path: error.index === null ? "labels" : `labels[${error.index}]`, issue: error.issue },
+      ],
     });
   return error;
 }
@@ -161,6 +183,73 @@ const exampleSchema = z.object({
   account: z.string().nullable(),
 });
 
+const labelOutcomeSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("category"),
+    categoryId: z.uuid(),
+    name: z.string(),
+    /** EC3: a hidden category; `show` — shown again at the confirmation. */
+    hidden: z.boolean(),
+    show: z.boolean(),
+    /** «name» — the same name, «remembered» — confirmed for an earlier file (FR 25), «choice» — the user's. */
+    source: z.enum(["name", "remembered", "choice"]).meta(extensible),
+  }),
+  z.object({
+    action: z.literal("create"),
+    /** null — the label cannot be a category's name (a question: map it). */
+    name: z.string().nullable(),
+    kind: z.enum(["expense", "income"]),
+    /** «group» — a group of the space, «new» — the file category's own, «history» — the history group of the type. */
+    group: z.object({
+      kind: z.enum(["group", "new", "history"]).meta(extensible),
+      groupId: z.uuid().nullable(),
+      name: z.string().nullable(),
+    }),
+    source: z.enum(["new", "choice"]).meta(extensible),
+  }),
+  z.object({
+    action: z.literal("transfer"),
+    source: z.enum(["service", "remembered", "choice"]).meta(extensible),
+  }),
+  z.object({ action: z.literal("skip"), reason: z.enum(["service-category"]).meta(extensible) }),
+]);
+
+const labelQuestions = z
+  .array(
+    z
+      .enum(["equal-signs", "opposite-sign", "hidden-category", "duplicate-name", "name-invalid"])
+      .meta(extensible),
+  )
+  .meta({ description: "BUD-21 FR 7, EC 2–4: what the step asks about the label" });
+
+/** BUD-21 FR 7, FR 8, FR 25: what happens to each label of the file at the confirmation. */
+const mappingSchema = z.object({
+  labels: z.array(
+    z.object({
+      category: z.string(),
+      subcategory: z.string().nullable(),
+      rows: z.number().int(),
+      outcome: labelOutcomeSchema,
+      questions: labelQuestions,
+    }),
+  ),
+  groups: z.array(
+    z.object({
+      category: z.string(),
+      rows: z.number().int(),
+      kind: z.enum(["expense", "income"]),
+      target: z.object({
+        kind: z.enum(["group", "new"]).meta(extensible),
+        groupId: z.uuid().nullable(),
+        name: z.string().nullable(),
+      }),
+      questions: labelQuestions,
+    }),
+  ),
+  historyGroups: z.array(z.object({ kind: z.enum(["expense", "income"]), name: z.string() })),
+  more: z.boolean(),
+});
+
 const recognitionSchema = z.object({
   table: z.object({
     headerRow: z.number().int().nullable(),
@@ -210,6 +299,8 @@ const recognitionSchema = z.object({
   }),
   /** FR 4, AC3, AC4: what the file lacks for rules; not empty — rules cannot be derived. */
   missing: z.array(z.enum(HISTORY_MISSING).meta(extensible)),
+  /** BUD-21 b: each label matched with the space's tree or to be created; once confirmed — as confirmed. */
+  mapping: mappingSchema.nullable(),
 });
 
 const historyViewSchema = z.object({
@@ -241,13 +332,45 @@ const guesses = <G>(
   alternatives: g.alternatives.map((a) => ({ value: value(a), score: a.score })),
 });
 
+function presentMapping(plan: HistoryLabelPlan): z.input<typeof mappingSchema> {
+  const group = (
+    g:
+      | { readonly kind: "group"; readonly groupId: string; readonly name: string }
+      | { readonly kind: "new"; readonly name: string | null }
+      | { readonly kind: "history"; readonly groupId: string | null; readonly name: string },
+  ) => ({ kind: g.kind, groupId: "groupId" in g ? g.groupId : null, name: g.name });
+  return {
+    labels: plan.labels.slice(0, HISTORY_VIEW_LIMITS.labels).map((l) => ({
+      category: l.category,
+      subcategory: l.subcategory,
+      rows: l.rows,
+      outcome: (l.outcome.action === "create"
+        ? { ...l.outcome, group: group(l.outcome.group) }
+        : structuredClone(l.outcome)) as z.input<typeof labelOutcomeSchema>,
+      questions: [...l.questions] as z.input<typeof labelQuestions>,
+    })),
+    groups: plan.groups.map((g) => ({
+      category: g.category,
+      rows: g.rows,
+      kind: g.kind,
+      target: group(g.target) as { kind: "group"; groupId: string | null; name: string | null },
+      questions: [...g.questions] as z.input<typeof labelQuestions>,
+    })),
+    historyGroups: plan.historyGroups.map((h) => ({ ...h })),
+    more: plan.labels.length > HISTORY_VIEW_LIMITS.labels,
+  };
+}
+
 function presentRecognition(
   parsed: HistoryParse,
   transfers: ReadonlySet<string>,
   accounts: ReadonlyMap<string, string | null>,
+  plan: HistoryLabelPlan | null,
 ): z.input<typeof recognitionSchema> {
-  const { read, summary } = classifyRows(parsed.rows, transfers);
-  const labels = labelTree(read);
+  // The file's tree as printed (FR 5); the summary with the labels that are transfers or skipped (FR 8, EC12).
+  const marked = classifyRows(parsed.rows, transfers);
+  const { read, summary } = plan ? classifyRows(parsed.rows, transfers, labelActions(plan)) : marked;
+  const labels = labelTree(marked.read);
   const values = accountValues(read);
   const suggested = new Set(suggestedTransfers(parsed));
   // Plain data of the analysis (readonly arrays), checked against the schema on the way out.
@@ -307,7 +430,31 @@ function presentRecognition(
     },
     summary: { ...summary, skipped: summary.skipped.map((s) => ({ ...s })) },
     missing: [...parsed.missing],
+    mapping: plan ? presentMapping(plan) : null,
   };
+}
+
+/**
+ * BUD-21 FR 7, FR 25: the plan of the labels the step shows — before the confirmation, the matching as the tree is
+ * now; after it, what was confirmed (each label's category chosen; a category deleted since — no plan). Null without the
+ * matching of labels.
+ */
+async function labelPlan(
+  labels: HistoryLabelsPort | null,
+  parsed: HistoryParse,
+  transfers: ReadonlySet<string>,
+  answers: HistoryView["answers"],
+): Promise<HistoryLabelPlan | null> {
+  if (!labels) return null;
+  const choices = (answers?.labels ?? []).flatMap((l): HistoryLabelChoice[] => {
+    const v = l.variants[0];
+    if (!v) return [];
+    if (l.action === "category" && l.categoryId)
+      return [{ ...v, action: "category", categoryId: l.categoryId }];
+    return l.action === "transfer" ? [{ ...v, action: "transfer" }] : [];
+  });
+  const planned = await labels.plan(labelCounts(classifyRows(parsed.rows, transfers).read), choices);
+  return planned.ok ? planned.plan : null;
 }
 
 async function presentView(
@@ -319,7 +466,10 @@ async function presentView(
   const { parse, parsed, answers } = view;
   const transfers = new Set(answers ? answers.transferValues : parsed ? suggestedTransfers(parsed) : []);
   const accounts = new Map((answers?.accounts ?? []).map((a) => [a.value, a.accountId]));
-  const recognition = parsed ? presentRecognition(parsed, transfers, accounts) : null;
+  const plan = parsed
+    ? await labelPlan(historyServices(ctx).labels(view.batch.id), parsed, transfers, answers)
+    : null;
+  const recognition = parsed ? presentRecognition(parsed, transfers, accounts, plan) : null;
   return {
     batch: presentHistoryBatch(view, file),
     parseId: parse.parseId,
@@ -469,14 +619,41 @@ export const confirmHistoryFileRoute = defineRoute({
           .array(z.object({ value: z.string().max(200), accountId: z.uuid().nullable() }).strict())
           .max(100)
           .optional(),
+        /**
+         * BUD-21 FR 6, FR 8, EC3: the user's matching of a label (named as printed) — an existing category (`show` — a
+         * hidden one shown again), «створити нову», or a transfer; the rest as `recognition.mapping` shows.
+         */
+        labels: z
+          .array(
+            z
+              .object({
+                category: z.string().max(200).nullable(),
+                subcategory: z.string().max(200).nullable(),
+                action: z.enum(["category", "create", "transfer"]),
+                categoryId: z.uuid().optional(),
+                show: z.boolean().optional(),
+              })
+              .strict()
+              .refine((c) => (c.action === "category") === (c.categoryId !== undefined), {
+                message: "categoryId goes with the action «category» only",
+                path: ["categoryId"],
+              }),
+          )
+          .max(1000)
+          .optional(),
       })
       .strict(),
   },
   problems: ["BATCH_STATE_CONFLICT", "HISTORY_NOT_READY", "HISTORY_ANSWER_INVALID"],
-  response: { status: 200, description: "The confirmed history file", schema: historyViewSchema },
+  response: {
+    status: 200,
+    description:
+      "The confirmed history file; the labels' categories created (BUD-21 FR 7, one audit entry) and their matching kept for the next file (FR 25)",
+    schema: historyViewSchema,
+  },
   handler: async ({ params, body }, ctx) => {
     owner(ctx);
-    const { deps, audit, open, seal, accounts } = historyServices(ctx);
+    const { deps, audit, open, seal, accounts, labels } = historyServices(ctx);
     const { householdId, userId } = ctx.principal;
     // An account of another space, or a closed one, is the same answer as a value the file does not have.
     for (const [i, a] of (body.accounts ?? []).entries())
@@ -489,17 +666,42 @@ export const confirmHistoryFileRoute = defineRoute({
         });
     const { result, handOffs } = await historied(() =>
       runHistory(ctx)((tx) =>
-        confirmHistoryFile(deps, tx, { open, seal }, userId, params.batchId, {
-          parseId: body.parseId,
-          ...(body.transferValues ? { transferValues: body.transferValues } : {}),
-          ...(body.accounts ? { accounts: body.accounts } : {}),
-        }),
+        confirmHistoryFile(
+          deps,
+          tx,
+          { open, seal, ...(labels(params.batchId) ? { labels: labels(params.batchId)! } : {}) },
+          userId,
+          params.batchId,
+          {
+            parseId: body.parseId,
+            ...(body.transferValues ? { transferValues: body.transferValues } : {}),
+            ...(body.accounts ? { accounts: body.accounts } : {}),
+            ...(body.labels ? { labels: body.labels.map(labelChoice) } : {}),
+          },
+        ),
       ),
     );
     await handOffNow(audit, householdId, handOffs);
     return presentView(ctx, result);
   },
 });
+
+const labelChoice = (c: {
+  readonly category: string | null;
+  readonly subcategory: string | null;
+  readonly action: "category" | "create" | "transfer";
+  readonly categoryId?: string | undefined;
+  readonly show?: boolean | undefined;
+}): HistoryLabelChoice =>
+  c.action === "category"
+    ? {
+        category: c.category,
+        subcategory: c.subcategory,
+        action: "category",
+        categoryId: c.categoryId!,
+        ...(c.show !== undefined ? { show: c.show } : {}),
+      }
+    : { category: c.category, subcategory: c.subcategory, action: c.action };
 
 export const deleteHistoryFileRoute = defineRoute({
   module: MODULE,

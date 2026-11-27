@@ -9,8 +9,16 @@ import {
   categoriesTx,
   eraseHouseholdCategories,
 } from "./adapters/index.ts";
-import { ensureTree, type StoredCategory } from "./application/index.ts";
-export type { CategoryUsage } from "./application/index.ts";
+import {
+  confirmHistoryLabels,
+  ensureTree,
+  planHistoryLabels,
+  type LabelsResult,
+  type ResolvedLabel,
+  type StoredCategory,
+} from "./application/index.ts";
+import type { FileLabelCount, LabelChoice } from "./domain/index.ts";
+export type { CategoryUsage, LabelRefusal, LabelsResult, ResolvedLabel } from "./application/index.ts";
 import type { CategoryKind, CategoryState, ServiceCategoryKey } from "./domain/index.ts";
 import { categoryMerged } from "./events.ts";
 
@@ -25,6 +33,17 @@ export { createCategoriesServices, type CategoriesServices } from "./adapters/in
 export { categoryMerged, type CategoryMerged } from "./events.ts";
 export { CATEGORY_KINDS, CATEGORY_STATES, FEE_CATEGORY_KEY, SERVICE_CATEGORY_KEYS } from "./domain/index.ts";
 export type { CategoryKind, CategoryState, ServiceCategoryKey } from "./domain/index.ts";
+export { HISTORY_GROUP_NAMES } from "./domain/index.ts";
+export type {
+  FileLabelCount,
+  GroupTarget,
+  LabelChoice,
+  LabelOutcome,
+  LabelPlan,
+  LabelQuestion,
+  PlannedGroup,
+  PlannedLabel,
+} from "./domain/index.ts";
 
 /** A category of a space as other modules check it (BUD-01@PoC FR 9). */
 export interface CategoryRef {
@@ -102,9 +121,62 @@ export interface CategoriesErasure {
     readonly idempotencyKeys: number;
     readonly events: number;
     readonly jobs: number;
+    readonly labelMappings: number;
   }>;
 }
 
 export function createCategoriesErasure(db: ModuleDatabase): CategoriesErasure {
   return { eraseHousehold: (householdId) => eraseHouseholdCategories(db, householdId) };
+}
+
+/**
+ * BUD-21@PoC FR 7, FR 8, FR 25 (wave 2 row 234): the labels of a history file against the space's tree, for module
+ * import-sessions (wired in src/main.ts). `plan` writes nothing (the step «Перевірка розпізнавання»); `confirm` creates
+ * what the plan creates, shows the hidden categories chosen and keeps the matchings, with one audit entry.
+ */
+export interface HistoryLabels {
+  plan(
+    householdId: string,
+    counts: readonly FileLabelCount[],
+    choices: readonly LabelChoice[],
+  ): Promise<LabelsResult<object>>;
+  confirm(
+    caller: { readonly householdId: string; readonly actorId: string },
+    batchId: string,
+    counts: readonly FileLabelCount[],
+    choices: readonly LabelChoice[],
+  ): Promise<LabelsResult<{ readonly resolved: readonly ResolvedLabel[] }>>;
+}
+
+export function createHistoryLabels(options: {
+  readonly db: ModuleDatabase;
+  readonly audit: Pick<AuditLog, "record">;
+  readonly newId: () => string;
+  readonly clock?: { now(): number };
+}): HistoryLabels {
+  const clock = options.clock ?? systemClock;
+  const deps = { audit: categoriesAudit(options.audit), newId: options.newId, now: () => clock.now() };
+  const tree = (householdId: string) =>
+    options.db.inHousehold(householdId, (q) => ensureTree(deps, categoriesTx(q), householdId));
+  return {
+    async plan(householdId, counts, choices) {
+      await tree(householdId);
+      return options.db.inHousehold(householdId, (q) =>
+        planHistoryLabels(categoriesTx(q), householdId, counts, choices),
+      );
+    },
+    async confirm(caller, batchId, counts, choices) {
+      await tree(caller.householdId);
+      return options.db.inHousehold(caller.householdId, (q) =>
+        confirmHistoryLabels(
+          deps,
+          categoriesTx(q),
+          { householdId: caller.householdId, accountId: caller.actorId },
+          batchId,
+          counts,
+          choices,
+        ),
+      );
+    },
+  };
 }

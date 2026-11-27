@@ -2,3 +2,4 @@
 // @willowsum/domain-kernel, zod, decimal.js.
 export * from "./catalogue.ts";
 export * from "./categories.ts";
+export * from "./history-labels.ts";

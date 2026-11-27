@@ -33,6 +33,8 @@ export interface StoredGroup {
   readonly tone: string;
   readonly position: number;
   readonly version: number;
+  /** BUD-21 FR 7: the history group of this type; null — any other group. */
+  readonly historyKind: "expense" | "income" | null;
 }
 
 export interface StoredCategory {
@@ -100,6 +102,20 @@ export interface CategoriesTx {
   mergedCount(householdId: string, id: string): Promise<number>;
   /** FR 12: the row of a custom category is removed; its name is free again. */
   deleteCategory(householdId: string, id: string): Promise<void>;
+  /** BUD-21 FR 7: holds the space's tree for the rest of the transaction (one confirmation of labels at a time). */
+  lockTree(householdId: string): Promise<void>;
+  /** BUD-21 FR 25: the confirmed matchings of these labels (by `labelHash`); `categoryId` null — a transfer. */
+  labelMappings(
+    householdId: string,
+    hashes: readonly string[],
+  ): Promise<readonly { readonly hash: string; readonly categoryId: string | null }[]>;
+  /** BUD-21 FR 25: keeps the matchings confirmed now (a label confirmed again takes its new category). */
+  saveLabelMappings(
+    householdId: string,
+    rows: readonly { readonly hash: string; readonly categoryId: string | null }[],
+    by: string,
+    at: Date,
+  ): Promise<void>;
 }
 
 /**
@@ -168,7 +184,8 @@ export interface CategoryUsageReport {
 
 const hasBudgetEntries = (b: CategoryBudgetEntries): boolean => b.stored || b.planCells > 0;
 
-export type AuditedEntity = "categories.tree" | "categories.group" | "categories.category";
+export type AuditedEntity =
+  "categories.tree" | "categories.group" | "categories.category" | "categories.history";
 export type AuditValues = Readonly<Record<string, string | null>>;
 
 /** The space's audit log (П-10, BUD-01 «Права доступу»): who, when, the fields before and after. */
@@ -229,10 +246,10 @@ const invalid = (field: string, issue: FieldIssue["issue"]): Result<never> => ({
   issues: [{ field, issue }],
 });
 
-const CUSTOM_ICON = "shapes";
+export const CUSTOM_ICON = "shapes";
 /** Custom groups come after the system groups of income and expenses, the service group last. */
 const SERVICE_POSITION = 10_000;
-const FIRST_CUSTOM_POSITION = 100;
+export const FIRST_CUSTOM_POSITION = 100;
 
 const groupValues = (g: StoredGroup): AuditValues => ({ name: g.name, kind: g.kind, tone: g.tone });
 const categoryValues = (c: StoredCategory): AuditValues => ({
@@ -264,6 +281,7 @@ export async function ensureTree(deps: CategoriesDeps, tx: CategoriesTx, househo
     tone: g.tone,
     position: g.kind === "service" ? SERVICE_POSITION : i,
     version: 1,
+    historyKind: null,
   }));
   await tx.seed(householdId, groups, []);
   const ids = new Map((await tx.groups(householdId)).map((g) => [g.systemKey, g.id]));
@@ -332,6 +350,7 @@ export async function createGroup(
     tone: customGroupTone(input.kind, await tx.customGroupCount(caller.householdId, input.kind)),
     position,
     version: 1,
+    historyKind: null,
   });
   await deps.audit.changed(
     caller.householdId,

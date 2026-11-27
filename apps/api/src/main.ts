@@ -25,6 +25,7 @@ import { createAuditLog } from "./modules/audit/index.ts";
 import {
   createCategoriesServices,
   createCategoryDirectory,
+  createHistoryLabels,
   FEE_CATEGORY_KEY,
 } from "./modules/categories/index.ts";
 import {
@@ -641,6 +642,13 @@ const server = buildServer({
                     history: {
                       keys: createSpaceKeys(databases.for("household"), audit, kms),
                       accounts: createAccountDirectory(databases.for("accounts")),
+                      // BUD-21 b: the file's labels matched with the space's tree; the missing categories created at
+                      // the confirmation (module categories, one audit entry), the matching kept for the next file.
+                      labels: createHistoryLabels({
+                        db: databases.for("categories"),
+                        audit,
+                        newId: randomUUID,
+                      }),
                     },
                     // IMP-01 FR 11: «Застосувати» — module transactions writes the batch's rows (journal by hand-off).
                     apply: {
