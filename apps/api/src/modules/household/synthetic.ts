@@ -47,4 +47,22 @@ export const synthetic = [
       }
     },
   }),
+  defineSyntheticTable({
+    table: "household.space_key_rotations",
+    perHousehold: 1,
+    // NFR-01@PoC FR 3: at most one replacement of the space's data key in progress. The «wrap» is random-looking bytes.
+    maxPerHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++) {
+        const h = digest(household.id, "rotation").toString("hex");
+        yield {
+          household_id: household.id,
+          old_key_id: keyIdOf(household.id),
+          new_key_id: `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`,
+          new_master_key_version: "synthetic-1",
+          new_wrapped_key: digest(household.id, "rotation-wrapped").toString("base64url"),
+        };
+      }
+    },
+  }),
 ];
