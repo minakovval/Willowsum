@@ -59,7 +59,7 @@ test('pr-checks.yml: heavy jobs depend on `changes` and run unless it says false
     // !cancelled(): when `changes` fails its outputs are empty, and the job runs (fail closed).
     assert.match(block, new RegExp(`^ {4}if: \\$\\{\\{ !cancelled\\(\\) && needs\\.changes\\.outputs\\.${job.replace('-', '_')} != 'false' \\}\\}$`, 'm'), job);
   }
-  // The parts of `api` (checks and the three integration shards) follow the same filter as `api` itself.
+  // The parts of `api` (checks and the five integration shards) follow the same filter as `api` itself.
   const parts = jobBlock(wf, 'api-parts');
   assert.match(parts, /^ {4}needs: changes$/m);
   assert.match(parts, /^ {4}if: \$\{\{ !cancelled\(\) && needs\.changes\.outputs\.api != 'false' \}\}$/m);
