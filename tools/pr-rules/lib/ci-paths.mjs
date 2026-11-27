@@ -6,7 +6,7 @@
 //   merged PR's files, says the job was not needed. Anything else that is not `success` is still a violation.
 // Fail closed: an unknown path, a truncated file list or an empty one runs every job.
 
-/** Jobs that may be skipped by paths. `requirements`, `secrets`, `traceability` and `changes` always run. */
+/** Jobs that may be skipped by paths. `requirements`, `secrets`, `security`, `traceability` and `changes` always run. */
 export const PATH_FILTERED_JOBS = ['web', 'api', 'local-env', 'infra', 'e2e'];
 
 /**

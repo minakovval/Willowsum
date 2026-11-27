@@ -1,0 +1,177 @@
+{
+  "$comment": "Accepted Semgrep and pnpm audit findings (tools/security-scan/README.md). Every entry: reason, owner, decision, review date (at most 366 days); a SAST entry: rule, path, at least 16 characters of the flagged line (match) and the number of findings it accepts (count, default 1). Past its review date or matching nothing, an entry fails the job `security`. A dependency vulnerability is always an accepted risk and needs the owner's decision.",
+  "sast": [
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/modules/ledger/adapters/db/erasure.ts",
+      "match": "DELETE FROM ${table} WHERE household_id = $1",
+      "kind": "false-positive",
+      "reason": "`table` is a parameter of a local closure called only with string literals of the ledger's own tables (outbox_events, jobs, postings …) in the same function.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "CHECK (VALUE IN (${DATA_REGIONS.map((r) => `'${r}'`).join(\", \")}))",
+      "kind": "false-positive",
+      "reason": "DATA_REGIONS is a fixed array of region codes in code (platform configuration), not input; the domain is created once at bootstrap.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "GRANT USAGE ON SCHEMA ${CONTEXT_SCHEMA} TO ${r}",
+      "kind": "false-positive",
+      "reason": "`r` is client.escapeIdentifier(role) two lines above; the role names are the platform's own (module, owner and context roles), never request data.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "GRANT EXECUTE ON FUNCTION ${CONTEXT_SCHEMA}.bind(integer, uuid) TO ${r}",
+      "kind": "false-positive",
+      "reason": "`r` is client.escapeIdentifier(role) two lines above; the role names are the platform's own (module, owner and context roles), never request data.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "GRANT EXECUTE ON FUNCTION ${CONTEXT_SCHEMA}.current_household() TO ${r}",
+      "kind": "false-positive",
+      "reason": "`r` is client.escapeIdentifier(role) two lines above; the role names are the platform's own (module, owner and context roles), never request data.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "GRANT USAGE ON SCHEMA ${TYPES_SCHEMA} TO ${r}",
+      "kind": "false-positive",
+      "reason": "`r` is client.escapeIdentifier(role) two lines above; the role names are the platform's own (module, owner and context roles), never request data.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "ALTER TABLE ${t} ENABLE ROW LEVEL SECURITY",
+      "kind": "false-positive",
+      "reason": "`t` is client.escapeIdentifier(schema) + '.' + client.escapeIdentifier(table); the table names come from pg_class of the module's own schema.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "ALTER TABLE ${t} FORCE ROW LEVEL SECURITY",
+      "kind": "false-positive",
+      "reason": "`t` is client.escapeIdentifier(schema) + '.' + client.escapeIdentifier(table); the table names come from pg_class of the module's own schema.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "CREATE POLICY ${ISOLATION_POLICY} ON ${t} AS PERMISSIVE",
+      "kind": "false-positive",
+      "reason": "`t` is client.escapeIdentifier(schema) + '.' + client.escapeIdentifier(table); the table names come from pg_class of the module's own schema.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/isolation.ts",
+      "match": "REVOKE EXECUTE ON FUNCTION pg_catalog.${fn} FROM PUBLIC",
+      "kind": "false-positive",
+      "reason": "`fn` is PostgreSQL's own oid::regprocedure::text of a pg_catalog large-object function (the server quotes identifiers in it); no input reaches it.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/migrate.ts",
+      "match": "SET LOCAL search_path = ${schema}",
+      "kind": "false-positive",
+      "reason": "`schema` is id(schemaName(migration.module)) = client.escapeIdentifier of a module schema name derived from the migration folder in the repository.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/migrate.ts",
+      "match": "CREATE FUNCTION ${schema}.${RUNNER_FUNCTION}(sql text)",
+      "kind": "false-positive",
+      "reason": "`schema` is id(schemaName(migration.module)) = client.escapeIdentifier of a module schema name derived from the migration folder in the repository.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/migrate.ts",
+      "match": "SELECT ${schema}.${RUNNER_FUNCTION}($1)",
+      "kind": "false-positive",
+      "reason": "`schema` is id(schemaName(migration.module)) = client.escapeIdentifier of a module schema name derived from the migration folder in the repository. The migration SQL itself is the bound parameter $1.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/migrate.ts",
+      "match": "DROP FUNCTION ${schema}.${RUNNER_FUNCTION}(text)",
+      "kind": "false-positive",
+      "reason": "`schema` is id(schemaName(migration.module)) = client.escapeIdentifier of a module schema name derived from the migration folder in the repository.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/migrate.ts",
+      "match": "ALTER ROLE ${role} LOGIN PASSWORD ${client.escapeLiteral(password)}",
+      "kind": "false-positive",
+      "reason": "`role` is client.escapeIdentifier(moduleRoleName(module)) one line above; the password is escapeLiteral-quoted.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/migrate.ts",
+      "match": "ALTER ROLE ${role} LOGIN PASSWORD ${verifier} VALID UNTIL",
+      "kind": "false-positive",
+      "reason": "`role` is client.escapeIdentifier(erasureRoleName(module)) and `verifier` is client.escapeLiteral(scramVerifier(password)), both in the lines above; one entry covers both interpolations of this line.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27",
+      "count": 2
+    },
+    {
+      "rule": "ws-sql-template-interpolation",
+      "path": "apps/api/src/platform/db/migrate.ts",
+      "match": "CREATE ROLE ${client.escapeIdentifier(role)} ${options}",
+      "kind": "false-positive",
+      "reason": "`options` of the private ensureRole is always the literal \"NOLOGIN NOINHERIT\" at each of its five call sites in this file.",
+      "owner": "lead agent",
+      "decision": "Рішення ведучого (2026-11-27; власник не схвалював)",
+      "review_by": "2027-05-27"
+    }
+  ],
+  "sca": []
+}

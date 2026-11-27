@@ -103,7 +103,7 @@ test('CICD-02: the api integration tests run in 3 vitest shards behind the aggre
 
 test('CICD-01 FR 3: the required CI jobs are exactly the ones AGENTS.md lists', () => {
   const jobs = REQUIRED_WORKFLOWS.flatMap((wf) => jobNames(read(wf))).sort();
-  assert.deepEqual(jobs, ['api', 'changes', 'e2e', 'infra', 'local-env', 'requirements', 'secrets', 'traceability', 'web']);
+  assert.deepEqual(jobs, ['api', 'changes', 'e2e', 'infra', 'local-env', 'requirements', 'secrets', 'security', 'traceability', 'web']);
   const listed = /All CI checks green \(jobs ([^)]+)\)/.exec(read('AGENTS.md').replace(/\n\s*/g, ' '))[1];
   assert.deepEqual([...listed.matchAll(/`([\w-]+)`/g)].map((m) => m[1]).sort(), jobs);
 });

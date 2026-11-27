@@ -124,6 +124,8 @@ export const SENSITIVE_PATHS = {
     'tools/local-env/**',
     'tools/infra-check/**',
     'tools/observability/**',
+    'tools/security-scan/**', // the `security` job: Semgrep rules, allowlist, decision code, pinned Semgrep (CICD-02)
+    '**/.semgrepignore', // Semgrep honours a .semgrepignore in any folder: one line hides a folder from the scan
     'apps/api/scripts/**',
     '!apps/api/scripts/**/*.test.ts', // a test of a gate script is not itself a gate
     'apps/api/provider-sdks.json',

@@ -1,6 +1,6 @@
 # Завдання для локальної сесії Claude з браузером: захист гілки `main` репозиторію Willowsum на GitHub
 
-**Створено:** 2026-11-16 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-16 · **Оновлено:** 2026-11-27
 
 ## Для кого цей текст
 
@@ -19,7 +19,7 @@
 
 ## Мета
 
-Одне активне правило для `main`: зміни лише через PR, без force push і видалення гілки, з чотирма обов'язковими
+Одне активне правило для `main`: зміни лише через PR, без force push і видалення гілки, з п'ятьма обов'язковими
 перевірками CI. Більше нічого в налаштуваннях не змінено.
 
 ## Жорсткі правила
@@ -45,8 +45,10 @@
    - **Block force pushes**;
    - **Require a pull request before merging** — «Required approvals» = `0`; інші прапорці цього блоку вимкнені;
      «Allowed merge methods» — лише `Squash`, якщо таке поле є;
-   - **Require status checks to pass** — додай рівно чотири перевірки: `changes`, `requirements`, `secrets`,
-     `traceability` (шукай за назвою; джерело — GitHub Actions). Прапорець «Require branches to be up to date
+   - **Require status checks to pass** — додай рівно п'ять перевірок: `changes`, `requirements`, `secrets`,
+     `security`, `traceability` (шукай за назвою; джерело — GitHub Actions). Якщо правило вже є з чотирма
+     перевірками без `security` — додай `security` (статичний аналіз і сканування залежностей, рішення власника 7
+     від 2026-11-26). Прапорець «Require branches to be up to date
      before merging» — **вимкнений**: актуальність гілки перевіряє ведучий за своїми правилами.
 7. Не вмикай: «Require signed commits», «Require linear history», «Require deployments», «Require code scanning
    results», «Require merge queue».
@@ -60,9 +62,9 @@
 ## Крок 2. Перевірити
 
 1. Відкрий https://github.com/minakovval/Willowsum/branches — біля `main` має бути позначка захисту.
-2. Відкрий будь-який відкритий PR зі сторінки https://github.com/minakovval/Willowsum/pulls : у блоці злиття чотири
-   перевірки мають бути позначені «Required». Нічого не зливай і не закривай.
-3. Якщо котроїсь із чотирьох перевірок GitHub не знаходить за назвою — не вигадуй іншу; збережи правило без неї і
+2. Відкрий будь-який відкритий PR зі сторінки https://github.com/minakovval/Willowsum/pulls : у блоці злиття п'ять
+   перевірок мають бути позначені «Required». Нічого не зливай і не закривай.
+3. Якщо котроїсь із п'яти перевірок GitHub не знаходить за назвою — не вигадуй іншу; збережи правило без неї і
    напиши про це у звіті.
 
 ## Звіт власнику

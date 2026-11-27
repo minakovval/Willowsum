@@ -1,0 +1,4 @@
+// Safe React code: no finding. Copied as good.tsx by the tests, never compiled.
+export function Note({ text }: { text: string }) {
+  return <div title={text} dangerouslySetInnerHTML={{ __html: "<br>" }} />;
+}

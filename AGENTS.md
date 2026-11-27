@@ -95,7 +95,7 @@ errors) lives only in `packages/domain-kernel`.
      (what the jobs `traceability` and the label job check). A test named by a requirement
      item that does not exist fails the job `requirements` (`--check-mentions`).
    - Keep PRs small: split a large part (backend and UI) so each PR fits one review round.
-6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`, `e2e`;
+6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `security`, `local-env`, `api`, `infra`, `e2e`;
    a job its path filter skips counts as passed — [CI minutes](.claude/references/ci-minutes.md), read when you
    change a workflow). Never skip, disable or weaken a test to get green.
 7. The lead merges (squash) only when CI is green on the latest commit and both verdicts are Ready **on that
