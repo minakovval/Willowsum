@@ -2,3 +2,4 @@
 // Uses ports; adapters are wired in ../index.ts.
 export * from "./proposals.ts";
 export * from "./card-payments.ts";
+export * from "./counterparts.ts";

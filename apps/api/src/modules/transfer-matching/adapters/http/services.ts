@@ -1,19 +1,20 @@
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
-import type { ProposalDeps } from "../../application/index.ts";
+import type { CounterpartDeps } from "../../application/index.ts";
 
 const BRAND = Symbol("willowsum-transfer-matching-services");
 
 /**
  * What the API process wires for the transfer-matching routes (src/api.ts → `ctx.services`): the transactions module's
- * candidate pairs and the official rates of fx-rates. The caller's space comes from `ctx.principal`.
+ * candidate pairs (and FR 24's counterparts of one transaction) and the official rates of fx-rates. The caller's space comes from `ctx.principal`.
  */
 export interface TransferMatchingServices {
   readonly [BRAND]: true;
-  readonly deps: ProposalDeps;
+  readonly deps: CounterpartDeps;
 }
 
-export function createTransferMatchingServices(deps: ProposalDeps): TransferMatchingServices {
+/** `deps`: the proposals' (`ProposalDeps`), the candidates with IMP-03 FR 24's `counterpartsOf`. */
+export function createTransferMatchingServices(deps: CounterpartDeps): TransferMatchingServices {
   return { [BRAND]: true, deps };
 }
 

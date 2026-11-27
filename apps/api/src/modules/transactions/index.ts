@@ -32,6 +32,7 @@ import {
   transactionsWorkerQueue,
   transactionsTx,
   transferCandidates,
+  counterpartCandidates,
   duplicateCandidates,
   importBatchTransactions,
   importCandidates,
@@ -43,6 +44,8 @@ import {
   reviewQueueMembers,
   reviewQueueSlices,
   type CandidateSide,
+  type ChosenSide,
+  type CounterpartSide,
   type DuplicateSide,
   type ImportCandidate,
   type ImportCandidatesQuery,
@@ -175,6 +178,17 @@ export interface TransferCandidates {
     householdId: string,
     query: { readonly windowDays: number; readonly sameCurrencyMinShare: string; readonly limit: number },
   ): Promise<{ readonly outflow: CandidateSide; readonly inflow: CandidateSide }[]>;
+  /**
+   * IMP-03@PoC FR 24 («Позначити як переказ»): the transaction `transactionId` of the space (null `chosen` — none) and
+   * the free transactions of the opposite direction on another account (or another currency of its account) within
+   * `windowDays` before or after it, in its currency within `amountShare` of its amount, in another any amount; posted,
+   * shown, not split, in no transfer. By the days apart, then the difference of the amounts; at most `limit`. Read only.
+   */
+  counterpartsOf(
+    householdId: string,
+    transactionId: string,
+    query: { readonly windowDays: number; readonly amountShare: string; readonly limit: number },
+  ): Promise<{ readonly chosen: ChosenSide | null; readonly items: readonly CounterpartSide[] }>;
 }
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
@@ -182,9 +196,11 @@ export function createTransferCandidates(db: ModuleDatabase): TransferCandidates
   return {
     candidatePairs: (householdId, query) =>
       db.inHousehold(householdId, (q) => transferCandidates(q, householdId, query)),
+    counterpartsOf: (householdId, transactionId, query) =>
+      db.inHousehold(householdId, (q) => counterpartCandidates(q, householdId, transactionId, query)),
   };
 }
-export type { CandidateSide };
+export type { CandidateSide, ChosenSide, CounterpartSide };
 
 /**
  * BUD-01@PoC FR 7, AC4 (#722 D): «Позначити як переказ» of a pair for module transfer-matching's card payments — the
