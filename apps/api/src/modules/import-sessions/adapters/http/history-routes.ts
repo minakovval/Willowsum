@@ -654,6 +654,7 @@ export const confirmHistoryFileRoute = defineRoute({
   handler: async ({ params, body }, ctx) => {
     owner(ctx);
     const { deps, audit, open, seal, accounts, labels } = historyServices(ctx);
+    const matching = labels(params.batchId);
     const { householdId, userId } = ctx.principal;
     // An account of another space, or a closed one, is the same answer as a value the file does not have.
     for (const [i, a] of (body.accounts ?? []).entries())
@@ -669,7 +670,7 @@ export const confirmHistoryFileRoute = defineRoute({
         confirmHistoryFile(
           deps,
           tx,
-          { open, seal, ...(labels(params.batchId) ? { labels: labels(params.batchId)! } : {}) },
+          { open, seal, ...(matching ? { labels: matching } : {}) },
           userId,
           params.batchId,
           {

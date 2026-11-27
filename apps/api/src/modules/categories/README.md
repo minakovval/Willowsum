@@ -1,6 +1,6 @@
 # Модуль categories
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (FIN-03@PoC п. 8: `FEE_CATEGORY_KEY`; BUD-01@PoC п. 12, AC 23, 24 — до перенумерації 2026-11-26 AC 22, 23, рядок 221: точна причина видалення — `categoryUsage` у `/usage` і відмовах, `CATEGORY_LIMIT_CONFIRM`, `confirmLimit`; ліміт не тримає категорію і видаляється з нею через порт `CategoryUsage.limits`); 2026-11-21 (BUD-02@PoC п. 23: `getCategoryUsage`, `CategoryUsage.transactions`); 2026-11-15 (BUD-01@PoC п. 12: видалення порожньої власної категорії, серверна частина; BUD-01 b: споживач `categories.merged` і відповідь `categorization`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -89,7 +89,20 @@ FLW-34@PoC лише читає дерево («типові групи без с
   `recurring`, `transfer-matching`: `category(householdId, id)` → `CategoryRef` (`kind`, `state`, `mergedInto`,
   `essential`, `systemKey`) або null (іншого простору чи невідома); `serviceCategory(householdId, "transfer" |
   "adjustment")`. Записує системне дерево, якщо його ще немає.
-- `createCategoriesErasure(db)` → `eraseHousehold(householdId)` → `{ categories, groups, idempotencyKeys, events, jobs }`
+- `createHistoryLabels({ db, audit, newId, clock? })` → `HistoryLabels` (BUD-21@PoC п. 7, 8, 25, EC 1–5, 12; хвиля 2,
+  рядок 234) — для `import-sessions` (файл історії): `plan(householdId, counts, choices)` — мітки файлу (як надруковано, зі
+  знаками рядків) проти дерева простору, нічого не пише; `confirm({ householdId, actorId }, batchId, counts, choices)` —
+  під блокуванням дерева план складається знову, створює групи (категорія файлу з підкатегоріями; група для категорій з
+  історії свого типу — `history_kind`) і категорії, показує знову обрані приховані, зберігає зіставлення міток і пише
+  **один** запис аудиту `categories.history`/`create` (кількості, id партії; без міток) → `resolved` (категорія кожної
+  мітки). Відмова — `{ kind: "choice", index, issue }` (`unknown-label`, `unknown-category`, `duplicate`) або
+  `{ kind: "name-invalid" }`. Правила — `domain/history-labels.ts`: `labelKey` (без регістру, діакритики, зайвих
+  пробілів; апострофи — один), вибір користувача → запам'ятоване зіставлення (об'єднана — її ціль) → «Переказ» —
+  переказ, «Коригування» — пропуск → категорія з тією самою назвою (прихована теж, з питанням) → нова; тип — за знаком
+  більшості рядків (порівну — «витрата» і питання), у групі — тип групи (протилежна більшість — питання); зайнята назва —
+  з назвою групи в дужках, далі номер; `HISTORY_GROUP_NAMES`.
+- `createCategoriesErasure(db)` → `eraseHousehold(householdId)` → `{ categories, groups, idempotencyKeys, events, jobs,
+  labelMappings }`
   — видалення простору (NFR-12@PoC п. 3); викликає лише `data-erasure` (крок `categories.records`).
 - `categoryMerged`, `CATEGORY_KINDS`, `CATEGORY_STATES`, `SERVICE_CATEGORY_KEYS` і їхні типи; `FEE_CATEGORY_KEY` (`bank-fees`, «Комісії банку») — категорія, в якій бюджет рахує комісію переказу і валютну різницю (FIN-03@PoC п. 8, рішення власника 2026-11-26, № 11).
 
@@ -127,6 +140,7 @@ FLW-34@PoC лише читає дерево («типові групи без с
 | --- | --- |
 | `category_groups` | Група: ключ системної (або null), тип, назва (унікальна без регістру), `renamed`, тон, порядок (`0001_categories.sql`) |
 | `categories` | Категорія: група і її тип, ключ системної, назва (унікальна без регістру серед категорій в ужитку), іконка, колір, `essential` (лише витрати), стан `active` / `hidden` / `retired`, `merged_into` (`0001_categories.sql`) |
+| `history_label_mappings` | BUD-21 п. 25: підтверджене зіставлення мітки файлу історії — SHA-256 ключа мітки (не текст), категорія або null (переказ), хто й коли; видаляється з категорією (`0004_history_labels.sql`). `category_groups.history_kind` — група для категорій з історії свого типу |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `outbox_events`, `jobs` | Черга й outbox модуля (ARC-04; `0003_outbox.sql`, дослівно) |
 
