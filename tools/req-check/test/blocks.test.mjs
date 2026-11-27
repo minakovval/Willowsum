@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assignBlocks } from '../lib/coverage.mjs';
+import { assignBlocks, NO_ITEMS } from '../lib/coverage.mjs';
 import { main } from '../index.mjs';
 
 const ROOT = new URL('../../../', import.meta.url).pathname;
@@ -30,4 +30,16 @@ test('PRC-02 blocks: every PoC requirement of the repository is mapped to exactl
   assert.deepEqual(r.stale, [], 'remove requirements that are not in the PoC release any more from blocks.json');
   assert.ok(json.features.every((f) => f.block !== 'other'));
   assert.deepEqual(json.blocks.map((b) => b.id), config.blocks.map((b) => b.id));
+});
+
+test('PRC-02 features (owner, 2026-11-27): in the repository every PoC requirement without numbered items is «немає пунктів для підрахунку» and every one with items has a measured status', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'req-check-noitems-'));
+  const out = path.join(dir, 'coverage.json');
+  assert.equal(main(['--root', ROOT, '--quiet', '--coverage-json', out], () => {}), 0);
+  const json = JSON.parse(fs.readFileSync(out, 'utf8'));
+  fs.rmSync(dir, { recursive: true, force: true });
+  for (const f of json.features) {
+    if (f.items.total === 0) assert.equal(f.status, NO_ITEMS, f.id);
+    else assert.ok(['готово', 'у роботі', 'не почато'].includes(f.status), f.id);
+  }
 });
