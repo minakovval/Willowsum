@@ -35,7 +35,7 @@ threshold stays); the lead does not stop the session. The `SessionStart` hook (`
    needed ([lead-communication.md](lead-communication.md): when you write a proposal or a question);
 2. becomes lead N+1 (the numbering continues) and renames the session with `set_session_title` to
    `Willowsum · ведучий N+1 · <з чого продовжує>`;
-3. adds one row for lead N to «Сесії» in #180 («Token accounting» item 1);
+3. runs `batch` for lead N («Token accounting»);
 4. continues the pipeline; when a «Process review» is due (below), it comes first.
 
 At a compaction there is **no** retrospective: the retrospective of the segments since the
@@ -58,8 +58,7 @@ last comment read.
 **Session names**: every lead is `Willowsum · ведучий N · <з чого починає>`, e.g. `Willowsum · ведучий 2 · хвиля 2 з
 рядка 3`; N is one more than the previous lead's, whether it ended in a compaction or a session. At start, before
 other work: `get_session` (no `session_id`) gives the id and title; rename with `set_session_title` (the name «Lead
-state» proposes, or this format); record the starting snapshot ([token economy](token-economy.md), «Token accounting»
-item 1). Check `get_session` → `external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews
+state» proposes, or this format); save the starting snapshot to a file ([token economy](token-economy.md), «Token accounting»). Check `get_session` → `external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews
 are not cut), and agents commit WIP after each step (SKILL.md step 2). **After a limit
 cut-off**: `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume; delete that
 scheduled task (`delete_trigger`) after the wake-up.

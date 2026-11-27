@@ -41,56 +41,38 @@ session starts or finishes.
 
 ## Token accounting
 
-Mandatory. The tables live in the **body** of #180, never in comments: read the body right before each edit (`gh api repos/{owner}/{repo}/issues/180 --jq .body >
-<file>`), add the row with `tools/token-report … append` (it keeps every other byte), write it back with
-`gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@<file>` (`-F`, not `-f`: `-f` sends the literal
-`@<file>` and erases the tables) and check that the old rows and the new one are there. Keep a running tally in
-the scratchpad (`tokens.tsv`: PR, role, log path, `duration_ms`, `subagent_tokens`) so a compaction loses nothing.
-The `--note` of the PR row also gives the model per role in short form, e.g. `a:S r:O` (a author, r reviewer, s
-security, f fix; S Sonnet, O Opus, F Fable): the next process review measures the cost of Opus reviews on test-only PRs.
+Mandatory, **one command per segment** (owner, 2026-11-27). The tables live in the **body** of #180, never in
+comments; no per-PR rows by hand, no snapshot comments.
 
-Numbers (#178): `subagent_tokens` in a completion notice is the agent's final context, not its spend (kept for
-comparison); the spend is the `usage` of every model call in its log `tasks/<agentId>.output`, each `message.id`
-once, per `message.model`. A resumed agent's notice shows its last run only: sum every run.
-`get_session` → `usage` includes the agents; the lead's own share: `session` on `~/.claude/projects/<dir>/<id>.jsonl`.
-
-**Script**: `tools/token-report` ([README](../../../../tools/token-report/README.md);
-tests `node --test 'tools/token-report/**/*.test.mjs'`). Save each merged PR's agent numbers in `tokens.tsv` **right
-after the merge**: agent logs vanish with the container; run `pr` for the batch rows (item 2) while the logs exist.
+1. **At each agent start** append one line to `keep/ledger.tsv` (scratchpad): `PR<TAB>role<TAB>model<TAB>agentId`
+   (role a/r/s/f/c = author/review/security/fix/confirm; model S/O/F; `agentId` as in `tasks/<agentId>.output`; a resumed agent
+   is the same line). **At a segment start** save the `get_session` result (no `session_id`) to `keep/snap-N-start.json`.
+2. **At the end of a segment** (a lead session or a compaction; also before the daily summary) save
+   `keep/snap-N-end.json` and run once, while the logs exist:
 ```bash
-node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|процес|виправлення> --rounds "<раунди>" \
-  --run role=author,log=<tasks/…output>,ms=<duration_ms>,tokens=<subagent_tokens> \
-  --run role=review,log=<…>,ms=<…>,tokens=<…>  [one --run per agent run] \
-  --branch <PR branch>   # or --ci-runs <file> with the JSON of the runs API
-node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>"
-node tools/token-report/index.mjs append --body <#180 body file> --sessions --segment "ведучий N" \
-  --start <keep/snap-N-start.json> --end <keep/snap-N-end.json> --prs <#a,#b | none> [--note "<текст>"]
-node tools/token-report/index.mjs session ~/.claude/projects/<dir>/<session id>.jsonl [--since <ISO>]
-node tools/token-report/index.mjs archive --body <#180 body file> --out <archive.md>
+gh api repos/{owner}/{repo}/issues/180 --jq .body > keep/body180.md
+node tools/token-report/index.mjs batch --ledger keep/ledger.tsv --tasks <tasks dir> --body keep/body180.md \
+  --branches "#12=<branch>,…" [--types "#12=UI,…"] --start keep/snap-N-start.json --end keep/snap-N-end.json \
+  --segment "ведучий N" [--prs <#a,#b>] [--note "<текст>"] [--dry-run]
+gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@keep/body180.md   # -F, not -f: -f erases the tables
 ```
-- `pr` prints the row of «PR» (PR | Тип | Раунди | subagent_tokens | cache read, млн | output, тис. | Час автора |
-  Час рецензій | CI, хв | Примітка) and one line per model; the note gets `моделі: opus 4,1 млн / fable 1,2 млн
-  cache read` and `--note`; paste only the row line. Roles `author` and `fix` add to «Час
-  автора», `review`, `security` and `confirm` to «Час рецензій». CI is the sum of `run_started_at` → `updated_at`
-  of every Actions run of the branch. It fails (exit 1) on a log without `usage`, a line that is not JSON, a runs
-  page shorter than `total_count`, a type outside the five, or CI = 0 for a `код`, `UI` or `виправлення` PR; a lost log → the row by hand with «журнал втрачено».
-- **Note and body size**: one line, at most 120
-  characters in «PR» and 250 in «Сесії» (`--note` counts; no per-agent list — the numbers stay in the logs). When
-  the body would exceed 55 000 characters (GitHub allows 65 536), `append` fails: `archive` moves all «PR» rows
-  with the header to `<archive.md>` and leaves the header and «Архів рядків PR: <посилання>»; the lead creates
-  the archive issue, fills the link and PATCHes the body; new rows go under the header as before.
+   It adds a «PR» row for each ledger PR without one (the `usage` of every log, each `message.id` once per model;
+   durations from the logs; CI from `--branches`; type `код` unless `--types`; note `a:S r:O` + «моделі») and the
+   «Сесії» row (cache read, output, USD = snapshot difference). A missing log → the row with what exists,
+   «журнал втрачено» and a warning; fix the row by hand or accept it. Check that the old rows and the new ones are
+   in the body. Details: [README](../../../../tools/token-report/README.md); tests
+   `node --test 'tools/token-report/**/*.test.mjs'`.
 
-1. **Segment**: the unit is the segment between compactions, «ведучий N». At its
-   start — a new session or a compaction — save the `get_session` result (no `session_id`) to
-   `keep/snap-N-start.json` and post it as a snapshot comment on #180 (lead name, time, `usage` with `cost_usd`).
-   At its end — the next compaction or the end of the session — save `keep/snap-N-end.json` and add the «Сесії»
-   row with `append --sessions` (above): cache read, output and USD are the snapshot difference, agents included;
-   «Час агентів» and CI are the sums of the segment's PR rows; a lost snapshot file is rebuilt in the short form
-   from its #180 comment ([README](../../../../tools/token-report/README.md)). The row includes the agents, as the rows since «ведучий 3» do; the lead's own
-   share (`session --since <start>`) goes into the retrospective.
-2. **PR.** In a batch every 3 merges, with the #179 state update (not after each merge), append the script's rows
-   to «PR»: every author, fix, reviewer and confirmation run of each PR (follow-up and fix agents included).
-3. **Analysis**: no weekly «Аналіз» note; the process review ([restarts](restarts.md))
+Numbers (#178): `subagent_tokens` in a completion notice is the agent's final context, not its spend; the spend is
+the `usage` of every model call in the log. `get_session` → `usage` includes the agents; the lead's own share:
+`session ~/.claude/projects/<dir>/<id>.jsonl [--since <ISO>]`, for the retrospective.
+
+**Note and body size**: one line, at most 120 characters in «PR» and 250 in «Сесії». When the body would exceed
+55 000 characters (GitHub allows 65 536), `batch` fails: `archive --body <file> --out <archive.md>` moves all
+«PR» rows to `<archive.md>` and leaves «Архів рядків PR: <посилання>»; the lead creates the archive issue, fills
+the link and PATCHes the body. The `pr` and `append` commands stay for a manual row.
+
+**Analysis**: no weekly «Аналіз» note; the process review ([restarts](restarts.md))
    draws its conclusions from #180: which PR types cost most (sum and per PR, tokens and time) and the lead's share.
 
 ## Session retrospective
@@ -98,5 +80,5 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
 With the process review and at the end of a session (not at a compaction: [restarts](restarts.md), «After
 compaction»): a comment on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs);
 proposals with risks, downsides and mitigations (→ #178, each with its link); risks — plus the «Сесії»
-row («Token accounting» item 1; written at a compaction too) and a short note to the owner in chat.
+row (`batch`, «Token accounting»; also at a compaction) and a short note to the owner in chat.
 [Example](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).

@@ -598,3 +598,109 @@ describe("accounting without gaps (owner, 2026-11-16, process review 15, proposa
     for (const t of ["вимоги", "процес"]) assert.equal(run(pr(t, empty)).code, 0, t);
   });
 });
+
+describe("batch: PR rows from the ledger and the agent logs (owner, 2026-11-27, decisions review item 5)", () => {
+  const msg = (id, model, ts, cacheRead, output) =>
+    JSON.stringify({
+      type: "assistant",
+      timestamp: ts,
+      message: {
+        id,
+        model,
+        usage: { input_tokens: 1, cache_creation_input_tokens: 10, cache_read_input_tokens: cacheRead, output_tokens: output },
+      },
+    });
+  const setup = () => {
+    const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+    fs.mkdirSync(`${dir}/tasks`);
+    // author: Sonnet; the same message.id twice (streamed) counts once; 10 minutes
+    fs.writeFileSync(
+      `${dir}/tasks/aaa.output`,
+      [
+        msg("m1", "claude-sonnet-5-5", "2026-01-01T10:00:00Z", 1_000_000, 10),
+        msg("m1", "claude-sonnet-5-5", "2026-01-01T10:01:00Z", 1_000_000, 2000),
+        msg("m2", "claude-sonnet-5-5", "2026-01-01T10:10:00Z", 2_000_000, 1000),
+      ].join("\n"),
+    );
+    // reviewer: two models, 5 minutes
+    fs.writeFileSync(
+      `${dir}/tasks/rrr.output`,
+      [
+        msg("m3", "claude-opus-5-5", "2026-01-01T11:00:00Z", 1_000_000, 3000),
+        msg("m4", "claude-fable-5-2", "2026-01-01T11:05:00Z", 500_000, 1000),
+      ].join("\n"),
+    );
+    fs.writeFileSync(
+      `${dir}/ledger.tsv`,
+      ["# PR\trole\tmodel\tagentId", "#201\ta\tS\taaa", "201\tr\tO\trrr", "201\tr\tO\tgone", "#202\ta\tS\tnone2", ""].join("\n"),
+    );
+    fs.writeFileSync(`${dir}/body.md`, read("body180.md"));
+    return dir;
+  };
+  const ci = () => fs.readFileSync(fx("runs.json"), "utf8");
+  const args = (dir, ...more) => [
+    "batch", "--ledger", `${dir}/ledger.tsv`, "--tasks", `${dir}/tasks`, "--body", `${dir}/body.md`,
+    "--branches", "#201=b1,#202=b2", "--types", "#201=код,#202=процес", ...more,
+  ];
+
+  it("sums each message.id once per model, takes durations from the log timestamps, writes the model codes", () => {
+    const dir = setup();
+    const r = run(args(dir, "--prs", "#201", "--dry-run"), ci);
+    assert.equal(r.code, 0, r.err);
+    const [row, ...lines] = r.out.split("\n");
+    // cache read 3,0 (sonnet) + 1,0 (opus) + 0,5 (fable) = 4,5; output 2000+1000+3000+1000 = 7 тис.; author 10,0 min; review 5,0 min; CI 10
+    assert.match(row, /^\| #201 \| код \| 2 \| /);
+    assert.match(row, / \| 4,5 \| 7 \| 10,0 \| 5,0 \| 10 \| a:S r:O; журнал втрачено: r:gone; моделі: sonnet 3,0 млн/);
+    assert.equal(lines.length, 3);
+    assert.match(r.err, /warning: #201: log .*gone\.output is missing/);
+    assert.match(r.err, /dry run/);
+    assert.equal(fs.readFileSync(`${dir}/body.md`, "utf8"), read("body180.md"));
+  });
+
+  it("a missing log still gives the row, with a warning and «журнал втрачено»; the body is written", () => {
+    const dir = setup();
+    const r = run(args(dir, "--prs", "#202"), ci);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /^\| #202 \| процес \| 1 \| 0 \| 0,0 \| 0 \| 0,0 \| 0,0 \| 10 \| a:S; журнал втрачено: a:none2 \|/);
+    assert.match(r.err, /warning: #202: log .*none2\.output is missing/);
+    assert.match(fs.readFileSync(`${dir}/body.md`, "utf8"), /\n\| #202 \| процес /);
+  });
+
+  it("skips a PR that already has a row; --prs not in the ledger fails and writes nothing", () => {
+    const dir = setup();
+    fs.appendFileSync(`${dir}/ledger.tsv`, "#201\tf\tS\tnone3\n#202\tf\tS\tnone4\n");
+    assert.equal(run(args(dir, "--prs", "#202"), ci).code, 0);
+    const again = run(args(dir, "--prs", "#202"), ci);
+    assert.equal(again.code, 0);
+    assert.match(again.err, /skipped #202: already has a row/);
+    const before = fs.readFileSync(`${dir}/body.md`, "utf8");
+    const bad = run(args(dir, "--prs", "#999"), ci);
+    assert.equal(bad.code, 1);
+    assert.match(bad.err, /#999: not in the ledger/);
+    assert.equal(fs.readFileSync(`${dir}/body.md`, "utf8"), before);
+  });
+
+  it("adds the «Сесії» row from two snapshots; CI = 0 for a код PR fails without writing", () => {
+    const dir = setup();
+    const snap = (n, at, cr, out, usd) =>
+      fs.writeFileSync(`${dir}/${n}.json`, JSON.stringify({ at, usage: { cache_read_tokens: cr, output_tokens: out, cost_usd: usd } }));
+    snap("s", "2026-01-01T09:00:00Z", 0, 0, 0);
+    snap("e", "2026-01-01T12:00:00Z", 9_000_000, 400_000, 12);
+    const ok = run(args(dir, "--prs", "#201", "--start", `${dir}/s.json`, "--end", `${dir}/e.json`, "--segment", "ведучий 9"), ci);
+    assert.equal(ok.code, 0, ok.err);
+    assert.match(ok.out, /\| ведучий 9 \| 2026-01-01 09:00 → 12:00 UTC \| 9,0 млн \| 0,40 млн \| 12,0 \| 3,0 \| /);
+    const dir2 = setup();
+    const zero = run(args(dir2, "--prs", "#201"), () => JSON.stringify({ total_count: 0, workflow_runs: [] }));
+    assert.equal(zero.code, 1);
+    assert.match(zero.err, /CI = 0/);
+    assert.equal(fs.readFileSync(`${dir2}/body.md`, "utf8"), read("body180.md"));
+  });
+
+  it("a malformed ledger line fails", () => {
+    const dir = setup();
+    fs.writeFileSync(`${dir}/ledger.tsv`, "#201\tx\tS\taaa\n");
+    const r = run(args(dir), ci);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /role «x»/);
+  });
+});
