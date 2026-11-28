@@ -48,8 +48,14 @@ import { categorizationServices, rulesAuditNow } from "./services.ts";
  */
 const MODULE = "categorization";
 const FEATURE = "categorization.history-rules";
-/** FR 22 (row 237): the acceptance writes category rules — behind their flag too. */
-const RULES_FLAG = "categorization.rules";
+/**
+ * FR 22 (row 237): the acceptance writes category rules — behind their flag `categorization.rules` too, checked in the
+ * handler (a route's own flag must require its feature; this one requires `transactions.merchants`): off — not found.
+ */
+async function rulesOn(ctx: ProtectedContext): Promise<void> {
+  if (!(await categorizationServices(ctx).rulesEnabled(ctx.principal.householdId)))
+    throw new ApiProblem("NOT_FOUND");
+}
 
 /** At most this many evidence rows and exceptions per suggestion in one answer (the counts are whole). */
 export const SUGGESTION_ROWS_LISTED = 100;
@@ -497,7 +503,7 @@ export const matchHistorySuggestionsRoute = defineRoute({
   operationId: "matchHistorySuggestions",
   summary:
     "«Застосувати до N наявних транзакцій, що підходять» of the acceptance dialog: N for the selected suggestions, each transaction counted once (BUD-21 FR 22)",
-  access: { permission: "household.data.read", feature: FEATURE, flag: RULES_FLAG },
+  access: { permission: "household.data.read", feature: FEATURE },
   bodyLimitBytes: 256 * 1024,
   problems: ["HISTORY_DERIVATION_NOT_COMPLETED", "HISTORY_SUGGESTION_CATEGORY_DELETED"],
   request: { params: derivationParams, body: z.strictObject({ suggestions: acceptItemsSchema }) },
@@ -513,6 +519,7 @@ export const matchHistorySuggestionsRoute = defineRoute({
     }),
   },
   handler: async ({ params, body }, ctx) => {
+    await rulesOn(ctx);
     const found = await loaded(ctx, params.derivationId);
     const householdId = ctx.principal.householdId;
     const rules = await acceptance(found, householdId, accepting(body.suggestions));
@@ -528,7 +535,7 @@ export const acceptHistorySuggestionsRoute = defineRoute({
   operationId: "acceptHistorySuggestions",
   summary:
     "Accept suggestions: ordinary rules «з історії» below the existing ones in the order of FR 20, their missing tags created; with `apply`, one run over the existing transactions with «Відмінити» for 7 days (BUD-21 FR 20, FR 22, EC8)",
-  access: { permission: "household.data.write", feature: FEATURE, flag: RULES_FLAG },
+  access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 256 * 1024,
   problems: [
     "LIMIT_REACHED",
@@ -559,6 +566,7 @@ export const acceptHistorySuggestionsRoute = defineRoute({
   },
   handler: async ({ params, body }, ctx) => {
     if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
+    await rulesOn(ctx);
     const found = await loaded(ctx, params.derivationId);
     const householdId = ctx.principal.householdId;
     const actorAccountId = ctx.principal.userId;

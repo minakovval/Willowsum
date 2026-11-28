@@ -323,6 +323,8 @@ describe("BUD-14@PoC FR 4: «Правила категорій» in priority ord
       tags: [],
       needsAttention: null,
       appliedCount: 0,
+      // BUD-14 FR 16 (BUD-21 e): made by hand — not «з історії».
+      origin: null,
     });
 
     const res = await call(space, "POST", `/v1/category-rules/${made[4]!.id}/move`, { position: 1 });
