@@ -153,7 +153,8 @@ export const synthetic = [
       for (let i = 0; i < count; i++)
         yield {
           household_id: household.id,
-          condition_key: JSON.stringify([["description:contains:синтетика"], []]),
+          // A distinct key per row: the isolation test inserts more rows than `perHousehold`.
+          condition_key: JSON.stringify([[`description:contains:синтетика ${i + 1}`], []]),
           category_id: key(household.id, "category", 1),
           actor_account_id: key(household.id, "actor", 0),
           created_at: "2026-10-30T10:00:02Z",
