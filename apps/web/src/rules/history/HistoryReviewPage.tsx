@@ -495,7 +495,8 @@ function Derivation({
     );
   return (
     <p role="status" className="hist-done">
-      {t("history.derived")} <a href={hrefFor(childPath("rules"))}>{t("history.derive.toRules")}</a>
+      {t("history.derived")} <a href={hrefFor(childPath("ruleSuggestions"))}>{t("suggestions.title")}</a>{" "}
+      <a href={hrefFor(childPath("rules"))}>{t("history.derive.toRules")}</a>
     </p>
   );
 }

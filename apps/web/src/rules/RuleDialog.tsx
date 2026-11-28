@@ -131,17 +131,30 @@ type Count =
 export function RuleDialog({
   rule,
   prefill,
+  suggestion,
   refs,
   onClose,
   onSaved,
+  onSuggestion,
 }: {
   /** The rule to change; `null` — a new one. */
   rule: Rule | null;
+  /**
+   * BUD-21@PoC FR 21: the pencil of a suggestion on «Пропозиції правил» (S-301) opens this dialog with the suggestion's
+   * conditions, category and tags. Saving changes only the suggestion (`onSuggestion`): no rule is created, and there is
+   * no box «Застосувати до N наявних транзакцій, що підходять».
+   */
+  suggestion?: {
+    readonly conditions: readonly Condition[];
+    readonly categoryId: string;
+    readonly tags: readonly string[];
+  };
+  onSuggestion?: (body: RuleBody) => void;
   /** A new rule started from a merchant (BUD-14@PoC FR 13): its conditions come filled in; ignored when `rule` is set. */
   prefill?: readonly Condition[];
   refs: Refs;
   onClose: () => void;
-  onSaved: (saved: Saved) => void;
+  onSaved?: (saved: Saved) => void;
 }) {
   const { t, locale } = useI18n();
   const api = useAuthApi();
@@ -150,13 +163,13 @@ export function RuleDialog({
   const currencies = [...new Set(refs.accounts.flatMap((a) => a.currencies))].sort();
   const currency = refs.accounts.find((a) => !a.closed)?.currencies[0] ?? currencies[0] ?? "EUR";
   const [rows, setRows] = useState<readonly Row[]>(() => {
-    const start = rule?.conditions ?? prefill ?? [];
+    const start = rule?.conditions ?? suggestion?.conditions ?? prefill ?? [];
     return (start.length > 0 ? start : [null]).map((c, i) => rowOf(c, i, refs, currency));
   });
   const knownCategory = (id: string | undefined) =>
     id !== undefined && (refs.categories?.byId.has(id) ?? false) ? id : "";
-  const [categoryId, setCategoryId] = useState(knownCategory(rule?.categoryId));
-  const [tagText, setTagText] = useState(rule?.tags.join(", ") ?? "");
+  const [categoryId, setCategoryId] = useState(knownCategory(rule?.categoryId ?? suggestion?.categoryId));
+  const [tagText, setTagText] = useState((rule?.tags ?? suggestion?.tags ?? []).join(", "));
   const [accountIds, setAccountIds] = useState<readonly string[]>(
     () => rule?.accountIds.filter((id) => refs.accounts.some((a) => a.id === id)) ?? [],
   );
@@ -174,7 +187,7 @@ export function RuleDialog({
   const accounts = accountIds.length > 0 ? accountIds : undefined;
 
   // N наявних, що підходять: the server counts the draft; a change of the conditions counts again (FR 7).
-  const draft = complete ? JSON.stringify([conditions, accountIds]) : "";
+  const draft = complete && !suggestion ? JSON.stringify([conditions, accountIds]) : "";
   useEffect(() => {
     if (draft === "") return;
     let live = true;
@@ -208,13 +221,15 @@ export function RuleDialog({
       accountId: "",
     });
 
+  // A service category («Переказ») is offered only as the suggestion's own category (BUD-21 FR 16, FR 21).
+  const own = suggestion?.categoryId;
   const groups: SearchGroup[] = (refs.categories?.groups ?? [])
-    .filter((g) => g.kind !== "service")
+    .filter((g) => g.kind !== "service" || g.categories.some((c) => c.id === own))
     .map((g) => ({
       id: g.id,
       title: g.name,
       options: g.categories
-        .filter((c) => !c.hidden || c.id === categoryId)
+        .filter((c) => (g.kind !== "service" || c.id === own) && (!c.hidden || c.id === categoryId))
         .map((c) => ({
           value: c.id,
           label: c.name,
@@ -234,6 +249,11 @@ export function RuleDialog({
       tags,
       ...(accounts ? { accountIds: [...accountIds] } : {}),
     };
+    if (suggestion) {
+      setBusy(false);
+      onSuggestion?.(body);
+      return;
+    }
     const o: Outcome<Rule & { duplicateOf: string | null }> = rule
       ? await outcome(
           api.PATCH("/v1/category-rules/{ruleId}", {
@@ -267,7 +287,7 @@ export function RuleDialog({
               : "rules.run.error";
     }
     setBusy(false);
-    onSaved({ rule: o.data, duplicateOf: o.data.duplicateOf, run, runError });
+    onSaved?.({ rule: o.data, duplicateOf: o.data.duplicateOf, run, runError });
   };
 
   const operatorLabel = (op: Operator) => t(`rules.op.${op}` as MessageKey);
@@ -279,11 +299,12 @@ export function RuleDialog({
       <FormDialog
         open={!listing}
         onClose={onClose}
-        title={t("rules.dialog.title")}
+        title={suggestion ? t("suggestions.edit.title") : t("rules.dialog.title")}
+        text={suggestion ? t("suggestions.edit.text") : undefined}
         closeLabel={t("shell.close")}
         busy={busy}
         error={error}
-        editing={rule !== null}
+        editing={rule !== null || suggestion !== undefined}
         fields={[
           { id: "conditions", label: t("rules.conditions"), required: true, empty: emptyRow },
           { id: "category", label: t("rules.category"), required: true, empty: categoryId === "" },
@@ -294,7 +315,7 @@ export function RuleDialog({
             error: tagsBroken ? t("rules.tags.error") : null,
           },
         ]}
-        submitLabel={t("rules.save")}
+        submitLabel={suggestion ? t("suggestions.edit.save") : t("rules.save")}
         busyLabel={t("rules.saving")}
         onSubmit={() => void submit()}
       >

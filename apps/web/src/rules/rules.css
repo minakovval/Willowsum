@@ -329,3 +329,13 @@
   flex-wrap: wrap;
   gap: var(--ws-space-2);
 }
+
+/* BUD-21@PoC i) the link «Пропозиції правил · N» of S-197 is a button-shaped link; the mark «з історії» of a rule. */
+.rules-suggestions {
+  text-decoration: none;
+}
+
+.rules-origin {
+  display: inline-flex;
+  margin-inline-start: var(--ws-space-2);
+}

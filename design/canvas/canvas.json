@@ -3276,7 +3276,7 @@
       "y": 94180
     },
     "PocMoneySuggestionsTexts.dc.html": {
-      "h": 2300,
+      "h": 2560,
       "page": "poc",
       "title": "S-301 Пропозиції правил · Тексти",
       "w": 1280,
@@ -3302,12 +3302,12 @@
       "y": 96130
     },
     "PocMoneySuggestionAcceptTexts.dc.html": {
-      "h": 1300,
+      "h": 1540,
       "page": "poc",
       "title": "S-302 Прийняти правила · Тексти",
       "w": 1280,
       "x": 2720,
-      "y": 97230
+      "y": 97490
     }
   },
   "createdOnFiles": {
