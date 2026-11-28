@@ -343,14 +343,29 @@ function refine(rows: readonly Prepared[]): Split | null {
   return best;
 }
 
+/** What FR 20 orders by: a suggestion, or a rule made of one (its amounts as Money, which serialises the same). */
+export interface Orderable {
+  readonly conditions: readonly { readonly field: string; readonly value: unknown }[];
+  readonly matched: number;
+  readonly categoryId: string;
+  readonly rows: readonly number[];
+}
+
 /** The order of the result (FR 20 for accepted rules): confident first, more conditions, larger N, then the text. */
 function compareSuggestions(a: DerivedSuggestion, b: DerivedSuggestion): number {
-  const label = (s: DerivedSuggestion) => {
-    const c = s.conditions[0]!;
-    return c.field === "merchant" || c.field === "description" ? fold(c.value) : "";
+  return (a.kind === b.kind ? 0 : a.kind === "confident" ? -1 : 1) || compareAcceptance(a, b);
+}
+
+/**
+ * FR 20 (row 237): the order of accepted rules among themselves — more conditions higher, then the larger N, then the
+ * merchant's name or the word; total (it ends on the conditions, the category and the first row).
+ */
+export function compareAcceptance(a: Orderable, b: Orderable): number {
+  const label = (s: Orderable) => {
+    const c = s.conditions[0];
+    return c && (c.field === "merchant" || c.field === "description") ? fold(String(c.value)) : "";
   };
   return (
-    (a.kind === b.kind ? 0 : a.kind === "confident" ? -1 : 1) ||
     b.conditions.length - a.conditions.length ||
     b.matched - a.matched ||
     byCodePoints(label(a), label(b)) ||

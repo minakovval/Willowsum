@@ -309,6 +309,18 @@ export const PROBLEMS = {
    */
   HISTORY_ANSWER_INVALID: { status: 422, title: "The answer does not fit the history file" },
   /**
+   * BUD-21@PoC EC8: a suggestion's category was deleted before the acceptance; `errors` names the suggestion
+   * (`suggestions.<i>.ordinal`, issue `category_deleted`). Nothing was written.
+   */
+  HISTORY_SUGGESTION_CATEGORY_DELETED: { status: 409, title: "The category of this suggestion was deleted" },
+  /**
+   * BUD-21@PoC FR 20, FR 22: a suggestion was accepted meanwhile (a rule of the space has its conditions and category
+   * now); reload the suggestions. Nothing was written.
+   */
+  HISTORY_SUGGESTIONS_CHANGED: { status: 409, title: "The suggestions changed; reload them and try again" },
+  /** BUD-21@PoC FR 22: the derivation is still running or failed — nothing to accept or reject yet. */
+  HISTORY_DERIVATION_NOT_COMPLETED: { status: 409, title: "The derivation of rules has not completed" },
+  /**
    * IMP-01@PoC FR 11 (#637 item 1): rows that cannot be written as they are — unreadable, without the account's currency,
    * with more decimals than the currency has, with a fee; `errors` names at most 20 (`files[<id>].rows[<n>]`) and the
    * issue. The person excludes or answers them; nothing was written.

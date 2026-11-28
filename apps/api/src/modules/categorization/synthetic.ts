@@ -146,6 +146,21 @@ export const synthetic = [
     },
   }),
   defineSyntheticTable({
+    // BUD-21 e: one rejected suggestion per space — «Опис містить синтетика» → its second category.
+    table: "categorization.history_rejections",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          condition_key: JSON.stringify([["description:contains:синтетика"], []]),
+          category_id: key(household.id, "category", 1),
+          actor_account_id: key(household.id, "actor", 0),
+          created_at: "2026-10-30T10:00:02Z",
+        };
+    },
+  }),
+  defineSyntheticTable({
     table: "categorization.jobs",
     perHousehold: 2,
     *rows({ household, rng, count }) {

@@ -1,6 +1,6 @@
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { enqueueJob } from "../../../../platform/queue/index.ts";
-import type { RunCounts, RunItem, RunRow, RunsTx } from "../../application/index.ts";
+import type { ItemRule, RunCounts, RunItem, RunRow, RunsTx } from "../../application/index.ts";
 import type { CategorySource, RunStatus } from "../../domain/index.ts";
 import { RULE_RUN_PART_JOB } from "../queue/job.ts";
 
@@ -20,6 +20,7 @@ interface RunDbRow {
   item_count: number;
   created_at: Date;
   ended_at: Date | null;
+  derivation_id: string | null;
 }
 
 interface ItemDbRow {
@@ -35,12 +36,17 @@ interface ItemDbRow {
   tags_before: string[] | null;
   tags_after: string[] | null;
   before_tag_rule_id: string | null;
+  rule_id: string | null;
+  category_id: string | null;
+  tag_rule_id: string | null;
+  item_tags: string[] | null;
 }
 
 const RUN_COLUMNS = `id, rule_id, actor_account_id, undo_actor_account_id, category_id, tags, status, truncated,
-                     item_count, created_at, ended_at`;
+                     item_count, created_at, ended_at, derivation_id`;
 const ITEM_COLUMNS = `ordinal, transaction_id, result, category_changed, before_category_id, before_source,
-                      before_rule_id, after_version, tags_changed, tags_before, tags_after, before_tag_rule_id`;
+                      before_rule_id, after_version, tags_changed, tags_before, tags_after, before_tag_rule_id,
+                      rule_id, category_id, tag_rule_id, tags AS item_tags`;
 
 const run = (r: RunDbRow): RunRow => ({
   id: r.id,
@@ -54,6 +60,7 @@ const run = (r: RunDbRow): RunRow => ({
   count: r.item_count,
   createdAt: r.created_at.getTime(),
   endedAt: r.ended_at === null ? null : r.ended_at.getTime(),
+  derivationId: r.derivation_id,
 });
 
 const item = (r: ItemDbRow): RunItem => ({
@@ -70,15 +77,19 @@ const item = (r: ItemDbRow): RunItem => ({
   tagsBefore: r.tags_before,
   tagsAfter: r.tags_after,
   beforeTagRuleId: r.before_tag_rule_id,
+  rule:
+    r.rule_id === null || r.category_id === null
+      ? null
+      : { ruleId: r.rule_id, categoryId: r.category_id, tagRuleId: r.tag_rule_id, tags: r.item_tags ?? [] },
 });
 
 export function runsTx(q: HouseholdQueryRunner): RunsTx {
   return {
-    async insertRun(householdId, r, transactionIds) {
+    async insertRun(householdId, r, transactionIds, rules?: readonly ItemRule[]) {
       const { rowCount } = await q.query(
         `INSERT INTO rule_runs (household_id, id, rule_id, actor_account_id, category_id, tags, status, truncated,
-                                item_count, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6::text[], 'running', $7, $8, to_timestamp($9::double precision / 1000))
+                                item_count, created_at, derivation_id)
+         VALUES ($1, $2, $3, $4, $5, $6::text[], 'running', $7, $8, to_timestamp($9::double precision / 1000), $10)
          ON CONFLICT (household_id) WHERE status IN ('running', 'undoing') DO NOTHING`,
         [
           householdId,
@@ -90,14 +101,39 @@ export function runsTx(q: HouseholdQueryRunner): RunsTx {
           r.truncated,
           r.count,
           r.createdAt,
+          r.derivationId ?? null,
         ],
       );
       if ((rowCount ?? 0) === 0) return false;
-      await q.query(
-        `INSERT INTO rule_run_items (household_id, run_id, ordinal, transaction_id)
-         SELECT $1, $2, o.n, o.id FROM unnest($3::uuid[]) WITH ORDINALITY AS o(id, n)`,
-        [householdId, r.id, transactionIds],
-      );
+      if (rules === undefined)
+        await q.query(
+          `INSERT INTO rule_run_items (household_id, run_id, ordinal, transaction_id)
+           SELECT $1, $2, o.n, o.id FROM unnest($3::uuid[]) WITH ORDINALITY AS o(id, n)`,
+          [householdId, r.id, transactionIds],
+        );
+      // BUD-21 FR 22: each record with its own rules (an acceptance's run).
+      else
+        await q.query(
+          `INSERT INTO rule_run_items (household_id, run_id, ordinal, transaction_id, rule_id, category_id, tag_rule_id,
+                                       tags)
+           SELECT $1, $2, o.n, o.transaction_id, o.rule_id, o.category_id, o.tag_rule_id, o.tags
+             FROM jsonb_to_recordset($3::jsonb)
+                  AS o(n int, transaction_id uuid, rule_id uuid, category_id uuid, tag_rule_id uuid, tags text[])`,
+          [
+            householdId,
+            r.id,
+            JSON.stringify(
+              transactionIds.map((id, i) => ({
+                n: i + 1,
+                transaction_id: id,
+                rule_id: rules[i]!.ruleId,
+                category_id: rules[i]!.categoryId,
+                tag_rule_id: rules[i]!.tagRuleId,
+                tags: rules[i]!.tags,
+              })),
+            ),
+          ],
+        );
       return true;
     },
     async run(householdId, id) {
