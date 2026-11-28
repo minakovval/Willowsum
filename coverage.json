@@ -1,26 +1,26 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-28T08:16:30.191Z",
-  "sha": "fcd00d8405a1a24ba793b9fd004318eeb23b6426",
+  "generatedAt": "2026-11-28T08:59:40.304Z",
+  "sha": "b9575d22214c0f9566ca9bd3be6479eb55228e09",
   "releases": [
     {
       "release": "PoC",
       "slices": 153,
       "FR": {
-        "covered": 924,
+        "covered": 925,
         "total": 1479
       },
       "AC": {
-        "covered": 720,
+        "covered": 721,
         "total": 1135
       },
       "EC": {
-        "covered": 141,
+        "covered": 142,
         "total": 211
       },
       "items": {
-        "covered": 1785,
+        "covered": 1788,
         "total": 2825
       }
     },
@@ -870,19 +870,19 @@
       "sectionName": "Бюджет",
       "block": "rules",
       "FR": {
-        "covered": 18,
+        "covered": 19,
         "total": 26
       },
       "AC": {
-        "covered": 20,
+        "covered": 21,
         "total": 31
       },
       "EC": {
-        "covered": 10,
+        "covered": 11,
         "total": 12
       },
       "items": {
-        "covered": 48,
+        "covered": 51,
         "total": 69
       },
       "fingerprintErrors": 0,
