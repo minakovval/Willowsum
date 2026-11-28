@@ -3,10 +3,12 @@ name: Progress dashboard
 # PRC-02 (owner decision 2026-11-19, docs/decisions/log/2026-11-19-owner-dashboard-coverage.md): the progress page
 # (https://minakovval.github.io/Willowsum/, branch gh-pages) headlines the PoC requirement coverage by tests. After
 # every push to main this workflow computes that coverage (req-check --coverage-json) and publishes the page source
-# tools/progress-dashboard/index.html with coverage.json to the branch gh-pages.
+# tools/progress-dashboard/index.html with coverage.json to the branch gh-pages. Owner decision 2026-11-28
+# (docs/decisions/log/2026-11-28-owner-dashboard-token-efficiency.md): it also appends this merge to history.json
+# (distinct items covered per merge, for «Ціна пункту вимоги»), reading the published history from gh-pages.
 # Two jobs, so the write token never runs repository code:
-# - `build` (read-only) runs req-check and uploads the page and the JSON as a short-lived artifact;
-# - `publish` (contents: write, the job token only) checks out gh-pages, copies the two files and pushes.
+# - `build` (read-only) runs req-check and history.mjs and uploads the page and the JSON files as a short-lived artifact;
+# - `publish` (contents: write, the job token only) checks out gh-pages, copies the three files and pushes.
 # No secrets beyond the job token, no external services. About a minute per merge (CI minutes).
 
 on:
@@ -31,11 +33,18 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      - name: Compute the coverage JSON and stage the page
+      # The published history.json, read only: this run appends one point to it. No file of it is executed.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: gh-pages
+          path: published
+          persist-credentials: false
+      - name: Compute the coverage JSON and the history, stage the page
         run: |
           mkdir -p "$RUNNER_TEMP/site"
           cp tools/progress-dashboard/index.html "$RUNNER_TEMP/site/index.html"
           node tools/req-check/index.mjs --quiet --coverage-json "$RUNNER_TEMP/site/coverage.json" --sha "$GITHUB_SHA"
+          node tools/progress-dashboard/history.mjs --seed tools/progress-dashboard/history-seed.json --prev published/history.json --coverage "$RUNNER_TEMP/site/coverage.json" --subject "$(git log -1 --format=%s)" --at "$(git log -1 --format=%cI)" --out "$RUNNER_TEMP/site/history.json"
       - name: Upload the page and the coverage
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -54,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: write # push index.html and coverage.json to gh-pages; nothing else
+      contents: write # push index.html, coverage.json and history.json to gh-pages; nothing else
     steps:
       - name: Download the page and the coverage
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -72,11 +81,12 @@ jobs:
         run: |
           test -s "$RUNNER_TEMP/site/index.html"
           test -s "$RUNNER_TEMP/site/coverage.json"
-          cp "$RUNNER_TEMP/site/index.html" "$RUNNER_TEMP/site/coverage.json" pages/
+          test -s "$RUNNER_TEMP/site/history.json"
+          cp "$RUNNER_TEMP/site/index.html" "$RUNNER_TEMP/site/coverage.json" "$RUNNER_TEMP/site/history.json" pages/
           cd pages
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html coverage.json
+          git add index.html coverage.json history.json
           if git diff --cached --quiet; then echo "gh-pages is up to date"; exit 0; fi
           git commit -q -m "Progress dashboard: coverage on main $GITHUB_SHA"
           AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"

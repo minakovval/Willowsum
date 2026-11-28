@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "note": "Optimisation actions shown on the progress page (PRC-02, owner decision 2026-11-28): one entry per process or cost change, time = merge time of its PR (UTC), source = its file in docs/decisions/log. Add an entry in the PR that makes the change.",
+  "events": [
+    {"at":"2026-11-13T17:28Z","pr":169,"category":"контекст","label":"Коротші навички й AGENTS.md, req-check --show","effect":"стартове читання агента коротше на ≥30 %","source":"2026-11-13-shorter-skills-show-pre-commit.md"},
+    {"at":"2026-11-13T18:50Z","pr":181,"category":"рецензії","label":"PR лише з docs без підтвердження; автора відновлюють ≤2 разів","effect":"менше агентів підтвердження, коротші контексти","source":"2026-11-13-lead-session-names-token-accounting.md"},
+    {"at":"2026-11-14T14:21Z","pr":212,"category":"рецензії","label":"Один агент підтвердження на обидва вердикти","effect":"≈80–90 тис. токенів менше на синхронізацію","source":"2026-11-14-lead4-process-rules.md"},
+    {"at":"2026-11-14T20:46Z","pr":234,"category":"модель","label":"Fable лише для безпеки критичних PR і корінних причин","effect":"менше дорогої Fable","source":"2026-11-14-fable-model.md"},
+    {"at":"2026-11-15T00:04Z","pr":241,"category":"CI","label":"Інтеграційні тести API у 2 шардах","effect":"коротше очікування CI агентами","source":"2026-11-14-ci-integration-sharding-planned.md"},
+    {"at":"2026-11-15T13:19Z","pr":267,"category":"модель","label":"Fable лише для корінних причин і найризиковіших; облік за моделями","effect":"ще менше Fable","source":"2026-11-15-owner-fable-scope-and-model-split.md"},
+    {"at":"2026-11-15T16:47Z","pr":279,"category":"контекст","label":"Автостиснення ведучого на 400 тис. замість нової сесії","effect":"без витрат на новий старт і передачу","source":"2026-11-15-owner-auto-compact.md"},
+    {"at":"2026-11-16T10:34Z","pr":320,"category":"синхронізації","label":"Ведучий сам підтверджує синхронізацію кодового PR","effect":"без рецензії на механічний sync","source":"2026-11-16-owner-sync-confirm-215.md"},
+    {"at":"2026-11-16T13:17Z","pr":331,"category":"модель","label":"Fable для кожного sensitive:money, до 10 агентів","effect":"більше Fable, швидше (дія на прискорення)","source":"2026-11-16-owner-speedup.md"},
+    {"at":"2026-11-16T17:09Z","pr":360,"category":"синхронізації","label":"Тихий main: без синхронізації, якщо в main лише документи","effect":"менше синхронізацій і повторних рецензій","source":"2026-11-16-owner-process-review-15.md"},
+    {"at":"2026-11-16T17:31Z","pr":369,"category":"рецензії","label":"Рівні рецензій, синхронізація лише коли треба","effect":"без повних раундів там, де нема ризику","source":"2026-11-16-owner-process-light.md"},
+    {"at":"2026-11-16T18:56Z","pr":380,"category":"контекст","label":"Огляд процесу раз на ≥40 PR і ≥24 год","effect":"менше оглядів по ≈100–150 тис. токенів","source":"2026-11-16-external-process-review.md"},
+    {"at":"2026-11-16T22:51Z","pr":430,"category":"модель","label":"Ultra: до 4 задач Fable","effect":"більше Fable (дія на прискорення)","source":"2026-11-16-owner-ultra-fable-fingerprints.md"},
+    {"at":"2026-11-17T08:25Z","pr":481,"category":"рецензії","label":"Рецензент сам виправляє дрібне (≤60 рядків)","effect":"менше раундів виправлень","source":"2026-11-17-owner-process-rules.md"},
+    {"at":"2026-11-17T14:24Z","pr":497,"category":"модель","label":"Sonnet для авторів екранів і компонентів","effect":"дешевші автори UI","source":"2026-11-17-owner-limit-and-models.md"},
+    {"at":"2026-11-17T21:39Z","pr":517,"category":"контекст","label":"Автостиснення — звичайний режим, без стопу на 350 тис.","effect":"довші відрізки ведучого","source":"2026-11-17-owner-compaction-trial.md"},
+    {"at":"2026-11-19T12:58Z","pr":598,"category":"модель","label":"Fable лише для першої рецензії безпеки","effect":"менше Fable на повторних раундах","source":"2026-11-19-owner-fable-reduce.md"},
+    {"at":"2026-11-20T08:29Z","pr":650,"category":"модель","label":"Fable лише permissions/auth/encryption/schema; Sonnet для рецензій UI і документів","effect":"≈удвічі менше Fable, дешевші рецензії","source":"2026-11-20-owner-fable-usage.md; 2026-11-20-owner-sonnet-reviews.md"},
+    {"at":"2026-11-20T13:23Z","pr":652,"category":"рецензії","label":"Мутації лише для формул сум","effect":"менше дорогих прогонів безпеки","source":"2026-11-20-owner-limit-optimisation.md"},
+    {"at":"2026-11-21T07:55Z","pr":690,"category":"CI","label":"Інтеграційні тести API у 3 шардах","effect":"без скасувань на ліміті 45 хв і повторів","source":"2026-11-21-ci-three-shards.md"},
+    {"at":"2026-11-27T18:46Z","pr":750,"category":"модель","label":"Sonnet для рецензії безпеки лише назв тестів і формулювань","effect":"≈25 млн токенів економії","source":"2026-11-27-owner-process-review-35.md"},
+    {"at":"2026-11-27T18:59Z","pr":751,"category":"контекст","label":"Скрипт merge-ready замість shell-правил чек-листа","effect":"≈45 млн токенів економії","source":"2026-11-27-owner-process-review-35.md"},
+    {"at":"2026-11-27T19:06Z","pr":753,"category":"контекст","label":"Переписані правила: стиснення на 200 тис., короткі брифи, виправлення на Sonnet","effect":"менший контекст, дешевші фікси","source":"2026-11-27-owner-rules-rewrite.md"},
+    {"at":"2026-11-27T19:29Z","pr":752,"category":"CI","label":"Інтеграційні тести API у 5 шардах","effect":"CI ≈39 → ≈20 хв","source":"2026-11-27-ci-five-shards.md"}
+  ]
+}

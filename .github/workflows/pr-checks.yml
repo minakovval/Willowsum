@@ -64,6 +64,9 @@ jobs:
       # second, so they run here, in the job that runs on every PR, instead of behind a path filter.
       - name: Token report unit tests
         run: node --test 'tools/token-report/**/*.test.mjs'
+      # The progress page's «Ціна пункту вимоги» (owner, 2026-11-28): its calculation block and history.mjs. Offline, instant.
+      - name: Progress dashboard unit tests
+        run: node --test 'tools/progress-dashboard/**/*.test.mjs'
       # The lead's hooks (.claude/settings.json): SessionStart after compaction, Stop for the owner's language. Offline, instant.
       - name: Lead hook unit tests
         run: node --test 'tools/lead-hooks/**/*.test.mjs'

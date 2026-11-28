@@ -23,8 +23,9 @@ test('PRC-02: progress dashboard workflow (#621): `publish` (write token) uses o
   // No cross-run artifact (run-id / github-token / repository): only this run's `build` output.
   assert.doesNotMatch(pub, /run-id|github-token|repository:|pattern:|merge-multiple/);
   assert.match(pub, /name: progress-dashboard\n/);
-  // Neither checkout leaves the token in .git/config.
-  assert.equal([...code(read()).matchAll(/persist-credentials: false/g)].length, 2);
+  // No checkout leaves the token in .git/config (build: main and the published gh-pages; publish: gh-pages).
+  assert.equal([...code(read()).matchAll(/uses: actions\/checkout@/g)].length, 3);
+  assert.equal([...code(read()).matchAll(/persist-credentials: false/g)].length, 3);
 });
 
 test('PRC-02: progress dashboard workflow (#621): `publish` runs only copy-and-push shell commands, no interpreter or file from the artifact or gh-pages', () => {
@@ -33,11 +34,11 @@ test('PRC-02: progress dashboard workflow (#621): `publish` runs only copy-and-p
   assert.ok(run.trim(), 'the push step has a run block');
   assert.equal([...pub.matchAll(/^\s*(?:- )?run:/gm)].length, 1, 'one shell step');
   const allowed = [
-    /^test -s "\$RUNNER_TEMP\/site\/(index\.html|coverage\.json)"$/,
-    /^cp "\$RUNNER_TEMP\/site\/index\.html" "\$RUNNER_TEMP\/site\/coverage\.json" pages\/$/,
+    /^test -s "\$RUNNER_TEMP\/site\/(index\.html|coverage\.json|history\.json)"$/,
+    /^cp "\$RUNNER_TEMP\/site\/index\.html" "\$RUNNER_TEMP\/site\/coverage\.json" "\$RUNNER_TEMP\/site\/history\.json" pages\/$/,
     /^cd pages$/,
     /^git config user\.(name|email) "[^"$`]+"$/,
-    /^git add index\.html coverage\.json$/,
+    /^git add index\.html coverage\.json history\.json$/,
     /^if git diff --cached --quiet; then echo "gh-pages is up to date"; exit 0; fi$/,
     /^git commit -q -m "Progress dashboard: coverage on main \$GITHUB_SHA"$/,
     /^AUTH="\$\(printf 'x-access-token:%s' "\$GH_TOKEN" \| base64 -w0\)"$/,
@@ -62,4 +63,13 @@ test('PRC-02: progress dashboard workflow (#621): the job token reaches only the
   assert.equal([...wf.matchAll(/github\.token|GITHUB_TOKEN/g)].length, 1);
   assert.match(job(wf, 'publish'), /env:\n {10}GH_TOKEN: \$\{\{ github\.token \}\}\n {8}run: \|/);
   assert.doesNotMatch(job(wf, 'build'), /token/i);
+});
+
+test('PRC-02 (owner, 2026-11-28): `build` reads the published gh-pages only as data — history.mjs --prev, no file of it is run or copied', () => {
+  const build = code(job(read(), 'build'));
+  assert.match(build, /ref: gh-pages\n {10}path: published\n {10}persist-credentials: false\n/);
+  const uses = build.split('\n').filter((l) => /published\//.test(l));
+  assert.equal(uses.length, 1, uses.join('\n'));
+  assert.match(uses[0], /^ {10}node tools\/progress-dashboard\/history\.mjs --seed tools\/progress-dashboard\/history-seed\.json --prev published\/history\.json /);
+  assert.doesNotMatch(build, /contents: write|git push/);
 });
