@@ -1,18 +1,18 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-27T23:15:22.758Z",
-  "sha": "8582e58b1512e1a3a7d58181daaa3ebbb2346ce4",
+  "generatedAt": "2026-11-28T02:54:25.010Z",
+  "sha": "df6ae93c024f6df91f916326c786fa39ca840601",
   "releases": [
     {
       "release": "PoC",
       "slices": 153,
       "FR": {
-        "covered": 910,
+        "covered": 913,
         "total": 1479
       },
       "AC": {
-        "covered": 702,
+        "covered": 706,
         "total": 1135
       },
       "EC": {
@@ -20,7 +20,7 @@
         "total": 211
       },
       "items": {
-        "covered": 1745,
+        "covered": 1752,
         "total": 2825
       }
     },
@@ -28,11 +28,11 @@
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 462,
+        "covered": 465,
         "total": 1258
       },
       "AC": {
-        "covered": 393,
+        "covered": 396,
         "total": 1037
       },
       "EC": {
@@ -40,7 +40,7 @@
         "total": 245
       },
       "items": {
-        "covered": 944,
+        "covered": 950,
         "total": 2540
       }
     },
@@ -48,11 +48,11 @@
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 545,
+        "covered": 547,
         "total": 3457
       },
       "AC": {
-        "covered": 483,
+        "covered": 486,
         "total": 3003
       },
       "EC": {
@@ -60,7 +60,7 @@
         "total": 723
       },
       "items": {
-        "covered": 1130,
+        "covered": 1135,
         "total": 7183
       }
     },
@@ -3120,11 +3120,11 @@
       "sectionName": "Імпорт",
       "block": "import",
       "FR": {
-        "covered": 17,
+        "covered": 20,
         "total": 24
       },
       "AC": {
-        "covered": 14,
+        "covered": 18,
         "total": 22
       },
       "EC": {
@@ -3132,7 +3132,7 @@
         "total": 4
       },
       "items": {
-        "covered": 34,
+        "covered": 41,
         "total": 50
       },
       "fingerprintErrors": 0,
