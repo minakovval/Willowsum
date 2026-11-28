@@ -141,6 +141,8 @@ function mixed(...groups: Line[][]): Line[] {
   return out;
 }
 
+const transferDirectory = () =>
+  createCategoryDirectory({ db: db.databases.for("categories"), audit, newId: randomUUID });
 const rowsSource = () =>
   createHistoryDerivationRows({ db: db.databases.for("import-sessions"), keys, accounts });
 const merchantNames = () =>
@@ -176,7 +178,7 @@ function queues(derive = true): WorkerQueue[] {
       }),
       { isEnabled },
       clock,
-      derive ? { source: rowsSource(), newId: randomUUID } : undefined,
+      derive ? { source: rowsSource(), newId: randomUUID, transfers: transferDirectory() } : undefined,
     ),
   ];
 }
@@ -285,6 +287,7 @@ beforeAll(async () => {
               db: db.databases.for("categorization"),
               source: rowsSource(),
               merchants: merchantNames(),
+              transfers: transferDirectory(),
               audit,
               newId: randomUUID,
               clock,
@@ -301,7 +304,7 @@ beforeAll(async () => {
             inputs: createTransactionRuleInputs(db.databases.for("transactions")),
           }),
           clock,
-          history: { source: rowsSource(), newId: randomUUID },
+          history: { source: rowsSource(), newId: randomUUID, transfers: transferDirectory() },
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -566,7 +569,7 @@ describe("BUD-21@PoC FR 10: in the background with progress", () => {
           },
           { isEnabled },
           clock,
-          { source: rowsSource(), newId: randomUUID },
+          { source: rowsSource(), newId: randomUUID, transfers: transferDirectory() },
         ),
       ],
       households: async () => [space.householdId],

@@ -77,6 +77,8 @@ export interface CategoryFacts {
   readonly state: "active" | "hidden" | "retired";
   /** FR 8: the category in use its records went to; null (or absent) unless merged. */
   readonly mergedInto?: string | null;
+  /** The system tree's key (module categories): `transfer` — «Переказ», `adjustment` — «Коригування». */
+  readonly systemKey?: string | null;
 }
 
 /**
@@ -87,4 +89,13 @@ export interface CategoryFacts {
  */
 export function categoryAllowed(category: CategoryFacts | null): boolean {
   return category !== null && category.state !== "retired" && category.kind !== "service";
+}
+
+/**
+ * BUD-21@PoC FR 16 (row 236): a rule's action «категорія „Переказ“» — the space's service category «Переказ». Such a
+ * rule never gives a transaction that category (BUD-01 FR 7: only a confirmed transfer has it): a new transaction it
+ * matches goes to «Пари» as a one-sided transfer awaiting «Це переказ» or «Це не переказ» (IMP-03 FR 8, FR 14).
+ */
+export function isTransferCategory(category: CategoryFacts | null): boolean {
+  return category !== null && category.kind === "service" && category.systemKey === "transfer";
 }

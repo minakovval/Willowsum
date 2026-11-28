@@ -180,9 +180,9 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
   користувача для мітки) і до запечатування відповідей викликає `labels.confirm` — категорії створює модуль categories
   своєю транзакцією; `HistoryAnswers.labels` — категорія кожної мітки для виведення (`rowCategories`). Без `labels`
   `mapping` — null і категорії не створюються.
-- Виведення правил (BUD-21@PoC п. 9–11, 17, 24, частина c): `createHistoryDerivationRows({ db, keys, accounts })` →
-  `HistoryRowsSource` модуля categorization (`src/main.ts`, `src/wiring.ts`): `rows(householdId, batchId)` — рядки
-  підтвердженої партії, що не є переказами й не пропущені, з категорією простору їхньої мітки, рахунком простору значення
+- Виведення правил (BUD-21@PoC п. 9–11, 16, 17, 24, частини c і d): `createHistoryDerivationRows({ db, keys, accounts })` →
+  `HistoryRowsSource` модуля categorization (`src/main.ts`, `src/wiring.ts`): `rows(householdId, batchId)` — непропущені
+  рядки підтвердженої партії: переказ (`transfer` true, `categoryId` null — п. 16) або з категорією простору їхньої мітки, рахунком простору значення
   колонки «рахунок», валютою (файлу, інакше рахунку з однією валютою), тегами (`splitTags`: «,» і «;», до 60 символів) і
   описом для показу (`maskNumbers`); null — немає партії чи не підтверджено; `existing` — які партії ще зберігаються
   (також `createHistoryBatchDirectory(db)` для щоденного прибирання виведень). `HistoryServices.derivation` —

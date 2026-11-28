@@ -18,6 +18,7 @@ import {
 } from "../../application/index.ts";
 import {
   AMOUNT_OPERATORS,
+  isTransferCategory,
   RULE_ACCOUNTS_MAX,
   RULE_CONDITIONS_MAX,
   RULE_TAG_NAME_MAX,
@@ -275,8 +276,21 @@ export const updateCategoryRuleRoute = defineRoute({
       ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
       ...(body.tags !== undefined ? { tags: body.tags } : {}),
     };
-    await checked(ctx, fields);
     const householdId = ctx.principal.householdId;
+    // BUD-21 FR 22: a rule «категорія „Переказ“» from history is changed like any rule — its own «Переказ» sent back
+    // unchanged is no new choice of a service category (which the editor never offers). Any other category is checked.
+    const stored =
+      body.categoryId === undefined
+        ? undefined
+        : (await ctx.inHousehold((q) => rulesTx(q).rules(householdId))).find((r) => r.id === params.ruleId);
+    const unchanged =
+      stored !== undefined &&
+      stored.categoryId === body.categoryId &&
+      isTransferCategory(await rulesDeps(ctx).deps.categories.category(householdId, stored.categoryId));
+    await checked(
+      ctx,
+      unchanged ? Object.fromEntries(Object.entries(fields).filter(([k]) => k !== "categoryId")) : fields,
+    );
     const result = await ctx.inHousehold((q) =>
       updateRule(rulesTx(q), {
         householdId,

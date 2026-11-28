@@ -14,7 +14,7 @@ import type { StoredTransaction } from "./stored.ts";
 
 async function writeOneSided(
   tx: TransactionsTx,
-  actorAccountId: string,
+  actorAccountId: string | null,
   householdId: string,
   current: StoredTransaction,
   next: StoredTransaction["oneSided"],
@@ -65,12 +65,12 @@ export async function decideOneSided(
 /**
  * The system's flag «односторонній переказ» on each of `items` (FR 14, FR 15) that is still free (posted, shown, not
  * split, not merged, in no transfer) and never had a state — a dismissed one never again; the others are skipped. Each
- * in its own transactions transaction, so one refusal never undoes the others. The audit entry is `actorAccountId`'s
- * (the user whose import or search ran it). The flagged ids, with the hand-offs to run once committed.
+ * in its own transactions transaction, so one refusal never undoes the others. The audit entry is the caller's (the
+ * user whose import or search ran it; null — the system's: a category rule on a new transaction, BUD-21 FR 16). The flagged ids, with the hand-offs to run once committed.
  */
 export async function flagOneSided(
   inTransactions: InTransactions,
-  caller: Caller,
+  caller: { readonly householdId: string; readonly accountId: string | null },
   items: readonly { readonly transactionId: string; readonly evidence: readonly string[] }[],
 ): Promise<{ flagged: string[]; handOffs: TransactionHandOff[] }> {
   const householdId = caller.householdId;

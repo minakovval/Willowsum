@@ -11,6 +11,7 @@ import {
   transactionCreated,
   transactionImportMerged,
   type CategoryTransactions,
+  type OneSidedFlagging,
   type TransactionImportMerged,
   type TransactionLookup,
   type TransactionRuleInputs,
@@ -36,7 +37,9 @@ import {
   TRANSACTION_CREATED_JOB,
   transactionsCategoryTarget,
   transactionsWithCategories,
+  transferCategoryOf,
   ruleCount,
+  type HistoryPorts,
 } from "./adapters/index.ts";
 import {
   carryImportMerged,
@@ -97,6 +100,8 @@ export function createHistoryDerivations(deps: {
   readonly db: ModuleDatabase;
   readonly source: HistoryRowsSource;
   readonly merchants: RuleDeps["merchants"];
+  /** BUD-21 FR 16 (row 236): module categories' «Переказ», the category of the file's transfer rows. */
+  readonly transfers: Pick<CategoryDirectory, "serviceCategory">;
   readonly audit: Pick<AuditLog, "record">;
   readonly newId: () => string;
   readonly clock?: { now(): number };
@@ -107,6 +112,7 @@ export function createHistoryDerivations(deps: {
   const derivation = {
     source: deps.source,
     merchants: deps.merchants,
+    transferCategory: transferCategoryOf(deps.transfers),
     now: () => clock.now(),
     newId: deps.newId,
   };
@@ -192,6 +198,9 @@ export function createTransactionCategoryRead(
   };
 }
 
+/** BUD-21 FR 16: the evidence of a one-sided transfer flagged by a rule «категорія „Переказ“» (IMP-03 FR 18 list). */
+export const CATEGORY_RULE_EVIDENCE = "category-rule";
+
 /** The ports of the category rules (BUD-14 b) — other modules' public interfaces, as the rules read them. */
 export type CategorizationRulePorts = Omit<RuleDeps, "categories">;
 
@@ -199,15 +208,34 @@ export type CategorizationRulePorts = Omit<RuleDeps, "categories">;
  * BUD-14 b: the rules' ports from module accounts' directory (an account exists in the space), module merchants'
  * directory (the shown merchant name of a counterparty), module transactions' rule inputs and, for the tags action
  * (BUD-14 b2), module transactions' rule tags — without them the rules add no tags (src/main.ts, src/wiring.ts).
+ * `transfers` (BUD-21@PoC FR 16, row 236): module transactions' one-sided flag for a rule «категорія „Переказ“» on a
+ * new transaction (evidence `category-rule`, the system's entry), while `enabled` (the release flags) — without it, or
+ * with the flags off, such a rule does nothing.
  */
 export function categorizationRulePorts(deps: {
   readonly accounts: AccountDirectory;
   readonly merchants: MerchantDirectory;
   readonly inputs: TransactionRuleInputs;
   readonly tags?: TransactionRuleTags;
+  readonly transfers?: {
+    readonly flagging: OneSidedFlagging;
+    readonly enabled: (householdId: string) => Promise<boolean>;
+  };
 }): CategorizationRulePorts {
+  const transfers = deps.transfers;
   return {
     ...(deps.tags ? { tags: deps.tags } : {}),
+    ...(transfers
+      ? {
+          transfers: {
+            flag: async (householdId: string, transactionId: string) =>
+              (await transfers.enabled(householdId)) &&
+              (await transfers.flagging.flag(householdId, null, [
+                { transactionId, evidence: [CATEGORY_RULE_EVIDENCE] },
+              ])) > 0,
+          },
+        }
+      : {}),
     accounts: {
       exists: async (householdId, accountId) =>
         (await deps.accounts.postingAccount(householdId, accountId)) !== null,
@@ -284,7 +312,7 @@ export function createCategorizationWorkerQueue(
   /** BUD-14 FR 7: when a background run ends (default: the system clock). */
   clock: { now(): number } = { now: () => Date.now() },
   /** BUD-21 FR 10: module import-sessions' history rows for the background derivations. */
-  history?: { readonly source: HistoryRowsSource; readonly newId: () => string },
+  history?: HistoryPorts,
 ): WorkerQueue {
   return categorizationWorkerQueue(
     db,
@@ -297,7 +325,13 @@ export function createCategorizationWorkerQueue(
       clock,
     },
     history
-      ? { source: history.source, merchants: rules.merchants, now: () => clock.now(), newId: history.newId }
+      ? {
+          source: history.source,
+          merchants: rules.merchants,
+          transferCategory: transferCategoryOf(history.transfers),
+          now: () => clock.now(),
+          newId: history.newId,
+        }
       : undefined,
   );
 }

@@ -1,6 +1,6 @@
 # Модуль transfer-matching
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27 (IMP-03@PoC п. 24: «Позначити як переказ» — кандидати другої сторони, `GET /v1/transactions/{id}/transfer-candidates`; #731 п. 1: платежі на картку не позначаються з обрізаного читання); 2026-11-27 (BUD-01@PoC п. 7, AC4, #722 D: `createCardPaymentTransfers` — платіж на кредитну картку з власного рахунку простору стає переказом одразу); 2026-11-26 (IMP-03 b, рядок 48: оцінка 0–100, впевненість, докази, пропозиції один-до-одного, «неоднозначно з…», «Не пара»; 2026-11-21 — IMP-03 a, рядок 47: обміни валют між гаманцями одного рахунку — `pairKind`, `bankRate`, `rateBand`; 2026-11-20 — IMP-08 п. 11: `createImportBatchProposals` для кроку «Результат»; 2026-11-19 — BUD-08@PoC: `createTransferProposalSides` для cashflow; раніше, 2026-11-15, FIN-03 b: пропозиції переказів, рядок 16b)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -82,8 +82,8 @@ BUD-01@PoC (#722 D, серверна частина): п. 7, виняток — 
   з областю — 404; прапорець і ключ `transactions.transfers`): `items` — вільні транзакції зі станом `flagged` (позначка
   системи, рахується як звичайна) або `marked` («Це переказ»), новіші спочатку, до `PAIR_LIST_MAX` = 200; сторона,
   `counterparty`, `description`, `state`, `evidence` (`transfer-words`, `own-account-words`, `card-payment`,
-  розширюваний); `count`. «Це переказ» / «Це не переказ» — `PUT /v1/transactions/{id}/one-sided-transfer` модуля
-  transactions.
+  `category-rule` — правило «категорія „Переказ“» модуля categorization, BUD-21@PoC п. 16; розширюваний); `count`.
+  «Це переказ» / «Це не переказ» — `PUT /v1/transactions/{id}/one-sided-transfer` модуля transactions.
 - Маршрут `GET /v1/transfer-pairs` (`listConfirmedTransfers`, IMP-03 п. 18, 20, 21; ті самі права): `items` —
   підтверджені пари (`id` переказу, `outflow`, `inflow` з текстами, `date`, `kind`, `fee` або `currencyDifference`, `rate`,
   `feeCategoryId` — null: «Комісії банку»), новіші спочатку, до 200; `count`.

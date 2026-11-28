@@ -22667,6 +22667,13 @@
                               "conflicting"
                             ]
                           },
+                          "action": {
+                            "type": "string",
+                            "enum": [
+                              "category",
+                              "transfer"
+                            ]
+                          },
                           "conditions": {
                             "type": "array",
                             "items": {
@@ -22900,6 +22907,7 @@
                         "required": [
                           "ordinal",
                           "kind",
+                          "action",
                           "conditions",
                           "categoryId",
                           "matched",

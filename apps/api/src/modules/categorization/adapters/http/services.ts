@@ -2,6 +2,7 @@ import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AuditLog } from "../../../audit/index.ts";
+import type { CategoryDirectory } from "../../../categories/index.ts";
 import {
   applyAudit,
   applyHandOff,
@@ -36,6 +37,19 @@ export interface CategorizationServices {
   readonly derivations: DerivationDeps | null;
 }
 
+/** BUD-21 c, FR 16: what the derivation of rules needs besides the rules' ports. */
+export interface HistoryPorts {
+  readonly source: HistoryRowsSource;
+  readonly newId: () => string;
+  readonly transfers: Pick<CategoryDirectory, "serviceCategory">;
+}
+
+/** BUD-21 FR 16 (row 236): the id of the space's «Переказ» (module categories writes the system tree if missing). */
+export const transferCategoryOf =
+  (transfers: Pick<CategoryDirectory, "serviceCategory">) =>
+  async (householdId: string): Promise<string | null> =>
+    (await transfers.serviceCategory(householdId, "transfer"))?.id ?? null;
+
 /** BUD-14 FR 7: a rule's matches look at the newest 20 000 transactions of the space (a bound on one request). */
 export const RULE_SCAN_MAX = 20_000;
 
@@ -47,8 +61,11 @@ export function createCategorizationServices(options: {
   readonly rules?: Omit<RuleDeps, "categories">;
   readonly scanMax?: number;
   readonly clock?: { now(): number };
-  /** BUD-21 c: module import-sessions' history batches (needs `rules` for the merchants' names). */
-  readonly history?: { readonly source: HistoryRowsSource; readonly newId: () => string };
+  /**
+   * BUD-21 c: module import-sessions' history batches (needs `rules` for the merchants' names); `transfers` — module
+   * categories' directory for the service category «Переказ» of the transfer rows (BUD-21 FR 16, row 236).
+   */
+  readonly history?: HistoryPorts;
 }): CategorizationServices {
   const clock = options.clock ?? { now: () => Date.now() };
   return {
@@ -64,6 +81,7 @@ export function createCategorizationServices(options: {
         ? {
             source: options.history.source,
             merchants: options.rules.merchants,
+            transferCategory: transferCategoryOf(options.history.transfers),
             now: () => clock.now(),
             newId: options.history.newId,
           }

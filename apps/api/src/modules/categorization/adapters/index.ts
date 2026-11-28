@@ -14,7 +14,9 @@ export { categorizationRoutes } from "./http/routes.ts";
 export {
   categorizationAudit,
   createCategorizationServices,
+  transferCategoryOf,
   type CategorizationServices,
+  type HistoryPorts,
 } from "./http/services.ts";
 export {
   AUDIT_JOB,

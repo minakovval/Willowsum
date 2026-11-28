@@ -261,7 +261,7 @@ export const listOneSidedTransfersRoute = defineRoute({
         listedSideSchema.extend({
           /** `flagged` — «односторонній переказ», counted as usual; `marked` — «Це переказ». */
           state: z.enum(["flagged", "marked"]),
-          /** Why it was flagged: `transfer-words`, `own-account-words`, `card-payment` (extensible); empty — by hand. */
+          /** Why it was flagged: `transfer-words`, `own-account-words`, `card-payment`, `category-rule` (a rule «категорія „Переказ“», BUD-21 FR 16; extensible); empty — by hand. */
           evidence: z.array(z.string()),
         }),
       ),
