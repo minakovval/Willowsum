@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-28T12:47:26.669Z",
-  "sha": "3c34c1f3f3dddca71ee7f8633c7a4df35b6f20aa",
+  "generatedAt": "2026-11-28T14:06:28.743Z",
+  "sha": "0d7a5abe2a80460d6e054d85a34eeab2f08b063e",
   "releases": [
     {
       "release": "PoC",
@@ -13,7 +13,7 @@
       },
       "AC": {
         "covered": 722,
-        "total": 1135
+        "total": 1137
       },
       "EC": {
         "covered": 143,
@@ -21,7 +21,7 @@
       },
       "items": {
         "covered": 1791,
-        "total": 2825
+        "total": 2827
       }
     },
     {
@@ -33,7 +33,7 @@
       },
       "AC": {
         "covered": 396,
-        "total": 1037
+        "total": 1039
       },
       "EC": {
         "covered": 90,
@@ -41,7 +41,7 @@
       },
       "items": {
         "covered": 952,
-        "total": 2540
+        "total": 2542
       }
     },
     {
@@ -53,7 +53,7 @@
       },
       "AC": {
         "covered": 486,
-        "total": 3003
+        "total": 3005
       },
       "EC": {
         "covered": 103,
@@ -61,7 +61,7 @@
       },
       "items": {
         "covered": 1137,
-        "total": 7183
+        "total": 7185
       }
     },
     {
@@ -93,7 +93,7 @@
       },
       "AC": {
         "covered": 130,
-        "total": 1655
+        "total": 1656
       },
       "EC": {
         "covered": 45,
@@ -101,7 +101,7 @@
       },
       "items": {
         "covered": 305,
-        "total": 3913
+        "total": 3914
       }
     },
     {
@@ -2650,7 +2650,7 @@
       },
       "AC": {
         "covered": 17,
-        "total": 19
+        "total": 21
       },
       "EC": {
         "covered": 1,
@@ -2658,7 +2658,7 @@
       },
       "items": {
         "covered": 32,
-        "total": 36
+        "total": 38
       },
       "fingerprintErrors": 0,
       "status": "у роботі"
