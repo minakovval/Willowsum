@@ -543,6 +543,51 @@ describe("IMP-03@PoC FR 21: «Змінити категорію» of a pair's fe
   });
 });
 
+describe("IMP-03@PoC FR 19, FR 21, FR 22: two simultaneous requests", () => {
+  it("IMP-03@PoC FR 22: two «Це переказ» at once — one change, one audit entry, the same version", async () => {
+    const { space, current } = await twoAccounts();
+    const t = await add(space, current, "-300.00", "2026-11-10", "Переказ на власний рахунок");
+    const before = (await auditOf(space.householdId, t.id)).length;
+    const both = await Promise.all([decide(space, t.id, true), decide(space, t.id, true)]);
+    for (const r of both) expect([200, 409], r.body).toContain(r.statusCode);
+    const done = both.filter((r) => r.statusCode === 200);
+    expect(done.length).toBeGreaterThan(0);
+    expect(new Set(done.map((r) => r.json().version)).size).toBe(1);
+    expect((await get(space, t.id)).oneSidedTransfer?.state).toBe("marked");
+    expect((await auditOf(space.householdId, t.id)).length).toBe(before + 1);
+  });
+
+  it("IMP-03@PoC FR 21: two category changes of one pair at once — no lost update: the row, its version and the audit agree", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const out = await add(space, current, "-200.00", "2026-10-10", null);
+    const into = await add(space, savings, "199.00", "2026-10-12", null);
+    expect(
+      (await call(space, "POST", `/v1/transactions/${out.id}/transfer`, { counterpartId: into.id }))
+        .statusCode,
+    ).toBe(200);
+    // Two different active expense categories, neither the current one (null — «Комісії банку»).
+    const [first, second] = (await directory.categories(space.householdId))
+      .filter((x) => x.kind === "expense" && x.systemKey !== FEE_CATEGORY_KEY && x.state === "active")
+      .map((x) => x.id);
+    if (!first || !second) throw new Error("the system tree has two expense categories");
+    const versionOf = async (id: string) =>
+      (await call(space, "GET", `/v1/transactions/${id}`)).json().version as number;
+    const version = await versionOf(out.id);
+    const audited = (await auditOf(space.householdId, out.id)).length;
+    const both = await Promise.all([
+      call(space, "PUT", `/v1/transactions/${out.id}/transfer/fee-category`, { categoryId: first }),
+      call(space, "PUT", `/v1/transactions/${into.id}/transfer/fee-category`, { categoryId: second }),
+    ]);
+    for (const r of both) expect([200, 409], r.body).toContain(r.statusCode);
+    const done = both.filter((r) => r.statusCode === 200);
+    expect(done.length).toBeGreaterThan(0);
+    const now = await get(space, out.id);
+    expect(await versionOf(out.id)).toBe(version + done.length);
+    expect([first, second]).toContain(now.transfer?.feeCategoryId);
+    expect((await auditOf(space.householdId, out.id)).length).toBe(audited + done.length);
+  });
+});
+
 describe("IMP-03@PoC FR 18, FR 23: the lists of «Пари» and «Шукати пари знову»", () => {
   it("IMP-03@PoC FR 23: «Шукати пари знову» — a real search: a one-sided transfer that became one since is flagged now, and the proposals are counted", async () => {
     const { space, current, savings } = await twoAccounts();
