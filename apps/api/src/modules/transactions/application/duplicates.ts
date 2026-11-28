@@ -83,17 +83,25 @@ export async function mergeDuplicate(
       mergedInto: kept.id,
       version: duplicate.version + 1,
     });
-    if (intoBank)
+    const handOffs = [await enqueue(tx, caller, "merge", duplicate, merged)];
+    let stays = kept;
+    if (intoBank) {
+      // FR 11 «ручна транзакція зберігає … нотатки», BUD-13 FR 1 tags, BUD-06 FR 8 «Одноразова витрата»: the record that
+      // stays takes them, as on an import's merge (IMP-04 FR 5); its own are kept. Texts only: no journal change.
+      const tagIds = [...new Set([...kept.tagIds, ...duplicate.tagIds])];
+      const note = kept.note ?? duplicate.note;
+      const oneOff = kept.oneOff || duplicate.oneOff;
+      if (note !== kept.note || tagIds.length !== kept.tagIds.length || oneOff !== kept.oneOff) {
+        stays = await tx.update(householdId, { ...kept, note, tagIds, oneOff, version: kept.version + 1 });
+        handOffs.push(await enqueue(tx, caller, "update", kept, stays));
+      }
       await tx.publishImportMerged(householdId, {
         transactionId: kept.id,
         duplicateId: duplicate.id,
         actorAccountId: caller.accountId,
       });
-    return {
-      kind: "ok",
-      transaction: kept,
-      handOffs: [await enqueue(tx, caller, "merge", duplicate, merged)],
-    };
+    }
+    return { kind: "ok", transaction: stays, handOffs };
   });
 }
 

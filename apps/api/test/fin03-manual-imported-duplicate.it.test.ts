@@ -394,6 +394,27 @@ describe("a «Можливий дубль» of a manual and an imported transact
       expect(leakText(JSON.stringify(entries))).not.toContain("Синтетична кав'ярня");
     });
 
+  it("«Об'єднати» into the bank's: the record that stays takes the manual one's note, tags and «Одноразова витрата» (FR 11)", async () => {
+    const { space, hand, bank } = await pair();
+    const set = await call(space, "PATCH", `/v1/transactions/${hand}/attributes`, {
+      note: "синтетична нотатка",
+      tags: ["синтетичний-тег"],
+    });
+    expect(set.statusCode, set.body).toBe(200);
+    const oneOff = await call(space, "PUT", `/v1/transactions/${hand}/one-off`, { oneOff: true });
+    expect(oneOff.statusCode, oneOff.body).toBe(200);
+    const res = await call(space, "POST", `/v1/transactions/${hand}/merge`, { duplicateId: bank });
+    expect(res.statusCode, res.body).toBe(200);
+    await runWorker(space.householdId);
+    const stays = (await call(space, "GET", `/v1/transactions/${bank}`)).json();
+    expect(stays).toMatchObject({ note: "синтетична нотатка", oneOff: true });
+    expect(stays.tags.map((t: { name: string }) => t.name)).toEqual(["синтетичний-тег"]);
+    const entries = await audit.entriesFor(space.householdId, { type: "transactions.transaction", id: bank });
+    const update = entries.find((e) => e.action === "update");
+    expect(update?.changes.map((c) => c.field).sort()).toEqual(["note", "oneOff", "tags"]);
+    expect(leakText(JSON.stringify(entries))).not.toContain("синтетична нотатка");
+  });
+
   it("«Роз'єднати» gives both back: the manual one's posting returns, 40,00", async () => {
     const { space, a, hand, bank } = await pair();
     expect(
@@ -525,5 +546,147 @@ describe("the detail of an imported transaction: the bank sets its sign; the tex
     expect(res.statusCode, res.body).toBe(200);
     await runWorker(space.householdId);
     expect(await balance(space, a)).toBe("109.99");
+  });
+});
+
+/**
+ * Security review of PR #769 (reviewer tests): the guards of a manual + imported «Можливий дубль» seen from the routes
+ * the change did not name — a nested merge after the swap, a merge of two manual ones (nothing carried), a merge and an
+ * edit at once, the roles and a scoped principal.
+ */
+describe("sec769: a merge of a manual and an imported transaction, from the other routes", () => {
+  it("the manual one others were merged into is not merged into the bank's from either side: 400, nothing changes", async () => {
+    const { space, a, hand, bank } = await pair();
+    const second = await manual(space, a, "-30.00", "2026-10-10");
+    const first = await call(space, "POST", `/v1/transactions/${hand}/merge`, { duplicateId: second });
+    expect(first.statusCode, first.body).toBe(200);
+    await runWorker(space.householdId);
+    expect(await balance(space, a)).toBe("40");
+    for (const [acted, target, field] of [
+      [hand, bank, "transactionId"],
+      [bank, hand, "duplicateId"],
+    ] as const) {
+      const res = await call(space, "POST", `/v1/transactions/${acted}/merge`, { duplicateId: target });
+      expect(res.statusCode, res.body).toBe(400);
+      expect(res.json().errors).toContainEqual(
+        expect.objectContaining({ path: field, issue: "has_duplicates" }),
+      );
+    }
+    await runWorker(space.householdId);
+    expect(await get(space, hand)).toMatchObject({ hidden: false, mergedInto: null });
+    expect(await get(space, bank)).toMatchObject({ hidden: false, mergedInto: null });
+    expect(await balance(space, a)).toBe("40");
+  });
+
+  it("two manual ones merged: the one that stays keeps its own category (only a merge into the bank's carries it)", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "100.00");
+    const kept = await manual(space, a, "-30.00", "2026-10-10");
+    const dup = await manual(space, a, "-30.00", "2026-10-11");
+    const cafe = await categoryId(space, "Кафе і ресторани");
+    expect(
+      (await call(space, "PUT", `/v1/transactions/${dup}/category`, { categoryId: cafe })).statusCode,
+    ).toBe(200);
+    const res = await call(space, "POST", `/v1/transactions/${kept}/merge`, { duplicateId: dup });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ id: kept });
+    await runWorker(space.householdId);
+    expect((await categoryOf(space, kept)).categoryId).toBeNull();
+    expect(await balance(space, a)).toBe("70");
+  });
+
+  it("«Об'єднати» and a new amount of the manual one at once: one of them, and the balance matches it", async () => {
+    const { space, a, hand, bank } = await pair();
+    const [merged, edited] = await Promise.all([
+      call(space, "POST", `/v1/transactions/${bank}/merge`, { duplicateId: hand }),
+      call(space, "PATCH", `/v1/transactions/${hand}`, { amount: { amount: "-25.00", currency: "EUR" } }),
+    ]);
+    await runWorker(space.householdId);
+    if (merged.statusCode === 200) {
+      expect(edited.statusCode, edited.body).toBe(409);
+      expect(await get(space, hand)).toMatchObject({ hidden: true, mergedInto: bank });
+      expect(await balance(space, a)).toBe("70");
+      expect(await liveEntriesOf(space.householdId)).toEqual([bank]);
+    } else {
+      expect(merged.statusCode, merged.body).toBe(400);
+      expect(edited.statusCode, edited.body).toBe(200);
+      expect(await get(space, hand)).toMatchObject({ hidden: false, mergedInto: null });
+      expect(await balance(space, a)).toBe("45");
+    }
+  });
+
+  it("a viewer and a scoped principal neither merge, hide nor change the sign: refused, nothing changes", async () => {
+    const { space, a, hand, bank } = await pair();
+    const as =
+      (role: "viewer" | "editor", scoped: boolean) =>
+      (method: "POST" | "PATCH", url: string, body?: unknown) =>
+        app.inject({
+          method,
+          url,
+          headers: {
+            origin: WEB,
+            ...principalHeader({ userId: space.accountId, householdId: space.householdId, role, scoped }),
+            ...(body !== undefined ? { "content-type": "application/json" } : {}),
+          },
+          ...(body !== undefined ? { payload: JSON.stringify(body) } : {}),
+        });
+    for (const send of [as("viewer", false), as("editor", true)]) {
+      const responses = [
+        await send("POST", `/v1/transactions/${hand}/merge`, { duplicateId: bank }),
+        await send("POST", `/v1/transactions/${bank}/hide`),
+        await send("PATCH", `/v1/transactions/${bank}`, { amount: { amount: "30.00", currency: "EUR" } }),
+      ];
+      for (const r of responses) expect([403, 404], r.body).toContain(r.statusCode);
+    }
+    await runWorker(space.householdId);
+    expect(await get(space, hand)).toMatchObject({ hidden: false, mergedInto: null });
+    expect(await get(space, bank)).toMatchObject({
+      hidden: false,
+      mergedInto: null,
+      amount: { amount: "-30" },
+    });
+    expect(await balance(space, a)).toBe("40");
+  });
+
+  it("the split path does not turn the bank's sign: parts of the other sign are refused", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "100.00");
+    const id = await imported(space, a, "-30.00", "2026-10-11");
+    const cafe = await categoryId(space, "Кафе і ресторани");
+    const other = await categoryId(space, "Продукти");
+    const res = await call(space, "POST", `/v1/transactions/${id}/split`, {
+      mode: "categories",
+      parts: [
+        { categoryId: cafe, amount: "20.00" },
+        { categoryId: other, amount: "10.00" },
+      ],
+    });
+    expect(res.statusCode, res.body).toBe(400);
+    expect(await get(space, id)).toMatchObject({ amount: { amount: "-30" } });
+  });
+  it("an imported income keeps its sign too: +30,00 to −30,00 is refused, the balance stays", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "100.00");
+    const id = await imported(space, a, "30.00", "2026-10-11");
+    const res = await call(space, "PATCH", `/v1/transactions/${id}`, {
+      amount: { amount: "-30.00", currency: "EUR" },
+    });
+    expect(res.statusCode, res.body).toBe(400);
+    expect(res.json().errors).toContainEqual(expect.objectContaining({ path: "amount", issue: "sign" }));
+    await runWorker(space.householdId);
+    expect(await balance(space, a)).toBe("130");
+  });
+
+  it("the category the bank's row takes on «Об'єднати» is in the audit log, by the user who merged", async () => {
+    const { space, hand, bank, cafe } = await pair();
+    const res = await call(space, "POST", `/v1/transactions/${hand}/merge`, { duplicateId: bank });
+    expect(res.statusCode, res.body).toBe(200);
+    await runWorker(space.householdId);
+    const entries = await audit.entriesFor(space.householdId, {
+      type: "categorization.transaction-category",
+      id: bank,
+    });
+    const carried = entries.find((e) => e.changes.some((c) => c.field === "categoryId" && c.after === cafe));
+    expect(carried, JSON.stringify(entries)).toBeDefined();
   });
 });
