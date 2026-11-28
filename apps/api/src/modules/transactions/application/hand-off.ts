@@ -90,8 +90,9 @@ export function auditKey(handOff: TransactionHandOff): string {
 export interface TagAudit {
   readonly tagId: string;
   readonly actorAccountId: string;
-  readonly action: "update" | "delete";
-  /** The audit entry's key (ARC-04 FR 3): `transactions.tag.<rename|merge|delete>:<tag>:<version>`. */
+  /** `create` — a tag of a rule accepted from a history file (BUD-21 FR 26). */
+  readonly action: "create" | "update" | "delete";
+  /** The audit entry's key (ARC-04 FR 3): `transactions.tag.<create|rename|merge|delete>:<tag>[:<version>]`. */
   readonly key: string;
   readonly changes: readonly {
     readonly field: string;

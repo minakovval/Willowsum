@@ -49,6 +49,19 @@ export {
   type TopCategories,
 } from "./suggestion.ts";
 export {
+  DESCRIPTIONS_CHECK_MIN,
+  HISTORY_CHECK_MIN_ROWS,
+  acceptanceOrder,
+  againstRules,
+  descriptionsDiffer,
+  historyCheck,
+  ruleConditions,
+  suggestionKey,
+  type ExistingRule,
+  type HistoryCheck,
+} from "./history-acceptance.ts";
+export {
+  compareAcceptance,
   DERIVATION_FOREGROUND_MAX,
   DERIVATION_ROWS_MAX,
   descriptionWords,

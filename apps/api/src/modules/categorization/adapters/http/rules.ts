@@ -54,7 +54,7 @@ const moneySchema = z.object({
   currency: z.string().regex(/^[A-Z]{3,5}$/),
 });
 
-const conditionSchema = z.discriminatedUnion("field", [
+export const conditionSchema = z.discriminatedUnion("field", [
   z.object({ field: z.literal("merchant"), operator: z.enum(TEXT_OPERATORS), value: text }).strict(),
   z.object({ field: z.literal("description"), operator: z.enum(TEXT_OPERATORS), value: text }).strict(),
   z.object({ field: z.literal("amount"), operator: z.enum(AMOUNT_OPERATORS), value: moneySchema }).strict(),
@@ -65,7 +65,7 @@ const conditionSchema = z.discriminatedUnion("field", [
  * «Теги» of a rule (FR 5): each a tag's name as a transaction's (BUD-13 FR 2) — one line, the spaces at its ends trimmed,
  * 1–60 characters; the same tag (without regard to case) once, in the order first given; at most 20.
  */
-const tagsSchema = z
+export const tagsSchema = z
   .array(z.string().max(RULE_TAG_NAME_MAX * 4))
   .max(RULE_TAGS_MAX * 4)
   .transform((names, ctx) => {
@@ -85,7 +85,7 @@ const tagsSchema = z
     return [...byKey.values()];
   });
 
-const matcherFields = {
+export const matcherFields = {
   /** «Умови*»: all must hold (FR 5). «Сума» is compared without its sign, in its own currency. */
   conditions: z.array(conditionSchema).min(1).max(RULE_CONDITIONS_MAX),
   /** «Додатково» → «Лише для рахунків»: empty — every account. */
@@ -107,6 +107,8 @@ const ruleSchema = z.object({
   needsAttention: z.enum(["category_deleted", "account_deleted"]).nullable(),
   /** «Застосовано: N транзакцій»: the transactions whose category this rule set and still holds. */
   appliedCount: z.number().int(),
+  /** BUD-14 FR 16, BUD-21 FR 22: `history` — «з історії», accepted from a suggestion; null — made by hand. */
+  origin: z.enum(["history"]).nullable(),
 });
 
 const savedSchema = ruleSchema.extend({
@@ -135,11 +137,12 @@ const present = (l: ListedRule): z.input<typeof ruleSchema> => ({
   tags: [...l.rule.tags],
   needsAttention: l.attention,
   appliedCount: l.appliedCount,
+  origin: l.rule.origin ?? null,
 });
 
 type ConditionInput = z.infer<typeof conditionSchema>;
 
-function conditionsIn(conditions: readonly ConditionInput[]): RuleCondition[] {
+export function conditionsIn(conditions: readonly ConditionInput[]): RuleCondition[] {
   return conditions.map((c, i) => {
     if (c.field !== "amount") return c.field === "account" ? c : { ...c, value: c.value.trim() };
     try {

@@ -295,6 +295,51 @@ export async function addRuleTags(
 }
 
 /**
+ * BUD-21@PoC FR 17, FR 26 (row 237): the tags of rules accepted from a history file — each one the space has not got is
+ * created at the acceptance (named as the rule names it), with its audit entry `create` (the name masked). Returns how
+ * many were created; invalid names — none.
+ */
+export async function createAcceptedTags(
+  tags: TagsTx,
+  householdId: string,
+  actorAccountId: string,
+  names: readonly string[],
+  newId: () => string,
+): Promise<number> {
+  // The names of every accepted rule together: each checked on its own (a rule has at most 20, the acceptance many
+  // rules — `tagNames` is the limit of one transaction); an invalid name is left out, the others are still created.
+  const valid = new Map<string, string>();
+  for (const raw of names) {
+    const name = tagName(raw);
+    if (name !== undefined && !valid.has(tagKey(name))) valid.set(tagKey(name), name);
+  }
+  const missing: string[] = [];
+  for (const name of valid.values())
+    if ((await tags.byKey(householdId, tagKey(name))) === null) missing.push(name);
+  if (missing.length === 0) return 0;
+  const ids = new Map<string, string>();
+  const made = await tags.ensure(householdId, missing, () => {
+    const id = newId();
+    ids.set(id, id);
+    return id;
+  });
+  let created = 0;
+  for (const tag of made.values()) {
+    // Only the tags this call inserted (another request may have created one in between).
+    if (!ids.has(tag.id)) continue;
+    created += 1;
+    await tags.enqueueTagAudit(householdId, {
+      tagId: tag.id,
+      actorAccountId,
+      action: "create",
+      key: `transactions.tag.create:${tag.id}`,
+      changes: [{ field: "name", before: null, after: AUDIT_MASK, sensitive: true }],
+    });
+  }
+  return created;
+}
+
+/**
  * BUD-14@PoC FR 7, EC5: «Відмінити» of a rule's run gives the transaction its tags back (`next`) only while they are
  * still the ones the run left (`expected`, by key and order); a change since is kept (`changed`).
  */
