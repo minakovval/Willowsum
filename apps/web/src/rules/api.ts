@@ -47,7 +47,7 @@ export interface Refs {
 
 const MAX_ACCOUNT_PAGES = 20;
 
-async function loadAccounts(api: ApiClient): Promise<AccountRef[]> {
+export async function loadAccounts(api: ApiClient): Promise<AccountRef[]> {
   const rows: AccountRef[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < MAX_ACCOUNT_PAGES; page++) {
