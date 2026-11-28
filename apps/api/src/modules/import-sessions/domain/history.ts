@@ -24,6 +24,8 @@ export interface HistoryRowFields {
   readonly subcategory: string | null;
   readonly transferMark: string | null;
   readonly account: string | null;
+  /** FR 17: the cell of the tags column (row 235); absent — no such column read. */
+  readonly tags?: string | null;
 }
 
 export type ReadRow<R extends HistoryRowFields = HistoryRowFields> = R & {
@@ -37,6 +39,38 @@ export interface HistorySummary {
   readonly read: number;
   readonly transfers: number;
   readonly skipped: readonly { readonly reason: HistorySkip; readonly count: number }[];
+  /** FR 17 (row 235): values of the tags column of the rows read that are no tag (longer than 60 characters). */
+  readonly tagsSkipped: number;
+}
+
+/** FR 17: a tag is at most this long (BUD-13 FR 2); a longer value is skipped. */
+export const HISTORY_TAG_MAX = 60;
+
+/**
+ * FR 17 (row 235): the tags of a cell — split at «,» and «;», trimmed, the same one in another case once (as first
+ * spelt); a value longer than 60 characters is no tag and counts as skipped.
+ */
+export function splitTags(cell: string | null | undefined): {
+  readonly tags: string[];
+  readonly skipped: number;
+} {
+  if (!cell) return { tags: [], skipped: 0 };
+  const tags: string[] = [];
+  const seen = new Set<string>();
+  let skipped = 0;
+  for (const part of cell.split(/[,;]/u)) {
+    const tag = part.trim();
+    if (tag === "") continue;
+    if ([...tag].length > HISTORY_TAG_MAX) {
+      skipped += 1;
+      continue;
+    }
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tags.push(tag);
+  }
+  return { tags, skipped };
 }
 
 /**
@@ -74,6 +108,7 @@ export function classifyRows<R extends HistoryRowFields>(
       rows: rows.length,
       read: read.length,
       transfers: read.filter((r) => r.transfer).length,
+      tagsSkipped: read.reduce((n, r) => n + splitTags(r.tags).skipped, 0),
       skipped: HISTORY_SKIPS.flatMap((reason) =>
         skipped.has(reason) ? [{ reason, count: skipped.get(reason)! }] : [],
       ),

@@ -64,7 +64,12 @@ export const IMPORT_MERGED_JOB = defineJob({
 const auditSchema = z.strictObject({
   key: z.string().regex(/^categorization\.[A-Za-z0-9:._-]{1,180}$/),
   actorAccountId: z.uuid().nullable(),
-  entity: z.enum(["categorization.rule", "categorization.transaction-category", "categorization.rule-run"]),
+  entity: z.enum([
+    "categorization.rule",
+    "categorization.transaction-category",
+    "categorization.rule-run",
+    "categorization.history-derivation",
+  ]),
   entityId: z.uuid(),
   action: z.enum(["create", "update", "delete"]),
   changes: z
@@ -86,6 +91,8 @@ const auditSchema = z.strictObject({
           "status",
           "restored",
           "notRestored",
+          // BUD-21 FR 26: the start of a derivation — its history batch (an id), how many rows.
+          "batchId",
         ]),
         before: z.string().max(1000).nullable(),
         after: z.string().max(1000).nullable(),
@@ -105,4 +112,15 @@ export const AUDIT_JOB = defineJob({ name: "categorization.audit", schema: audit
 export const RULE_RUN_PART_JOB = defineJob({
   name: "categorization.rule-run-part",
   schema: z.strictObject({ runId: z.uuid() }),
+});
+
+/**
+ * BUD-21 FR 10: a derivation of rules from a history file in the background (application/derivations.ts) — the
+ * fallback of the request's own run and the run of more than 2 000 rows. Keyed by the run; idempotent: a run no longer
+ * running is left as it is. Heavy (up to 20 000 rows); dead ones go back with the daily recovery.
+ */
+export const HISTORY_DERIVATION_JOB = defineJob({
+  name: "categorization.history-derivation",
+  schema: z.strictObject({ derivationId: z.uuid() }),
+  heavy: true,
 });

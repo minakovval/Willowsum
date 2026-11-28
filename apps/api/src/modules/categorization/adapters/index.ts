@@ -5,7 +5,9 @@ export {
   TRANSACTIONS_ENTITY,
   transactionsCategoryTarget,
 } from "./bulk/transactions.ts";
+export { derivationsRun } from "./db/derivations.ts";
 export { eraseHouseholdCategorization } from "./db/erasure.ts";
+export { presentRun, startAndDerive } from "./http/derivations.ts";
 export { ruleCount, rulesTx } from "./db/rules.ts";
 export { categorizationTx, transactionsWithCategories } from "./db/store.ts";
 export { categorizationRoutes } from "./http/routes.ts";
@@ -18,6 +20,7 @@ export {
   AUDIT_JOB,
   CATEGORY_MERGED_JOB,
   HAND_OFF_JOB,
+  HISTORY_DERIVATION_JOB,
   IMPORT_MERGED_JOB,
   RULE_RUN_PART_JOB,
   TRANSACTION_CREATED_JOB,

@@ -11,14 +11,17 @@ import {
   applyMerge,
   applyRulesToNew,
   carryImportMerged,
+  executeDerivation,
   moveRulesToCategory,
   runPart,
   RUN_PART_SIZE,
   type CategoryAudit,
   type CategoryFactsPort,
+  type DerivationDeps,
   type RuleDeps,
   type RulesAuditLog,
 } from "../../application/index.ts";
+import { derivationsRun } from "../db/derivations.ts";
 import { rulesTx } from "../db/rules.ts";
 import { runsTx } from "../db/runs.ts";
 import { categorizationTx } from "../db/store.ts";
@@ -26,6 +29,7 @@ import {
   AUDIT_JOB,
   CATEGORY_MERGED_JOB,
   HAND_OFF_JOB,
+  HISTORY_DERIVATION_JOB,
   IMPORT_MERGED_JOB,
   RULE_RUN_PART_JOB,
   TRANSACTION_CREATED_JOB,
@@ -39,6 +43,7 @@ const JOBS = [
   IMPORT_MERGED_JOB,
   AUDIT_JOB,
   RULE_RUN_PART_JOB,
+  HISTORY_DERIVATION_JOB,
 ];
 
 /** As liabilities' (#270 item 2): the space's erasure, which deletes the queue rows, waits for this lock. */
@@ -68,6 +73,8 @@ export function categorizationWorkerQueue(
     /** BUD-14 FR 7: the time a run ends (the start of its 7 days of «Відмінити»). */
     readonly clock: { now(): number };
   },
+  /** BUD-21 FR 10: the derivation's ports; without them a derivation job fails and stays for the recovery. */
+  derivations?: DerivationDeps,
 ): WorkerQueue {
   return {
     store: postgresJobStore(db),
@@ -121,6 +128,15 @@ export function categorizationWorkerQueue(
             now: rules.clock.now(),
             chain: true,
           });
+        },
+      }),
+      defineJobHandler({
+        job: HISTORY_DERIVATION_JOB,
+        // BUD-21 FR 10: the run in units of work of its own (the progress commits as it moves; the suggestions and
+        // the end under the run's lock), so a run the request already finished is left as it is.
+        run: async (job) => {
+          if (!derivations) throw new Error("categorization: no history derivation ports wired");
+          await executeDerivation(derivations, derivationsRun(db), job.householdId, job.payload.derivationId);
         },
       }),
       defineJobHandler({

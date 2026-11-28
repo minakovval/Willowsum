@@ -2,6 +2,8 @@ import type { HistoryParse, HistoryReadOptions } from "../../file-parsers/index.
 import {
   classifyRows,
   labelCounts,
+  maskNumbers,
+  splitTags,
   move,
   PARSE_FILES_PER_HOUR,
   rowCategories,
@@ -71,6 +73,8 @@ export interface HistoryTx extends BatchesTx {
   historyByContent(sha256: string): Promise<string | null>;
   /** Parse jobs of the space queued in the last hour, statements' and history files' (the database's clock). */
   parsesInLastHour(): Promise<number>;
+  /** BUD-21 FR 24 (row 235): which of `ids` are history batches the space still stores. */
+  historyBatches(ids: readonly string[]): Promise<ReadonlySet<string>>;
 }
 
 export type HistorySpaceTx = <T>(work: (tx: HistoryTx) => Promise<T>) => Promise<T>;
@@ -638,4 +642,73 @@ export async function confirmHistoryFile(
     ],
   });
   return { result: { batch, parse: confirmed, parsed, answers }, handOffs: [h] };
+}
+
+/** BUD-21 c (row 235): a categorised row of a confirmed history file, as module categorization derives rules from it. */
+export interface DerivationSourceRow {
+  readonly row: number;
+  readonly date: string;
+  readonly amount: string;
+  readonly currency: string | null;
+  readonly counterparty: string | null;
+  readonly description: string | null;
+  /** The description shown to the user: an IBAN or a card number masked to its last 4 characters. */
+  readonly shown: string | null;
+  readonly accountId: string | null;
+  readonly categoryId: string;
+  readonly tags: readonly string[];
+}
+
+/**
+ * BUD-21 FR 7–11, FR 17 (row 235): the rows the derivation works on — those of the confirmed read that are neither a
+ * transfer nor skipped (FR 8, EC5, EC12), each with the space's category its label became (FR 7, AC8), the account of
+ * the space its account value was matched with (FR 11), its currency (the file's, else the matched account's when that
+ * has one currency) and its tags (FR 17). Null — no history batch, or not confirmed.
+ */
+export async function derivationRows(
+  tx: HistoryTx,
+  open: Open,
+  batchId: string,
+  accountCurrency: (accountId: string) => Promise<string | null>,
+): Promise<DerivationSourceRow[] | null> {
+  let view: HistoryView;
+  try {
+    view = await historyViewOf(tx, open, batchId);
+  } catch (error) {
+    if (error instanceof BatchNotFoundError) return null;
+    throw error;
+  }
+  const { parsed, answers } = view;
+  if (!parsed || !answers || !view.parse.confirmedAt) return null;
+  const resolved = rowCategories(answers.labels ?? []);
+  const { read } = classifyRows(parsed.rows, new Set(answers.transferValues), (category, subcategory) => {
+    const action = resolved({ category, subcategory })?.action;
+    return action === "transfer" || action === "skip" ? action : undefined;
+  });
+  const accounts = new Map(answers.accounts.map((a) => [a.value, a.accountId]));
+  const currencies = new Map<string, string | null>();
+  const out: DerivationSourceRow[] = [];
+  for (const r of read) {
+    const label = r.transfer ? null : resolved(r);
+    if (label?.action !== "category" || label.categoryId === null) continue;
+    const accountId = r.account === null ? null : (accounts.get(r.account) ?? null);
+    let currency = r.currency;
+    if (currency === null && accountId !== null) {
+      if (!currencies.has(accountId)) currencies.set(accountId, await accountCurrency(accountId));
+      currency = currencies.get(accountId) ?? null;
+    }
+    out.push({
+      row: r.row,
+      date: r.date!,
+      amount: r.amount!,
+      currency,
+      counterparty: r.counterparty,
+      description: r.description,
+      shown: maskNumbers(r.description ?? r.counterparty),
+      accountId,
+      categoryId: label.categoryId,
+      tags: splitTags(r.tags).tags,
+    });
+  }
+  return out;
 }

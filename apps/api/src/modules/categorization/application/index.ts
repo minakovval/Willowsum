@@ -68,3 +68,19 @@ export {
   type StartResult,
   type UndoResult,
 } from "./runs.ts";
+export {
+  DerivationSourceMissing,
+  DERIVATION_PART_ROWS,
+  executeDerivation,
+  forgetGoneBatches,
+  startDerivation,
+  type DerivationDeps,
+  type DerivationMerchants,
+  type DerivationRun,
+  type DerivationStatus,
+  type DerivationsRun,
+  type DerivationsTx,
+  type HistoryRowsSource,
+  type HistorySourceRow,
+  type StoredSuggestion,
+} from "./derivations.ts";

@@ -1,6 +1,6 @@
 # Модуль import-sessions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -39,7 +39,7 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
 
 ## Вимоги
 
-Зрізи PoC, що називають модуль: FLW-10@PoC, FLW-17@PoC, IMP-01@PoC, IMP-02@PoC, IMP-04@PoC, IMP-05@PoC, IMP-07@PoC, IMP-08@PoC, IMP-14@PoC, IMP-16@PoC, IMP-17@PoC, IMP-18@PoC, IMP-19@PoC, JRN-05@PoC, JRN-06@PoC; BUD-21@PoC (партія файлу історії, частина a). Функції додають PR цих зрізів.
+Зрізи PoC, що називають модуль: FLW-10@PoC, FLW-17@PoC, IMP-01@PoC, IMP-02@PoC, IMP-04@PoC, IMP-05@PoC, IMP-07@PoC, IMP-08@PoC, IMP-14@PoC, IMP-16@PoC, IMP-17@PoC, IMP-18@PoC, IMP-19@PoC, JRN-05@PoC, JRN-06@PoC; BUD-21@PoC (партія файлу історії, частина a; мітки, b; рядки для виведення правил, c). Функції додають PR цих зрізів.
 
 ## Публічний інтерфейс
 
@@ -180,6 +180,15 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
   користувача для мітки) і до запечатування відповідей викликає `labels.confirm` — категорії створює модуль categories
   своєю транзакцією; `HistoryAnswers.labels` — категорія кожної мітки для виведення (`rowCategories`). Без `labels`
   `mapping` — null і категорії не створюються.
+- Виведення правил (BUD-21@PoC п. 9–11, 17, 24, частина c): `createHistoryDerivationRows({ db, keys, accounts })` →
+  `HistoryRowsSource` модуля categorization (`src/main.ts`, `src/wiring.ts`): `rows(householdId, batchId)` — рядки
+  підтвердженої партії, що не є переказами й не пропущені, з категорією простору їхньої мітки, рахунком простору значення
+  колонки «рахунок», валютою (файлу, інакше рахунку з однією валютою), тегами (`splitTags`: «,» і «;», до 60 символів) і
+  описом для показу (`maskNumbers`); null — немає партії чи не підтверджено; `existing` — які партії ще зберігаються
+  (також `createHistoryBatchDirectory(db)` для щоденного прибирання виведень). `HistoryServices.derivation` —
+  `createHistoryDerivations` модуля categorization: `POST …/confirm` після свого коміту запускає виведення і повертає
+  `derivation` (`id`, `status`, `background`, `count`, `processed`; null — не запущено, WARN
+  `import_sessions.history_derivation_deferred`). Підсумок кроку перевірки має `tagsSkipped` (п. 17).
 - `BATCH_LIMITS` (50 файлів — рядків партії, прийнятих і відхилених; 150 МіБ), `BATCH_STATES`, `canMove`,
   `UNAPPLIED_RETENTION_DAYS`; тип `BatchState`.
 

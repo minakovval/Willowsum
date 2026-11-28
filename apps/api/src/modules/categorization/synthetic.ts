@@ -101,6 +101,51 @@ export const synthetic = [
     },
   }),
   defineSyntheticTable({
+    // BUD-21 c: one completed derivation of rules from a synthetic history file per space.
+    table: "categorization.history_derivations",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: key(household.id, "history-derivation", i),
+          batch_id: key(household.id, "history-batch", i),
+          actor_account_id: key(household.id, "actor", 0),
+          status: "completed",
+          row_count: "6",
+          processed: "6",
+          created_at: "2026-10-30T10:00:00Z",
+          ended_at: "2026-10-30T10:00:01Z",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    // Its suggestions: «Мерчант дорівнює Синтетичний магазин» (5 of 6 rows) and «Опис містить синтетика».
+    table: "categorization.history_suggestions",
+    perHousehold: 2,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          derivation_id: key(household.id, "history-derivation", 0),
+          ordinal: String(i + 1),
+          kind: "confident",
+          conditions: JSON.stringify([
+            i === 0
+              ? { field: "merchant", operator: "equals", value: "Синтетичний магазин" }
+              : { field: "description", operator: "contains", value: "синтетика" },
+          ]),
+          category_id: key(household.id, "category", i),
+          matched: i === 0 ? "6" : "3",
+          agreeing: i === 0 ? "5" : "3",
+          since: null,
+          tags: "{}",
+          evidence_rows: i === 0 ? "{1,2,3,4,5}" : "{7,8,9}",
+          exception_rows: i === 0 ? "{6}" : "{}",
+        };
+    },
+  }),
+  defineSyntheticTable({
     table: "categorization.jobs",
     perHousehold: 2,
     *rows({ household, rng, count }) {

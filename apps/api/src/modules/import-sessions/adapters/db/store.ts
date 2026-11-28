@@ -543,6 +543,14 @@ export function historyTx(q: HouseholdQueryRunner): HistoryTx {
       );
       return rows[0]?.id ?? null;
     },
+    async historyBatches(ids) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT id FROM batches WHERE household_id = $1 AND id = ANY($2::uuid[]) AND kind = 'history'
+            AND deleting_at IS NULL`,
+        [h, ids],
+      );
+      return new Set(rows.map((r) => r.id));
+    },
   };
 }
 

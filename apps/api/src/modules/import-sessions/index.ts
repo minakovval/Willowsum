@@ -4,6 +4,8 @@ import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import type { FileStorage } from "../file-storage/index.ts";
+import type { AccountDirectory } from "../accounts/index.ts";
+import type { SpaceKeys } from "../household/index.ts";
 import type { ImportedTransactions } from "../transactions/index.ts";
 import {
   applyTx,
@@ -12,6 +14,7 @@ import {
   batchesTx,
   batchesWorkerQueue,
   fileOriginals,
+  historyTx,
   importSessionsRoutes,
   parsePorts,
   requeueDeadHandOffs,
@@ -22,11 +25,13 @@ import {
   type StoredApplication,
   applyHandOff,
   deleteStaleBatches,
+  derivationRows,
   readinessOf,
   recordChecks,
   recoverStuckApplications,
   recoverStuckRollbacks,
   type BatchReadiness,
+  type DerivationSourceRow,
   type RollbackPorts,
   type FileReview,
   type RecordInput,
@@ -112,6 +117,50 @@ export function createImportSessionsReview(options: {
     },
     readiness: (householdId, batchId) =>
       options.db.inHousehold(householdId, (q) => readinessOf(batchesTx(q), batchId)),
+  };
+}
+
+/**
+ * BUD-21@PoC FR 7–11, FR 17, FR 24 (wave 2 row 235): a confirmed history file's rows for module categorization's
+ * derivation of rules (`HistoryRowsSource`, src/main.ts and src/wiring.ts) — the categorised rows with the space's
+ * category of their label, the matched account, the currency and the tags; `existing` — which batches are still
+ * stored. Read only; `keys` opens the sealed read and answers, `accounts` gives a matched account's currency.
+ */
+export function createHistoryDerivationRows(options: {
+  readonly db: ModuleDatabase;
+  readonly keys: Pick<SpaceKeys, "openBytes">;
+  readonly accounts: Pick<AccountDirectory, "postingAccount">;
+}): {
+  rows(householdId: string, batchId: string): Promise<DerivationSourceRow[] | null>;
+  existing(householdId: string, batchIds: readonly string[]): Promise<ReadonlySet<string>>;
+} {
+  return {
+    rows: (householdId, batchId) =>
+      options.db.inHousehold(householdId, (q) =>
+        derivationRows(
+          historyTx(q),
+          (purpose, sealed) => options.keys.openBytes(householdId, purpose, sealed),
+          batchId,
+          async (accountId) => {
+            const account = await options.accounts.postingAccount(householdId, accountId);
+            const currencies = new Set(account?.subaccounts.map((s) => s.currency) ?? []);
+            return currencies.size === 1 ? [...currencies][0]! : null;
+          },
+        ),
+      ),
+    existing: createHistoryBatchDirectory(options.db).existing,
+  };
+}
+
+/** BUD-21@PoC FR 24 (row 235): which history batches a space still stores — for the daily sweep of derivations. */
+export function createHistoryBatchDirectory(db: ModuleDatabase): {
+  existing(householdId: string, batchIds: readonly string[]): Promise<ReadonlySet<string>>;
+} {
+  return {
+    existing: (householdId, batchIds) =>
+      batchIds.length === 0
+        ? Promise.resolve(new Set<string>())
+        : db.inHousehold(householdId, (q) => historyTx(q).historyBatches(batchIds)),
   };
 }
 

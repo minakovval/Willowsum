@@ -23,6 +23,7 @@ import {
   categorizationSubscriptions,
   createCategorizationRecovery,
   createCategorizationWorkerQueue,
+  createHistoryDerivationCleanup,
   createCategoryBulkActions,
 } from "./modules/categorization/index.ts";
 import { createCategoryDirectory } from "./modules/categories/index.ts";
@@ -49,6 +50,8 @@ import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./
 import type { FileStorage } from "./modules/file-storage/index.ts";
 import {
   createImportSessionsApplyRecovery,
+  createHistoryBatchDirectory,
+  createHistoryDerivationRows,
   createImportSessionsCleanup,
   createImportSessionsHandOffRecovery,
   createImportSessionsWorkerQueue,
@@ -295,6 +298,20 @@ export function schedulerDailyTasks(deps: {
         if (requeued > 0) logEvent("categorization.jobs_requeued", "warn", { "ws.module": "categorization" });
       },
     },
+    // BUD-21 FR 24 (row 235): the derivations of history files no longer stored go with their suggestions.
+    {
+      name: "categorization.history-cleanup",
+      run: async () => {
+        const forgotten = await createHistoryDerivationCleanup({
+          db: deps.databases.for("categorization"),
+          source: createHistoryBatchDirectory(deps.databases.for("import-sessions")),
+          households: () => deps.spaces.spaceIds(),
+        }).run();
+        // A count only: never a space or a batch.
+        if (forgotten > 0)
+          logEvent("categorization.history_derivations_cleaned", "info", { "ws.module": "categorization" });
+      },
+    },
     // The same for the liabilities queue (ARC-04, ADR-0015): a liability's audit entry.
     {
       name: "liabilities.hand-off-recovery",
@@ -453,7 +470,7 @@ export function workerQueues(
    */
   importParse?: {
     readonly files: Pick<FileStorage, "read">;
-    readonly keys: Pick<SpaceKeys, "fieldOpener" | "sealBytes">;
+    readonly keys: Pick<SpaceKeys, "fieldOpener" | "sealBytes" | "openBytes">;
   },
 ): {
   readonly queues: readonly WorkerQueue[];
@@ -491,6 +508,18 @@ export function workerQueues(
           }),
         }),
         flags,
+        undefined,
+        // BUD-21 c: the background derivation of rules reads the confirmed history file's rows (import-sessions).
+        importParse
+          ? {
+              source: createHistoryDerivationRows({
+                db: databases.for("import-sessions"),
+                keys: importParse.keys,
+                accounts: createAccountDirectory(databases.for("accounts")),
+              }),
+              newId: randomUUID,
+            }
+          : undefined,
       ),
       createTransactionsWorkerQueue(databases.for("transactions"), {
         accounts: createAccountDirectory(databases.for("accounts")),

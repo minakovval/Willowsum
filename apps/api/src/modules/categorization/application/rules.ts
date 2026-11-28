@@ -49,7 +49,12 @@ export interface AuditHandOff {
   readonly key: string;
   /** The account that made the change; null — the system (a rule applied to a new transaction). */
   readonly actorAccountId: string | null;
-  readonly entity: "categorization.rule" | "categorization.transaction-category" | "categorization.rule-run";
+  readonly entity:
+    | "categorization.rule"
+    | "categorization.transaction-category"
+    | "categorization.rule-run"
+    // BUD-21 FR 26: «запуск виведення» правил з файлу історії.
+    | "categorization.history-derivation";
   readonly entityId: string;
   readonly action: "create" | "update" | "delete";
   readonly changes: { field: string; before: string | null; after: string | null; sensitive: boolean }[];

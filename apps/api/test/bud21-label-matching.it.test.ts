@@ -538,6 +538,7 @@ describe("BUD-21@PoC edge cases of labels", () => {
       read: 7,
       transfers: 3,
       skipped: [{ reason: "service-category", count: 2 }],
+      tagsSkipped: 0,
     });
     const res = await confirm(space, batchId, view.parseId);
     expect(res.statusCode, res.body).toBe(200);
