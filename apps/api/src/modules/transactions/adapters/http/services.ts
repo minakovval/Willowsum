@@ -7,6 +7,7 @@ import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY } from "../../../fx-rates/index.ts";
 import type {
   DuplicateCheck,
+  FeeCategoryCheck,
   SplitDeps,
   TransactionAudit,
   TransactionsDeps,
@@ -71,6 +72,8 @@ export interface TransactionsServices {
   readonly splits: SplitDeps | null;
   /** Transfers (FIN-03 FR 7, FR 27): the same ports and the official rates; null when the rates are not wired. */
   readonly transfers: TransferDeps | null;
+  /** IMP-03 FR 21: whether a category may take a pair's fee (the categories directory); null when it is not wired. */
+  readonly feeCategory: FeeCategoryCheck | null;
   readonly totals: ListTotals;
   /**
    * BUD-12 FR 7: module categorization's category of each transaction (wired in src/main.ts), so «Підтвердити» on a
@@ -141,6 +144,7 @@ export function createTransactionsServices(options: {
     deps,
     splits: options.categories ? { ...deps, categories: options.categories } : null,
     transfers: options.rates ? { ...deps, rates: options.rates } : null,
+    feeCategory: options.categories ? feeCategoryCheck(options.categories) : null,
     totals: options.totals,
     categoryOf: options.categoryOf ?? null,
     categoryTransactions: options.categoryTransactions ?? null,
@@ -193,5 +197,16 @@ export function transactionAudit(audit: Pick<AuditLog, "record">): TransactionAu
         key: entry.key,
       });
     },
+  };
+}
+
+/**
+ * IMP-03@PoC FR 21: a category that may take a pair's fee or currency difference — of the space (another space's and an
+ * unknown one read null), not merged away, not a service one («Переказ», «Коригування»); hidden is allowed.
+ */
+export function feeCategoryCheck(categories: Pick<CategoryDirectory, "category">): FeeCategoryCheck {
+  return async (householdId, categoryId) => {
+    const category = await categories.category(householdId, categoryId);
+    return category !== null && category.state !== "retired" && category.kind !== "service";
   };
 }

@@ -3,3 +3,4 @@
 export * from "./proposals.ts";
 export * from "./card-payments.ts";
 export * from "./counterparts.ts";
+export * from "./one-sided.ts";

@@ -110,7 +110,7 @@ export const FLAGS = {
     reviewBy: "2027-02-15",
     requires: "transactions.manual",
     description:
-      "Перекази між власними рахунками (FIN-03@PoC b, IMP-03@PoC): /v1/transactions/{id}/transfer і /not-transfer, пропозиції /v1/transfer-proposals",
+      "Перекази між власними рахунками (FIN-03@PoC b, IMP-03@PoC): /v1/transactions/{id}/transfer, /not-transfer і /one-sided-transfer, пропозиції /v1/transfer-proposals, /v1/one-sided-transfers, /v1/transfer-pairs",
   },
   "transactions.duplicates": {
     kind: "release",

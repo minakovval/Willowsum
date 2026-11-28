@@ -32,6 +32,7 @@ const SAMPLE: Transaction = {
   note: null,
   tags: [],
   oneOff: false,
+  oneSidedTransfer: null,
   review: null,
   version: 1,
   recordedAt: "2026-11-01T10:00:00Z",
