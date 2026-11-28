@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-28T17:04:08.721Z",
-  "sha": "7e44e13f9276b8f61858868faf639e590b2a9f88",
+  "generatedAt": "2026-11-28T17:04:15.240Z",
+  "sha": "11dd49695c3d8c720ebd530fe53fbd39e0c6820d",
   "releases": [
     {
       "release": "PoC",
