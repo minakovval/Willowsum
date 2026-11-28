@@ -1,14 +1,14 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-28T16:58:25.423Z",
-  "sha": "cd9ae8e85c57cc0f886e998ff27302a149cffa0e",
+  "generatedAt": "2026-11-28T17:04:08.721Z",
+  "sha": "7e44e13f9276b8f61858868faf639e590b2a9f88",
   "releases": [
     {
       "release": "PoC",
       "slices": 153,
       "FR": {
-        "covered": 933,
+        "covered": 934,
         "total": 1479
       },
       "AC": {
@@ -20,7 +20,7 @@
         "total": 211
       },
       "items": {
-        "covered": 1807,
+        "covered": 1808,
         "total": 2827
       }
     },
@@ -28,7 +28,7 @@
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 467,
+        "covered": 468,
         "total": 1258
       },
       "AC": {
@@ -40,7 +40,7 @@
         "total": 245
       },
       "items": {
-        "covered": 953,
+        "covered": 954,
         "total": 2542
       }
     },
@@ -48,7 +48,7 @@
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 549,
+        "covered": 550,
         "total": 3457
       },
       "AC": {
@@ -60,7 +60,7 @@
         "total": 723
       },
       "items": {
-        "covered": 1138,
+        "covered": 1139,
         "total": 7185
       }
     },
@@ -88,7 +88,7 @@
       "release": "v1",
       "slices": 169,
       "FR": {
-        "covered": 131,
+        "covered": 132,
         "total": 1772
       },
       "AC": {
@@ -100,7 +100,7 @@
         "total": 486
       },
       "items": {
-        "covered": 306,
+        "covered": 307,
         "total": 3914
       }
     },
@@ -2595,7 +2595,7 @@
       "sectionName": "Фінанси",
       "block": "money",
       "FR": {
-        "covered": 30,
+        "covered": 31,
         "total": 37
       },
       "AC": {
@@ -2607,7 +2607,7 @@
         "total": 4
       },
       "items": {
-        "covered": 57,
+        "covered": 58,
         "total": 73
       },
       "fingerprintErrors": 0,
