@@ -39,6 +39,22 @@ export interface RunRow {
   readonly count: number;
   readonly createdAt: number;
   readonly endedAt: number | null;
+  /**
+   * BUD-21 FR 22 (row 237): the derivation whose accepted suggestions this run applies — a run of several rules, each
+   * record with its own (`RunItem.rule`); null or absent — a run of the one rule `ruleId` (BUD-14 FR 7).
+   */
+  readonly derivationId?: string | null;
+}
+
+/**
+ * BUD-21 FR 22: the rules of one record of an acceptance's run — the first accepted rule by priority that matches the
+ * transaction sets its category, the first such rule with tags its tags (BUD-14 FR 8).
+ */
+export interface ItemRule {
+  readonly ruleId: string;
+  readonly categoryId: string;
+  readonly tagRuleId: string | null;
+  readonly tags: readonly string[];
 }
 
 export type ItemResult = "pending" | "changed" | "unchanged" | "manual" | "unavailable";
@@ -58,6 +74,8 @@ export interface RunItem {
   readonly tagsBefore: readonly string[] | null;
   readonly tagsAfter: readonly string[] | null;
   readonly beforeTagRuleId: string | null;
+  /** BUD-21 FR 22: the record's own rules in a run of an acceptance; null or absent — the run's rule. */
+  readonly rule?: ItemRule | null;
 }
 
 export interface RunCounts {
@@ -73,8 +91,16 @@ export interface RunCounts {
 
 /** The runs part of the categorization schema, in one transaction of the module (adapters/db/runs.ts). */
 export interface RunsTx {
-  /** A new run with its records in order; false — another run of the space is running (one at a time). */
-  insertRun(householdId: string, run: RunRow, transactionIds: readonly string[]): Promise<boolean>;
+  /**
+   * A new run with its records in order; false — another run of the space is running (one at a time). `rules` (BUD-21
+   * FR 22): each record's own rules, by the index of `transactionIds`.
+   */
+  insertRun(
+    householdId: string,
+    run: RunRow,
+    transactionIds: readonly string[],
+    rules?: readonly ItemRule[],
+  ): Promise<boolean>;
   run(householdId: string, id: string): Promise<RunRow | null>;
   /** The run's row, locked until the transaction ends. */
   lockRun(householdId: string, id: string): Promise<RunRow | null>;
@@ -183,9 +209,17 @@ function runAudit(run: RunRow, counts: RunCounts, undo: boolean): AuditHandOff {
           { field: "count", before: null, after: String(run.count), sensitive: false },
           { field: "changed", before: null, after: String(counts.changed), sensitive: false },
           { field: "skippedManual", before: null, after: String(counts.manual), sensitive: false },
+          // BUD-21 FR 22, FR 26: the run of an acceptance names its derivation (its rules are the accepted ones).
+          ...(run.derivationId
+            ? [{ field: "derivationId", before: null, after: run.derivationId, sensitive: false }]
+            : []),
         ],
       };
 }
+
+/** The rules a record takes: its own in a run of an acceptance (BUD-21 FR 22), else the run's. */
+const rulesOf = (run: RunRow, item: RunItem): ItemRule =>
+  item.rule ?? { ruleId: run.ruleId, categoryId: run.categoryId, tagRuleId: run.ruleId, tags: run.tags };
 
 async function applyItem(
   tx: CategorizationTx,
@@ -194,6 +228,7 @@ async function applyItem(
   householdId: string,
   run: RunRow,
   item: RunItem,
+  rule: ItemRule,
 ): Promise<RunItem> {
   let tags: Pick<RunItem, "tagsChanged" | "tagsBefore" | "tagsAfter" | "beforeTagRuleId"> = {
     tagsChanged: false,
@@ -201,8 +236,8 @@ async function applyItem(
     tagsAfter: null,
     beforeTagRuleId: null,
   };
-  if (run.tags.length > 0 && deps.tags) {
-    const tagged = await deps.tags.addTags(householdId, item.transactionId, run.tags, run.actorAccountId);
+  if (rule.tagRuleId !== null && rule.tags.length > 0 && deps.tags) {
+    const tagged = await deps.tags.addTags(householdId, item.transactionId, rule.tags, run.actorAccountId);
     if (tagged.kind === "changed") {
       const current = await tx.lock(householdId, item.transactionId);
       tags = {
@@ -211,10 +246,10 @@ async function applyItem(
         tagsAfter: tagged.after,
         beforeTagRuleId: current?.tagRuleId ?? null,
       };
-      await tx.setTagRule(householdId, item.transactionId, run.ruleId);
+      await tx.setTagRule(householdId, item.transactionId, rule.tagRuleId);
     }
   }
-  const next: NextCategory = { categoryId: run.categoryId, source: "rule", ruleId: run.ruleId };
+  const next: NextCategory = { categoryId: rule.categoryId, source: "rule", ruleId: rule.ruleId };
   // A row inserted by another writer between the lock and the insert: once more, now locked.
   for (let attempt = 0; attempt < 2; attempt++) {
     const current = await tx.lock(householdId, item.transactionId);
@@ -311,10 +346,15 @@ export async function runPart(
     // or merged away since the run began (BUD-01 FR 9, FR 12).
     await rulesTx.lockRules(householdId);
     const items = await runsTx.pending(householdId, runId, input.limit);
-    if (
-      !(await rulesTx.rules(householdId)).some((r) => r.id === run.ruleId) ||
-      !categoryAllowed(await deps.categories.category(householdId, run.categoryId))
-    )
+    const ruleIds = new Set((await rulesTx.rules(householdId)).map((r) => r.id));
+    const categories = new Map<string, boolean>();
+    const allowed = async (categoryId: string) => {
+      if (!categories.has(categoryId))
+        categories.set(categoryId, categoryAllowed(await deps.categories.category(householdId, categoryId)));
+      return categories.get(categoryId)!;
+    };
+    const several = (run.derivationId ?? null) !== null;
+    if (!several && (!ruleIds.has(run.ruleId) || !(await allowed(run.categoryId))))
       await runsTx.dropPending(householdId, runId);
     else if (items.length > 0) {
       const inputs = await deps.inputs.inputs(
@@ -323,9 +363,17 @@ export async function runPart(
       );
       for (const item of items) {
         const seen = inputs.get(item.transactionId);
+        const own = rulesOf(run, item);
+        // BUD-21 FR 22: in a run of several rules, a record whose rule was deleted or whose category is gone since the
+        // acceptance changes nothing; a tag rule deleted meanwhile adds no tags.
+        const rule: ItemRule =
+          several && own.tagRuleId !== null && !ruleIds.has(own.tagRuleId)
+            ? { ...own, tagRuleId: null }
+            : own;
+        const usable = !several || (ruleIds.has(rule.ruleId) && (await allowed(rule.categoryId)));
         const done =
-          seen && seen.eligible
-            ? await applyItem(tx, rulesTx, deps, householdId, run, item)
+          seen && seen.eligible && usable
+            ? await applyItem(tx, rulesTx, deps, householdId, run, item, rule)
             : { ...item, result: "unavailable" as const };
         await runsTx.saveItem(householdId, runId, done);
       }

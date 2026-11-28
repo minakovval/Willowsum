@@ -1,5 +1,10 @@
 import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
-import { addRuleTags, restoreRuleTags, type HandOffDeps } from "../../application/index.ts";
+import {
+  addRuleTags,
+  createAcceptedTags,
+  restoreRuleTags,
+  type HandOffDeps,
+} from "../../application/index.ts";
 import { tagNames } from "../../domain/index.ts";
 import { transactionsTx } from "../db/store.ts";
 import { tagsTx } from "../db/tags.ts";
@@ -29,6 +34,11 @@ export interface TransactionRuleTags {
     | { readonly kind: "unchanged" }
     | { readonly kind: "refused" }
   >;
+  /**
+   * BUD-21 FR 17, FR 26: the tags of rules accepted from a history file, each missing one created with its audit entry;
+   * how many were created. Off (the tags of transactions) — none.
+   */
+  createTags(householdId: string, names: readonly string[], actorAccountId: string): Promise<number>;
   /** «Відмінити»: `next` only while the tags are still `expected`; otherwise `changed` (kept). */
   restoreTags(
     householdId: string,
@@ -68,6 +78,12 @@ export function createRuleTags(deps: {
       return result.kind === "changed"
         ? { kind: "changed", before: result.before, after: result.after }
         : result;
+    },
+    async createTags(householdId, names, actorAccountId) {
+      if (!(await on(householdId))) return 0;
+      return deps.db.inHousehold(householdId, (q) =>
+        createAcceptedTags(tagsTx(q), householdId, actorAccountId, names, deps.newId),
+      );
     },
     async restoreTags(householdId, transactionId, expected, next, actorAccountId) {
       const result = await deps.db.inHousehold(householdId, (q) =>

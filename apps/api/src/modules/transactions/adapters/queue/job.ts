@@ -48,7 +48,7 @@ export async function enqueueHandOff(q: HouseholdQueryRunner, handOff: Transacti
 const tagAuditSchema = z.strictObject({
   tagId: z.uuid(),
   actorAccountId: z.uuid(),
-  action: z.enum(["update", "delete"]),
+  action: z.enum(["create", "update", "delete"]),
   key: z.string().max(200),
   changes: z
     .array(

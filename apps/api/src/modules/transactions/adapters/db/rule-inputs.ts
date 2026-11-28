@@ -15,6 +15,8 @@ export interface RuleInput {
   readonly eligible: boolean;
   /** When the transaction was saved (UTC, microseconds): a rule saved later is not its rule (FR 7). */
   readonly createdAt: string;
+  /** BUD-21 FR 19: a row of a statement file (source `imported`), for the warning about the history's descriptions. */
+  readonly imported: boolean;
 }
 
 interface Row {
@@ -26,12 +28,14 @@ interface Row {
   counterparty: string | null;
   eligible: boolean;
   created_at: string;
+  imported: boolean;
 }
 
 const SELECT = `SELECT id, account_id, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, amount::text AS amount,
                        currency, counterparty,
                        (NOT hidden AND NOT is_transfer AND NOT is_split AND merged_into IS NULL) AS eligible,
-                       to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') AS created_at
+                       to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') AS created_at,
+                       (source = 'imported') AS imported
                   FROM transactions`;
 
 const input = (r: Row): RuleInput => ({
@@ -43,6 +47,7 @@ const input = (r: Row): RuleInput => ({
   counterparty: r.counterparty,
   eligible: r.eligible,
   createdAt: r.created_at,
+  imported: r.imported,
 });
 
 /** The inputs of each existing transaction of `ids` (hidden ones too); the others are absent. */

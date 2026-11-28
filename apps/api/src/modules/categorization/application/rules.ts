@@ -35,6 +35,8 @@ export interface StoredRule extends RankedRule {
   readonly version: number;
   /** When the rule was saved (UTC, microseconds, as `RuleInputRow.createdAt`); absent on a rule not read back yet. */
   readonly createdAt?: string;
+  /** BUD-14 FR 16, BUD-21 FR 22: «з історії» — accepted from a suggestion; null or absent — made by hand. */
+  readonly origin?: "history" | null;
 }
 
 /** A rule as written: conditions, «Лише для рахунків», category, «Увімкнено». */
@@ -43,6 +45,8 @@ export interface RuleFields extends RuleMatcher {
   readonly enabled: boolean;
   /** FR 5: «Додатково» → «Теги» — the tags the rule adds, by name; empty — none. */
   readonly tags: readonly string[];
+  /** BUD-14 FR 16: «з історії» (an acceptance writes it; the editor never does). */
+  readonly origin?: "history" | null;
 }
 
 /** The audit entry of a change, carried by the job `categorization.audit` (no free text: conditions are masked). */
@@ -54,7 +58,7 @@ export interface AuditHandOff {
     | "categorization.rule"
     | "categorization.transaction-category"
     | "categorization.rule-run"
-    // BUD-21 FR 26: «запуск виведення» правил з файлу історії.
+    // BUD-21 FR 26: «запуск виведення» правил з файлу історії, прийняття і відхилення пропозицій.
     | "categorization.history-derivation";
   readonly entityId: string;
   readonly action: "create" | "update" | "delete";
@@ -93,6 +97,8 @@ export interface RuleInputRow {
   readonly eligible: boolean;
   /** When the transaction was saved (UTC, microseconds). */
   readonly createdAt?: string;
+  /** BUD-21 FR 19 (row 237): imported from a statement (module transactions' source `imported`). */
+  readonly imported?: boolean;
 }
 
 export interface RuleDeps {
@@ -150,6 +156,8 @@ export interface RuleTagsPort {
     next: readonly string[],
     actorAccountId: string,
   ): Promise<"restored" | "changed">;
+  /** BUD-21 FR 17, FR 26: the tags of accepted rules created when missing (with their audit entries); how many. */
+  createTags?(householdId: string, names: readonly string[], actorAccountId: string): Promise<number>;
 }
 
 /** Stands for the conditions in the job and the entry: they may name a person (a bank description), so masked. */
@@ -251,6 +259,10 @@ function ruleChanges(before: StoredRule | null, after: StoredRule): AuditHandOff
   const tags =
     before === null ? after.tags.length > 0 : JSON.stringify(before.tags) !== JSON.stringify(after.tags);
   return [
+    // BUD-21 FR 22: a rule accepted from a suggestion says so in its entry of creation.
+    ...(before === null && after.origin === "history"
+      ? [{ field: "origin", before: null, after: "history", sensitive: false }]
+      : []),
     ...conditionsAudit(before, after),
     ...(tags
       ? [{ field: "tags", before: before === null ? null : CHANGED, after: CHANGED, sensitive: true }]
@@ -474,14 +486,14 @@ export async function listRules(
   return listed;
 }
 
-const subjectOf = (row: RuleInputRow, names: ReadonlyMap<string, string>): RuleSubject => ({
+export const subjectOf = (row: RuleInputRow, names: ReadonlyMap<string, string>): RuleSubject => ({
   merchant: row.counterparty === null ? null : (names.get(row.counterparty) ?? null),
   description: row.counterparty,
   amount: Money.of(row.amount, row.currency),
   accountId: row.accountId,
 });
 
-async function namesOf(
+export async function namesOf(
   deps: Pick<RuleDeps, "merchants">,
   householdId: string,
   rows: readonly RuleInputRow[],

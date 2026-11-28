@@ -587,6 +587,8 @@ const server = buildServer({
               // BUD-21 c: the derivation of rules from a confirmed history file's rows (import-sessions).
               // BUD-21 d: the file's transfer rows take «Переказ» of the space (module categories).
               history: { source: historyRows, newId: randomUUID, transfers: feeCategoryDirectory },
+              // BUD-21 e: the acceptance of suggestions writes rules — behind `categorization.rules` too.
+              flags,
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the

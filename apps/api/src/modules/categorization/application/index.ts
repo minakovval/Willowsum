@@ -29,6 +29,8 @@ export {
   listRules,
   matchingTransactions,
   memoized,
+  namesOf,
+  subjectOf,
   moveRule,
   moveRulesToCategory,
   updateRule,
@@ -65,6 +67,7 @@ export {
   type RunReport,
   type RunRow,
   type RunsTx,
+  type ItemRule,
   type StartResult,
   type UndoResult,
 } from "./runs.ts";
@@ -85,3 +88,21 @@ export {
   type HistorySourceRow,
   type StoredSuggestion,
 } from "./derivations.ts";
+export { rejectionKey } from "./derivations.ts";
+export {
+  acceptancePlan,
+  acceptedRules,
+  RunRunning,
+  acceptSuggestions,
+  existingMatches,
+  rejectSuggestion,
+  resolveCategory,
+  shownSuggestions,
+  type AcceptancePlan,
+  type AcceptedRule,
+  type AcceptIssue,
+  type AcceptItem,
+  type AcceptResult,
+  type ExistingMatches,
+  type ShownSuggestion,
+} from "./acceptance.ts";
