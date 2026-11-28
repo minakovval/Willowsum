@@ -153,7 +153,7 @@ export function ciMinutes(json) {
   return { runs: runs.length, minutes: seconds / 60, unfinished };
 }
 
-/** `role=<author|fix|review|security|confirm>,log=<path>,ms=<duration_ms>,tokens=<subagent_tokens>` (log optional). */
+/** `role=<author|fix|review|security|confirm>,log=<path>,ms=<duration_ms>` (log optional). A legacy `tokens=` is accepted and ignored: `subagent_tokens` is no longer reported (owner, 2026-11-28). */
 export function parseRun(spec) {
   const kv = Object.fromEntries(
     spec.split(",").map((part) => {
@@ -172,7 +172,6 @@ export function parseRun(spec) {
     role: kv.role,
     log: kv.log || undefined,
     ms: int("ms", "duration_ms"),
-    tokens: int("tokens", "subagent_tokens"),
   };
 }
 
@@ -184,17 +183,20 @@ export const oneDecimal = (n) => {
   return `${grouped(Number(whole))},${frac}`;
 };
 
-/** The row of the table «PR» in #180. The per-agent `subagent_tokens` list is not in the note (owner, 2026-11-16, #178): it stays in the agent logs. */
+/**
+ * The row of the table «PR» in #180. Columns (owner, 2026-11-28, token review, proposal 0): cache read, cache write
+ * and input of the agents from `usage` in their logs; `subagent_tokens` (the last context of a run) is dropped.
+ */
 export function formatRow({ pr, type, rounds, runs, usage, ci, note }) {
   const minutes = (column) =>
     runs.filter((r) => ROLES[r.role].column === column).reduce((a, r) => a + r.ms, 0) / 60000;
-  const tokens = runs.reduce((a, r) => a + r.tokens, 0);
   const cells = [
     `#${String(pr).replace(/^#/, "")}`,
     type,
     rounds,
-    grouped(tokens),
     oneDecimal(usage.cacheRead / 1e6),
+    oneDecimal(usage.cacheCreation / 1e6),
+    oneDecimal(usage.input / 1000),
     grouped(usage.output / 1000),
     oneDecimal(minutes("author")),
     oneDecimal(minutes("review")),
@@ -373,9 +375,12 @@ function period(a, b) {
  * The «Сесії» row of a segment (owner, 2026-11-16, process review 15, proposal 4): cache read, output and USD are
  * the end snapshot minus the start one (`get_session` → `usage`, agents included); «Час агентів» and CI are the sums
  * of the segment's rows in the table «PR» of `body` («Час автора» + «Час рецензій», «CI», minutes → hours).
+ * Three cache-read columns (owner, 2026-11-28, token review, A2): total (snapshot difference), agents (sum of the
+ * segment's PR rows, «Агенти: cache read, млн») and the lead alone (`lead` = cache read of the lead's own
+ * transcript in the window, from `session`; «—» when no transcript was given).
  * Throws UsageError when a PR has no row or a non-numeric cell, or the end is not after the start.
  */
-export function sessionRow(body, { segment, start, end, prs, note }) {
+export function sessionRow(body, { segment, start, end, prs, note, lead }) {
   if (!(end.at > start.at)) throw new UsageError("the end snapshot is not later than the start snapshot");
   const diff = { cacheRead: end.cacheRead - start.cacheRead, output: end.output - start.output, usd: end.usd - start.usd };
   if (Object.values(diff).some((v) => v < 0)) {
@@ -388,17 +393,19 @@ export function sessionRow(body, { segment, start, end, prs, note }) {
     if (at < 0) throw new UsageError(`the table «PR» has no column «${name}»`);
     return at;
   };
-  const cols = { author: col("Час автора, хв"), review: col("Час рецензій, хв"), ci: col("CI, хв") };
+  const cols = { author: col("Час автора, хв"), review: col("Час рецензій, хв"), ci: col("CI, хв"), cacheRead: col("Агенти: cache read, млн") };
   const key = (c) => c.replace(/^\[([^\]]*)\]\([^)]*\)$/, "$1");
   let agentMin = 0;
   let ciMin = 0;
+  let agentRead = 0;
   for (const pr of prs) {
     const i = lines.findIndex((l, k) => k > header + 1 && k <= last && key(tableCells(l)[0]) === pr);
     if (i < 0) throw new UsageError(`${pr} has no row in the table «PR»: add it first (\`pr\`, then \`append\`)`);
     const cells = tableCells(lines[i]);
-    const [a, r, c] = [cells[cols.author], cells[cols.review], cells[cols.ci]].map(cellNumber);
-    if ([a, r, c].some(Number.isNaN)) throw new UsageError(`${pr}: its time or CI cell is not a number — fix that row first`);
+    const [a, r, c, m] = [cells[cols.author], cells[cols.review], cells[cols.ci], cells[cols.cacheRead]].map(cellNumber);
+    if ([a, r, c, m].some(Number.isNaN)) throw new UsageError(`${pr}: its time, CI or cache read cell is not a number — fix that row first`);
     agentMin += a + r;
+    agentRead += m;
     ciMin += c;
   }
   const merged = prs.length ? `${prs.length} PR (${prs.join(", ")})` : "0 PR";
@@ -406,6 +413,8 @@ export function sessionRow(body, { segment, start, end, prs, note }) {
     segment,
     period(start.at, end.at),
     `${oneDecimal(diff.cacheRead / 1e6)} млн`,
+    `${oneDecimal(agentRead)} млн`,
+    lead === undefined ? "—" : `${oneDecimal(lead / 1e6)} млн`,
     `${twoDecimals(diff.output / 1e6)} млн`,
     oneDecimal(diff.usd),
     oneDecimal((end.at - start.at) / 3_600_000),
@@ -416,29 +425,46 @@ export function sessionRow(body, { segment, start, end, prs, note }) {
   return `| ${cells.join(" | ")} |`;
 }
 
+/** The lead's own cache read in the window of the two snapshots, from his transcript (the same sums as `session`). */
+export function leadCacheRead(text, path, start, end) {
+  const seen = new Map();
+  collectUsage(text, { path, seen, skipSidechain: true, since: start.at.toISOString(), until: end.at.toISOString() });
+  return addUp(seen).cacheRead;
+}
+
 /** Ledger roles (one letter) → the `--run` role; the model code of the note stays as the lead wrote it (S, O, F). */
 const LEDGER_ROLES = { a: "author", r: "review", s: "security", f: "fix", c: "confirm" };
 
-/** The ledger TSV: `PR<TAB>role<TAB>model<TAB>agentId` per line; empty lines and lines starting with «# » are skipped. */
+/** Reasons of a second round (optional 5th ledger column; owner, 2026-11-28, token review, proposal 2): the note gets `r2: <reason>`. */
+export const ROUND_REASONS = ["тест", "правило", "безпека", "інше"];
+
+/**
+ * The ledger TSV: `PR<TAB>role<TAB>model<TAB>agentId[<TAB>reason]` per line; empty lines and lines starting with «# »
+ * are skipped. The 5th column is optional and may be empty; when given it is one of ROUND_REASONS.
+ */
 export function parseLedger(text, path = "ledger") {
   const rows = [];
   text.split("\n").forEach((raw, i) => {
     const line = raw.replace(/\r$/, "");
     if (!line.trim() || /^#\s/.test(line)) return;
     const f = line.split("\t").map((c) => c.trim());
-    if (f.length !== 4 || f.some((c) => !c)) throw new UsageError(`${path}:${i + 1}: need PR<TAB>role<TAB>model<TAB>agentId`);
+    if (f.length < 4 || f.length > 5 || f.slice(0, 4).some((c) => !c)) {
+      throw new UsageError(`${path}:${i + 1}: need PR<TAB>role<TAB>model<TAB>agentId[<TAB>reason]`);
+    }
+    if (f[4] && !ROUND_REASONS.includes(f[4])) {
+      throw new UsageError(`${path}:${i + 1}: reason «${f[4]}» must be one of ${ROUND_REASONS.join("/")} or empty`);
+    }
     if (!LEDGER_ROLES[f[1]]) throw new UsageError(`${path}:${i + 1}: role «${f[1]}» must be one of ${Object.keys(LEDGER_ROLES).join("/")}`);
     if (!/^[\w-]+$/.test(f[3])) throw new UsageError(`${path}:${i + 1}: agentId «${f[3]}» is not a plain id`);
-    rows.push({ pr: `#${f[0].replace(/^#/, "")}`, role: f[1], model: f[2], agentId: f[3] });
+    rows.push({ pr: `#${f[0].replace(/^#/, "")}`, role: f[1], model: f[2], agentId: f[3], reason: f[4] || undefined });
   });
   return rows;
 }
 
-/** First/last timestamp of a JSONL log → duration in ms, and the last call's context (input + cache) as `subagent_tokens`. */
+/** First/last timestamp of a JSONL log → duration in ms. */
 export function logSpan(text) {
   let first = Infinity;
   let last = -Infinity;
-  let context = 0;
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
     let rec;
@@ -452,12 +478,8 @@ export function logSpan(text) {
       first = Math.min(first, t);
       last = Math.max(last, t);
     }
-    const u = rec.message?.usage;
-    if (u && rec.isSidechain !== true) {
-      context = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
-    }
   }
-  return { ms: Number.isFinite(first) ? last - first : 0, tokens: context };
+  return { ms: Number.isFinite(first) ? last - first : 0 };
 }
 
 /**
@@ -490,7 +512,7 @@ export function batchRows(body, ledger, { tasksDir, prs, types = {}, defaultType
       if (text === undefined) {
         missing.push(`${e.role}:${e.agentId}`);
         out.warnings.push(`${pr}: log ${path} is missing — the row has no numbers of ${e.role} ${e.agentId}`);
-        runs.push({ role: LEDGER_ROLES[e.role], ms: 0, tokens: 0 });
+        runs.push({ role: LEDGER_ROLES[e.role], ms: 0 });
         continue;
       }
       collectUsage(text, { path, seen });
@@ -503,11 +525,16 @@ export function batchRows(body, ledger, { tasksDir, prs, types = {}, defaultType
       throw new UsageError(`${pr}: CI = 0 for a «${type}» PR (${ci.runs} runs): check the branch`);
     }
     if (ci.unfinished > 0) out.warnings.push(`${pr}: ${ci.unfinished} of ${ci.runs} CI runs are not completed yet`);
-    const codes = [...new Set(entries.map((e) => `${e.role}:${e.model}`))].join(" ");
+    // Rounds (owner, 2026-11-28): a second round exists when the ledger has an `f` or `c` row, not by the number of `r` rows.
+    const second = entries.some((e) => e.role === "f" || e.role === "c");
+    const reason = second ? entries.find((e) => e.reason)?.reason : undefined;
+    const codes = [[...new Set(entries.map((e) => `${e.role}:${e.model}`))].join(" "), reason ? `r2: ${reason}` : ""]
+      .filter(Boolean)
+      .join(" ");
     const lost = missing.length ? `журнал втрачено: ${missing.join(", ")}` : "";
     const withModels = [codes, lost, seen.size ? modelNote(byModel) : ""].filter(Boolean).join("; ");
     const note = [...withModels].length <= MAX_NOTE ? withModels : [codes, lost].filter(Boolean).join("; ");
-    const rounds = String(Math.max(1, entries.filter((e) => e.role === "r").length));
+    const rounds = second ? "2" : "1";
     out.rows.push({
       pr,
       row: formatRow({ pr, type, rounds, runs, usage, ci: ci.minutes, note }),
@@ -519,15 +546,15 @@ export function batchRows(body, ledger, { tasksDir, prs, types = {}, defaultType
 
 const USAGE = `usage:
   node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|процес|виправлення> --rounds <text>
-      --run role=<author|fix|review|security|confirm>,log=<agent log>,ms=<duration_ms>,tokens=<subagent_tokens> [--run …]
+      --run role=<author|fix|review|security|confirm>,log=<agent log>,ms=<duration_ms> [--run …]
       (--ci-runs <runs.json> | --branch <PR branch>) [--note <text>]
   node tools/token-report/index.mjs session <transcript.jsonl> [--since <ISO time>] [--until <ISO time>]
   node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>"
   node tools/token-report/index.mjs append --body <#180 body file> --sessions --segment "ведучий N"
-      --start <get_session.json> --end <get_session.json> --prs <#a,#b | none> [--note <text>]
+      --start <get_session.json> --end <get_session.json> --prs <#a,#b | none> [--lead <transcript.jsonl>] [--note <text>]
   node tools/token-report/index.mjs batch --ledger <tsv> --tasks <dir> --body <#180 body file> [--prs <#a,#b>]
       [--types <#a=UI,#b=процес>] [--branches <#a=branch,…>] [--dry-run]
-      [--start <snap.json> --end <snap.json> --segment "ведучий N" [--note <text>]]
+      [--start <snap.json> --end <snap.json> --segment "ведучий N" [--lead <transcript.jsonl>] [--note <text>]]
   node tools/token-report/index.mjs archive --body <#180 body file> --out <archive.md>`;
 
 /** Flags without a value. */
@@ -613,7 +640,9 @@ export function main(argv, io) {
           opts.prs.trim() === "none"
             ? []
             : opts.prs.split(",").map((p) => `#${p.trim().replace(/^#/, "")}`).filter((p) => p !== "#");
-        row = sessionRow(body, { segment: opts.segment, start: snap(opts.start), end: snap(opts.end), prs, note: opts.note });
+        const [start, end] = [snap(opts.start), snap(opts.end)];
+        const lead = opts.lead ? leadCacheRead(readFile(opts.lead), opts.lead, start, end) : undefined;
+        row = sessionRow(body, { segment: opts.segment, start, end, prs, note: opts.note, lead });
         io.stdout(row);
       }
       if (!row) throw new UsageError(`--body and --row are required\n${USAGE}`);
@@ -682,7 +711,9 @@ export function main(argv, io) {
           }
         };
         const scope = opts.prs ? list(opts.prs) : [...new Set(ledger.map((l) => l.pr))];
-        const row = sessionRow(updated, { segment: opts.segment, start: snap(opts.start), end: snap(opts.end), prs: scope, note: opts.note });
+        const [start, end] = [snap(opts.start), snap(opts.end)];
+        const lead = opts.lead ? leadCacheRead(readFile(opts.lead), opts.lead, start, end) : undefined;
+        const row = sessionRow(updated, { segment: opts.segment, start, end, prs: scope, note: opts.note, lead });
         updated = appendRow(updated, row, { table: "sessions" });
         io.stdout(row);
       }
