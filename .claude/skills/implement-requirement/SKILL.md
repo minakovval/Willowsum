@@ -5,10 +5,10 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-28
 
-Input: a requirement ID (or a small group from one module). Output: one PR whose title starts with the ID, CI
-green, every acceptance criterion covered by a test. Gate: no change to `apps/` or `packages/` for a release whose
+Input: a requirement ID (or a small group from one module). Output: one PR whose title starts with the ID, local
+checks green and pushed, every acceptance criterion covered by a test. You do not wait for CI («Stop and hand over»). Gate: no change to `apps/` or `packages/` for a release whose
 design the owner has not approved (AGENTS.md); until then stop and tell the owner.
 
 ## 1. Load only what you need
@@ -77,8 +77,9 @@ elsewhere in the file, else the first view). A table criterion without a number 
   [own ports](../../references/own-ports.md) (read when you start any of them).
 - A test that fails only sometimes needs a root cause — [flaky tests](../../references/flaky-tests.md) (read
   when it happens). Never skip, weaken or quarantine a test.
-- Re-read your own diff as a hostile reviewer: hard rules from `AGENTS.md`, missing criteria, leaks through
-  scope, floats, hard-coded limits, personal data in logs. Run the local secret-shaped literal check.
+- Quiet output: test runs report failures only (`vitest run --reporter=dot`, `node --test --test-reporter=dot`,
+  `pnpm -s`, `| tail -40`); read a large file in parts (`offset`/`limit`, a narrow grep first), never whole.
+- The self-check is §5 «Self-check before review»: one pass, not two.
 
 ## 5. PR
 
@@ -102,8 +103,20 @@ session's attribution lines at the end, as given.
 Decisions go into a **new** file `docs/decisions/log/YYYY-MM-DD-<slug>.md`: an owner decision as the lead's
 report, a small detail as «Рішення ведучого (дата; власник не схвалював)».
 
-**Self-check before review**: run the `review-pr` checklist («2. Check coverage», «3. Check the hard rules») on
-`git diff origin/main...HEAD`, fix what it finds, and list it under «Self-check» in the body.
+**Self-check before review** (the only one): run the `review-pr` checklist («2. Check coverage», «3. Check the
+hard rules») on `git diff origin/main...HEAD` as a hostile reviewer: missing criteria, floats, hard-coded limits,
+leaks through scope, personal data in logs; run the local secret-shaped literal check. Fix what it finds and list
+it under «Self-check» in the body.
+
+## Stop and hand over
+
+**Trial rule** (owner, 2026-11-28; trial and result check: [decision](../../../docs/decisions/log/2026-11-28-owner-token-savings-trial-rules.md)):
+- **After the local checks and the push you stop.** You do not wait for CI and do not poll it. A red CI goes to a
+  new agent that runs `investigate-ci-failure`; the lead starts it.
+- **At about 150 k tokens of context** (the lead's brief may name another figure): make a WIP commit and push it,
+  write a 10-line state note (done, left, decisions taken, failing test, next command) in the PR body, or in the
+  scratchpad `pr<n>-impl/state.md` before the PR exists, and stop. Put the note's place in your report; the lead
+  starts a new agent, which reads the note instead of your context.
 
 Then a different session reviews; the lead merges, not you (AGENTS.md steps 5 and 7).
 

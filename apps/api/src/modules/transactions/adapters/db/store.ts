@@ -19,7 +19,7 @@ import {
   type OneSidedState,
 } from "../../domain/index.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
-import { transactionCreated } from "../../events.ts";
+import { transactionCreated, transactionImportMerged } from "../../events.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 import { lockAccounts } from "../../../accounts/index.ts";
 
@@ -426,8 +426,15 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
     },
     async duplicatesForHiding(householdId, id, _accountId, windowDays) {
       // Under the space's lock of duplicates (lockDuplicates, taken first by the caller): the other copy, hidden or
-      // changed meanwhile, is seen once that one has committed.
-      return duplicateCandidatesOf(q, householdId, id, { windowDays });
+      // changed meanwhile, is seen once that one has committed. With each side's source (FR 17, FR 18).
+      const { rows } = await q.query<DuplicateRow & { a_source: Source; b_source: Source }>(
+        `${DUPLICATE_PAIRS} AND $3::uuid IN (a.id, b.id) ORDER BY a.occurred_on, a.id, b.id LIMIT 100`,
+        [householdId, windowDays, id],
+      );
+      return rows.map((r) => {
+        const { first, second } = duplicateSides(r);
+        return { first: { ...first, source: r.a_source }, second: { ...second, source: r.b_source } };
+      });
     },
     async hiddenCopiesOf(householdId, side, windowDays) {
       const { rows } = await q.query<{ id: string }>(
@@ -483,6 +490,9 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
     enqueueHandOff: (householdId, handOff) => enqueueHandOff({ ...q, householdId }, handOff),
     async publishCreated(householdId, transactionId) {
       await publishEvent({ ...q, householdId }, transactionCreated, { transactionId });
+    },
+    async publishImportMerged(householdId, merge) {
+      await publishEvent({ ...q, householdId }, transactionImportMerged, merge);
     },
   };
 }
@@ -842,6 +852,8 @@ const duplicateSides = (r: DuplicateRow): { first: DuplicateSide; second: Duplic
   return { first: side(r.a_id, r.a_date), second: side(r.b_id, r.b_date) };
 };
 
+type Source = StoredTransaction["source"];
+
 /**
  * Two shown transactions on one account with the same amount and currency within `windowDays`, neither a side of a
  * transfer, the pair not «Не дубль» (FIN-03 FR 12); a merged duplicate is hidden, so never one. `a` is the earlier
@@ -849,7 +861,7 @@ const duplicateSides = (r: DuplicateRow): { first: DuplicateSide; second: Duplic
  */
 const DUPLICATE_PAIRS = `
   SELECT a.id AS a_id, a.occurred_on::text AS a_date, b.id AS b_id, b.occurred_on::text AS b_date,
-         a.account_id, a.amount::text AS amount, a.currency
+         a.account_id, a.amount::text AS amount, a.currency, a.source AS a_source, b.source AS b_source
     FROM transactions a
     JOIN transactions b ON b.household_id = a.household_id AND b.account_id = a.account_id
                        AND b.currency = a.currency AND b.amount = a.amount AND b.id <> a.id
@@ -869,20 +881,6 @@ export async function duplicateCandidates(
   const { rows } = await q.query<DuplicateRow>(
     `${DUPLICATE_PAIRS} ORDER BY b.occurred_on DESC, a.occurred_on DESC, a.id, b.id LIMIT $3`,
     [householdId, query.windowDays, query.limit],
-  );
-  return rows.map(duplicateSides);
-}
-
-/** The possible duplicates that one transaction is a side of (FR 18: only a duplicate is hidden). */
-export async function duplicateCandidatesOf(
-  q: ModuleQueryRunner,
-  householdId: string,
-  transactionId: string,
-  query: { readonly windowDays: number },
-): Promise<{ readonly first: DuplicateSide; readonly second: DuplicateSide }[]> {
-  const { rows } = await q.query<DuplicateRow>(
-    `${DUPLICATE_PAIRS} AND $3::uuid IN (a.id, b.id) ORDER BY a.occurred_on, a.id, b.id LIMIT 100`,
-    [householdId, query.windowDays, transactionId],
   );
   return rows.map(duplicateSides);
 }

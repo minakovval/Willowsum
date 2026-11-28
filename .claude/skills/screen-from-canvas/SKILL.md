@@ -5,13 +5,14 @@ description: Build one Willowsum design-system component or screen (DS-*, CMP-*,
 
 # Build a component or screen from the canvas
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Input: one requirement ID (or a small group, e.g. `CMP-33 / DS-12`) and the target release (PoC now).
-Output: one PR whose title starts with the ID, CI green, every criterion of the view covered by a test, the
+Output: one PR whose title starts with the ID, local checks green and pushed, every criterion of the view covered by a test, the
 component in its gallery entry, a screenshot check against the board. This skill is the UI-specific part of
 `implement-requirement`: follow that skill for everything not said here (branch, «Перевіряється», checks, the
-local PR check, the report). `.claude/references/design-before-code.md` still gates the work.
+local PR check, the report, «Stop and hand over»: no waiting for CI, a hand-over at about 150 k tokens, quiet
+test reporters, large files read in parts). `.claude/references/design-before-code.md` still gates the work.
 
 ## 1. Inputs, in order of authority
 

@@ -101,6 +101,7 @@ export type ChildId =
   | "review"
   | "pairs"
   | "rules"
+  | "ruleSuggestions"
   | "historyReview"
   | "transaction"
   | "transactionHistory"
@@ -138,6 +139,13 @@ export const CHILDREN: readonly ChildDef[] = [
   { id: "pairs", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/pairs`, title: "tx.tab.pairs" },
   // BUD-14@PoC FR 4: «Гроші › Транзакції › Правила» (S-197), from «…» of «Транзакції» → «Правила категорій».
   { id: "rules", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/rules`, title: "rules.title" },
+  // BUD-21@PoC i) (row 241): S-301 «Пропозиції правил», from the link on S-197 and after the derivation on S-299.
+  {
+    id: "ruleSuggestions",
+    parent: TRANSACTIONS,
+    path: `${TRANSACTIONS.path}/rules/suggestions`,
+    title: "suggestions.title",
+  },
   {
     id: "newTransaction",
     parent: TRANSACTIONS,

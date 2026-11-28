@@ -56,6 +56,28 @@ export function mergeIssues(
   return issues;
 }
 
+/**
+ * FR 11, FR 17 (AC26): who stays in a merge the user asked for on `requested` with `other`. Of a manual and an imported
+ * transaction the imported one stays, whichever side the user acted on: the bank's posting is kept and the manual one's
+ * reversed, so the operation counts once and the balance matches the bank; the manual one's category goes over to it
+ * (`intoBank`). Otherwise the one acted on stays. `swapped` — the one acted on is the duplicate: issues name its field.
+ */
+export function mergeRoles<T extends { readonly source: "manual" | "imported" }>(
+  requested: T,
+  other: T,
+): { readonly kept: T; readonly duplicate: T; readonly swapped: boolean; readonly intoBank: boolean } {
+  const swapped = requested.source === "manual" && other.source === "imported";
+  const [kept, duplicate] = swapped ? [other, requested] : [requested, other];
+  return { kept, duplicate, swapped, intoBank: kept.source === "imported" && duplicate.source === "manual" };
+}
+
+/** The issues of a merge with its sides swapped (mergeRoles): each names the field of the request it is about. */
+export function issuesOfRequest(issues: readonly FieldIssue[], swapped: boolean): FieldIssue[] {
+  if (!swapped) return [...issues];
+  const other: Record<string, string> = { transactionId: "duplicateId", duplicateId: "transactionId" };
+  return issues.map((i) => ({ ...i, field: other[i.field] ?? i.field }));
+}
+
 /** «Не дубль» (FR 12): only a pair that could be one — two transactions on one account, same amount and currency. */
 export function dismissIssues(transaction: MergeSide, counterpart: MergeSide): FieldIssue[] {
   if (transaction.id === counterpart.id) return [{ field: "counterpartId", issue: "invalid" }];

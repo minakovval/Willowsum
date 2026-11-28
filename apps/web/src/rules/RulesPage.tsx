@@ -13,11 +13,12 @@ import {
 } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
-import { TRANSACTIONS } from "../routing/routes.ts";
+import { childPath, TRANSACTIONS } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { categoryOf, counted, ruleText, useRules, type Refs, type Rule, type Run } from "./api.ts";
 import { HistoryUploadDialog } from "./history/HistoryUploadDialog.tsx";
+import { usePendingSuggestions } from "./suggestions/api.ts";
 import { RuleDialog, type Saved } from "./RuleDialog.tsx";
 import { RunNotice } from "./RunNotice.tsx";
 import "./rules.css";
@@ -66,6 +67,7 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
   const api = useAuthApi();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Open>({ kind: "none" });
+  const pending = usePendingSuggestions();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ code?: string | undefined } | null>(null);
   const [toast, setToast] = useState<{ key: number; text: string } | null>(null);
@@ -191,6 +193,11 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
             aria-label={title}
             aria-describedby="rules-history-hint"
           >
+            <a className="ws-button rules-suggestions" href={hrefFor(childPath("ruleSuggestions"))}>
+              {pending !== null && pending > 0
+                ? t("rules.suggestions.link", { count: pending })
+                : t("suggestions.title")}
+            </a>
             <Button
               icon="upload"
               label={t("history.action.upload")}
@@ -318,7 +325,10 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
           )}
           <p className="rules-note ws-muted">
             <Icon name="info" size={16} />
-            <span>{t("rules.note")}</span>
+            <span>
+              {t("rules.note")}
+              {list.some((r) => r.origin === "history") ? ` ${t("rules.note.history")}` : ""}
+            </span>
           </p>
         </>
       )}
@@ -423,6 +433,11 @@ function RuleRow({
       <td className="rules-condition">
         <div className="rules-condition-body">
           <span className="rules-text">{text}</span>
+          {rule.origin === "history" ? (
+            <span className="rules-origin" title={t("rules.origin.history.title")}>
+              <Badge tone="info" label={t("rules.origin.history")} />
+            </span>
+          ) : null}
           {rule.needsAttention ? (
             <span className="rules-attention">
               <Badge tone="attention" label={t("rules.attention")} />

@@ -2,6 +2,8 @@
 
 **Створено:** 2026-11-19
 
+> Замінено: 2026-11-28-owner-token-savings-trial-rules.md — у частині ліміту обсягу латок рецензента (`review-pr` §7: 60 → ≈ 150 рядків без `sensitive`). Шляхи, де латки заборонені, не змінено.
+
 Джерело: [рев'ю безпеки #585](https://github.com/minakovval/Willowsum/pull/585#pullrequestreview-5974375944) і чат ведучого. Правила: `review-pr` §7 (латки рецензента), `.claude/references/process-limits.md` («Security detail of an unfixed defect»), `merge-checklist.md` (абзац B2).
 
 ## Питання 1: #585 злито без рев'ю безпеки

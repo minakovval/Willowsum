@@ -3591,4 +3591,100 @@ export const en: Messages = {
   "history.derive.toRules": "To category rules",
   "history.review.loadingName": "Loading the history file",
   "history.unavailable": "History rules are switched off for this space.",
+  "suggestions.title": "Rule suggestions",
+  "suggestions.crumb": "Suggestions",
+  "suggestions.intro":
+    "Derived from the file {name}. A suggestion is not a rule yet: it changes nothing until you accept it.",
+  "suggestions.introNoName": "A suggestion is not a rule yet: it changes nothing until you accept it.",
+  "suggestions.check.title": "Check on your history",
+  "suggestions.check.coverage": "Coverage: {percent} %",
+  "suggestions.check.coverage.hint": "the share of the latest {last} rows that got a category from the rules",
+  "suggestions.check.match": "Match: {percent} %",
+  "suggestions.check.match.hint": "the share of covered rows where the category matched yours",
+  "suggestions.check.basis":
+    "The rules were derived from the first {first} rows by date and checked on the latest {last}.",
+  "suggestions.check.short":
+    "Not enough history to check: at least {minimum} rows with your categorisation are needed, and the file has {count}.",
+  "suggestions.warning.descriptions":
+    "The descriptions in the file seem to differ from your bank's: the suggestions fit only {matched} of {total} transactions imported from statements. The rules may not work on new statements.",
+  "suggestions.group.confident": "Confident · {count}",
+  "suggestions.group.confident.hint": "Selected by default.",
+  "suggestions.group.conflicting": "Conflicting · {count}",
+  "suggestions.group.conflicting.hint":
+    "You categorised such transactions in different ways. Not selected by default.",
+  "suggestions.group.transfer": "Transfer · {count}",
+  "suggestions.group.transfer.hint":
+    "A rule does not make a transaction a transfer: such a transaction appears on the «Pairs» tab and waits for your confirmation.",
+  "suggestions.group.all": "Select all in the group",
+  "suggestions.row.select": "Select the suggestion",
+  "suggestions.rows.one": "{count} row",
+  "suggestions.rows.few": "{count} rows",
+  "suggestions.rows.many": "{count} rows",
+  "suggestions.rows.other": "{count} rows",
+  "suggestions.match.one": "{count} matches the category",
+  "suggestions.match.few": "{count} match the category",
+  "suggestions.match.many": "{count} match the category",
+  "suggestions.match.other": "{count} match the category",
+  "suggestions.existing": "Existing transactions that fit: {count}",
+  "suggestions.since": "Change of habit: you put such transactions in this category since {date}",
+  "suggestions.tag": "Tag: {tag}",
+  "suggestions.conflict": "Conflicts with rule no. {number}",
+  "suggestions.row.deleted": "The category was deleted: change the suggestion or reject it",
+  "suggestions.evidence.show": "File rows",
+  "suggestions.evidence.hide": "Hide file rows",
+  "suggestions.rows.list": "File rows: {rows}",
+  "suggestions.rows.more": "and others",
+  "suggestions.exceptions": "Exceptions in the file · {count}",
+  "suggestions.exceptions.text":
+    "Rows that fit the conditions but have another category. Nothing needs fixing.",
+  "suggestions.exceptions.row": "row {row}",
+  "suggestions.edit": "Change the suggestion",
+  "suggestions.reject": "Reject",
+  "suggestions.rejected": "The suggestion was rejected. It will not appear again.",
+  "suggestions.bar": "Selection bar",
+  "suggestions.bar.selected": "Selected: {count}",
+  "suggestions.bar.accept": "Accept selected",
+  "suggestions.bar.none": "Select at least one suggestion",
+  "suggestions.bar.reject": "Reject selected",
+  "suggestions.empty.title": "No suggestions",
+  "suggestions.empty.text":
+    "Upload a history file in which you categorised your transactions, and we will suggest rules.",
+  "suggestions.empty.short":
+    "No rules came out of this file: there are too few rows. A suggestion needs at least 3 rows with the same category or 5 rows, most of which have one category.",
+  "suggestions.error": "Could not derive the rules",
+  "suggestions.edit.title": "Change the suggestion",
+  "suggestions.edit.text": "This is only a suggestion: the rule appears when you accept the selected ones.",
+  "suggestions.edit.save": "Save the suggestion",
+  "suggestions.accept.title": "Accept rules",
+  "suggestions.accept.text":
+    "Rules to be created: {count}. They get the mark «from history» and go below your existing rules. Among themselves they are ordered by the number of conditions, then by the number of rows.",
+  "suggestions.accept.tags": "A tag will be created: {tags}",
+  "suggestions.accept.conflicting":
+    "Selected suggestions that conflict with your rules: {count}. They go below the existing ones, so the existing ones act first.",
+  "suggestions.accept.transfers":
+    "«Transfer» rules ({count}) do not change transactions themselves: new transactions would go to the «Pairs» tab for confirmation.",
+  "suggestions.accept.transfersSkipped":
+    "Existing transactions that a «Transfer» rule covers: {count}. They stay as they are.",
+  "suggestions.accept.apply.text":
+    "Manual categories, transfers and split transactions are not changed. The change can be undone within 7 days.",
+  "suggestions.accept.apply.off": "Without this box the categories of existing transactions are not changed.",
+  "suggestions.accept.submit": "Accept {count}",
+  "suggestions.accept.busy": "Accepting…",
+  "suggestions.accept.done":
+    "Rules created: {count}. The categories of existing transactions were not changed.",
+  "suggestions.accept.doneApplied":
+    "Rules created: {count}. Transactions that got a category: {applied}; skipped because of manual changes: {skipped}.",
+  "suggestions.accept.doneTransfers": "Skipped because of «Transfer» rules: {transfers}.",
+  "suggestions.accept.undo": "Undo the application",
+  "suggestions.accept.undoUntil": "You can undo until {date}",
+  "suggestions.accept.progress": "Applying the rules to existing transactions · {done} of {total}",
+  "suggestions.accept.categoryDeleted":
+    "The category of a suggestion was deleted: the rule was not created. Change the suggestion or reject it.",
+  "suggestions.accept.changed": "The suggestions have changed. Close the dialog: the list was read again.",
+  "suggestions.accept.error": "Could not accept the rules. Nothing was created, try again.",
+  "rules.suggestions.link": "Rule suggestions · {count}",
+  "rules.origin.history": "from history",
+  "rules.origin.history.title": "The rule was created from a history file",
+  "rules.note.history":
+    "Rules marked «from history» go below your existing rules; they are changed, switched off and ordered in the same way.",
 };
