@@ -1,6 +1,6 @@
 # Merge conditions and owner approval (AGENTS.md step 7, full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Read when you merge a PR, write an «Owner decision» section, a PR acts on the cloud or production, or you decide
 which reviews a PR gets («Review tiers» below).
@@ -31,7 +31,8 @@ which reviews a PR gets («Review tiers» below).
    owner it is merged. **Merge on Ready, follow up separately**: when both verdicts are Ready
    and only non-blocking findings remain, the lead merges; a follow-up is recorded only for money, data or security, or a
    broken requirement item (a PR or issue, not the same PR); a smaller item is fixed in the same fix round or not
-   recorded. A non-blocking finding never starts a commit before the merge, except the reviewer patches
+   recorded. «Changes requested» itself is limited to three grounds (`review-pr` §3, trial 2026-11-28); every
+   other finding is «Ready» plus a follow-up or a reviewer patch. A non-blocking finding never starts a commit before the merge, except the reviewer patches
    (`review-pr` §7): the lead merges it when the reviewer's verdict names that new head, CI is green on it and no
    new review round is needed. Exception, tier Фундамент only («Review tiers» below): a non-blocking item the reviewer marks as
    cheap and safe to fold in may still be added before merge, at the lead's choice (it then needs a re-review of

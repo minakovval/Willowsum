@@ -1,6 +1,6 @@
 # Token economy (model choice and briefs)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
 session starts or finishes.
@@ -35,7 +35,11 @@ session starts or finishes.
    splitting: AGENTS.md step 5, SKILL.md step 1.
 5. Never resume a reviewer; resume an implementing agent only while its context is under ≈ 100 k tokens: every
    call of a resumed agent re-reads its whole context. Otherwise a fresh agent with the diff, the findings and
-   the patch.
+   the patch. An author hands over at ≈ 150 k and does not wait for CI
+   ([`implement-requirement`](../../implement-requirement/SKILL.md), «Stop and hand over»).
+   **Trial (owner, 2026-11-28):** these author rules and the review rules of
+   [`review-pr`](../../review-pr/SKILL.md) §5 and §7 run on the next plan section of ≈ 20 code PRs; the result is
+   checked at the process review ([decision](../../../../docs/decisions/log/2026-11-28-owner-token-savings-trial-rules.md)).
 6. Cost of rounds: one confirmation agent for both verdicts of a `sensitive` PR saves ≈ 80–90 k per sync
    (SKILL.md step 5); no sync at all: [merge checklist](merge-checklist.md), «Sync only when needed».
 
