@@ -54,7 +54,7 @@ import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./r
  * and rules (FR 20), the acceptance into ordinary rules «з історії» below the existing ones in the order of FR 20 with
  * their tags created and «Застосувати до наявних» as one run with «Відмінити» for 7 days (FR 22), the rejection for
  * good (FR 23), a category deleted or merged before the acceptance (EC8), the count of suggestions on «Правила
- * категорій» (BUD-14 FR 16), the audit (FR 26), another space, a scoped member, the flags, two acceptances at once, and
+ * категорій» (BUD-14 FR 16), the audit (BUD-21 FR 26), another space, a scoped member, the flags, two acceptances at once, and
  * a dead job of the run with its daily recovery. Every file, name and amount is synthetic; the clock is fixed.
  */
 const WEB = "http://localhost:5173";
