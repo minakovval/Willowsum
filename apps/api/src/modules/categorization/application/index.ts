@@ -74,6 +74,7 @@ export {
   executeDerivation,
   forgetGoneBatches,
   startDerivation,
+  withTransferCategory,
   type DerivationDeps,
   type DerivationMerchants,
   type DerivationRun,

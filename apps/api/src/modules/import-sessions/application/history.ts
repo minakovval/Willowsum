@@ -655,15 +655,19 @@ export interface DerivationSourceRow {
   /** The description shown to the user: an IBAN or a card number masked to its last 4 characters. */
   readonly shown: string | null;
   readonly accountId: string | null;
-  readonly categoryId: string;
+  /** The space's category of the row's label; null — a transfer (FR 8: a transfer has no category). */
+  readonly categoryId: string | null;
+  /** FR 8, FR 16 (row 236): the row is a transfer — by the transfer mark or a label marked as a transfer. */
+  readonly transfer: boolean;
   readonly tags: readonly string[];
 }
 
 /**
- * BUD-21 FR 7–11, FR 17 (row 235): the rows the derivation works on — those of the confirmed read that are neither a
- * transfer nor skipped (FR 8, EC5, EC12), each with the space's category its label became (FR 7, AC8), the account of
- * the space its account value was matched with (FR 11), its currency (the file's, else the matched account's when that
- * has one currency) and its tags (FR 17). Null — no history batch, or not confirmed.
+ * BUD-21 FR 7–11, FR 16, FR 17 (rows 235, 236): the rows the derivation works on — those of the confirmed read that are
+ * not skipped (FR 8, EC5, EC12): a transfer (FR 16, without a category), else with the space's category its label
+ * became (FR 7, AC8), the account of the space its account value was matched with (FR 11), its currency (the file's,
+ * else the matched account's when that has one currency) and its tags (FR 17). Null — no history batch, or not
+ * confirmed.
  */
 export async function derivationRows(
   tx: HistoryTx,
@@ -690,7 +694,8 @@ export async function derivationRows(
   const out: DerivationSourceRow[] = [];
   for (const r of read) {
     const label = r.transfer ? null : resolved(r);
-    if (label?.action !== "category" || label.categoryId === null) continue;
+    const categoryId = label?.action === "category" ? label.categoryId : null;
+    if (!r.transfer && categoryId === null) continue;
     const accountId = r.account === null ? null : (accounts.get(r.account) ?? null);
     let currency = r.currency;
     if (currency === null && accountId !== null) {
@@ -706,7 +711,8 @@ export async function derivationRows(
       description: r.description,
       shown: maskNumbers(r.description ?? r.counterparty),
       accountId,
-      categoryId: label.categoryId,
+      categoryId,
+      transfer: r.transfer,
       tags: splitTags(r.tags).tags,
     });
   }

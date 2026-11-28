@@ -5,6 +5,7 @@ import {
   DerivationSourceMissing,
   executeDerivation,
   startDerivation,
+  withTransferCategory,
   type DerivationDeps,
   type DerivationRun,
   type DerivationsRun,
@@ -74,6 +75,12 @@ const suggestionSchema = z.object({
   ordinal: z.number().int(),
   /** FR 13: «Впевнена» or «Суперечлива». */
   kind: z.enum(["confident", "conflicting"]),
+  /**
+   * FR 16, FR 21 (row 236): `transfer` — a suggestion of the group «Переказ», its action «категорія „Переказ“»
+   * (`categoryId` is the space's «Переказ»); its rule never makes a transaction a transfer by itself, it puts it on
+   * «Пари» as a one-sided transfer awaiting confirmation. `category` — any other.
+   */
+  action: z.enum(["category", "transfer"]),
   /** FR 11: the rule editor's conditions, all through «І». */
   conditions: z.array(conditionSchema),
   categoryId: z.uuid(),
@@ -106,11 +113,13 @@ export const presentRun = (r: DerivationRun): z.input<typeof runSchema> => ({
 
 function presentSuggestion(
   s: StoredSuggestion,
-  rows: ReadonlyMap<number, HistorySourceRow>,
+  rows: ReadonlyMap<number, HistorySourceRow & { readonly categoryId: string }>,
+  transferId: string | null,
 ): z.input<typeof suggestionSchema> {
   return {
     ordinal: s.ordinal,
     kind: s.kind,
+    action: transferId !== null && s.categoryId === transferId ? "transfer" : "category",
     conditions: s.conditions.map((c) => ({ ...c })),
     categoryId: s.categoryId,
     matched: s.matched,
@@ -224,10 +233,11 @@ export const getHistoryDerivationRoute = defineRoute({
     // FR 24: the suggestions are the file's — once its batch is gone they are gone too.
     const rows = await deps.source.rows(householdId, found.run.batchId);
     if (rows === null) throw new ApiProblem("NOT_FOUND");
-    const byRow = new Map(rows.map((r) => [r.row, r]));
+    const transferId = await deps.transferCategory(householdId);
+    const byRow = new Map(withTransferCategory(rows, transferId).map((r) => [r.row, r]));
     return {
       derivation: presentRun(found.run),
-      suggestions: found.suggestions.map((s) => presentSuggestion(s, byRow)),
+      suggestions: found.suggestions.map((s) => presentSuggestion(s, byRow, transferId)),
     };
   },
 });

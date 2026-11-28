@@ -76,6 +76,7 @@ import {
   createImportedTransactions,
   createTransactionLookup,
   createTransactionRuleInputs,
+  createOneSidedFlagging,
   createTransactionRuleTags,
   createTransactionReviewBulkActions,
   createTransactionTagBulkActions,
@@ -506,6 +507,19 @@ export function workerQueues(
             newId: randomUUID,
             ...(flags ? { flags } : {}),
           }),
+          // BUD-21 d: a rule «категорія „Переказ“» flags a new transaction as a one-sided transfer on «Пари»
+          // (module transactions), never a category nor a transfer; with either release flag off — nothing.
+          transfers: {
+            flagging: createOneSidedFlagging(databases.for("transactions"), {
+              accounts: createAccountDirectory(databases.for("accounts")),
+              ledger,
+              audit,
+            }),
+            enabled: async (householdId) =>
+              flags !== undefined &&
+              (await flags.isEnabled(householdId, "categorization.history-rules")) &&
+              (await flags.isEnabled(householdId, "transactions.transfers")),
+          },
         }),
         flags,
         undefined,
@@ -518,6 +532,12 @@ export function workerQueues(
                 accounts: createAccountDirectory(databases.for("accounts")),
               }),
               newId: randomUUID,
+              // BUD-21 d: the file's transfer rows take «Переказ» of the space (module categories).
+              transfers: createCategoryDirectory({
+                db: databases.for("categories"),
+                audit,
+                newId: randomUUID,
+              }),
             }
           : undefined,
       ),

@@ -8,6 +8,7 @@ import {
   rulesFor,
   UNCATEGORIZED,
   categoryAllowed,
+  isTransferCategory,
   type RankedRule,
   type RuleAttention,
   type RuleCondition,
@@ -109,6 +110,11 @@ export interface RuleDeps {
    * add no tags.
    */
   readonly tags?: RuleTagsPort;
+  /**
+   * BUD-21 FR 16 (row 236): a rule «категорія „Переказ“» on a new transaction (module transactions'
+   * `OneSidedFlagging`); absent — such a rule does nothing.
+   */
+  readonly transfers?: RuleTransfersPort;
   readonly inputs: {
     inputs(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, RuleInputRow>>;
     candidates(
@@ -116,6 +122,14 @@ export interface RuleDeps {
       limit: number,
     ): Promise<{ readonly items: readonly RuleInputRow[]; readonly more: boolean }>;
   };
+}
+
+/**
+ * BUD-21 FR 16: the system's flag «односторонній переказ» on a transaction (`category-rule` evidence) — only one still
+ * free and never in a one-sided state (a «Це не переказ» is never flagged again, IMP-03 FR 14); false — not flagged.
+ */
+export interface RuleTransfersPort {
+  flag(householdId: string, transactionId: string): Promise<boolean>;
 }
 
 export interface RuleTagsPort {
@@ -154,8 +168,9 @@ export async function attentionOf(
   householdId: string,
   rule: RuleFields,
 ): Promise<RuleAttention | null> {
-  if (!categoryAllowed(await deps.categories.category(householdId, rule.categoryId)))
-    return "category_deleted";
+  const category = await deps.categories.category(householdId, rule.categoryId);
+  // BUD-21 FR 16: «категорія „Переказ“» is a rule's action (from history), not a category it gives.
+  if (!categoryAllowed(category) && !isTransferCategory(category)) return "category_deleted";
   for (const accountId of accountsOf(rule))
     if (!(await deps.accounts.exists(householdId, accountId))) return "account_deleted";
   return null;
@@ -560,6 +575,14 @@ export async function applyRulesToNew(
   }
   const rule = chosen.category;
   if (rule === null) return applied ? "applied" : "none";
+  // BUD-21 FR 16, AC18 (owner, 2026-11-27, option б): «Переказ» from a rule is never a category nor a transfer by
+  // itself — the transaction goes to «Пари» as a one-sided transfer awaiting confirmation. The rule still decides the
+  // category attribute (FR 8: the first rule that sets it), so a lower rule gives none; a pair confirmed before this
+  // job made the transaction ineligible above, and one confirmed later clears the flag (module transactions).
+  if (isTransferCategory(await lookups.categories.category(householdId, rule.categoryId))) {
+    const flagged = (await deps.transfers?.flag(householdId, transactionId)) ?? false;
+    return flagged || applied ? "applied" : "none";
+  }
   const next: TransactionCategory & { ruleId: string } = {
     categoryId: rule.categoryId,
     source: "rule",

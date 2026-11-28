@@ -147,7 +147,7 @@ const transferSchema = z.object({
 /**
  * IMP-03@PoC FR 14, FR 15, FR 22: the one-sided transfer — `flagged` by the system («односторонній переказ»: it still
  * counts as usual) or `marked` «Це переказ» (neither income nor expense: the detail shows the type «Переказ», FR 24);
- * `evidence` — why it was flagged (`transfer-words`, `own-account-words`, `card-payment`; extensible), empty when marked
+ * `evidence` — why it was flagged (`transfer-words`, `own-account-words`, `card-payment`, `category-rule` — a rule «категорія „Переказ“», BUD-21 FR 16; extensible), empty when marked
  * by hand.
  */
 const oneSidedSchema = z.object({

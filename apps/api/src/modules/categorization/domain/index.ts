@@ -4,6 +4,7 @@ export {
   CATEGORY_SOURCES,
   UNCATEGORIZED,
   categoryAllowed,
+  isTransferCategory,
   pickCategory,
   proposalApplies,
   rankOf,

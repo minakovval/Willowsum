@@ -25,7 +25,10 @@ export interface HistorySourceRow {
   /** The description as the user may see it: an IBAN or a card number masked to its last 4 characters. */
   readonly shown: string | null;
   readonly accountId: string | null;
-  readonly categoryId: string;
+  /** The space's category of the row's label; null — a transfer. */
+  readonly categoryId: string | null;
+  /** FR 16 (row 236): a transfer row of the file (its mark, or a label marked as a transfer). */
+  readonly transfer: boolean;
   readonly tags: readonly string[];
 }
 
@@ -90,6 +93,11 @@ export type DerivationsRun = <T>(householdId: string, work: (tx: DerivationsTx) 
 export interface DerivationDeps {
   readonly source: HistoryRowsSource;
   readonly merchants: DerivationMerchants;
+  /**
+   * FR 16 (row 236): the id of the space's service category «Переказ» (module categories' `serviceCategory`) — the
+   * category of the transfer rows, so a suggestion of them has the action «категорія „Переказ“»; null — none.
+   */
+  readonly transferCategory: (householdId: string) => Promise<string | null>;
   readonly now: () => number;
   readonly newId: () => string;
 }
@@ -157,6 +165,22 @@ export async function startDerivation(
   });
 }
 
+/**
+ * FR 16 (row 236): the transfer rows take the category «Переказ» (`transferId`), so the engine derives their
+ * suggestions in the same way and with the same thresholds as any other category — over the same array, so a
+ * merchant's rows that are partly transfers are as mixed as with any two categories. Without «Переказ» (never in a
+ * space whose tree is written) the transfer rows are left out, as before row 236.
+ */
+export function withTransferCategory(
+  rows: readonly HistorySourceRow[],
+  transferId: string | null,
+): (HistorySourceRow & { readonly categoryId: string })[] {
+  return rows.flatMap((r) => {
+    const categoryId = r.transfer ? transferId : r.categoryId;
+    return categoryId === null ? [] : [{ ...r, categoryId }];
+  });
+}
+
 /** FR 10: the merchants are read this many texts at a time; the progress moves after each part. */
 export const DERIVATION_PART_ROWS = 1000;
 
@@ -175,15 +199,18 @@ export async function executeDerivation(
 ): Promise<void> {
   const run = await inSpace(householdId, (tx) => tx.run(householdId, runId));
   if (!run || run.status !== "running") return;
-  const source = rows ?? (await deps.source.rows(householdId, run.batchId));
-  if (source === null) {
+  const read = rows ?? (await deps.source.rows(householdId, run.batchId));
+  if (read === null) {
     await inSpace(householdId, async (tx) => {
       const locked = await tx.run(householdId, runId, true);
       if (locked?.status === "running") await tx.finish(householdId, runId, "failed", [], deps.now());
     });
     return;
   }
-  const background = source.length > DERIVATION_FOREGROUND_MAX;
+  const source = read.some((r) => r.transfer)
+    ? withTransferCategory(read, await deps.transferCategory(householdId))
+    : withTransferCategory(read, null);
+  const background = read.length > DERIVATION_FOREGROUND_MAX;
   const prepared: DerivationRow[] = [];
   for (let at = 0; at < source.length; at += DERIVATION_PART_ROWS) {
     const part = source.slice(at, at + DERIVATION_PART_ROWS);
