@@ -275,8 +275,18 @@ export const updateCategoryRuleRoute = defineRoute({
       ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
       ...(body.tags !== undefined ? { tags: body.tags } : {}),
     };
-    await checked(ctx, fields);
     const householdId = ctx.principal.householdId;
+    // BUD-21 FR 22: a rule «категорія „Переказ“» from history is changed like any rule — its own category sent back
+    // unchanged is no new choice of a service category (which the editor never offers).
+    const stored =
+      body.categoryId === undefined
+        ? undefined
+        : (await ctx.inHousehold((q) => rulesTx(q).rules(householdId))).find((r) => r.id === params.ruleId);
+    const unchanged = stored !== undefined && stored.categoryId === body.categoryId;
+    await checked(
+      ctx,
+      unchanged ? Object.fromEntries(Object.entries(fields).filter(([k]) => k !== "categoryId")) : fields,
+    );
     const result = await ctx.inHousehold((q) =>
       updateRule(rulesTx(q), {
         householdId,

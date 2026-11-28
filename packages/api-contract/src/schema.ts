@@ -10979,6 +10979,8 @@ export interface operations {
                             status: "running" | "completed" | "failed";
                         };
                         suggestions: {
+                            /** @enum {string} */
+                            action: "category" | "transfer";
                             agreeing: number;
                             /** Format: uuid */
                             categoryId: string;

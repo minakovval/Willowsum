@@ -46,6 +46,14 @@ BUD-21@PoC c) (хвиля 2, рядок 235 — серверна частина)
 Далі: пропозиції «Переказ» (п. 16, рядок 236), перевірки, наявні правила, прийняття й відхилення (п. 18–20, 22, 23,
 рядок 237), сторінка «Пропозиції правил» (п. 21, UI).
 
+BUD-21@PoC d) (хвиля 2, рядок 236 — серверна частина; відповідь власника 2026-11-27, питання 1, варіант б): п. 16
+(рядки-перекази файлу отримують службову категорію «Переказ» простору і йдуть тим самим рушієм з тими самими порогами;
+пропозиція з нею — група «Переказ», `action: transfer`; правило «категорія „Переказ“» на новій транзакції не дає
+категорії й не робить її переказом — транзакція отримує позначку «односторонній переказ» модуля transactions з доказом
+`category-rule` і чекає «Це переказ» / «Це не переказ» на вкладці «Пари»; підтверджена пара має перевагу), AC18
+(серверна частина: правило створюється прийняттям, рядок 237), граничний випадок 11. Далі: прийняття пропозицій і
+застосування до наявних (рядок 237: запуск правила «Переказ» нічого не змінює — `categoryAllowed`).
+
 FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): п. 30 (вибір відомого контрагента підставляє категорію за
 правилом або «як раніше» — остання ручна категорія мерчанта; категорія біля кожного відомого контрагента), п. 31 (перша
 група списку «Категорія» — «Часто для <мерчанта>» або «Нещодавні»). Джерело «як раніше» для нових транзакцій (FR 15 у
@@ -125,7 +133,13 @@ FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): �
   маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionLookup` модуля transactions, `CategoryDirectory`
   модуля categories, журнал аудиту; `rules` — `categorizationRulePorts({ accounts, merchants, inputs, tags? })` з
   `AccountDirectory`, `MerchantDirectory`, `TransactionRuleInputs` і `TransactionRuleTags` (без перших трьох маршрути
-  правил — 500; без `tags` правила не додають тегів); `clock` — час запусків і 7 днів «Відмінити».
+  правил — 500; без `tags` правила не додають тегів; `transfers` — `{ flagging: OneSidedFlagging, enabled }` для правила
+  «категорія „Переказ“», BUD-21 п. 16: без нього чи з вимкненими прапорцями `categorization.history-rules` і
+  `transactions.transfers` таке правило нічого не робить); `clock` — час запусків і 7 днів «Відмінити». Правило з
+  категорією «Переказ» не «Потребує уваги» (`isTransferCategory`), але редактор правил (`POST`/`PATCH`) цієї категорії
+  не приймає (`categoryId: not_found`): такі правила створює лише прийняття пропозиції «Переказ» (рядок 237). На новій
+  транзакції воно вирішує атрибут «категорія» (перше правило, що його задає), тож нижче правило категорії не дає;
+  позначка — `CATEGORY_RULE_EVIDENCE` (`category-rule`), запис аудиту системи модуля transactions.
 - Виведення правил з файлу історії (BUD-21@PoC c; прапорець випуску і ключ функції `categorization.history-rules`, як у
   файлу історії; дозвіл читання `household.data.read`, запуску — `household.data.write`; учасник з областю — 404;
   партія чи виведення іншого простору — як неіснуючі):
@@ -136,18 +150,20 @@ FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): �
     `status`; без вмісту файлу).
   - `GET /v1/category-rule-derivations/{derivationId}` (`getHistoryDerivation`) → `derivation` (`status` `running` /
     `completed` / `failed`, `count`, `processed` — «оброблено X з N рядків», `background`) і `suggestions` у порядку:
-    `kind` (`confident` / `conflicting`), `conditions` (умови редактора: `merchant` `equals`, `description` `contains`,
+    `kind` (`confident` / `conflicting`), `action` (`transfer` — група «Переказ», `categoryId` — «Переказ» простору;
+    `category` — інша, п. 16), `conditions` (умови редактора: `merchant` `equals`, `description` `contains`,
     `amount` `greater` / `less` з валютою, `account` `equals`), `categoryId`, `matched` (N), `agreeing`, `since` (дата
     зміни звички), `tags`, `evidence` (рядки файлу, перші 100), `exceptions` (винятки у файлі — дата, сума, опис із
     замаскованими IBAN і картками, категорія; перші 100 і кількість). Партію видалено — 404 (п. 24).
   - Рушій — `deriveSuggestions` (domain/history-derivation.ts): мерчанти, уточнення змішаного мерчанта (поріг суми,
     рахунок, слово опису — найчистіші групи), слова й фрази опису; рядки, пояснені раніше, далі не рахуються.
-- `createHistoryDerivations({ db, source, merchants, audit, newId, clock? })` → `{ start(householdId, actorId, batchId) }` —
+- `createHistoryDerivations({ db, source, merchants, transfers, audit, newId, clock? })` → `{ start(householdId, actorId, batchId) }` —
   порт `HistoryServices.derivation` модуля import-sessions (`src/main.ts`): підтвердження файлу історії запускає
   виведення (AC7). `source` — `HistoryRowsSource` (`createHistoryDerivationRows` модуля import-sessions: категоризовані
-  рядки підтвердженої партії і `existing`), `merchants` — `categorizationRulePorts(…).merchants` (`knownNames`, лише
-  читання: мерчант не народжується, п. 9). `createCategorizationServices({ …, history? })` — `{ source, newId }` для
-  маршрутів (без нього — 500).
+  рядки й рядки-перекази підтвердженої партії і `existing`), `merchants` — `categorizationRulePorts(…).merchants`
+  (`knownNames`, лише читання: мерчант не народжується, п. 9), `transfers` — `CategoryDirectory.serviceCategory` модуля
+  categories (категорія рядків-переказів, п. 16; `withTransferCategory`). `createCategorizationServices({ …, history? })`
+  — `{ source, newId, transfers }` (`HistoryPorts`) для маршрутів (без нього — 500).
 - `createHistoryDerivationCleanup({ db, source, households })` → `{ run() }` — щоденна задача
   `categorization.history-cleanup` (п. 24): виведення партій, яких модуль import-sessions уже не зберігає, зникають з
   пропозиціями; подія логу `categorization.history_derivations_cleaned` (INFO, лише кількість).
@@ -184,7 +200,7 @@ FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): �
   `categorization.transaction-created` (`TRANSACTION_CREATED_JOB`, подія `transactions.created`: правила нової
   транзакції), `categorization.audit` (`AUDIT_JOB`, запис аудиту правила чи категорії «за правилом») і
   `categorization.history-derivation` (`HISTORY_DERIVATION_JOB`, важка: виведення правил з файлу історії у фоні; останній
-  аргумент `history` — `{ source, newId }`, без нього задача падає й чекає відновлення).
+  аргумент `history` — `{ source, newId, transfers }`, без нього задача падає й чекає відновлення).
 - `createCategorizationRecovery(db, households)` → `{ run() }` — щоденна задача планувальника `categorization.recovery`
   (до очищення черги): задачі `dead` усіх назв (і `categorization.history-derivation`) повертаються в чергу; подія логу
   `categorization.jobs_requeued` (WARN).

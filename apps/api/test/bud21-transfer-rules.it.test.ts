@@ -97,7 +97,12 @@ async function newSpace(): Promise<Space> {
   return { accountId, householdId };
 }
 
-function call(space: Space, method: "GET" | "POST" | "PUT" | "DELETE", url: string, body?: unknown) {
+function call(
+  space: Space,
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  url: string,
+  body?: unknown,
+) {
   return app.inject({
     method,
     url,
@@ -211,7 +216,7 @@ async function categoryNamed(householdId: string, name: string): Promise<string>
 }
 
 /**
- * A rule made from a suggestion as its acceptance writes it (BUD-21 FR 22, row 237: an ordinary category rule with
+ * A rule made from a suggestion as its acceptance writes it (the acceptance of row 237: an ordinary category rule with
  * the suggestion's conditions and category) — at the lowest priority, like «Нове правило».
  */
 async function ruleFrom(space: Space, s: { conditions: Suggestion["conditions"]; categoryId: string }) {
@@ -564,6 +569,28 @@ describe("BUD-21@PoC FR 16, AC18: a rule «Переказ» on a new transaction
     await runWorker(space.householdId);
     expect(await categoryOf(space, id)).toMatchObject({ categoryId: null, source: "none" });
     expect((await get(space, id)).oneSidedTransfer?.state).toBe("flagged");
+  });
+
+  it("BUD-21@PoC FR 16: the rule «Переказ» is changed and switched off like any rule; the editor itself never offers «Переказ» as a category", async () => {
+    const space = await newSpace();
+    const ruleId = await ownCardRule(space);
+    const transfer = await transferCategory(space.householdId);
+    const patched = await call(space, "PATCH", `/v1/category-rules/${ruleId}`, {
+      categoryId: transfer,
+      enabled: false,
+    });
+    expect(patched.statusCode, patched.body).toBe(200);
+    expect(patched.json()).toMatchObject({ categoryId: transfer, enabled: false, needsAttention: null });
+    const created = await call(space, "POST", "/v1/category-rules", {
+      conditions: [{ field: "description", operator: "contains", value: "SKARBNYCHKA" }],
+      categoryId: transfer,
+    });
+    expect(created.statusCode, created.body).toBe(400);
+    // Switched off: a new transaction it matches is not flagged.
+    const account = await createAccount(space);
+    const id = await add(space, account, "-1000.00", OWN_CARD);
+    await runWorker(space.householdId);
+    expect((await get(space, id)).oneSidedTransfer).toBeNull();
   });
 
   it("BUD-21@PoC FR 26: the flag's audit entry is the system's, with the evidence and without the transaction's text", async () => {
