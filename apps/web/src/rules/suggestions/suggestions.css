@@ -135,8 +135,17 @@
   overflow-wrap: anywhere;
   display: grid;
   gap: var(--ws-space-1);
+  grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
   justify-items: start;
+}
+
+.sug-notes .ws-badge {
+  block-size: auto;
+  min-block-size: calc(var(--ws-space-4) + var(--ws-space-1));
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .sug-text {

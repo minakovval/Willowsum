@@ -792,7 +792,7 @@ describe("BUD-21@PoC i) S-197 «Правила категорій» and BUD-14 F
     origin,
   });
 
-  it("BUD-14@PoC FR 16: the heading of the page links to «Пропозиції правил · 46» when suggestions are not accepted, and a rule from a suggestion carries the mark «з історії» in the column «Умова»", async () => {
+  it("BUD-14@PoC FR 16 and BUD-21@PoC AC26: the heading of the page links to «Пропозиції правил · 46» when suggestions are not accepted, and a rule from a suggestion carries the mark «з історії» in the column «Умова»", async () => {
     const a = fake({
       [DERIVATIONS]: { status: 200, body: list(46) },
       "GET /v1/category-rules": {
