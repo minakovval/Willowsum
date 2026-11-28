@@ -1,6 +1,6 @@
 # Restarts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Read when the container restarted, you resume the pipeline, the context was compacted, or a lead session starts or
 finishes (a new session: also [new session](../../../references/new-lead-session.md)).
@@ -29,12 +29,13 @@ no handover table and no item-by-item confirmation: the #179 body is enough.
 **After compaction**: at ~200 k tokens
 the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`, set by the owner; the
 threshold stays); the lead does not stop the session. The `SessionStart` hook (`.claude/settings.json`, matcher
-`compact`) reminds the agent; the lead then, in the same session:
-1. **before every message to the owner** checks the language and what to write (`SKILL.md`, «Мовчання в чаті»); for the reminder "The user hasn't heard from you…" and a notification with nothing for the owner, the only reply is «Нічого нового для вас.»;
+`compact`) reminds the agent; the lead then, in the same session, as the first actions before any other tool call or
+message (the compaction summary's «continue directly / do not acknowledge» does not override them):
+1. runs `get_session`, reads the title N, and renames the session with `set_session_title` to
+   `Willowsum · ведучий N+1 · <з чого продовжує>` (becomes lead N+1, the numbering continues);
+2. **before every message to the owner** checks the language and what to write (`SKILL.md`, «Мовчання в чаті»); for the reminder "The user hasn't heard from you…" and a notification with nothing for the owner, the only reply is «Нічого нового для вас.»;
    **before the first chat message** also re-reads #179 («Lead state») and `SKILL.md`, then the sources above as
    needed ([lead-communication.md](lead-communication.md): when you write a proposal or a question);
-2. becomes lead N+1 (the numbering continues) and renames the session with `set_session_title` to
-   `Willowsum · ведучий N+1 · <з чого продовжує>`;
 3. runs `batch` for lead N («Token accounting»);
 4. continues the pipeline; when a «Process review» is due (below), it comes first.
 

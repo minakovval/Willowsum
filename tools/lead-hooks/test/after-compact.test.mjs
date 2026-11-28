@@ -1,4 +1,4 @@
-// Створено: 2026-11-15 · Оновлено: 2026-11-27
+// Створено: 2026-11-15 · Оновлено: 2026-11-28
 // The lead's SessionStart hook after compaction (owner, 2026-11-15, #178 comment 6897443899). No network.
 // Run: node --test tools/lead-hooks
 import assert from "node:assert/strict";
@@ -27,7 +27,18 @@ describe("after-compact hook", () => {
     for (const s of ["#179", "Lead state", "pr-pipeline", "restarts.md", "After compaction", "ignore"]) {
       assert.ok(AFTER_COMPACT.includes(s), s);
     }
-    assert.ok(AFTER_COMPACT.length < 1000, "far below the 10 000-character hook limit");
+    assert.ok(AFTER_COMPACT.length < 1500, "far below the 10 000-character hook limit");
+  });
+
+  it("orders the first actions: get_session, rename, #179 and pr-pipeline, token batch; the summary does not override", () => {
+    const at = ["(1) run `get_session`", "(2) run `set_session_title`", "(3) re-read issue #179", "(4) run `token-report batch`"].map(
+      (s) => AFTER_COMPACT.indexOf(s),
+    );
+    assert.ok(at.every((i) => i >= 0), String(at));
+    assert.deepEqual([...at].sort((x, y) => x - y), at);
+    assert.ok(AFTER_COMPACT.includes("Willowsum · ведучий N+1 · <з чого продовжує>"));
+    assert.ok(AFTER_COMPACT.includes("before any other tool call or message"));
+    assert.ok(AFTER_COMPACT.includes("does not override these steps"));
   });
 
   it("the restarts.md section it points to exists", () => {

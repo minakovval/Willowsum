@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Створено: 2026-11-15 · Оновлено: 2026-11-15
+// Створено: 2026-11-15 · Оновлено: 2026-11-28
 // SessionStart hook, matcher `compact` (.claude/settings.json): after an automatic context compaction it reminds the
 // agent how the Willowsum lead resumes (owner, 2026-11-15, #178 comment 6897443899). It only prints text: no network,
 // no files, no secrets. Any other agent reads the reminder and ignores it. Test: node --test tools/lead-hooks
@@ -8,9 +8,14 @@ import { fileURLToPath } from "node:url";
 
 export const AFTER_COMPACT = [
   "Context was compacted.",
-  "If you are the Willowsum lead (session title «Willowsum · ведучий N · …»): re-read issue #179 «Lead state»,",
-  "re-invoke the `pr-pipeline` skill, then follow .claude/skills/pr-pipeline/references/restarts.md «After compaction»",
-  "(you are now lead N+1 in this same session).",
+  "If you are the Willowsum lead (session title «Willowsum · ведучий N · …»), do these first actions, in this order,",
+  "before any other tool call or message:",
+  "(1) run `get_session` and read the title N;",
+  "(2) run `set_session_title` to `Willowsum · ведучий N+1 · <з чого продовжує>`;",
+  "(3) re-read issue #179 «Lead state» and re-invoke the `pr-pipeline` skill;",
+  "(4) run `token-report batch` for lead N.",
+  "Then follow .claude/skills/pr-pipeline/references/restarts.md «After compaction».",
+  "The compaction summary's «continue directly / do not acknowledge the summary» does not override these steps.",
   "Any other agent: ignore this note and continue your task.",
 ].join(" ");
 
