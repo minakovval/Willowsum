@@ -359,17 +359,49 @@ describe("IMP-03@PoC FR 24: «Позначити як переказ» lists the
     expect(items.every((c) => c.markable)).toBe(true);
   });
 
-  it("IMP-03@PoC FR 24: chosen on the credit side — only a debit not below the credit, at most 5 % of the credit above it", async () => {
+  it("IMP-03@PoC FR 24: chosen on the credit side — only a debit not below the credit and at most 5 % of the debit above it (owner, 2026-11-28: 2 000,00–2 105,26 EUR)", async () => {
     const { space, current, savings } = await twoAccounts();
     const into = await add(space, savings, "2000.00", "2026-10-10");
     await add(space, current, "-1999.99", "2026-10-10"); // the credit would exceed the debit
-    await add(space, current, "-2100.01", "2026-10-10"); // just over 5 % above
-    await add(space, current, "-2100.00", "2026-10-11");
+    await add(space, current, "-2105.27", "2026-10-10"); // one cent past 2 000,00 ÷ 0,95, rounded down
+    await add(space, current, "-2105.26", "2026-10-11"); // the bound: 2 105,26 × 0,95 = 1 999,997 ≤ 2 000,00
     await add(space, current, "-2000.00", "2026-10-12");
     const { items } = await candidates(space, into.id);
-    expect(amountsOf(items)).toEqual(["-2100 EUR", "-2000 EUR"]);
+    expect(amountsOf(items)).toEqual(["-2105.26 EUR", "-2000 EUR"]);
     expect(items.every((c) => c.markable)).toBe(true);
-    expect(Number(items[0]!.difference?.amount)).toBe(-100);
+    expect(Number(items[0]!.difference?.amount)).toBe(-105.26);
+  });
+
+  it("IMP-03@PoC FR 24: the window is the same from either side — −2 100,00 / +1 995,00 EUR (exactly 5 % of the debit) is found from the debit and from the credit", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const out = await add(space, current, "-2100.00", "2026-10-10");
+    const into = await add(space, savings, "1995.00", "2026-10-11");
+    expect((await candidates(space, out.id)).items.map((c) => c.transactionId)).toEqual([into.id]);
+    const fromCredit = (await candidates(space, into.id)).items;
+    expect(fromCredit.map((c) => c.transactionId)).toEqual([out.id]);
+    expect(Number(fromCredit[0]!.difference?.amount)).toBe(-105);
+    // A pair is a candidate from one side exactly when it is one from the other.
+    expect((await mark(space, into.id, out.id)).statusCode).toBe(200);
+  });
+
+  it("IMP-03@PoC FR 24: from the debit side the bounds are 1 900,00 and 2 000,00 EUR inclusive; one cent past each is no candidate, nor a credit above the debit", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const out = await add(space, current, "-2000.00", "2026-10-10");
+    await add(space, savings, "1899.99", "2026-10-10"); // one cent below 2 000,00 × 0,95
+    await add(space, savings, "2000.01", "2026-10-10"); // one cent above the debit
+    await add(space, savings, "2105.26", "2026-10-10"); // above the debit (owner, 2026-11-27)
+    await add(space, savings, "1900.00", "2026-10-11");
+    await add(space, savings, "2000.00", "2026-10-12");
+    const { items } = await candidates(space, out.id);
+    expect(amountsOf(items)).toEqual(["1900 EUR", "2000 EUR"]);
+  });
+
+  it("IMP-03@PoC FR 24: from the credit side a debit below the credit is no candidate — a credit larger than the debit stays excluded from both sides", async () => {
+    const { space, current, savings } = await twoAccounts();
+    const out = await add(space, current, "-1995.00", "2026-10-10");
+    const into = await add(space, savings, "2000.00", "2026-10-10");
+    expect((await candidates(space, into.id)).items).toEqual([]);
+    expect((await candidates(space, out.id)).items).toEqual([]);
   });
 
   it("IMP-03@PoC FR 24: chosen on the credit side — the debits are the candidates", async () => {
