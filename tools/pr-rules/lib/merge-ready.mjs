@@ -29,7 +29,7 @@ const json = async (gh, args) => JSON.parse(await gh(args));
 const paged = async (gh, path) => (JSON.parse(await gh([path, '--paginate', '--slurp']))).flat();
 const short = (s) => (s ?? '').slice(0, 7);
 
-async function checkRuns(gh, sha) {
+export async function checkRuns(gh, sha) {
   const pages = JSON.parse(await gh([`repos/{owner}/{repo}/commits/${sha}/check-runs?per_page=100`, '--paginate', '--slurp']));
   return pages.flatMap((p) => p.check_runs ?? []);
 }
