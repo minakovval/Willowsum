@@ -5,8 +5,12 @@ import { issuesOfRequest, mergeRoles } from "./duplicates.ts";
  * Who stays in «Об'єднати» of a manual and an imported transaction (the bank's posting is kept, the manual one's
  * category goes over to it), pure. The API's scenario is in apps/api/test/fin03-manual-imported-duplicate.it.test.ts.
  */
-const manual = { id: "m", source: "manual" as const };
-const bank = { id: "b", source: "imported" as const };
+interface Side {
+  readonly id: string;
+  readonly source: "manual" | "imported";
+}
+const manual: Side = { id: "m", source: "manual" };
+const bank: Side = { id: "b", source: "imported" };
 
 describe("mergeRoles: the bank's transaction stays", () => {
   it("acted on the manual one — the sides swap and the manual one is merged into the bank's", () => {
@@ -28,14 +32,14 @@ describe("mergeRoles: the bank's transaction stays", () => {
   });
 
   it("two manual or two imported ones — the one acted on stays, nothing to carry", () => {
-    const other = { id: "m2", source: "manual" as const };
+    const other: Side = { id: "m2", source: "manual" };
     expect(mergeRoles(manual, other)).toEqual({
       kept: manual,
       duplicate: other,
       swapped: false,
       intoBank: false,
     });
-    const bank2 = { id: "b2", source: "imported" as const };
+    const bank2: Side = { id: "b2", source: "imported" };
     expect(mergeRoles(bank, bank2)).toEqual({
       kept: bank,
       duplicate: bank2,
