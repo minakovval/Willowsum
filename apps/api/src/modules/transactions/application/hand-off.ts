@@ -68,6 +68,10 @@ export const HAND_OFF_ACTIONS = [
   "not-duplicate",
   // IMP-03 FR 12 (application/transfers.ts): «Не пара» of a proposed transfer.
   "not-transfer",
+  // IMP-03 FR 14, FR 22 (application/one-sided.ts): the one-sided transfer flagged, «Це переказ», «Це не переказ».
+  "one-sided",
+  // IMP-03 FR 21 (application/transfers.ts): «Змінити категорію» of a pair's fee.
+  "transfer-fee-category",
   // IMP-04 FR 8, IMP-16 FR 2 (application/rollback.ts): rolled back with its import batch — its event reversed.
   "rollback",
 ] as const;
@@ -161,6 +165,14 @@ function fieldsOf(t: StoredTransaction | null): Map<string, string | null> {
     fields.set("transfer.with", outflow ? t.transfer.inflowId : t.transfer.outflowId);
     const r = t.transfer.rate;
     if (r) fields.set("transfer.rate", `${r.rate.toString()} ${r.base}/${r.quote} ${r.date} ${r.source}`);
+    // IMP-03 FR 21: the category of the fee, once one other than «Комісії банку» was chosen.
+    if (t.transfer.feeCategoryId) fields.set("transfer.feeCategory", t.transfer.feeCategoryId);
+  }
+  // IMP-03 FR 19: «позначка і зняття позначки одностороннього переказу» — the state and why it was flagged.
+  if (t?.oneSided) {
+    fields.set("oneSidedTransfer", t.oneSided.state);
+    if (t.oneSided.evidence.length > 0)
+      fields.set("oneSidedTransfer.evidence", t.oneSided.evidence.join(","));
   }
   for (const [field, value] of splitAuditFields(t?.split ?? null)) fields.set(field, value);
   // BUD-13 FR 1, FR 2: «Нотатка» (free text: masked) and the tags — their ids, never their names (free text too).

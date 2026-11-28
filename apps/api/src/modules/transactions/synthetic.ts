@@ -5,7 +5,8 @@
 // (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check. One transfer
 // pairs the outflow −11,50 € (transaction 1) with the inflow 1 000,00 € (transaction 0); its key to the rows is checked
 // at commit, and the rows do not point back at it (the column is nullable). Transactions 1 and 2 are «Не дубль».
-// Transaction 2 has a note and the two synthetic tags (BUD-13); transaction 3 is «Одноразова витрата» (BUD-06).
+// Transaction 2 has a note and the two synthetic tags (BUD-13); transaction 3 is «Одноразова витрата» (BUD-06);
+// transaction 4 is a flagged and transaction 6 a marked one-sided transfer (IMP-03 FR 14, FR 22).
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -40,6 +41,9 @@ export const synthetic = [
           tag_ids: i === 2 ? `{${key(household.id, "tag", 0)},${key(household.id, "tag", 1)}}` : "{}",
           // BUD-06 FR 8: transaction 3 (an expense) is marked «Одноразова витрата».
           one_off: i === 3 ? "true" : "false",
+          // IMP-03 FR 14, FR 22: transaction 4 is flagged «односторонній переказ», transaction 6 marked «Це переказ».
+          one_sided: i === 4 ? "flagged" : i === 6 ? "marked" : null,
+          one_sided_evidence: i === 4 ? "{transfer-words,own-account-words}" : i === 6 ? "{}" : null,
           version: "1",
         };
     },
@@ -91,6 +95,8 @@ export const synthetic = [
           rate: null,
           rate_date: null,
           rate_source: null,
+          // IMP-03 FR 21: the fee's category chosen with «Змінити категорію» (a synthetic category of the space).
+          fee_category_id: key(household.id, "category", 1),
         };
     },
   }),

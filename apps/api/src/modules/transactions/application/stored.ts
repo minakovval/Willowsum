@@ -1,5 +1,5 @@
 import type { Money } from "@willowsum/domain-kernel";
-import type { ReviewState, Split, TransactionStatus, TransferLink } from "../domain/index.ts";
+import type { OneSidedMark, ReviewState, Split, TransactionStatus, TransferLink } from "../domain/index.ts";
 
 /** A transaction as the module stores it (migrations/0001_transactions.sql, 0004_states_and_splits.sql, 0007_attributes.sql, 0008_review.sql, 0013_one_off.sql). */
 export interface StoredTransaction {
@@ -46,6 +46,12 @@ export interface StoredTransaction {
    * row has one; it never changes).
    */
   readonly bankFee?: Money | null;
+  /**
+   * IMP-03@PoC FR 14, FR 22 (0018_one_sided_and_fee_category.sql): the one-sided transfer — flagged by the system,
+   * marked «Це переказ» (out of income and expenses) or dismissed «Це не переказ»; null — none. Absent in a write —
+   * kept as stored.
+   */
+  readonly oneSided?: OneSidedMark | null | undefined;
 }
 
 export type NewStoredTransaction = Omit<StoredTransaction, "createdAt">;

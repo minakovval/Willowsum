@@ -1673,6 +1673,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/one-sided-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Односторонні · N»: transactions whose other side is on an account outside Willowsum — flagged (they still count as usual) or marked «Це переказ» (neither income nor expense), newest first (IMP-03 FR 14, FR 18, FR 22) */
+        get: operations["listOneSidedTransfers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/password-resets": {
         parameters: {
             query?: never;
@@ -2414,6 +2431,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/one-sided-transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** «Це переказ» / «Це не переказ» of a one-sided transfer — its other side on an account outside Willowsum (IMP-03 FR 14, FR 22): marked, it is neither income nor expense */
+        put: operations["setOneSidedTransfer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/{transactionId}/review/confirm": {
         parameters: {
             query?: never;
@@ -2518,6 +2552,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/transfer/fee-category": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** «Змінити категорію» of a confirmed pair's fee or currency difference (IMP-03 FR 21): the budget counts it in this category; null — «Комісії банку» again */
+        put: operations["setTransferFeeCategory"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/selection-summary": {
         parameters: {
             query?: never;
@@ -2552,6 +2603,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transfer-pairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Підтверджені · N»: the confirmed pairs — neither income nor expense — with the fee or currency difference and its category, newest first (IMP-03 FR 18, FR 20, FR 21) */
+        get: operations["listConfirmedTransfers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transfer-proposals": {
         parameters: {
             query?: never;
@@ -2563,6 +2631,23 @@ export type paths = {
         get: operations["listTransferProposals"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transfer-proposals/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Шукати пари знову»: the pairs are searched for again over every free transaction, and the one-sided transfers flagged; nothing is confirmed (IMP-03 FR 8, FR 14, FR 23) */
+        post: operations["searchTransferPairs"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21950,6 +22035,118 @@ export interface operations {
             };
         };
     };
+    listOneSidedTransfers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The one-sided transfers, newest first, at most 200; `count` — all of them */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        items: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            counterparty: string | null;
+                            date: string;
+                            description: string | null;
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                            /** Format: uuid */
+                            transactionId: string;
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     requestPasswordReset: {
         parameters: {
             query?: never;
@@ -26329,6 +26526,11 @@ export interface operations {
                             mergedInto: string | null;
                             note: string | null;
                             oneOff: boolean;
+                            oneSidedTransfer: {
+                                evidence: string[];
+                                /** @enum {string} */
+                                state: "flagged" | "marked";
+                            } | null;
                             originalAmount: {
                                 amount: string;
                                 currency: string;
@@ -26370,6 +26572,7 @@ export interface operations {
                                     amount: string;
                                     currency: string;
                                 } | null;
+                                feeCategoryId: string | null;
                                 /** Format: uuid */
                                 id: string;
                                 rate: {
@@ -26577,6 +26780,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -26618,6 +26826,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -26772,6 +26981,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -26813,6 +27027,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -27085,6 +27300,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -27126,6 +27346,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -27287,6 +27508,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -27328,6 +27554,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -27721,6 +27948,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -27762,6 +27994,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -28154,6 +28387,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -28195,6 +28433,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -28349,6 +28588,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -28390,6 +28634,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -28551,6 +28796,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -28592,6 +28842,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -28753,6 +29004,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -28794,6 +29050,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -28954,6 +29211,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -28995,6 +29257,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -29097,6 +29360,213 @@ export interface operations {
             };
         };
     };
+    setOneSidedTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    isTransfer: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankReference: string | null;
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        exchangeRate: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual" | "imported";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            feeCategoryId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        valueDate: string | null;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     confirmTransactionReview: {
         parameters: {
             query?: never;
@@ -29156,6 +29626,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -29197,6 +29672,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -29358,6 +29834,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -29399,6 +29880,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -29553,6 +30035,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -29594,6 +30081,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -29768,6 +30256,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -29809,6 +30302,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -29963,6 +30457,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -30004,6 +30503,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -30120,6 +30620,8 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     counterpartId: string;
+                    /** Format: uuid */
+                    feeCategoryId?: string;
                 };
             };
         };
@@ -30165,6 +30667,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -30206,6 +30713,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -30360,6 +30868,11 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
                         originalAmount: {
                             amount: string;
                             currency: string;
@@ -30401,6 +30914,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            feeCategoryId: string | null;
                             /** Format: uuid */
                             id: string;
                             rate: {
@@ -30642,6 +31156,213 @@ export interface operations {
             };
         };
     };
+    setTransferFeeCategory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    categoryId: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction, a side of the transfer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        balanceAfter: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankDescription: string | null;
+                        bankFee: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        bankReference: string | null;
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        exchangeRate: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        importedFrom: {
+                            /** Format: uuid */
+                            batchId: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            row: number;
+                        } | null;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        oneOff: boolean;
+                        oneSidedTransfer: {
+                            evidence: string[];
+                            /** @enum {string} */
+                            state: "flagged" | "marked";
+                        } | null;
+                        originalAmount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual" | "imported";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            feeCategoryId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        valueDate: string | null;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED); The record was changed by someone else; reload it and try again (VERSION_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     summarizeTransactionSelection: {
         parameters: {
             query?: never;
@@ -30834,6 +31555,11 @@ export interface operations {
                             mergedInto: string | null;
                             note: string | null;
                             oneOff: boolean;
+                            oneSidedTransfer: {
+                                evidence: string[];
+                                /** @enum {string} */
+                                state: "flagged" | "marked";
+                            } | null;
                             originalAmount: {
                                 amount: string;
                                 currency: string;
@@ -30875,6 +31601,7 @@ export interface operations {
                                     amount: string;
                                     currency: string;
                                 } | null;
+                                feeCategoryId: string | null;
                                 /** Format: uuid */
                                 id: string;
                                 rate: {
@@ -30925,6 +31652,11 @@ export interface operations {
                             mergedInto: string | null;
                             note: string | null;
                             oneOff: boolean;
+                            oneSidedTransfer: {
+                                evidence: string[];
+                                /** @enum {string} */
+                                state: "flagged" | "marked";
+                            } | null;
                             originalAmount: {
                                 amount: string;
                                 currency: string;
@@ -30966,6 +31698,7 @@ export interface operations {
                                     amount: string;
                                     currency: string;
                                 } | null;
+                                feeCategoryId: string | null;
                                 /** Format: uuid */
                                 id: string;
                                 rate: {
@@ -31031,6 +31764,149 @@ export interface operations {
             };
             /** @description The idempotency key was used for another request, or that request is still running; The account is closed (ACCOUNT_CLOSED) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listConfirmedTransfers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The confirmed pairs, newest first (by the earlier side), at most 200; `count` — all of them */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        items: {
+                            currencyDifference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            feeCategoryId: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            inflow: {
+                                /** Format: uuid */
+                                accountId: string;
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                counterparty: string | null;
+                                date: string;
+                                description: string | null;
+                                /** Format: uuid */
+                                transactionId: string;
+                            };
+                            /** @enum {string} */
+                            kind: "same-currency" | "cross-currency";
+                            outflow: {
+                                /** Format: uuid */
+                                accountId: string;
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                counterparty: string | null;
+                                date: string;
+                                description: string | null;
+                                /** Format: uuid */
+                                transactionId: string;
+                            };
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -31180,6 +32056,104 @@ export interface operations {
                 };
             };
             /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    searchTransferPairs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many proposals there are now (N of «Пари · N») and how many transactions this search flagged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        flagged: number;
+                        more: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
             403: {
                 headers: {
                     [name: string]: unknown;

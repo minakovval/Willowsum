@@ -1,6 +1,8 @@
 // Public interface of the transfer-matching module (ARC-01 FR 2). Other modules import only this file.
 import { defineModule } from "../../platform/modules/define.ts";
+import { logEvent } from "../../platform/telemetry/signals.ts";
 import {
+  flagOneSidedTransfers,
   listProposals,
   markCardPayments,
   type CardPaymentDeps,
@@ -18,6 +20,8 @@ export const transferMatchingModule = defineModule({
 
 export { createTransferMatchingServices, type TransferMatchingServices } from "./adapters/index.ts";
 export { CROSS_CURRENCY_MAX_SHARE, FEE_MAX_SHARE, MATCH_WINDOW_DAYS } from "./domain/index.ts";
+export { ONE_SIDED_AFTER_DAYS } from "./domain/index.ts";
+export type { OneSidedDeps } from "./application/index.ts";
 
 /**
  * BUD-08@PoC FR 8 (wave 2 row 37): the transactions that are a side of a proposed transfer not yet confirmed — «Пари · N»
@@ -74,7 +78,20 @@ export type { CardPaymentDeps, FreshSides };
 /** `deps`: as for `createTransferMatchingServices`, plus the space's credit cards, the transfers flag and the mark. */
 export function createCardPaymentTransfers(deps: CardPaymentDeps): CardPaymentTransfers {
   return {
-    markFor: (householdId, actorAccountId, fresh) =>
-      markCardPayments(deps, householdId, actorAccountId, fresh),
+    async markFor(householdId, actorAccountId, fresh) {
+      const marked = await markCardPayments(deps, householdId, actorAccountId, fresh);
+      // IMP-03@PoC FR 1, FR 14, FR 15 (row 242): then the one-sided transfers among the free transactions. A failure
+      // never undoes the marks; «Шукати пари знову» flags them later (FR 16). Class only, never a value.
+      if (deps.oneSided && (await deps.enabled(householdId)))
+        try {
+          await flagOneSidedTransfers(deps, deps.oneSided, householdId, actorAccountId);
+        } catch (error) {
+          logEvent("transfer_matching.one_sided_deferred", "warn", {
+            "ws.module": "transfer-matching",
+            "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+          });
+        }
+      return marked;
+    },
   };
 }

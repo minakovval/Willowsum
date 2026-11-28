@@ -352,6 +352,7 @@ describe("FIN-03@PoC FR 7, FR 8: a confirmed pair is a transfer — neither inco
       counterpartId: into.id,
       rate: null,
       currencyDifference: null,
+      feeCategoryId: null,
     });
     expect((await get(space, into.id)).transfer).toEqual({
       ...transfer,
@@ -359,6 +360,7 @@ describe("FIN-03@PoC FR 7, FR 8: a confirmed pair is a transfer — neither inco
       counterpartId: out.id,
       rate: null,
       currencyDifference: null,
+      feeCategoryId: null,
     });
     // The journal: one transfer event A → B of 498 EUR and the fee as the outflow's own event, both on the earlier date.
     expect((await liveEntries(space.householdId)).sort()).toEqual([

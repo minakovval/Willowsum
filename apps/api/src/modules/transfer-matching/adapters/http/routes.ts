@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
-import { listCounterparts, listProposals } from "../../application/index.ts";
+import {
+  listCounterparts,
+  listProposals,
+  PAIR_LIST_MAX,
+  searchPairsAgain,
+  type ConfirmedPair,
+  type OneSidedSide,
+} from "../../application/index.ts";
 import type { ChosenProposal, Counterpart, TransferSide } from "../../domain/index.ts";
 import { transferMatchingServices } from "./services.ts";
 
@@ -214,4 +221,166 @@ export const listTransferCounterpartsRoute = defineRoute({
   },
 });
 
-export const transferMatchingRoutes = [listTransferProposalsRoute, listTransferCounterpartsRoute];
+const oneSidedWiring = (ctx: Parameters<typeof transferMatchingServices>[0]) => {
+  const services = transferMatchingServices(ctx);
+  if (services.oneSided === null) throw new ApiProblem("INTERNAL");
+  return { deps: services.deps, oneSided: services.oneSided };
+};
+
+const listedSideSchema = sideSchema.extend({
+  /** «Опис» of the row: the counterparty and the description as typed or imported; null — none. */
+  counterparty: z.string().nullable(),
+  description: z.string().nullable(),
+});
+
+const listedSide = (s: OneSidedSide | ConfirmedPair["outflow"]): z.input<typeof listedSideSchema> => ({
+  ...side(s),
+  counterparty: s.counterparty,
+  description: s.description,
+});
+
+/**
+ * IMP-03@PoC FR 18, FR 22 (row 242) — «Пари → Односторонні · N»: the one-sided transfers still free — flagged by the
+ * system (FR 14: «переказ» to an own account with no pair for 4 days; FR 15: a card payment) or marked «Це переказ».
+ * «Це переказ» / «Це не переказ» is PUT /v1/transactions/{transactionId}/one-sided-transfer. The same rights as
+ * «Пари · N» (a scoped member: 404).
+ */
+export const listOneSidedTransfersRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/one-sided-transfers",
+  operationId: "listOneSidedTransfers",
+  summary:
+    "«Односторонні · N»: transactions whose other side is on an account outside Willowsum — flagged (they still count as usual) or marked «Це переказ» (neither income nor expense), newest first (IMP-03 FR 14, FR 18, FR 22)",
+  access: { permission: "household.data.read", feature: FEATURE },
+  response: {
+    status: 200,
+    description: "The one-sided transfers, newest first, at most 200; `count` — all of them",
+    schema: z.object({
+      items: z.array(
+        listedSideSchema.extend({
+          /** `flagged` — «односторонній переказ», counted as usual; `marked` — «Це переказ». */
+          state: z.enum(["flagged", "marked"]),
+          /** Why it was flagged: `transfer-words`, `own-account-words`, `card-payment` (extensible); empty — by hand. */
+          evidence: z.array(z.string()),
+        }),
+      ),
+      /** N of «Односторонні · N». */
+      count: z.number().int(),
+    }),
+  },
+  handler: async (_input, ctx) => {
+    if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
+    const { oneSided } = oneSidedWiring(ctx);
+    const { items, count } = await oneSided.oneSided(ctx.principal.householdId, PAIR_LIST_MAX);
+    return {
+      items: items.map((t) => ({ ...listedSide(t), state: t.state, evidence: [...t.evidence] })),
+      count,
+    };
+  },
+});
+
+/**
+ * IMP-03@PoC FR 18, FR 20, FR 21 (row 242) — «Пари → Підтверджені · N»: the confirmed pairs (transfers between own
+ * accounts and exchanges), with the fee or the currency difference the budget counts and its category. «Роз'єднати» is
+ * DELETE /v1/transactions/{transactionId}/transfer; «Змінити категорію» PUT …/transfer/fee-category.
+ */
+export const listConfirmedTransfersRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/transfer-pairs",
+  operationId: "listConfirmedTransfers",
+  summary:
+    "«Підтверджені · N»: the confirmed pairs — neither income nor expense — with the fee or currency difference and its category, newest first (IMP-03 FR 18, FR 20, FR 21)",
+  access: { permission: "household.data.read", feature: FEATURE },
+  response: {
+    status: 200,
+    description:
+      "The confirmed pairs, newest first (by the earlier side), at most 200; `count` — all of them",
+    schema: z.object({
+      items: z.array(
+        z.object({
+          /** The transfer's id. */
+          id: z.uuid(),
+          outflow: listedSideSchema,
+          inflow: listedSideSchema,
+          /** Edge case 1: the earlier side's date. */
+          date: z.string(),
+          kind: z.enum(["same-currency", "cross-currency"]).meta({ "x-extensible-enum": true }),
+          /** One currency: the fee (negative), an expense of `feeCategoryId`; null — none or two currencies. */
+          fee: moneySchema.nullable(),
+          /** Two currencies: the credit less the debit at `rate` (a loss negative, a gain positive); else null. */
+          currencyDifference: moneySchema.nullable(),
+          /** Two currencies: 1 unit of the inflow's currency in the outflow's, the official rate kept when marked. */
+          rate: z.object({ rate: z.string(), date: z.string(), source: z.string() }).nullable(),
+          /** FR 21: the category the budget counts the fee or difference in; null — «Комісії банку». */
+          feeCategoryId: z.uuid().nullable(),
+        }),
+      ),
+      /** N of «Підтверджені · N». */
+      count: z.number().int(),
+    }),
+  },
+  handler: async (_input, ctx) => {
+    if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
+    const { oneSided } = oneSidedWiring(ctx);
+    const { items, count } = await oneSided.confirmed(ctx.principal.householdId, PAIR_LIST_MAX);
+    return {
+      items: items.map((p) => {
+        const cross = p.outflow.amount.currency !== p.inflow.amount.currency;
+        return {
+          id: p.id,
+          outflow: listedSide(p.outflow),
+          inflow: listedSide(p.inflow),
+          date: p.date,
+          kind: cross ? ("cross-currency" as const) : ("same-currency" as const),
+          fee: !cross && p.difference ? p.difference.amount.toJSON() : null,
+          currencyDifference: cross && p.difference ? p.difference.amount.toJSON() : null,
+          rate: p.rate && { rate: p.rate.rate.toString(), date: p.rate.date, source: p.rate.source },
+          feeCategoryId: p.feeCategoryId,
+        };
+      }),
+      count,
+    };
+  },
+});
+
+/**
+ * IMP-03@PoC FR 18, FR 23 (row 242) — «Шукати пари знову»: the search over every free transaction of the space runs
+ * again — the proposals are found anew and the one-sided transfers that are one now get the flag (FR 14, FR 15; each
+ * with its audit entry). Nothing is marked or confirmed (FR 8). A writer's action (it flags): a viewer, an advisor and a
+ * scoped member — 403.
+ */
+export const searchTransferPairsRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/transfer-proposals/search",
+  operationId: "searchTransferPairs",
+  summary:
+    "«Шукати пари знову»: the pairs are searched for again over every free transaction, and the one-sided transfers flagged; nothing is confirmed (IMP-03 FR 8, FR 14, FR 23)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  response: {
+    status: 200,
+    description:
+      "How many proposals there are now (N of «Пари · N») and how many transactions this search flagged",
+    schema: z.object({
+      count: z.number().int(),
+      more: z.boolean(),
+      /** Flagged «односторонній переказ» by this search. */
+      flagged: z.number().int(),
+    }),
+  },
+  handler: async (_input, ctx) => {
+    if (ctx.principal.scoped) throw new ApiProblem("FORBIDDEN");
+    const { deps, oneSided } = oneSidedWiring(ctx);
+    return searchPairsAgain(deps, oneSided, ctx.principal.householdId, ctx.principal.userId);
+  },
+});
+
+export const transferMatchingRoutes = [
+  listTransferProposalsRoute,
+  listTransferCounterpartsRoute,
+  listOneSidedTransfersRoute,
+  listConfirmedTransfersRoute,
+  searchTransferPairsRoute,
+];

@@ -47,6 +47,7 @@ export async function countedInWindow(
                FROM transaction_parts p WHERE p.household_id = t.household_id AND p.transaction_id = t.id) AS parts
        FROM transactions t
       WHERE t.household_id = $1 AND NOT t.hidden AND t.merged_into IS NULL AND t.transfer_id IS NULL
+        AND t.one_sided IS DISTINCT FROM 'marked'
         AND (t.occurred_on BETWEEN $2::date AND $3::date
              OR (t.split_mode = 'months' AND EXISTS (SELECT 1 FROM transaction_parts p
                    WHERE p.household_id = t.household_id AND p.transaction_id = t.id
