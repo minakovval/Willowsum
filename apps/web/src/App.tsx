@@ -11,6 +11,7 @@ import { VerifyPage } from "./auth/VerifyPage.tsx";
 import { AccountCardPage } from "./accounts/AccountCardPage.tsx";
 import { AccountsPage } from "./accounts/AccountsPage.tsx";
 import { CategoriesPage } from "./categories/CategoriesPage.tsx";
+import { HistoryReviewPage } from "./rules/history/HistoryReviewPage.tsx";
 import { RulesPage } from "./rules/RulesPage.tsx";
 import { DebtsScreen, type DebtsTab } from "./debts/DebtsScreen.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
@@ -133,6 +134,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (route.child.id === "transactionHistory") return <TransactionHistoryPage />;
       // BUD-14@PoC c): S-197 «Правила категорій» (S-198 opens over it).
       if (route.child.id === "rules") return <RulesPage />;
+      // BUD-21@PoC g): S-299 «Файл історії · Перевірка розпізнавання».
+      if (route.child.id === "historyReview") return <HistoryReviewPage />;
       // FIN-03@PoC d): `/money/transactions/new` is «Транзакції» with «Нова транзакція» open over it (S-048).
       if (route.child.id === "newTransaction") return <TransactionsPage newTransaction />;
       // FIN-03@PoC FR 21: the tabs «До розбору» (BUD-12@PoC b), S-058) and «Пари» (a later row: the empty state until then).
