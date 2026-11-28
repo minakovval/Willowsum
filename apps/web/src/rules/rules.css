@@ -323,3 +323,9 @@
   text-align: end;
   font-variant-numeric: tabular-nums;
 }
+
+.rules-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+}

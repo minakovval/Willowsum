@@ -734,4 +734,31 @@ describe("GRID-02@PoC «Рахунки» page grid", () => {
     expect(screen.queryByRole("menu")).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Параметри" }));
   });
+
+  it("FIN-12@PoC AC19: «Параметри» above the table offers «Показати закриті» and no «Змінити порядок»; the page header has no «…» button", async () => {
+    renderAt("#/money/accounts", api([current]).client);
+    await screen.findByText("Щоденний");
+    const options = screen.getByRole("button", { name: "Параметри" });
+    // «Параметри» stands above the table it configures.
+    const toolbar = options.closest(".accounts-toolbar")!;
+    expect(toolbar.nextElementSibling?.querySelector(".accounts-table")).toBeTruthy();
+    fireEvent.click(options);
+    const menu = screen.getByRole("menu");
+    const items = (["menuitem", "menuitemcheckbox", "menuitemradio"] as const)
+      .flatMap((role) => within(menu).queryAllByRole(role))
+      .map((i) => plain(i.textContent));
+    expect(items).toEqual(["Показати закриті"]);
+    expect(within(menu).queryByText(/Змінити порядок/)).toBeNull();
+    expect(screen.queryByText(/Змінити порядок/)).toBeNull();
+    fireEvent.keyDown(menu, { key: "Escape" });
+    // No «…» (more actions) in the page header: only its two named actions.
+    const head = heading().closest(".accounts-head")!;
+    const controls = [...head.querySelectorAll("a, button")];
+    expect(controls.map((b) => plain(b.textContent))).toEqual(["Імпортувати виписку", "Додати рахунок"]);
+    for (const control of controls) {
+      expect(plain(control.textContent)).not.toMatch(/…|\.\.\./);
+      expect(control.getAttribute("aria-haspopup")).toBeNull();
+      expect(control.getAttribute("aria-label") ?? "").not.toMatch(/Ще|Більше|Інші дії|…/);
+    }
+  });
 });
