@@ -58,7 +58,7 @@ const headers = (space: Space, scoped = false) => ({
   ...principalHeader({
     userId: space.accountId,
     householdId: space.householdId,
-    ...(scoped ? { role: "viewer", scoped: true } : {}),
+    ...(scoped ? { role: "editor", scoped: true } : {}),
   }),
 });
 
@@ -309,7 +309,7 @@ describe("BUD-21@PoC FR 2: «вивести правила» moves the file into
     const review = await call(space, "GET", `/v1/import/history-files/${body.batch.id}`);
     expect(review.statusCode, review.body).toBe(200);
     expect(review.json().batch.state).toBe("parsed");
-    expect(review.json().missing).toEqual([]);
+    expect(review.json().recognition.missing).toEqual([]);
 
     // The rest of the batch goes on through the wizard: the statement's file with its parse and checks.
     const after = await parseView(space, batchId);
@@ -373,7 +373,7 @@ describe("BUD-21@PoC FR 2: «вивести правила» moves the file into
     ).toBe(1);
   });
 
-  it("BUD-21@PoC FR 2: refused with nothing written — a batch being parsed (409), another space's batch, an unknown file, a history batch, a scoped member (404)", async () => {
+  it("BUD-21@PoC FR 2: refused with nothing written — a batch being parsed (409), another space's batch, an unknown file, a history batch (404), a scoped member (refused as for an unknown id)", async () => {
     const space = await newSpace();
     const { batchId, fileIds } = await batchWith(space, [{ name: "istoriya.csv", bytes: HISTORY }]);
     expect((await call(space, "POST", `/v1/import/batches/${batchId}/parse`, {})).statusCode).toBe(200);
@@ -385,7 +385,11 @@ describe("BUD-21@PoC FR 2: «вивести правила» moves the file into
     const foreign = await call(other, "POST", moveUrl(batchId, fileIds[0]!));
     expect(foreign.statusCode, foreign.body).toBe(404);
     expect((await call(space, "POST", moveUrl(batchId, randomUUID()))).statusCode).toBe(404);
-    expect((await call(space, "POST", moveUrl(batchId, fileIds[0]!), undefined, true)).statusCode).toBe(404);
+    // A scoped member is refused before the batch is read: one answer for a known file and an unknown one.
+    const scopedKnown = await call(space, "POST", moveUrl(batchId, fileIds[0]!), undefined, true);
+    const scopedUnknown = await call(space, "POST", moveUrl(randomUUID(), randomUUID()), undefined, true);
+    expect([403, 404]).toContain(scopedKnown.statusCode);
+    expect(scopedKnown.statusCode).toBe(scopedUnknown.statusCode);
     const moved = await call(space, "POST", moveUrl(batchId, fileIds[0]!));
     expect(moved.statusCode, moved.body).toBe(201);
     // A history batch is no statements' batch: its file does not move again.
@@ -426,7 +430,7 @@ describe("BUD-21@PoC FR 2: «вивести правила» moves the file into
       [space.householdId],
     );
     const text = JSON.stringify(rows);
-    expect(text).toContain("files.to-history");
+    expect(text).toContain("files.toHistory");
     expect(text).toContain("history.from");
     for (const value of ["istoriya-oleny", ...LABELS, "SILPO", "120,50"]) expect(text).not.toContain(value);
   });
@@ -454,7 +458,7 @@ describe("BUD-21@PoC FR 2: «імпортувати як виписку» does n
     let text = await rowsText();
     for (const label of [...LABELS, "витрата", "переказ"]) expect(text).not.toContain(label);
     const descriptions = (
-      (await call(space, "GET", `/v1/import/batches/${batchId}/files/${fileIds[0]}/rows`)).json().rows as {
+      (await call(space, "GET", `/v1/import/batches/${batchId}/files/${fileIds[0]}/rows`)).json().items as {
         description: string;
       }[]
     ).map((r) => r.description);

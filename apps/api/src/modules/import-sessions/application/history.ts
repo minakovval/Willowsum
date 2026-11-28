@@ -379,7 +379,7 @@ export async function moveToHistoryFile(
           action: "update",
           changes: [
             { field: "state", before: batch.state, after: updated.state },
-            { field: "files.to-history", before: null, after: "1" },
+            { field: "files.toHistory", before: null, after: "1" },
           ],
         }),
       );
