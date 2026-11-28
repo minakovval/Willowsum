@@ -89,10 +89,15 @@ describe("DS-12@PoC no photos, uploads or illustrations", () => {
       /apps\/web\/src|packages\/ui\/src|packages\/api-contract/.test(f),
     );
     // The statement upload of the import wizard (IMP-01@PoC FR 3, IMP-08@PoC FR 2) is the one file input and the one
-    // FormData of the web app; it accepts statement formats only.
-    const statementUpload = /apps\/web\/src\/import\/(FilesStep\.tsx|api\.ts)$/;
+    // FormData of the web app, together with the history-file upload (BUD-21@PoC FR 1; HistoryUploadDialog.tsx,
+    // rules/history/api.ts); both accept statement and history formats only.
+    const statementUpload =
+      /apps\/web\/src\/(import\/(FilesStep\.tsx|api\.ts)|rules\/history\/(HistoryUploadDialog\.tsx|api\.ts))$/;
     expect(readFileSync(join(root, "apps/web/src/import/FilesStep.tsx"), "utf8")).toContain(
       'const ACCEPT = ".csv,.tsv,.xlsx,.xls";',
+    );
+    expect(readFileSync(join(root, "apps/web/src/rules/history/HistoryUploadDialog.tsx"), "utf8")).toContain(
+      'const ACCEPT = ".csv,.tsv,.xlsx,.xls,text/csv,text/tab-separated-values";',
     );
     for (const f of client.filter((x) => /\.(tsx?|json)$/.test(x) && !statementUpload.test(x))) {
       const text = readFileSync(f, "utf8");

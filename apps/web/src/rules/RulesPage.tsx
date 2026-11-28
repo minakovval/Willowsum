@@ -17,6 +17,7 @@ import { TRANSACTIONS } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { categoryOf, counted, ruleText, useRules, type Refs, type Rule, type Run } from "./api.ts";
+import { HistoryUploadDialog } from "./history/HistoryUploadDialog.tsx";
 import { RuleDialog, type Saved } from "./RuleDialog.tsx";
 import { RunNotice } from "./RunNotice.tsx";
 import "./rules.css";
@@ -53,6 +54,7 @@ export function RulesPage() {
 
 type Open =
   | { readonly kind: "none" }
+  | { readonly kind: "history" }
   | { readonly kind: "edit"; readonly rule: Rule | null }
   | { readonly kind: "delete"; readonly rule: Rule };
 
@@ -183,11 +185,26 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
           <p className="ws-muted">{t("rules.subtitle")}</p>
         </div>
         {rules.kind === "off" ? null : (
-          <Button
-            variant="primary"
-            label={t("rules.new")}
-            onClick={() => setOpen({ kind: "edit", rule: null })}
-          />
+          <div
+            className="rules-head-actions"
+            role="group"
+            aria-label={title}
+            aria-describedby="rules-history-hint"
+          >
+            <Button
+              icon="upload"
+              label={t("history.action.upload")}
+              onClick={() => setOpen({ kind: "history" })}
+            />
+            <Button
+              variant="primary"
+              label={t("rules.new")}
+              onClick={() => setOpen({ kind: "edit", rule: null })}
+            />
+            <span id="rules-history-hint" className="ws-visually-hidden">
+              {t("history.action.uploadHint")}
+            </span>
+          </div>
         )}
       </div>
 
@@ -306,6 +323,7 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
         </>
       )}
 
+      {open.kind === "history" ? <HistoryUploadDialog onClose={() => setOpen({ kind: "none" })} /> : null}
       {open.kind === "edit" ? (
         <RuleDialog rule={open.rule} refs={refs} onClose={() => setOpen({ kind: "none" })} onSaved={saved} />
       ) : null}

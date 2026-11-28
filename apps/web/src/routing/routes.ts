@@ -101,6 +101,7 @@ export type ChildId =
   | "review"
   | "pairs"
   | "rules"
+  | "historyReview"
   | "transaction"
   | "transactionHistory"
   | "newTransaction"
@@ -176,6 +177,23 @@ export const CHILDREN: readonly ChildDef[] = [
   { id: "budgetFlow", parent: BUDGET, path: `${BUDGET.path}/money-flow`, title: "flow.title" },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
+
+/**
+ * S-299 «Файл історії · Перевірка розпізнавання» (`/money/transactions/rules/history/:batchId`, BUD-21@PoC g), wave 2
+ * row 239): opens from the upload on S-197 «Правила категорій».
+ */
+const HISTORY_REVIEW: ChildDef = {
+  id: "historyReview",
+  parent: TRANSACTIONS,
+  path: `${TRANSACTIONS.path}/rules/history/:batchId`,
+  title: "history.review.title",
+};
+const HISTORY_REVIEW_PATH = /^\/money\/transactions\/rules\/history\/([0-9a-fA-F-]{36})$/;
+/** S-299 of one history file's batch. */
+export const historyReviewPath = (batchId: string): string =>
+  HISTORY_REVIEW.path.replace(":batchId", encodeURIComponent(batchId));
+/** The batch of an S-299 path, or `null` for any other path. */
+export const historyReviewIdOf = (path: string): string | null => HISTORY_REVIEW_PATH.exec(path)?.[1] ?? null;
 
 /** S-053 «Картка рахунку» (`/money/accounts/:id`, FIN-12@PoC c), GRID-02@PoC FR 2): a row of S-050 opens it. */
 const ACCOUNT: ChildDef = {
@@ -310,6 +328,7 @@ export function resolveRoute(path: string): Route {
     CHILDREN.find((c) => c.path === path) ??
     (ACCOUNT_SETTINGS_PATH.test(path) ? ACCOUNT_SETTINGS : undefined) ??
     (ACCOUNT_PATH.test(path) ? ACCOUNT : undefined) ??
+    (HISTORY_REVIEW_PATH.test(path) ? HISTORY_REVIEW : undefined) ??
     (TRANSACTION_PATH.test(path) ? TRANSACTION : undefined) ??
     (TRANSACTION_HISTORY_PATH.test(path) ? TRANSACTION_HISTORY : undefined);
   if (child) return { kind: "child", section: sectionOf(child.parent), child };

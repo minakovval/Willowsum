@@ -1,0 +1,298 @@
+/* BUD-21@PoC g) S-298 upload and S-299 «Перевірка розпізнавання»: canvas PocMoneyHistoryUpload, PocMoneyHistoryReview. Tokens only. */
+
+.hist-page {
+  display: grid;
+  gap: var(--ws-space-4);
+  min-inline-size: 0;
+}
+
+.hist-head {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.hist-head h1,
+.hist-head p,
+.hist-card h2,
+.hist-card p,
+.hist-note,
+.hist-failure,
+.hist-done,
+.hist-missing p {
+  margin: 0;
+}
+
+.hist-card {
+  display: grid;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-5);
+  min-inline-size: 0;
+}
+
+.hist-strong {
+  font-weight: 600;
+}
+
+.hist-failure {
+  color: var(--ws-loss);
+}
+
+.hist-missing {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-loss);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-negative);
+}
+
+.hist-done {
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+}
+
+/* Long names and one long word never widen the page. */
+.hist-wrap {
+  overflow-wrap: anywhere;
+  min-inline-size: 0;
+}
+
+.hist-num {
+  text-align: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.hist-column {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-1);
+  inline-size: calc(var(--ws-space-8) * 3);
+  min-inline-size: 0;
+}
+
+.hist-evidence {
+  margin: 0;
+  font-size: var(--ws-text-label-size);
+  overflow-wrap: anywhere;
+}
+
+/* A select inside a table or a row keeps its name for screen readers and drops the label above it. */
+.hist-compact .ws-select-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.hist-format {
+  flex: 0 1 calc(var(--ws-space-8) * 4);
+  min-inline-size: calc(var(--ws-space-8) * 3);
+}
+
+.hist-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.hist-structure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-1) var(--ws-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hist-table-wrap {
+  overflow-x: auto;
+}
+
+.hist-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.hist-table th,
+.hist-table td {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border-bottom: 1px solid var(--ws-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.hist-table th[scope="col"] {
+  font-size: var(--ws-text-label-size);
+  color: var(--ws-ink-muted);
+}
+
+.hist-table .hist-num {
+  text-align: end;
+}
+
+.hist-tree th[scope="row"] {
+  font-weight: 400;
+}
+
+.hist-group-row th[scope="row"] {
+  font-weight: 600;
+}
+
+.hist-nested {
+  padding-inline-start: var(--ws-space-6);
+}
+
+.hist-change {
+  display: grid;
+  gap: var(--ws-space-1);
+  min-inline-size: calc(var(--ws-space-8) * 3);
+}
+
+.hist-outcome[data-tone="match"] {
+  color: var(--ws-on-positive);
+}
+
+.hist-outcome[data-tone="create"] {
+  color: var(--ws-link);
+}
+
+.hist-questions {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hist-question {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-warning-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-warning);
+}
+
+.hist-question p {
+  margin: 0;
+  flex: 1 1 calc(var(--ws-space-8) * 4);
+  overflow-wrap: anywhere;
+}
+
+.hist-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--ws-space-8) * 5), 1fr));
+  gap: var(--ws-space-4);
+  align-items: start;
+}
+
+.hist-values {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hist-values li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.hist-account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--ws-space-2) var(--ws-space-3);
+}
+
+.hist-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-block-size: var(--ws-touch-target);
+}
+
+.hist-check input {
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+}
+
+.hist-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  padding-block-start: var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.hist-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+}
+
+.hist-footer .hist-note {
+  flex: 1 1 calc(var(--ws-space-8) * 3);
+}
+
+.hist-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-5);
+  border: 2px dashed var(--ws-border-control);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-tint-info);
+  text-align: center;
+}
+
+.hist-drop[data-dragging] {
+  border-color: var(--ws-link);
+  background: var(--ws-surface-300);
+}
+
+.hist-drop p {
+  margin: 0;
+}
+
+.hist-drop-icon {
+  color: var(--ws-link);
+}
+
+.hist-drop-title {
+  font-weight: 600;
+}
+
+.hist-reading {
+  display: grid;
+  gap: var(--ws-space-2);
+}
+
+.hist-reading p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.hist-reading-title {
+  font-weight: 600;
+}
