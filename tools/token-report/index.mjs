@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// Створено: 2026-11-14 · Оновлено: 2026-11-27 (огляд процесу 15)
+// Створено: 2026-11-14 · Оновлено: 2026-11-28 (огляд токенів, пропозиція 0)
 //
 // Token and time accounting for the issue «Облік токенів» (#180) — owner, 2026-11-14 (#178, comment 6873950124).
 //
 //   node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|процес|виправлення> --rounds <text>
-//        --run role=…,log=…,ms=…,tokens=… … (--ci-runs <runs.json> | --branch <PR branch>) [--note <text>]
+//        --run role=…,log=…,ms=… … (--ci-runs <runs.json> | --branch <PR branch>) [--note <text>]
 //        → the ready row of the table «PR» + one line per model; the note gets «моделі: …» (no per-agent list).
 //        Another type, or CI = 0 for a код, UI or виправлення PR, fails (exit 1).
 //   node tools/token-report/index.mjs batch --ledger <tsv> --tasks <dir> --body <file> [--prs …] [--types …] [--branches …]
-//        [--start <snap> --end <snap> --segment "ведучий N"] [--dry-run]   → PR rows (and the «Сесії» row) of every ledger
+//        [--start <snap> --end <snap> --segment "ведучий N" [--lead <transcript>]] [--dry-run]   → PR rows (and the «Сесії» row) of every ledger
 //        PR without a row, from tasks/<agentId>.output (owner, 2026-11-27); README.md, «Журнал агентів і batch».
 //   node tools/token-report/index.mjs session <transcript.jsonl> [--since <ISO>] [--until <ISO>]   → the lead's sums
 //   node tools/token-report/index.mjs append --body <file> --row "<| … |>" [--sessions]   → the #180 body saved in
