@@ -28,9 +28,14 @@ import { modulePasswordVariable } from "../src/platform/config/config.ts";
 import type { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { sealedColumnsPart, type ResealPart } from "../src/platform/modules/reseal.ts";
 import { KMS_ROTATE_BUSY, KMS_ROTATE_LOCK, resealParts } from "../scripts/lib/kms-rotate-data-keys.ts";
-import { createTestDatabase } from "./db.ts";
 import { leakText } from "./leak-text.ts";
-import { apiDir, migrateRealModules, openRealModules, realModules } from "./real-modules.ts";
+import {
+  apiDir,
+  migrateRealModules,
+  openRealModules,
+  realModules,
+  createRealModulesDatabase,
+} from "./real-modules.ts";
 
 /**
  * Security review of #736 (NFR-01@PoC FR 3): the properties of the data-key rotation the PR's own suite does not pin —
@@ -207,7 +212,7 @@ async function allOpen(h: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

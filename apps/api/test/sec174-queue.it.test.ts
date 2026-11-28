@@ -23,7 +23,7 @@ import {
 } from "../src/platform/queue/index.ts";
 import { redactAttributes } from "../src/platform/telemetry/redaction.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import {
   CONSUMER,
   PRODUCER,
@@ -34,7 +34,7 @@ import {
   thingCreated,
   type Behaviour,
 } from "./queue-fixture.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Security properties of the ARC-04 queue (security review of #174, `pullrequestreview-5895772977`, its eight proposed
@@ -78,7 +78,7 @@ const code = (p: Promise<unknown>) =>
   );
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

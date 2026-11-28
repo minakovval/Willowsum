@@ -26,9 +26,14 @@ import {
   resealParts,
   runKmsRotateDataKeys,
 } from "../scripts/lib/kms-rotate-data-keys.ts";
-import { createTestDatabase } from "./db.ts";
 import { leakText } from "./leak-text.ts";
-import { apiDir, migrateRealModules, openRealModules, realModules } from "./real-modules.ts";
+import {
+  apiDir,
+  migrateRealModules,
+  openRealModules,
+  realModules,
+  createRealModulesDatabase,
+} from "./real-modules.ts";
 
 /**
  * NFR-01@PoC FR 3, NFR-15@PoC FR 26 (the security review of #726) on a real PostgreSQL (`pnpm db:test`): the data keys
@@ -266,7 +271,7 @@ let fresh: string; // made under the installation's key: never exposed
 const preRewrap = new Map<string, Awaited<ReturnType<typeof keyRow>>>();
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

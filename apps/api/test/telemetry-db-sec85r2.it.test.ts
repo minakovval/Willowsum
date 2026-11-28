@@ -15,9 +15,9 @@ import { defineRoute } from "../src/platform/http/route.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import { householdA, principalHeader, testApiOptions, testWiring } from "./http.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Security review of PR #85, round 2 (ARC-09 FR 3): after the re-entry hooks were removed, the database span
@@ -56,7 +56,7 @@ const createAccount = defineRoute({
 });
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

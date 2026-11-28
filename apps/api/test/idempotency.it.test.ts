@@ -11,9 +11,9 @@ import { registerApi } from "../src/platform/http/api.ts";
 import { IDEMPOTENCY_REPLAYED_HEADER, moduleIdempotencyStore } from "../src/platform/http/idempotency.ts";
 import { defineRoute } from "../src/platform/http/route.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import { householdA, householdB, principalHeader, testAuthenticate } from "./http.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * ARC-07 FR 4 on a real PostgreSQL: idempotency keys stored per household and key with the request hash, in
@@ -51,7 +51,7 @@ const createThing = defineRoute({
 });
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

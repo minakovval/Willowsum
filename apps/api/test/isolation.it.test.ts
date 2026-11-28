@@ -10,8 +10,13 @@ import {
 import { HOUSEHOLD_COLUMN } from "../src/platform/db/isolation.ts";
 import type { ModuleDatabases, ModuleQueryRunner } from "../src/platform/db/module-db.ts";
 import { schemaName } from "../src/platform/modules/rules.ts";
-import { createTestDatabase } from "./db.ts";
-import { migrateRealModules, openRealModules, realModules, realModulesDir } from "./real-modules.ts";
+import {
+  migrateRealModules,
+  openRealModules,
+  realModules,
+  realModulesDir,
+  createRealModulesDatabase,
+} from "./real-modules.ts";
 
 /**
  * ARC-03, criterion «Запит, що повертає дані іншого простору — 0, навіть якщо фільтр у коді забуто;
@@ -52,7 +57,7 @@ async function code(promise: Promise<unknown>): Promise<string> {
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

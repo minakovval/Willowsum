@@ -106,6 +106,23 @@ declare module "vitest" {
 }
 
 /**
+ * A throw-away database for a suite that runs on the real modules: in the integration config a copy of the run's
+ * template database (test/real-modules-template.ts), elsewhere an empty one. The caller migrates it with
+ * `migrateRealModules` as before: on a copy that grants CONNECT on the new database to the module roles (database
+ * privileges are not copied), checks the isolation guard and the roles, and applies nothing. Suites that test the
+ * migrations themselves (schema rules, «old code + new schema», migration order and idempotency) use
+ * `createTestDatabase` and migrate from scratch.
+ */
+export async function createRealModulesDatabase(): Promise<{
+  name: string;
+  url: string;
+  drop: () => Promise<void>;
+}> {
+  const template = inject("realModulesTemplate");
+  return createTestDatabase(template === undefined ? {} : { template });
+}
+
+/**
  * A throw-away database with every real module migrated, for module integration tests (no driver import there).
  *
  * In the integration config it is a copy of the run's template database, which `test/real-modules-template.ts`
@@ -115,8 +132,7 @@ declare module "vitest" {
  * migrations themselves (schema.it, migration order, idempotency, «old code + new schema») migrate on their own.
  */
 export async function setupRealModules(poolSize = 2): Promise<RealModulesDatabase> {
-  const template = inject("realModulesTemplate");
-  const db = await createTestDatabase(template === undefined ? {} : { template });
+  const db = await createRealModulesDatabase();
   const owner = new pg.Client({ connectionString: db.url });
   const password = randomBytes(12).toString("hex");
   let databases: ModuleDatabases;

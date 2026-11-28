@@ -12,9 +12,9 @@ import { moduleIdempotencyStore } from "../src/platform/http/idempotency.ts";
 import { requireFound } from "../src/platform/http/problem.ts";
 import { defineRoute } from "../src/platform/http/route.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import { householdA, householdB, principalHeader, testAuthenticate } from "./http.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 import { leakText } from "./leak-text.ts";
 
 /**
@@ -80,7 +80,7 @@ const searchThings = defineRoute({
 });
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

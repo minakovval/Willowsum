@@ -17,8 +17,8 @@ import { filterValue } from "../src/platform/http/list-query.ts";
 import { defineList, type ListRequest } from "../src/platform/lists/list-engine.ts";
 import { createListTotals } from "../src/platform/lists/list-total.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
-import { migrateRealModules, realModules } from "./real-modules.ts";
+import { urlAs } from "./db.ts";
+import { migrateRealModules, realModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * DAT-01@PoC on a real PostgreSQL: the list engine runs as a module's own role inside a household transaction
@@ -110,7 +110,7 @@ async function eurRate(date: string, uah: string) {
 const eur = (amount: string) => Money.of(amount, "EUR");
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);
