@@ -1,14 +1,15 @@
 import type { z } from "zod";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
 import { enqueueJob } from "../../../../platform/queue/index.ts";
-import type {
-  DerivationRun,
-  DerivationsRun,
-  DerivationsTx,
-  DerivationStatus,
-  StoredSuggestion,
+import {
+  rejectionKey,
+  type DerivationRun,
+  type DerivationsRun,
+  type DerivationsTx,
+  type DerivationStatus,
+  type StoredSuggestion,
 } from "../../application/index.ts";
-import type { SuggestionCondition, SuggestionKind } from "../../domain/index.ts";
+import type { HistoryCheck, SuggestionCondition, SuggestionKind } from "../../domain/index.ts";
 import { AUDIT_JOB, HISTORY_DERIVATION_JOB } from "../queue/job.ts";
 
 /**
@@ -24,6 +25,7 @@ interface RunDbRow {
   processed: number;
   created_at: Date;
   ended_at: Date | null;
+  history_check: HistoryCheck | null;
 }
 
 interface SuggestionDbRow {
@@ -39,7 +41,8 @@ interface SuggestionDbRow {
   exception_rows: number[];
 }
 
-const RUN_COLUMNS = `id, batch_id, actor_account_id, status, row_count, processed, created_at, ended_at`;
+const RUN_COLUMNS = `id, batch_id, actor_account_id, status, row_count, processed, created_at, ended_at,
+                     history_check`;
 
 const run = (r: RunDbRow): DerivationRun => ({
   id: r.id,
@@ -50,6 +53,7 @@ const run = (r: RunDbRow): DerivationRun => ({
   processed: r.processed,
   createdAt: r.created_at.getTime(),
   endedAt: r.ended_at === null ? null : r.ended_at.getTime(),
+  check: r.history_check,
 });
 
 /** Suggestions are written this many per statement (a run of 20 000 rows has a few thousand at most). */
@@ -114,7 +118,7 @@ export function derivationsTx(q: HouseholdQueryRunner): DerivationsTx {
         [householdId, id, processed],
       );
     },
-    async finish(householdId, id, status, suggestions, at) {
+    async finish(householdId, id, status, suggestions, at, check = null) {
       for (let i = 0; i < suggestions.length; i += INSERT_CHUNK) {
         const part = suggestions.slice(i, i + INSERT_CHUNK);
         await q.query(
@@ -146,9 +150,10 @@ export function derivationsTx(q: HouseholdQueryRunner): DerivationsTx {
       }
       await q.query(
         `UPDATE history_derivations
-            SET status = $3, ended_at = $4, processed = CASE WHEN $3 = 'completed' THEN row_count ELSE processed END
+            SET status = $3, ended_at = $4, processed = CASE WHEN $3 = 'completed' THEN row_count ELSE processed END,
+                history_check = $5::jsonb
           WHERE household_id = $1 AND id = $2`,
-        [householdId, id, status, new Date(at)],
+        [householdId, id, status, new Date(at), check === null ? null : JSON.stringify(check)],
       );
     },
     async suggestions(householdId, derivationId) {
@@ -185,6 +190,30 @@ export function derivationsTx(q: HouseholdQueryRunner): DerivationsTx {
         [householdId, batchIds],
       );
       return rowCount ?? 0;
+    },
+    async latestPerBatch(householdId) {
+      const { rows } = await q.query<RunDbRow>(
+        `SELECT * FROM (SELECT DISTINCT ON (batch_id) ${RUN_COLUMNS} FROM history_derivations WHERE household_id = $1
+                         ORDER BY batch_id, created_at DESC, id DESC) d
+          ORDER BY created_at DESC, id DESC`,
+        [householdId],
+      );
+      return rows.map(run);
+    },
+    async rejections(householdId) {
+      const { rows } = await q.query<{ condition_key: string; category_id: string }>(
+        `SELECT condition_key, category_id FROM history_rejections WHERE household_id = $1`,
+        [householdId],
+      );
+      return new Set(rows.map((r) => rejectionKey(r.condition_key, r.category_id)));
+    },
+    async reject(householdId, r) {
+      const { rowCount } = await q.query(
+        `INSERT INTO history_rejections (household_id, condition_key, category_id, actor_account_id, created_at)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING`,
+        [householdId, r.key, r.categoryId, r.actorAccountId, new Date(r.at)],
+      );
+      return (rowCount ?? 0) > 0;
     },
   };
 }

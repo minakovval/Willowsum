@@ -35,6 +35,11 @@ export interface CategorizationServices {
   readonly clock: { now(): number };
   /** BUD-21 c: the derivation of rules from history files; absent — its routes answer 500. */
   readonly derivations: DerivationDeps | null;
+  /**
+   * BUD-21 FR 22 (row 237): the release flag `categorization.rules` of the space — the acceptance makes rules, so its
+   * routes (feature `categorization.history-rules`, whose flag does not require it) are not found with it off.
+   */
+  readonly rulesEnabled: (householdId: string) => Promise<boolean>;
 }
 
 /** BUD-21 c, FR 16: what the derivation of rules needs besides the rules' ports. */
@@ -66,6 +71,8 @@ export function createCategorizationServices(options: {
    * categories' directory for the service category «Переказ» of the transfer rows (BUD-21 FR 16, row 236).
    */
   readonly history?: HistoryPorts;
+  /** The release flags (BUD-21 FR 22: `categorization.rules` for the acceptance); absent — it is off. */
+  readonly flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> };
 }): CategorizationServices {
   const clock = options.clock ?? { now: () => Date.now() };
   return {
@@ -86,6 +93,8 @@ export function createCategorizationServices(options: {
             newId: options.history.newId,
           }
         : null,
+    rulesEnabled: async (householdId) =>
+      options.flags ? options.flags.isEnabled(householdId, "categorization.rules") : false,
   };
 }
 
