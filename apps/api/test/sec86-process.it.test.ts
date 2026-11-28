@@ -6,8 +6,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { enableContextLogin, enableModuleLogin, enableProbeLogin } from "../src/platform/db/migrate.ts";
 import { modulePasswordVariable } from "../src/platform/config/config.ts";
-import { createTestDatabase } from "./db.ts";
-import { migrateRealModules, realModules } from "./real-modules.ts";
+import { migrateRealModules, realModules, createRealModulesDatabase } from "./real-modules.ts";
 
 const apiDir = fileURLToPath(new URL("..", import.meta.url));
 const probePassword = randomBytes(12).toString("hex");
@@ -75,7 +74,7 @@ async function waitFor(url: string, status: number, timeoutMs: number): Promise<
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   // Readiness needs every migration the code ships (ARC-02 FR 4).

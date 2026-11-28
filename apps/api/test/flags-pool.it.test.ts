@@ -6,8 +6,8 @@ import { enableContextLogin, enableModuleLogin } from "../src/platform/db/migrat
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import { contextPoolOptions, modulePoolOptions } from "../src/wiring.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { urlAs } from "./db.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * CICD-06 / ADR-0004 on a real PostgreSQL, with the pool settings main.ts uses (src/wiring.ts): the
@@ -20,7 +20,7 @@ let databases: ModuleDatabases;
 const password = randomBytes(12).toString("hex");
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

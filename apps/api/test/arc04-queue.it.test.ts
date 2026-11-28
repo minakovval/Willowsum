@@ -23,7 +23,7 @@ import {
 } from "../src/platform/queue/index.ts";
 import { modulePoolSize } from "../src/wiring.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import {
   CONSUMER,
   PRODUCER,
@@ -37,7 +37,7 @@ import {
   thingCreated,
   type Behaviour,
 } from "./queue-fixture.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * ARC-04@PoC on a real PostgreSQL (with ARC-02 FR 2 and NFR-05 FR 6): the job queue and the outbox in the modules'
@@ -87,7 +87,7 @@ async function createThing(space: string, fail = false): Promise<string> {
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

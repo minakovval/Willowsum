@@ -15,7 +15,7 @@ import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import { createWorker, enqueueJob, type Worker } from "../src/platform/queue/index.ts";
 import { buildServer } from "../src/platform/process/server.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import { fakeFlags } from "./http.ts";
 import {
   behaviour,
@@ -26,7 +26,7 @@ import {
   queueSetup,
   type Behaviour,
 } from "./queue-fixture.ts";
-import { migrateRealModules, realModules } from "./real-modules.ts";
+import { migrateRealModules, realModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * ACC-04@PoC AC4 and the edge case of a long background operation, on a real PostgreSQL: an operation the user
@@ -76,7 +76,7 @@ async function send(method: "GET" | "POST" | "DELETE", url: string, body?: unkno
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

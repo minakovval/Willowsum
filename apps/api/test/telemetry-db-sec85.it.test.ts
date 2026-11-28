@@ -13,9 +13,9 @@ import { defineRoute } from "../src/platform/http/route.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import { householdA, principalHeader, testApiOptions, testWiring } from "./http.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Security review of PR #85 — NFR-10 FR 2 on a real PostgreSQL for the fields the unit tests only fake: an
@@ -77,7 +77,7 @@ const probe = defineRoute({
 });
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

@@ -14,9 +14,9 @@ import { defineRoute } from "../src/platform/http/route.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import { householdA, principalHeader, testApiOptions, testWiring } from "./http.ts";
-import { migrateRealModules } from "./real-modules.ts";
+import { migrateRealModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * NFR-10 acceptance 1 on a real PostgreSQL: «Given a request with an amount and an account name failed with a
@@ -57,7 +57,7 @@ const createAccount = defineRoute({
 });
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

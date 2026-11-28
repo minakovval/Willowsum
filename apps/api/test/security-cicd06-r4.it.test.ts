@@ -12,9 +12,9 @@ import { enableContextLogin, enableModuleLogin, enableProbeLogin } from "../src/
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import { contextPoolOptions, modulePoolOptions } from "../src/wiring.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { urlAs } from "./db.ts";
 import { householdA, householdB } from "./http.ts";
-import { migrateRealModules, realModules } from "./real-modules.ts";
+import { migrateRealModules, realModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Security review of PR #83 at 6ce7f5a on a real PostgreSQL: the 5 s limits hold on every connection of the
@@ -53,7 +53,7 @@ async function lock(table: string): Promise<{ release: () => Promise<void> }> {
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

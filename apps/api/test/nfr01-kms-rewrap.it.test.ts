@@ -16,8 +16,13 @@ import {
 import { modulePasswordVariable } from "../src/platform/config/config.ts";
 import type { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { runKmsRewrap } from "../scripts/lib/kms-rewrap.ts";
-import { createTestDatabase } from "./db.ts";
-import { apiDir, migrateRealModules, openRealModules, realModules } from "./real-modules.ts";
+import {
+  apiDir,
+  migrateRealModules,
+  openRealModules,
+  realModules,
+  createRealModulesDatabase,
+} from "./real-modules.ts";
 
 /**
  * NFR-01@PoC FR 3, NFR-15@PoC FR 26 (security review of #722) on a real PostgreSQL (`pnpm db:test`): the one-time
@@ -81,7 +86,7 @@ function run(file: string, args: string[], env: Record<string, string>) {
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

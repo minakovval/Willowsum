@@ -12,8 +12,8 @@ import { filterValue } from "../src/platform/http/list-query.ts";
 import { defineList, type ListRequest } from "../src/platform/lists/list-engine.ts";
 import { createListTotals } from "../src/platform/lists/list-total.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
-import { migrateRealModules, realModules } from "./real-modules.ts";
+import { urlAs } from "./db.ts";
+import { migrateRealModules, realModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Security review of PR #129 (DAT-01@PoC), round 1: gaps found by mutation testing of the list engine and totals.
@@ -106,7 +106,7 @@ async function eurRate(date: string, uah: string) {
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);

@@ -6,8 +6,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { modulePasswordVariable } from "../src/platform/config/config.ts";
 import { enableContextLogin, enableModuleLogin, enableProbeLogin } from "../src/platform/db/migrate.ts";
-import { createTestDatabase } from "./db.ts";
-import { migrateRealModules, realModules } from "./real-modules.ts";
+import { migrateRealModules, realModules, createRealModulesDatabase } from "./real-modules.ts";
 
 /**
  * ARC-02@PoC FR 1 with ARC-04: one entry point (one image) runs as the API, the job worker or the scheduler; the
@@ -73,7 +72,7 @@ async function run(role: string): Promise<{ output: string; code: number | null 
 }
 
 beforeAll(async () => {
-  db = await createTestDatabase();
+  db = await createRealModulesDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);
