@@ -12,13 +12,15 @@ CREATE UNIQUE INDEX category_groups_history_kind ON category_groups (household_i
 -- subcategory without case, diacritics and extra spaces) — the lookup needs no more, and no label of the file is kept
 -- as text. `category_id` null — the label is a transfer (FR 8). A deleted category takes its matchings with it (BUD-01
 -- FR 12); a merged one is followed to its target when read. Row-level security on household_id is added by the
--- migration runner (ARC-03 FR 2).
+-- migration runner (ARC-03 FR 2). `batch_id` — the history file whose confirmation kept the matching: a confirmation
+-- of the same file tried again (its batch did not commit) takes the category it created, not a second one.
 CREATE TABLE history_label_mappings (
   household_id uuid NOT NULL,
   label_hash text NOT NULL CHECK (label_hash ~ '^[0-9a-f]{64}$'),
   category_id uuid,
   confirmed_by uuid NOT NULL,
   confirmed_at timestamptz NOT NULL,
+  batch_id uuid NOT NULL,
   PRIMARY KEY (household_id, label_hash),
   -- Checked at commit, like the categories' own keys (the synthetic loader goes in name order).
   FOREIGN KEY (household_id, category_id) REFERENCES categories (household_id, id)

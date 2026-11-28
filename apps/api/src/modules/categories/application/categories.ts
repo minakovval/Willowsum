@@ -108,13 +108,16 @@ export interface CategoriesTx {
   labelMappings(
     householdId: string,
     hashes: readonly string[],
-  ): Promise<readonly { readonly hash: string; readonly categoryId: string | null }[]>;
-  /** BUD-21 FR 25: keeps the matchings confirmed now (a label confirmed again takes its new category). */
+  ): Promise<
+    readonly { readonly hash: string; readonly categoryId: string | null; readonly batchId: string }[]
+  >;
+  /** BUD-21 FR 25: keeps the matchings confirmed now for this history file (a label confirmed again takes its new category). */
   saveLabelMappings(
     householdId: string,
     rows: readonly { readonly hash: string; readonly categoryId: string | null }[],
     by: string,
     at: Date,
+    batchId: string,
   ): Promise<void>;
 }
 

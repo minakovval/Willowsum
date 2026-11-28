@@ -60,6 +60,8 @@ async function planOf(
   householdId: string,
   counts: readonly FileLabelCount[],
   choices: readonly LabelChoice[],
+  /** The history file confirmed now; absent — the step's plan. */
+  batchId?: string,
 ): Promise<LabelsResult<{ readonly groups: StoredGroup[] }>> {
   const keys = keysOf(counts);
   const hashes = new Map(keys.map((k) => [labelHash(k), k]));
@@ -68,12 +70,32 @@ async function planOf(
     tx.categories(householdId, { withRetired: true }),
     tx.labelMappings(householdId, [...hashes.keys()]),
   ]);
+  // A confirmation of this file tried again (its batch did not commit after the categories did): «створити нову»
+  // takes the category the first attempt created for the label, while it is in use — nothing is created twice.
+  const inUse = new Set(
+    categories.filter((c) => c.state !== "retired" && c.kind !== "service").map((c) => c.id),
+  );
+  const createdNow = new Map(
+    stored.flatMap((m) =>
+      batchId !== undefined && m.batchId === batchId && m.categoryId !== null && inUse.has(m.categoryId)
+        ? [[hashes.get(m.hash)!, m.categoryId] as const]
+        : [],
+    ),
+  );
+  const again = (choice: LabelChoice): LabelChoice => {
+    const category = choice.category ?? choice.subcategory;
+    if (choice.action !== "create" || category === null) return choice;
+    const id = createdNow.get(leafKey(category, choice.category !== null ? choice.subcategory : null));
+    return id === undefined
+      ? choice
+      : { category: choice.category, subcategory: choice.subcategory, action: "category", categoryId: id };
+  };
   const result = planLabels({
     counts,
     groups,
     categories,
     remembered: stored.map((m) => ({ key: hashes.get(m.hash)!, categoryId: m.categoryId })),
-    choices,
+    choices: choices.map(again),
   });
   if (!result.ok) return { ok: false, refusal: { kind: "choice", ...result.refusal } };
   return { ok: true, plan: result.plan, groups };
@@ -106,7 +128,7 @@ export async function confirmHistoryLabels(
 ): Promise<LabelsResult<{ readonly resolved: readonly ResolvedLabel[] }>> {
   const { householdId } = caller;
   await tx.lockTree(householdId);
-  const planned = await planOf(tx, householdId, counts, choices);
+  const planned = await planOf(tx, householdId, counts, choices, batchId);
   if (!planned.ok) return planned;
   const { plan } = planned;
   const invalid = plan.labels.filter((l) => l.questions.includes("name-invalid")).length;
@@ -187,7 +209,7 @@ export async function confirmHistoryLabels(
   const kept = plan.labels.flatMap((l, i) =>
     resolved[i]!.action === "skip" ? [] : [{ hash: labelHash(l.key), categoryId: resolved[i]!.categoryId }],
   );
-  await tx.saveLabelMappings(householdId, kept, caller.accountId, new Date(deps.now()));
+  await tx.saveLabelMappings(householdId, kept, caller.accountId, new Date(deps.now()), batchId);
   await deps.audit.changed(householdId, caller, { type: "categories.history", id: batchId }, "create", null, {
     groupsCreated: String(groupIds.size),
     categoriesCreated: String(created),

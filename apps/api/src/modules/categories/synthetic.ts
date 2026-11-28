@@ -124,6 +124,7 @@ export const synthetic = [
           category_id: i % 2 === 0 ? key(household.id, "category", 0) : null,
           confirmed_by: key(household.id, "member", 0),
           confirmed_at: "2026-11-27T10:00:00Z",
+          batch_id: key(household.id, "history-batch", 0),
         };
     },
   }),

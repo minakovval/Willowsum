@@ -261,23 +261,24 @@ export function categoriesTx(q: HouseholdQueryRunner): CategoriesTx {
       );
     },
     async labelMappings(householdId, hashes) {
-      const { rows } = await q.query<{ label_hash: string; category_id: string | null }>(
-        `SELECT label_hash, category_id FROM history_label_mappings
+      const { rows } = await q.query<{ label_hash: string; category_id: string | null; batch_id: string }>(
+        `SELECT label_hash, category_id, batch_id FROM history_label_mappings
           WHERE household_id = $1 AND label_hash = ANY($2::text[])`,
         [householdId, hashes],
       );
-      return rows.map((r) => ({ hash: r.label_hash, categoryId: r.category_id }));
+      return rows.map((r) => ({ hash: r.label_hash, categoryId: r.category_id, batchId: r.batch_id }));
     },
-    async saveLabelMappings(householdId, rows, by, at) {
+    async saveLabelMappings(householdId, rows, by, at, batchId) {
       if (rows.length === 0) return;
       await q.query(
-        `INSERT INTO history_label_mappings (household_id, label_hash, category_id, confirmed_by, confirmed_at)
-           SELECT $1, m.hash, m.category_id, $4, $5
+        `INSERT INTO history_label_mappings
+             (household_id, label_hash, category_id, confirmed_by, confirmed_at, batch_id)
+           SELECT $1, m.hash, m.category_id, $4, $5, $6
              FROM unnest($2::text[], $3::uuid[]) AS m(hash, category_id)
          ON CONFLICT (household_id, label_hash)
            DO UPDATE SET category_id = EXCLUDED.category_id, confirmed_by = EXCLUDED.confirmed_by,
-                         confirmed_at = EXCLUDED.confirmed_at`,
-        [householdId, rows.map((r) => r.hash), rows.map((r) => r.categoryId), by, at],
+                         confirmed_at = EXCLUDED.confirmed_at, batch_id = EXCLUDED.batch_id`,
+        [householdId, rows.map((r) => r.hash), rows.map((r) => r.categoryId), by, at, batchId],
       );
     },
   };
