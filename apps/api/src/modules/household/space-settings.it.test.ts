@@ -285,7 +285,7 @@ describe("ACC-08@PoC FR 4: a space always has exactly one Owner; no transfer of 
     // exactly these paths are let through, and they need household.data.read / write, never household.transfer.
     // «Переказ між рахунками» in one action (FIN-03 FR 1, FR 28; #437) is one of them, and so is «Не пара» of a
     // proposed transfer (IMP-03 FR 12, row 48), and the read-only list of candidates of «Позначити як переказ» (IMP-03 FR 24).
-    // IMP-03 d (row 139a): «Це переказ» of a one-sided transfer (FR 22), the fee's category of a pair (FR 21), the lists
+    // IMP-03 d (row 242): «Це переказ» of a one-sided transfer (FR 22), the fee's category of a pair (FR 21), the lists
     // «Односторонні» and «Підтверджені» (FR 18) and «Шукати пари знову» (FR 23).
     const moneyTransfers = new Set([
       "/v1/transactions/{transactionId}/transfer",

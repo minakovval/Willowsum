@@ -1034,7 +1034,7 @@ const feeCategoryWiring = (ctx: ProtectedContext) => {
 };
 
 /**
- * IMP-03@PoC FR 21 (row 139a): «Змінити категорію» of a confirmed pair's fee — the budget counts the fee (one currency)
+ * IMP-03@PoC FR 21 (row 242): «Змінити категорію» of a confirmed pair's fee — the budget counts the fee (one currency)
  * or the currency difference (two) in the chosen category instead of «Комісії банку»; the journal does not change.
  */
 export const setTransferFeeCategoryRoute = defineRoute({
@@ -1080,7 +1080,7 @@ export const setTransferFeeCategoryRoute = defineRoute({
 });
 
 /**
- * IMP-03@PoC FR 14, FR 22 (row 139a): the switch «Це переказ» of a one-sided transfer — `isTransfer` true: neither income
+ * IMP-03@PoC FR 14, FR 22 (row 242): the switch «Це переказ» of a one-sided transfer — `isTransfer` true: neither income
  * nor expense; false — «Це не переказ»: the flag is gone and never set again, it counts as usual. Flagged or not (FR 24:
  * with no candidates the user marks it one-sided). The journal does not change.
  */

@@ -24,7 +24,7 @@ export interface CardPaymentDeps extends ProposalDeps {
     inflowId: string,
   ) => Promise<boolean>;
   /**
-   * IMP-03@PoC FR 1, FR 14, FR 15 (row 139a): the one-sided check, run after the card payments over the space's free
+   * IMP-03@PoC FR 1, FR 14, FR 15 (row 242): the one-sided check, run after the card payments over the space's free
    * transactions (index.ts `createCardPaymentTransfers`); left out — none.
    */
   readonly oneSided?: OneSidedDeps;

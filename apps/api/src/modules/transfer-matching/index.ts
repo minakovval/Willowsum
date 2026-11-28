@@ -80,7 +80,7 @@ export function createCardPaymentTransfers(deps: CardPaymentDeps): CardPaymentTr
   return {
     async markFor(householdId, actorAccountId, fresh) {
       const marked = await markCardPayments(deps, householdId, actorAccountId, fresh);
-      // IMP-03@PoC FR 1, FR 14, FR 15 (row 139a): then the one-sided transfers among the free transactions. A failure
+      // IMP-03@PoC FR 1, FR 14, FR 15 (row 242): then the one-sided transfers among the free transactions. A failure
       // never undoes the marks; «Шукати пари знову» flags them later (FR 16). Class only, never a value.
       if (deps.oneSided && (await deps.enabled(householdId)))
         try {

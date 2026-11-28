@@ -240,7 +240,7 @@ const listedSide = (s: OneSidedSide | ConfirmedPair["outflow"]): z.input<typeof 
 });
 
 /**
- * IMP-03@PoC FR 18, FR 22 (row 139a) — «Пари → Односторонні · N»: the one-sided transfers still free — flagged by the
+ * IMP-03@PoC FR 18, FR 22 (row 242) — «Пари → Односторонні · N»: the one-sided transfers still free — flagged by the
  * system (FR 14: «переказ» to an own account with no pair for 4 days; FR 15: a card payment) or marked «Це переказ».
  * «Це переказ» / «Це не переказ» is PUT /v1/transactions/{transactionId}/one-sided-transfer. The same rights as
  * «Пари · N» (a scoped member: 404).
@@ -281,7 +281,7 @@ export const listOneSidedTransfersRoute = defineRoute({
 });
 
 /**
- * IMP-03@PoC FR 18, FR 20, FR 21 (row 139a) — «Пари → Підтверджені · N»: the confirmed pairs (transfers between own
+ * IMP-03@PoC FR 18, FR 20, FR 21 (row 242) — «Пари → Підтверджені · N»: the confirmed pairs (transfers between own
  * accounts and exchanges), with the fee or the currency difference the budget counts and its category. «Роз'єднати» is
  * DELETE /v1/transactions/{transactionId}/transfer; «Змінити категорію» PUT …/transfer/fee-category.
  */
@@ -346,7 +346,7 @@ export const listConfirmedTransfersRoute = defineRoute({
 });
 
 /**
- * IMP-03@PoC FR 18, FR 23 (row 139a) — «Шукати пари знову»: the search over every free transaction of the space runs
+ * IMP-03@PoC FR 18, FR 23 (row 242) — «Шукати пари знову»: the search over every free transaction of the space runs
  * again — the proposals are found anew and the one-sided transfers that are one now get the flag (FR 14, FR 15; each
  * with its audit entry). Nothing is marked or confirmed (FR 8). A writer's action (it flags): a viewer, an advisor and a
  * scoped member — 403.

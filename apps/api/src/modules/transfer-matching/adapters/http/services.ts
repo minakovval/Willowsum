@@ -12,7 +12,7 @@ export interface TransferMatchingServices {
   readonly [BRAND]: true;
   readonly deps: CounterpartDeps;
   /**
-   * IMP-03@PoC FR 14, FR 18, FR 23 (row 139a): «Односторонні», «Підтверджені» and «Шукати пари знову»; null when not
+   * IMP-03@PoC FR 14, FR 18, FR 23 (row 242): «Односторонні», «Підтверджені» and «Шукати пари знову»; null when not
    * wired — those routes answer 500.
    */
   readonly oneSided: OneSidedDeps | null;

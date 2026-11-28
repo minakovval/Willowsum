@@ -164,6 +164,20 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     кандидат (`TransferCandidates`), навіть після «Роз'єднати»; більше нічого не змінюється. Коди 400 — як у
     `markTransfer` (без `rate_unavailable`); закритий рахунок транзакції — 409 `ACCOUNT_CLOSED`. Повтор — нічого. Запис
     аудиту транзакції, на якій дія, — `notTransferOf` (п. 19).
+  - `PUT /v1/transactions/{transactionId}/one-sided-transfer` (`setOneSidedTransfer`; IMP-03 п. 14, 22, рядок 242; той
+    самий прапорець і дозвіл) — `{ isTransfer }`: `true` — «Це переказ» (односторонній переказ не входить у бюджет,
+    «Подушку безпеки» і пропозиції пар), `false` — «Це не переказ» (позначка знімається і більше не ставиться). Позначена
+    системою чи ні (п. 24: без кандидатів). Проведена, показана, не розділена, не злита, не в переказі, не нуль — інакше
+    400 (`in: path`, коди `pending`, `hidden`, `split`, `merged`, `in_transfer`, `zero`); закритий рахунок — 409. Журнал не
+    змінюється; аудит — `oneSidedTransfer` (до й після) і `oneSidedTransfer.evidence`. Поле `oneSidedTransfer` транзакції
+    (`flagged` / `marked` і докази; null — немає або «Це не переказ») — у деталі і в списку. Пара («Підтвердити»,
+    «Поєднати в пару») знімає `flagged` і `marked` з обох сторін (AC11).
+  - `POST /v1/transactions/{transactionId}/transfer` приймає `feeCategoryId` (IMP-03 п. 21): категорія комісії чи
+    валютної різниці пари замість «Комісії банку» — категорія простору, не об'єднана, не службова (інакше 400
+    `feeCategoryId: not_found`). `PUT /v1/transactions/{transactionId}/transfer/fee-category` (`setTransferFeeCategory`) —
+    `{ categoryId }` (null — знову «Комісії банку») для підтвердженої пари; не сторона пари — 400 `transactionId:
+    not_transfer`; закритий рахунок — 409; аудит списання — `transfer.feeCategory`; журнал не змінюється. Поле
+    `transfer.feeCategoryId`.
   - Сторона переказу: `hide`, `split`, `DELETE` і зміна рахунку, суми, дати чи статусу — 409 `TRANSACTION_IN_TRANSFER`
     (тексти змінюються). Список: фільтр `transfer.eq`, поле `transfer` кожного рядка.
   - `POST /v1/transactions/{transactionId}/merge` (`mergeDuplicate`; прапорець і ключ `transactions.duplicates`, потребує
@@ -314,6 +328,13 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   `windowDays` до або після, у тій самій валюті зарахування не більше за списання і менше за нього щонайбільше на `amountShare` обраної суми, в іншій — будь-яка сума; з
   `counterparty` і `description`; за днями між ними, потім різницею сум; до `limit`. Пари «Не пара» тут лишаються
   (лише читання).
+- `TransferCandidates.singles(householdId, limit)`, `.oneSided(householdId, limit)`, `.confirmed(householdId, limit)`
+  (IMP-03 п. 14, 15, 18; `adapters/db/pair-reads.ts`, лише читання) — вільні транзакції без стану одностороннього
+  переказу з текстами (опис банку теж) для перевірки transfer-matching; позначені й «Це переказ» односторонні, що ще
+  вільні; підтверджені пари з комісією чи різницею і `feeCategoryId`. Новіші спочатку, до `limit`, з `count`.
+- `createOneSidedFlagging(db, { accounts, ledger, audit })` → `OneSidedFlagging.flag(householdId, actorAccountId, items)`
+  (IMP-03 п. 14, 15) — позначка системи «односторонній переказ» з доказами кожній із `items`, що ще вільна і ніколи не мала
+  стану («Це не переказ» — ніколи знову): версія рядка, передача й аудит від імені `actorAccountId`. Повертає кількість.
 - `createTransferMarking(db, { accounts, ledger, audit, newId, rates })` → `TransferMarking.mark(householdId,
   actorAccountId, outflowId, inflowId)` (BUD-01@PoC п. 7, AC4; #722 D) — «Позначити як переказ» пари для
   `transfer-matching` (платіж на кредитну картку): та сама дія, що й маршрут (`markTransfer`: блокування обох рядків і
@@ -447,10 +468,10 @@ accounts, рядок 198; #455, #409, #240, #290): кожен запис — с�
 
 | Таблиця | Що |
 | --- | --- |
-| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual` / `imported`; імпортовану пише крок застосування імпорту), `import_batch_id` (партія import-sessions лише в імпортованої) і `balance_after` (залишок після операції з виписки) (`0009_imported.sql`), `import_file_id`, `import_row` (унікальний ключ рядка партії) і `bank_description` (опис банку) (`0010_import_rows.sql`), `original_amount` і `original_currency` (початкова сума), `exchange_rate` (курс банку), `value_date` (дата валютування), `bank_reference` (референс банку) — лише в імпортованої (`0014_bank_fields.sql`), `bank_fee` і `bank_fee_currency` (комісія банку, додатна, у своїй валюті — валюті рядка під час імпорту; обидва або жодного; лише в імпортованої; подія журналу — основна нога й нога комісії, `0015_bank_fee.sql`), `hidden`, режим розділення і `split_needs_review`, `one_off` («Одноразова витрата», BUD-06 п. 8, `0013_one_off.sql`), версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
+| `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual` / `imported`; імпортовану пише крок застосування імпорту), `import_batch_id` (партія import-sessions лише в імпортованої) і `balance_after` (залишок після операції з виписки) (`0009_imported.sql`), `import_file_id`, `import_row` (унікальний ключ рядка партії) і `bank_description` (опис банку) (`0010_import_rows.sql`), `original_amount` і `original_currency` (початкова сума), `exchange_rate` (курс банку), `value_date` (дата валютування), `bank_reference` (референс банку) — лише в імпортованої (`0014_bank_fields.sql`), `bank_fee` і `bank_fee_currency` (комісія банку, додатна, у своїй валюті — валюті рядка під час імпорту; обидва або жодного; лише в імпортованої; подія журналу — основна нога й нога комісії, `0015_bank_fee.sql`), `hidden`, режим розділення і `split_needs_review`, `one_off` («Одноразова витрата», BUD-06 п. 8, `0013_one_off.sql`), `one_sided` (`flagged` · `marked` · `dismissed`) і `one_sided_evidence` (односторонній переказ, IMP-03 п. 14, 22, `0018_one_sided_and_fee_category.sql`), версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
 | `tags` | Теги простору (BUD-13 п. 2): назва, ключ `name_key` (обрізана, нижній регістр; унікальний у просторі), версія; у `transactions` — `note` (до 2 000) і `tag_ids` (до 20, по порядку; GIN-індекс для фільтра) (`0007_attributes.sql`); `review` — «До розбору» (BUD-12: `queued` · `confirmed` · null), частковий індекс черги (`0008_review.sql`) |
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
-| `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
+| `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`), `fee_category_id` — категорія комісії чи різниці (null — «Комісії банку», IMP-03 п. 21, `0018_one_sided_and_fee_category.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
 | `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |
 | `transfer_dismissals` | «Не пара» (IMP-03 п. 12): пара списання і зарахування, яку більше не пропонують; зникає з будь-якою з них (`0017_transfer_dismissals.sql`) |
 | `import_writes` | Записана партія імпорту: лічильники, хто й коли (один рядок на партію; `0010_import_rows.sql`) |

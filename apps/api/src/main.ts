@@ -326,7 +326,7 @@ const recurring = createRecurringServices({
 // BUD-01@PoC FR 7, AC4 (#722 D): a payment to a credit card from an own account of the space is a transfer at once —
 // the proposals of transfer-matching, the cards of the space (accounts' kind), the transactions module's mark; run after
 // «Нова транзакція» and after an import batch's apply, while `transactions.transfers` is on for the space.
-// IMP-03@PoC FR 14, FR 15, FR 18, FR 23 (row 139a): the one-sided transfers — the free transactions and the lists of
+// IMP-03@PoC FR 14, FR 15, FR 18, FR 23 (row 242): the one-sided transfers — the free transactions and the lists of
 // transactions, the space's credit cards (accounts' kind), the flag of transactions; today on the Kyiv clock.
 const oneSidedTransfers: OneSidedDeps = {
   singles: (householdId, limit) =>

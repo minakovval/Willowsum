@@ -1,5 +1,5 @@
 -- ws:contract 0017_transfer_dismissals.sql the new checks hold for every row the previous code writes: it never sets the three new columns (new and null there)
--- IMP-03@PoC d) (wave 2, row 139a): the one-sided transfer and the fee category of a pair.
+-- IMP-03@PoC d) (wave 2, row 242): the one-sided transfer and the fee category of a pair.
 --
 -- FR 14, FR 15, FR 22: a one-sided transfer — a transaction whose other side is on an account outside Willowsum.
 -- `one_sided` is null (none), `flagged` (the system's flag «односторонній переказ»: it still counts as usual), `marked`

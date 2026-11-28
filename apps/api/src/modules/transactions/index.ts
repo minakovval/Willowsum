@@ -300,7 +300,7 @@ export function createTransferMarking(
 }
 
 /**
- * IMP-03@PoC FR 14, FR 15 (row 139a): the system's flag «односторонній переказ» for module transfer-matching — each of
+ * IMP-03@PoC FR 14, FR 15 (row 242): the system's flag «односторонній переказ» for module transfer-matching — each of
  * `items` still free and never in a one-sided state gets it (application flagOneSided: the row's version, its hand-off
  * and audit entry by `actorAccountId`, the person whose import, entry or search ran it); the others are skipped. The
  * hand-offs run right away (the worker runs them otherwise). How many were flagged.

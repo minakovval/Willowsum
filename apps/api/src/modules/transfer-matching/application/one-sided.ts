@@ -3,7 +3,7 @@ import { oneSidedToFlag, type SingleTransaction, type TransferSide } from "../do
 import { listProposals, type ProposalDeps } from "./proposals.ts";
 
 /**
- * IMP-03@PoC FR 14, FR 15, FR 18, FR 22, FR 23 (row 139a) — the one-sided transfers and the confirmed pairs of «Пари»,
+ * IMP-03@PoC FR 14, FR 15, FR 18, FR 22, FR 23 (row 242) — the one-sided transfers and the confirmed pairs of «Пари»,
  * and the search that flags. The flag itself, «Це переказ» and «Це не переказ» are the transactions module's (its row,
  * version and audit entry); here: which free transactions to flag (domain one-sided.ts), when — after new transactions
  * arrive (`markCardPayments`' caller) and on «Шукати пари знову» — and the reads of the two lists.

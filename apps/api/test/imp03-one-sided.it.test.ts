@@ -35,7 +35,7 @@ import {
 } from "../src/modules/transfer-matching/index.ts";
 
 /**
- * IMP-03@PoC d) (wave 2, row 139a) — the server part of «Пари» that #749 did not give, through the real API on a real
+ * IMP-03@PoC d) (wave 2, row 242) — the server part of «Пари» that #749 did not give, through the real API on a real
  * PostgreSQL: the one-sided transfer (the flag after 4 days, a card payment, «Це переказ», «Це не переказ»; FR 14,
  * FR 15, FR 22, AC9–AC11), the lists «Односторонні» and «Підтверджені» (FR 18), «Шукати пари знову» as a real search
  * (FR 23), the category of a pair's fee (FR 21, AC16), the candidates that leave a marked one out (AC20), the audit

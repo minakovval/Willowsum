@@ -43,6 +43,14 @@ AC18, AC19, AC21 (серверна частина); п. 1, 6, 8, 23, AC4 — т�
 11, AC7, AC8, граничний випадок 3), односторонні перекази і «Це переказ» (п. 14, 22, AC9, AC20), платіж на картку за
 текстом рядка (п. 15, AC10, AC11, AC15), збій парування після застосування (п. 16, AC12); UI — рядок 139.
 
+IMP-03@PoC d) (рядок 242 — серверна частина «Пар», якої бракувало рядку 139): п. 14 (позначка «односторонній переказ»:
+слова переказу й власного рахунку, без пари 4 дні — `ONE_SIDED_AFTER_DAYS`, `domain/one-sided.ts`), п. 15 (платіж на
+кредитну картку за текстом рядка — позначка з доказом `card-payment` одразу; повернення, кешбек, відсотки, бонуси, сторно
+— ні), п. 18 (списки «Односторонні · N» і «Підтверджені · N»), п. 23 («Шукати пари знову» — справжній повторний пошук,
+що ставить позначки), п. 1 (перевірка після нових транзакцій), AC9, AC10, AC11, AC20 (серверна частина). «Це переказ» /
+«Це не переказ» і категорія комісії (п. 21, 22) — модуль transactions. Далі: AC12, AC15, докази IBAN і маски рахунку в
+описі, повний список слів 37 мов (п. 4).
+
 BUD-01@PoC (#722 D, серверна частина): п. 7, виняток — платіж на кредитну картку з відомого власного рахунку простору стає
 переказом одразу, без підтвердження (AC4); платіж на картку без такого списання лишається надходженням до
 підтвердження. Далі: IMP-03 п. 15 (рядок картки, що читається як погашення, IBAN джерела) і лічильник
@@ -70,8 +78,22 @@ BUD-01@PoC (#722 D, серверна частина): п. 7, виняток — 
   мінус списання за довідковим `rate`), `rate`, `converted`, `bankRate`. Обрана в переказі, очікує, прихована, розділена чи
   нульова — 400 (`in: path`, `transactionId`, коди `in_transfer`, `pending`, `hidden`, `split`, `zero`). «Не пара» кандидата
   не прибирає: це вибір людини. «Поєднати в пару» — `POST /v1/transactions/{id}/transfer` модуля transactions.
-- `createTransferMatchingServices({ candidates, rates })` → `TransferMatchingServices` (`src/api.ts` → `ctx.services`;
-  `main.ts`): `createTransferCandidates` модуля transactions (з `counterpartsOf`, IMP-03 п. 24) і `rates` модуля fx-rates.
+- Маршрут `GET /v1/one-sided-transfers` (`listOneSidedTransfers`, IMP-03 п. 18, 22; дозвіл `household.data.read`, учасник
+  з областю — 404; прапорець і ключ `transactions.transfers`): `items` — вільні транзакції зі станом `flagged` (позначка
+  системи, рахується як звичайна) або `marked` («Це переказ»), новіші спочатку, до `PAIR_LIST_MAX` = 200; сторона,
+  `counterparty`, `description`, `state`, `evidence` (`transfer-words`, `own-account-words`, `card-payment`,
+  розширюваний); `count`. «Це переказ» / «Це не переказ» — `PUT /v1/transactions/{id}/one-sided-transfer` модуля
+  transactions.
+- Маршрут `GET /v1/transfer-pairs` (`listConfirmedTransfers`, IMP-03 п. 18, 20, 21; ті самі права): `items` —
+  підтверджені пари (`id` переказу, `outflow`, `inflow` з текстами, `date`, `kind`, `fee` або `currencyDifference`, `rate`,
+  `feeCategoryId` — null: «Комісії банку»), новіші спочатку, до 200; `count`.
+- Маршрут `POST /v1/transfer-proposals/search` (`searchTransferPairs`, IMP-03 п. 23; дозвіл `household.data.write`:
+  переглядач, радник і учасник з областю — 403): позначає односторонні перекази (`flagOneSidedTransfers`) і рахує
+  пропозиції заново → `{ count, more, flagged }`. Нічого не підтверджує (п. 8).
+- `createTransferMatchingServices({ candidates, rates, oneSided? })` → `TransferMatchingServices` (`src/api.ts` →
+  `ctx.services`; `main.ts`): `createTransferCandidates` модуля transactions (з `counterpartsOf`, IMP-03 п. 24) і `rates`
+  модуля fx-rates; `oneSided` — `OneSidedDeps` (`singles`, `oneSided`, `confirmed` модуля transactions, `cards`, `flag` —
+  `OneSidedFlagging` модуля transactions, `today`); без нього три маршрути вище — 500.
 - `createImportBatchProposals({ candidates, rates })` → `ImportBatchProposals.countFor(householdId, batchId)` (IMP-08@PoC
   п. 11, AC7; для import-sessions) — скільки пропозицій «Пари · N» (те саме читання, що й маршрут) мають сторону, записану
   цією партією імпорту (`importBatchId` сторони); `more` — як у маршруту.
@@ -85,7 +107,9 @@ BUD-01@PoC (#722 D, серверна частина): п. 7, виняток — 
   рахунку простору, мають нову сторону і однозначні (жодна сторона не входить в іншого кандидата того ж читання — пропозиції
   один-до-одного, IMP-03 п. 12, тож рахуються всі оцінені кандидати; інакше лишаються пропозицією), позначаються `mark` — `TransferMarking` модуля transactions; поки `enabled` (прапорець
   `transactions.transfers`) вимкнено — нічого. Повертає кількість позначених пар. Нічого не зберігає; пару, з якої
-  людина зняла позначку, пізніша поява чогось іншого не позначає знову (`domain/card-payments.ts`).
+  людина зняла позначку, пізніша поява чогось іншого не позначає знову (`domain/card-payments.ts`). З `oneSided`
+  (IMP-03 п. 1, 14, 15) — після цього позначає односторонні перекази серед вільних транзакцій простору; збій цього кроку
+  пишеться WARN `transfer_matching.one_sided_deferred` і позначок не скасовує.
 - `MATCH_WINDOW_DAYS` (3), `FEE_MAX_SHARE` (0,02), `CROSS_CURRENCY_MAX_SHARE` (0,03) — правило п. 5 (`domain/matching.ts`);
   `RATE_CLOSE_SHARE` (0,01) — межа `within-1` (IMP-03 п. 4).
 - Пропозиції всіх трьох читань (маршрут, `countFor`, `pendingSides`) — уже з оцінкою від 55 і один-до-одного (IMP-03 п. 3,
