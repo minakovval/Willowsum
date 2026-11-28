@@ -8,6 +8,8 @@ import {
   type AuditHandOff,
   type CategoryAudit,
   type CategoryHandOff,
+  type DerivationDeps,
+  type HistoryRowsSource,
   type RuleDeps,
   type RulesAuditLog,
   type SetDeps,
@@ -30,6 +32,8 @@ export interface CategorizationServices {
   readonly scanMax: number;
   /** FR 7, AC6: the time of a run and of «Відмінити» (7 days). */
   readonly clock: { now(): number };
+  /** BUD-21 c: the derivation of rules from history files; absent — its routes answer 500. */
+  readonly derivations: DerivationDeps | null;
 }
 
 /** BUD-14 FR 7: a rule's matches look at the newest 20 000 transactions of the space (a bound on one request). */
@@ -43,7 +47,10 @@ export function createCategorizationServices(options: {
   readonly rules?: Omit<RuleDeps, "categories">;
   readonly scanMax?: number;
   readonly clock?: { now(): number };
+  /** BUD-21 c: module import-sessions' history batches (needs `rules` for the merchants' names). */
+  readonly history?: { readonly source: HistoryRowsSource; readonly newId: () => string };
 }): CategorizationServices {
+  const clock = options.clock ?? { now: () => Date.now() };
   return {
     [BRAND]: true,
     deps: { transactions: options.transactions, categories: options.categories },
@@ -51,7 +58,16 @@ export function createCategorizationServices(options: {
     rules: options.rules ? { deps: { ...options.rules, categories: options.categories } } : null,
     rulesAudit: options.audit,
     scanMax: options.scanMax ?? RULE_SCAN_MAX,
-    clock: options.clock ?? { now: () => Date.now() },
+    clock,
+    derivations:
+      options.history && options.rules
+        ? {
+            source: options.history.source,
+            merchants: options.rules.merchants,
+            now: () => clock.now(),
+            newId: options.history.newId,
+          }
+        : null,
   };
 }
 

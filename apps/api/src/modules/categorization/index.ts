@@ -19,7 +19,11 @@ import {
 import {
   AUDIT_JOB,
   CATEGORY_MERGED_JOB,
+  derivationsRun,
+  HISTORY_DERIVATION_JOB,
+  presentRun,
   RULE_RUN_PART_JOB,
+  startAndDerive,
   categorizationAudit,
   categorizationRoutes,
   categorizationTx,
@@ -34,7 +38,14 @@ import {
   transactionsWithCategories,
   ruleCount,
 } from "./adapters/index.ts";
-import { carryImportMerged, categoriesInUse, countWithCategory, type RuleDeps } from "./application/index.ts";
+import {
+  carryImportMerged,
+  categoriesInUse,
+  countWithCategory,
+  forgetGoneBatches,
+  type HistoryRowsSource,
+  type RuleDeps,
+} from "./application/index.ts";
 
 export const categorizationModule = defineModule({
   name: "categorization",
@@ -58,10 +69,89 @@ export {
   AUDIT_JOB,
   CATEGORY_MERGED_JOB,
   HAND_OFF_JOB,
+  HISTORY_DERIVATION_JOB,
   IMPORT_MERGED_JOB,
   RULE_RUN_PART_JOB,
   TRANSACTION_CREATED_JOB,
 };
+
+export type { HistoryRowsSource, HistorySourceRow } from "./application/index.ts";
+
+/** The derivation as module import-sessions' confirmation shows it (`GET /v1/category-rule-derivations/{id}`). */
+export interface HistoryDerivationStarted {
+  readonly id: string;
+  readonly status: "running" | "completed" | "failed";
+  readonly background: boolean;
+  readonly count: number;
+  readonly processed: number;
+}
+
+/**
+ * BUD-21@PoC FR 10, AC7 (wave 2 row 235): the derivation of rules started by the confirmation of a history file —
+ * module import-sessions' port `HistoryServices.derivation` (src/main.ts): up to 2 000 rows derived before the answer,
+ * more in the background; while one runs for the file, that one. `db` is the categorization database; `source` —
+ * module import-sessions' history rows (`createHistoryDerivationRows`), `merchants` — the rules' merchant names
+ * (`categorizationRulePorts(…).merchants`, read only: no merchant is born, FR 9).
+ */
+export function createHistoryDerivations(deps: {
+  readonly db: ModuleDatabase;
+  readonly source: HistoryRowsSource;
+  readonly merchants: RuleDeps["merchants"];
+  readonly audit: Pick<AuditLog, "record">;
+  readonly newId: () => string;
+  readonly clock?: { now(): number };
+}): {
+  start(householdId: string, actorAccountId: string, batchId: string): Promise<HistoryDerivationStarted>;
+} {
+  const clock = deps.clock ?? { now: () => Date.now() };
+  const derivation = {
+    source: deps.source,
+    merchants: deps.merchants,
+    now: () => clock.now(),
+    newId: deps.newId,
+  };
+  return {
+    async start(householdId, actorAccountId, batchId) {
+      const { run } = await startAndDerive(derivation, derivationsRun(deps.db), deps.audit, {
+        householdId,
+        actorAccountId,
+        batchId,
+      });
+      const shown = presentRun(run);
+      return {
+        id: shown.id,
+        status: shown.status,
+        background: shown.background,
+        count: shown.count,
+        processed: shown.processed,
+      };
+    },
+  };
+}
+
+/**
+ * BUD-21@PoC FR 24 (wave 2 row 235): the scheduler's daily sweep (src/wiring.ts, `categorization.history-cleanup`) —
+ * the derivations of history batches module import-sessions no longer stores go with their suggestions. Returns how
+ * many went.
+ */
+export function createHistoryDerivationCleanup(deps: {
+  readonly db: ModuleDatabase;
+  readonly source: Pick<HistoryRowsSource, "existing">;
+  readonly households: () => Promise<readonly string[]>;
+}): { run(): Promise<number> } {
+  return {
+    async run() {
+      let forgotten = 0;
+      for (const householdId of await deps.households())
+        forgotten += await forgetGoneBatches(
+          { source: { ...deps.source, rows: async () => null } },
+          derivationsRun(deps.db),
+          householdId,
+        );
+      return forgotten;
+    },
+  };
+}
 
 /**
  * IMP-04@PoC FR 5 (#658): the bank's row takes the category of the manual transaction merged into it on apply — the
@@ -193,13 +283,23 @@ export function createCategorizationWorkerQueue(
   flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
   /** BUD-14 FR 7: when a background run ends (default: the system clock). */
   clock: { now(): number } = { now: () => Date.now() },
+  /** BUD-21 FR 10: module import-sessions' history rows for the background derivations. */
+  history?: { readonly source: HistoryRowsSource; readonly newId: () => string },
 ): WorkerQueue {
-  return categorizationWorkerQueue(db, categorizationAudit(audit), categories, {
-    deps: { ...rules, categories },
-    audit,
-    enabled: async (householdId) => (flags ? flags.isEnabled(householdId, "categorization.rules") : false),
-    clock,
-  });
+  return categorizationWorkerQueue(
+    db,
+    categorizationAudit(audit),
+    categories,
+    {
+      deps: { ...rules, categories },
+      audit,
+      enabled: async (householdId) => (flags ? flags.isEnabled(householdId, "categorization.rules") : false),
+      clock,
+    },
+    history
+      ? { source: history.source, merchants: rules.merchants, now: () => clock.now(), newId: history.newId }
+      : undefined,
+  );
 }
 
 /**

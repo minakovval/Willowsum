@@ -33,6 +33,7 @@ import {
   createCategoryTransactions,
   categorizationRulePorts,
   createCategorizationServices,
+  createHistoryDerivations,
   createImportCategoryCarry,
   createTransactionCategories,
   createTransactionCategoryRead,
@@ -41,7 +42,10 @@ import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/debt-payoff/index.ts";
 import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
 import { createImportRecipesReader, createImportRecipesServices } from "./modules/import-recipes/index.ts";
-import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
+import {
+  createHistoryDerivationRows,
+  createImportSessionsServices,
+} from "./modules/import-sessions/index.ts";
 import {
   createGoalFlows,
   createGoalPlans,
@@ -296,6 +300,13 @@ if (identity) {
     process.exit(1);
   }
 }
+
+// BUD-21 c: a confirmed history file's rows (import-sessions) for the derivation of rules (categorization).
+const historyRows = createHistoryDerivationRows({
+  db: databases.for("import-sessions"),
+  keys: createSpaceKeys(databases.for("household"), audit, kms),
+  accounts: createAccountDirectory(databases.for("accounts")),
+});
 
 // BUD-07 a: proposals of regular payments from the transactions (transactions), grouped by merchant (merchants), none
 // from a loan account (accounts); payments confirmed or added by hand name a category (categories) and an account
@@ -573,6 +584,8 @@ const server = buildServer({
               }),
               // BUD-14 b2: when a run began and ended, and its 7 days of «Відмінити».
               clock: systemClock,
+              // BUD-21 c: the derivation of rules from a confirmed history file's rows (import-sessions).
+              history: { source: historyRows, newId: randomUUID },
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the
@@ -677,6 +690,19 @@ const server = buildServer({
                         db: databases.for("categories"),
                         audit,
                         newId: randomUUID,
+                      }),
+                      // BUD-21 c: the confirmation starts the derivation of rules (categorization).
+                      derivation: createHistoryDerivations({
+                        db: databases.for("categorization"),
+                        source: historyRows,
+                        merchants: categorizationRulePorts({
+                          accounts: createAccountDirectory(databases.for("accounts")),
+                          merchants: createMerchantDirectory(databases.for("merchants")),
+                          inputs: createTransactionRuleInputs(databases.for("transactions")),
+                        }).merchants,
+                        audit,
+                        newId: randomUUID,
+                        clock: systemClock,
                       }),
                     },
                     // IMP-01 FR 11: «Застосувати» — module transactions writes the batch's rows (journal by hand-off).

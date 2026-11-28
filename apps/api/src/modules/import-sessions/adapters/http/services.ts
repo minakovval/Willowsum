@@ -164,6 +164,26 @@ export interface HistoryServices {
    * matching and the confirmation creates no category.
    */
   readonly labels?: HistoryLabelsService;
+  /**
+   * BUD-21 c (row 235): module categorization's derivation of rules (`createHistoryDerivations`), started by the
+   * confirmation; absent — the confirmation starts none.
+   */
+  readonly derivation?: HistoryDerivationService;
+}
+
+/** Module categorization's `createHistoryDerivations`, as the confirmation calls it. */
+export interface HistoryDerivationService {
+  start(
+    householdId: string,
+    actorAccountId: string,
+    batchId: string,
+  ): Promise<{
+    readonly id: string;
+    readonly status: "running" | "completed" | "failed";
+    readonly background: boolean;
+    readonly count: number;
+    readonly processed: number;
+  }>;
 }
 
 /** Module categories' `HistoryLabels`, as these routes call it (bound to a batch by `history-routes.ts`). */

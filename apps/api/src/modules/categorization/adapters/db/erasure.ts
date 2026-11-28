@@ -2,7 +2,7 @@ import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
 
 /**
  * Erasure of a space's categorization (NFR-12@PoC FR 3): the categories of its transactions, its category rules
- * (BUD-14 b) with the runs of «Застосувати до N наявних…» and the queue rows
+ * (BUD-14 b) with the runs of «Застосувати до N наявних…», the derivations from history files (BUD-21 c) and the queue rows
  * (migrations/0002_queue.sql), in one transaction of the module's own role.
  */
 export async function eraseHouseholdCategorization(
@@ -15,6 +15,9 @@ export async function eraseHouseholdCategorization(
     // BUD-14 FR 7: the runs of «Застосувати до N наявних…» (their records go with them).
     await q.query(`DELETE FROM rule_run_items WHERE household_id = $1`, [householdId]);
     await q.query(`DELETE FROM rule_runs WHERE household_id = $1`, [householdId]);
+    // BUD-21 c: the derivations of rules from history files and their suggestions.
+    await q.query(`DELETE FROM history_suggestions WHERE household_id = $1`, [householdId]);
+    await q.query(`DELETE FROM history_derivations WHERE household_id = $1`, [householdId]);
     const jobs = await q.query(`DELETE FROM jobs WHERE household_id = $1`, [householdId]);
     await q.query(`DELETE FROM outbox_events WHERE household_id = $1`, [householdId]);
     return { transactionCategories: rows.rowCount ?? 0, jobs: jobs.rowCount ?? 0 };

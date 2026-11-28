@@ -394,13 +394,9 @@ function original(row: Prepared, start: number, end: number): string {
 }
 
 /**
- * FR 11–15, FR 17: the suggestions of the rows, in their order (`compareSuggestions`). `progress` is told how many
- * rows were looked at (FR 10: «оброблено X з N»).
+ * FR 11–15, FR 17: the suggestions of the rows, in their order (`compareSuggestions`).
  */
-export function deriveSuggestions(
-  input: readonly DerivationRow[],
-  progress?: (processed: number) => void,
-): DerivedSuggestion[] {
+export function deriveSuggestions(input: readonly DerivationRow[]): DerivedSuggestion[] {
   const rows: Prepared[] = input
     .map((r) => ({
       ...r,
@@ -413,9 +409,6 @@ export function deriveSuggestions(
   const explained = new Uint8Array(rows.length);
   const out: DerivedSuggestion[] = [];
   const explain = (rs: readonly Prepared[]) => rs.forEach((r) => (explained[r.index] = 1));
-  // FR 10: the rows looked at so far — a merchant's rows when it was checked, the rest along the words.
-  let done = 0;
-  const tell = (processed: number) => progress?.(Math.min(processed, rows.length));
 
   // FR 12, first: «Мерчант дорівнює X» for every merchant of the array (merchants are disjoint: their order is moot).
   const byMerchant = new Map<string, Prepared[]>();
@@ -429,8 +422,6 @@ export function deriveSuggestions(
       value: merchantRows[0]!.merchant!.trim(),
     };
     const alone = scoreOf(merchantRows);
-    done += merchantRows.length;
-    tell(done);
     if (alone.verdict === "confident") {
       out.push(suggestionOf("confident", [merchant], alone));
       explain(merchantRows);
@@ -470,13 +461,11 @@ export function deriveSuggestions(
   const words = [...byWord]
     .filter(([, rs]) => rs.length >= 3 && sources(rs) >= 2)
     .sort((a, b) => b[1].length - a[1].length || byCodePoints(a[0], b[0]));
-  const left = rows.length - done;
-  words.forEach(([word], i) => {
-    tell(done + Math.floor(((i + 1) * left) / words.length));
+  for (const [word] of words) {
     const holds = open.filter((r) => explained[r.index] === 0 && r.text!.includes(word));
-    if (holds.length < 3 || sources(holds) < 2) return;
+    if (holds.length < 3 || sources(holds) < 2) continue;
     const score = scoreOf(holds);
-    if (score.verdict !== "confident" && score.verdict !== "too-mixed") return;
+    if (score.verdict !== "confident" && score.verdict !== "too-mixed") continue;
     const condition: SuggestionCondition = {
       field: "description",
       operator: "contains",
@@ -484,7 +473,6 @@ export function deriveSuggestions(
     };
     out.push(suggestionOf(score.verdict === "confident" ? "confident" : "conflicting", [condition], score));
     explain(holds);
-  });
-  tell(rows.length);
+  }
   return out.sort(compareSuggestions);
 }

@@ -11,6 +11,7 @@ import {
 import { CATEGORY_SOURCES } from "../../domain/index.ts";
 import { rulesTx } from "../db/rules.ts";
 import { categorizationTx } from "../db/store.ts";
+import { derivationsRoutes } from "./derivations.ts";
 import { rulesRoutes } from "./rules.ts";
 import { runsRoutes } from "./runs.ts";
 import { getCategorySuggestionsRoute } from "./suggestions.ts";
@@ -168,4 +169,5 @@ export const categorizationRoutes = [
   ...rulesRoutes,
   ...runsRoutes,
   getCategorySuggestionsRoute,
+  ...derivationsRoutes,
 ];

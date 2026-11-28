@@ -28,10 +28,12 @@ export {
   accountValues,
   classifyRows,
   HISTORY_SKIPS,
+  HISTORY_TAG_MAX,
   HISTORY_VIEW_LIMITS,
   labelCounts,
   labelTree,
   rowCategories,
+  splitTags,
 } from "./history.ts";
 export type {
   HistoryRowFields,

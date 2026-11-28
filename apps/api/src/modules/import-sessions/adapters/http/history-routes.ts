@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import {
   DATE_ORDERS,
   DELIMITERS,
@@ -296,6 +297,8 @@ const recognitionSchema = z.object({
     read: z.number().int(),
     transfers: z.number().int(),
     skipped: z.array(z.object({ reason: z.enum(HISTORY_SKIPS).meta(extensible), count: z.number().int() })),
+    /** FR 17: values of the tags column that are no tag (longer than 60 characters), skipped. */
+    tagsSkipped: z.number().int(),
   }),
   /** FR 4, AC3, AC4: what the file lacks for rules; not empty — rules cannot be derived. */
   missing: z.array(z.enum(HISTORY_MISSING).meta(extensible)),
@@ -649,8 +652,23 @@ export const confirmHistoryFileRoute = defineRoute({
   response: {
     status: 200,
     description:
-      "The confirmed history file; the labels' categories created (BUD-21 FR 7, one audit entry) and their matching kept for the next file (FR 25)",
-    schema: historyViewSchema,
+      "The confirmed history file; the labels' categories created (BUD-21 FR 7, one audit entry) and their matching kept for the next file (FR 25); the derivation of rules started (FR 10, AC7)",
+    schema: historyViewSchema.extend({
+      /**
+       * BUD-21 FR 10, AC7: the derivation the confirmation started (`GET /v1/category-rule-derivations/{id}`): up to
+       * 2 000 rows already completed, more — running in the background. Null — not started (not wired, or it failed:
+       * `POST /v1/category-rule-derivations` starts it again).
+       */
+      derivation: z
+        .object({
+          id: z.uuid(),
+          status: z.enum(["running", "completed", "failed"]),
+          background: z.boolean(),
+          count: z.number().int(),
+          processed: z.number().int(),
+        })
+        .nullable(),
+    }),
   },
   handler: async ({ params, body }, ctx) => {
     owner(ctx);
@@ -684,9 +702,28 @@ export const confirmHistoryFileRoute = defineRoute({
       ),
     );
     await handOffNow(audit, householdId, handOffs);
-    return presentView(ctx, result);
+    return { ...(await presentView(ctx, result)), derivation: await startDerivation(ctx, params.batchId) };
   },
 });
+
+/**
+ * BUD-21 FR 10, AC7 (row 235): the confirmation starts the derivation of rules (module categorization), after its own
+ * commit. A failure is no failure of the confirmation: it is logged (the error class only) and the derivation can be
+ * started again.
+ */
+async function startDerivation(ctx: ProtectedContext, batchId: string) {
+  const derivation = importSessionsServices(ctx).history?.derivation;
+  if (!derivation) return null;
+  try {
+    return await derivation.start(ctx.principal.householdId, ctx.principal.userId, batchId);
+  } catch (error) {
+    logEvent("import_sessions.history_derivation_deferred", "warn", {
+      "ws.module": "import-sessions",
+      "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+    });
+    return null;
+  }
+}
 
 const labelChoice = (c: {
   readonly category: string | null;
