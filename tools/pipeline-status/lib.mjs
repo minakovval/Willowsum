@@ -23,12 +23,15 @@ export function ciSummary(runs) {
   const red = [];
   for (const [name, list] of byName) {
     const sorted = [...list].sort((a, b) => stamp(a) - stamp(b) || (a.id ?? 0) - (b.id ?? 0));
-    const last = sorted.at(-1);
-    const succeeded = sorted.some((r) => r.status === 'completed' && OK.has(r.conclusion));
+    // A cancelled run is superseded only when the same name has a real `success` on this head; the latest of the
+    // other runs then decides, so a later failure is not hidden (security review of #775).
+    const succeeded = sorted.some((r) => r.status === 'completed' && r.conclusion === 'success');
+    const live = succeeded ? sorted.filter((r) => r.conclusion !== 'cancelled') : sorted;
+    const last = live.at(-1);
     if (last.status !== 'completed') running.push(name);
-    else if (OK.has(last.conclusion) || (last.conclusion === 'cancelled' && succeeded)) {
+    else if (OK.has(last.conclusion)) {
       green++;
-      superseded += sorted.filter((r) => r.conclusion === 'cancelled').length;
+      superseded += sorted.length - live.length;
     } else red.push(`${name}=${last.conclusion}`);
   }
   const tail = superseded ? ` (${superseded} superseded)` : '';
