@@ -17,6 +17,8 @@ import {
   type StatementAnalysis,
   type StatementEvents,
   type StatementOptions,
+  ignoringColumns,
+  userAnalysisColumns,
 } from "../domain/index.ts";
 import { readDelimitedFile, type FileReading, type ReadOptions } from "./read-file.ts";
 
@@ -58,7 +60,11 @@ export function parseStatement(
   // analysis and of the events; their values are then read under the table's number format.
   const labelled = readFigures(rows, headerRow, firstRow, analyzeTable(rows, headerRow, firstRow)).exclude;
   const table = labelled.size === 0 ? rows : rows.map((r, i) => (labelled.has(i) ? [] : r));
-  const analysis = analyzeTable(table, headerRow, firstRow);
+  const engine = analyzeTable(table, headerRow, firstRow);
+  // BUD-21 FR 2, IMP-08 FR 17 (row 243): the columns of the user's own analysis, recognised as a history file's are;
+  // for a file imported as a statement they are not read (each is «ignore» for the figures, the events and the checks).
+  const userColumns = userAnalysisColumns(table, headerRow, firstRow, engine);
+  const analysis = statement.userColumns === "ignore" ? ignoringColumns(engine, userColumns) : engine;
   const { figures: printed, exclude } = readFigures(rows, headerRow, firstRow, analysis);
   const read = readEvents(rows, headerRow, firstRow, analysis, statement, new Set([...labelled, ...exclude]));
   // IMP-05 FR 6 (Рішення власника (2026-11-20), п. 6): a credit card's positive balance is debt; the reading is
@@ -85,5 +91,11 @@ export function parseStatement(
   // IMP-08 FR 2 (row 230): the bank, the one currency and the masked number the file names for its own account.
   const fileCurrencies = [...events.currencies, ...(figures.currency ? [figures.currency] : [])];
   const detected = detectAccount(preamble, fileCurrencies, statement.institutions);
-  return { reading, analysis, events, account, checks: { ...checks, detected } };
+  return {
+    reading,
+    analysis,
+    events,
+    account,
+    checks: { ...checks, detected, ...(userColumns.length > 0 ? { userColumns } : {}) },
+  };
 }

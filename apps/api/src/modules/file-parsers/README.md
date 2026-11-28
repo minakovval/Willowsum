@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -108,6 +108,11 @@
   переказу з лічильниками й підказкою, `missing` (`HISTORY_MISSING`: `date`, `amount`, `description`, `categories`).
   `HistoryReadOptions` — виправлення користувача (ролі колонок, порядок дати, десятковий роздільник, знак). Результат
   містить клітинки файлу: не логувати.
+- Файл історії в майстрі виписок (BUD-21@PoC п. 2, IMP-08@PoC п. 17, рядок 243): `StatementChecks.userColumns` — колонки
+  розбору користувача (`USER_ANALYSIS_ROLES`: `category`, `subcategory`, `transfer-flag`, `tags`) номерами й ролями, без
+  значень, тим самим розпізнаванням, що й у файлі історії (поля немає — таких колонок немає); `looksLikeHistory(columns)` —
+  чи питати майстру (категорія, підкатегорія чи позначка переказу). `StatementOptions.userColumns: "ignore"` —
+  «імпортувати як виписку»: ці колонки мають роль «ігнорувати» і не читаються.
 - `historyGap(previous, next)` → `HistoryGap`; `readingFits(value, currency)`; `CHECK_KINDS`, `SIGN_BASES`,
   `FLAG_SEVERITY`; типи `ControlCheck`, `StatementBounds`, `BatchFlag`, `Clarification`, `SignReview` та інші з `index.ts`.
   `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`,
@@ -146,4 +151,5 @@
 `domain/sec619-header-bound.test.ts`, `application/imp05-checks.test.ts`,
 `adapters/isolation/imp05-parse-checks.test.ts`, `application/sec632-checks.test.ts`,
 `adapters/isolation/sec624-parse-concurrency.test.ts`, `adapters/isolation/sec639-opener-wipe.test.ts`,
-`application/bud21-history-parse.test.ts`, `adapters/isolation/bud21-history-worker.test.ts` (файл історії).
+`application/bud21-history-parse.test.ts`, `adapters/isolation/bud21-history-worker.test.ts` (файл історії),
+`application/bud21-statement-history.test.ts` (файл історії в майстрі виписок).

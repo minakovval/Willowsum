@@ -128,10 +128,11 @@ interface ParseRow {
   requested_by: string;
   requested_at: Date;
   parsed_at: Date | null;
+  as_statement: boolean;
 }
 
 const PARSE =
-  "batch_file_id, batch_id, parse_id, recipe_id, used_recipe_id, recipe_format, account_id, state, refusal_code, engine_version, rows_sealed, row_count, requested_by, requested_at, parsed_at";
+  "batch_file_id, batch_id, parse_id, recipe_id, used_recipe_id, recipe_format, account_id, state, refusal_code, engine_version, rows_sealed, row_count, requested_by, requested_at, parsed_at, as_statement";
 
 const fileParse = (r: ParseRow): FileParse => ({
   batchFileId: r.batch_file_id,
@@ -149,6 +150,7 @@ const fileParse = (r: ParseRow): FileParse => ({
   requestedBy: r.requested_by,
   requestedAt: r.requested_at,
   parsedAt: r.parsed_at,
+  asStatement: r.as_statement,
 });
 
 /**
@@ -232,6 +234,14 @@ export function batchesTx(q: HouseholdQueryRunner, scope: BatchScope = "statemen
           f.createdAt,
         ],
       );
+    },
+    async removeFile(batchId, batchFileId) {
+      // BUD-21 FR 2 (row 243): the file leaves its batch; its parse, checks and decisions go with it (ON DELETE CASCADE).
+      await q.query(`DELETE FROM batch_files WHERE household_id = $1 AND batch_id = $2 AND id = $3`, [
+        h,
+        batchId,
+        batchFileId,
+      ]);
     },
     async updateBatch(id, state, at) {
       const updated = await one(
@@ -370,13 +380,14 @@ export function batchesTx(q: HouseholdQueryRunner, scope: BatchScope = "statemen
     async upsertParse(p) {
       await q.query(
         `INSERT INTO file_parses (household_id, ${PARSE})
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          ON CONFLICT (household_id, batch_file_id) DO UPDATE SET parse_id = EXCLUDED.parse_id,
            recipe_id = EXCLUDED.recipe_id, used_recipe_id = EXCLUDED.used_recipe_id,
            recipe_format = EXCLUDED.recipe_format, account_id = EXCLUDED.account_id, state = EXCLUDED.state,
            refusal_code = EXCLUDED.refusal_code, engine_version = EXCLUDED.engine_version,
            rows_sealed = EXCLUDED.rows_sealed, row_count = EXCLUDED.row_count, requested_by = EXCLUDED.requested_by,
-           requested_at = EXCLUDED.requested_at, parsed_at = EXCLUDED.parsed_at`,
+           requested_at = EXCLUDED.requested_at, parsed_at = EXCLUDED.parsed_at,
+           as_statement = EXCLUDED.as_statement`,
         [
           h,
           p.batchFileId,
@@ -394,6 +405,7 @@ export function batchesTx(q: HouseholdQueryRunner, scope: BatchScope = "statemen
           p.requestedBy,
           p.requestedAt,
           p.parsedAt,
+          p.asStatement ?? false,
         ],
       );
     },

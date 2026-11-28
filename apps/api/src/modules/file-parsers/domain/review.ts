@@ -1,3 +1,4 @@
+import type { UserAnalysisColumn } from "./history.ts";
 import type { DetectedAccount } from "./detect.ts";
 import type { AccountBindingKind, AccountMatch } from "./account.ts";
 import type { StatementAnalysis } from "./analysis.ts";
@@ -80,6 +81,11 @@ export interface StatementChecks {
    * characters — for «Створити рахунок». Absent in checks recorded before it.
    */
   readonly detected?: DetectedAccount;
+  /**
+   * BUD-21@PoC FR 2, IMP-08@PoC FR 17 (row 243): the columns of the user's own analysis the file has (numbers and roles,
+   * never a value); absent — none, or checks recorded before it.
+   */
+  readonly userColumns?: readonly UserAnalysisColumn[];
 }
 
 export interface ReviewInput {

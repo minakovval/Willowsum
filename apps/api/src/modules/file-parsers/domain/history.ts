@@ -413,3 +413,76 @@ export function transferValues(
     more: all.length > HISTORY_LIMITS.transferValues,
   };
 }
+
+/**
+ * BUD-21@PoC FR 2, IMP-08@PoC FR 17 (wave 2 row 243): the columns of the user's own analysis — «категорія»,
+ * «підкатегорія», «позначка переказу», «теги». A statement whose file has any of them is asked about in the wizard; a
+ * file imported as a statement has them not read. The account column is no analysis: a bank's statement may name its
+ * card in a column too.
+ */
+export const USER_ANALYSIS_ROLES = ["category", "subcategory", "transfer-flag", "tags"] as const;
+export type UserAnalysisRole = (typeof USER_ANALYSIS_ROLES)[number];
+
+/** The roles that make a file look like a history file (FR 2: «колонка категорії або позначки переказу»). */
+const HISTORY_SIGNS: ReadonlySet<UserAnalysisRole> = new Set(["category", "subcategory", "transfer-flag"]);
+
+/** One column of the user's analysis found in a statement's file: its number and role, never a value. */
+export interface UserAnalysisColumn {
+  readonly column: number;
+  readonly role: UserAnalysisRole;
+}
+
+/**
+ * FR 2: the columns of a statement's table that the history file's engine (`analyzeHistoryColumns`) gives a role of the
+ * user's analysis — the same recognition as an uploaded history file's, in column order.
+ */
+export function userAnalysisColumns(
+  rows: readonly (readonly string[])[],
+  headerRow: number | null,
+  firstRow: number,
+  analysis: StatementAnalysis,
+): UserAnalysisColumn[] {
+  const own = new Set<string>(USER_ANALYSIS_ROLES);
+  return analyzeHistoryColumns(rows, headerRow, firstRow, analysis).flatMap((c) =>
+    own.has(c.role.chosen.value) ? [{ column: c.column, role: c.role.chosen.value as UserAnalysisRole }] : [],
+  );
+}
+
+/** FR 2: whether these columns make the file a history file to ask about (a category or a transfer mark). */
+export function looksLikeHistory(columns: readonly UserAnalysisColumn[]): boolean {
+  return columns.some((c) => HISTORY_SIGNS.has(c.role));
+}
+
+/**
+ * FR 2: «імпортувати як виписку» — the columns of the user's analysis are not read: each is «ignore» in the analysis
+ * the rows are read with, so no cell of them becomes a description, a counterparty, a reference or a category.
+ */
+export function ignoringColumns(
+  analysis: StatementAnalysis,
+  columns: readonly UserAnalysisColumn[],
+): StatementAnalysis {
+  if (columns.length === 0) return analysis;
+  const skip = new Set(columns.map((c) => c.column));
+  return {
+    ...analysis,
+    columns: analysis.columns.map((c) => {
+      if (!skip.has(c.column) || c.role.chosen.value === "ignore") return c;
+      const all = [c.role.chosen, ...c.role.alternatives];
+      const chosen = all.find((h) => h.value === "ignore") ?? {
+        value: "ignore" as const,
+        label: "ignore",
+        score: 0,
+        examples: c.role.chosen.examples.map((e) => ({ cell: e.cell, reads: e.cell })),
+      };
+      return {
+        ...c,
+        role: {
+          chosen,
+          alternatives: all.filter((h) => h.value !== "ignore").slice(0, ANALYSIS_LIMITS.alternatives),
+          evidence: [userChoice(c.column), ...c.role.evidence],
+          flags: [],
+        },
+      };
+    }),
+  };
+}

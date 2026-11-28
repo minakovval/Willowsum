@@ -1,4 +1,10 @@
-import { bankName, type StatementBounds, type StatementChecks } from "../../file-parsers/index.ts";
+import {
+  bankName,
+  USER_ANALYSIS_ROLES,
+  type StatementBounds,
+  type StatementChecks,
+  type UserAnalysisColumn,
+} from "../../file-parsers/index.ts";
 import {
   BatchNotFoundError,
   BatchStateErrorFor,
@@ -133,8 +139,9 @@ export function maskedChecks(checks: StatementChecks): StatementChecks {
   // letters only (every code in the kernel's registry is), so no run of digits from a card or an IBAN passes.
   const code = (value: string) => (/^[A-Z]{3,10}(?:, [A-Z]{3,10}){0,7}$/.test(value) ? value : masked(value));
   const bank = checks.detected?.bank !== undefined ? bankName(checks.detected.bank) : null;
+  const { userColumns, ...rest } = checks;
   return {
-    ...checks,
+    ...rest,
     account: {
       ...checks.account,
       reasons: checks.account.reasons.map((r) =>
@@ -168,7 +175,29 @@ export function maskedChecks(checks: StatementChecks): StatementChecks {
           },
         }
       : {}),
+    // BUD-21 FR 2 (row 243): the worker's answer is not trusted — column numbers and roles only, at most one per column.
+    ...userColumnsOf(userColumns),
   };
+}
+
+/** Above any column a statement's table may have (file-parsers' `TABLE_LIMITS.maxColumns`). */
+const MAX_COLUMN = 10_000;
+
+function userColumnsOf(
+  given: unknown,
+): { readonly userColumns: readonly UserAnalysisColumn[] } | Record<string, never> {
+  if (!Array.isArray(given)) return {};
+  const seen = new Set<number>();
+  const out: UserAnalysisColumn[] = [];
+  for (const c of given.slice(0, USER_ANALYSIS_ROLES.length)) {
+    const column = (c as { column?: unknown })?.column;
+    const role = (c as { role?: unknown })?.role;
+    if (!Number.isInteger(column) || (column as number) < 1 || (column as number) > MAX_COLUMN) continue;
+    if (!(USER_ANALYSIS_ROLES as readonly unknown[]).includes(role) || seen.has(column as number)) continue;
+    seen.add(column as number);
+    out.push({ column: column as number, role: role as UserAnalysisColumn["role"] });
+  }
+  return out.length > 0 ? { userColumns: out } : {};
 }
 
 /** The batch is not ready to be reviewed: a file is not checked yet (a file whose parse was refused has no checks). */

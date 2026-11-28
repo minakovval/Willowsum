@@ -2,7 +2,13 @@ import { z } from "zod";
 import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platform/http/pagination.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, DOWNLOAD_RESPONSE, type ProtectedContext } from "../../../../platform/http/route.ts";
-import { bankName, FLAG_SEVERITY, type BatchFlagCode } from "../../../file-parsers/index.ts";
+import {
+  bankName,
+  FLAG_SEVERITY,
+  looksLikeHistory,
+  USER_ANALYSIS_ROLES,
+  type BatchFlagCode,
+} from "../../../file-parsers/index.ts";
 import { PlanTooLargeError, planImport } from "../../../duplicate-matching/index.ts";
 import { FileNotFoundError } from "../../../file-storage/index.ts";
 import {
@@ -104,7 +110,7 @@ const fileSchema = z.object({
   createdAt: z.string(),
 });
 
-const batchSchema = z.object({
+export const batchSchema = z.object({
   id: z.uuid(),
   name: z.string().nullable(),
   state: z.enum(BATCH_STATES),
@@ -137,7 +143,7 @@ function presentFile(f: BatchFile): z.input<typeof fileSchema> {
   };
 }
 
-function presentBatch(b: Batch, files: readonly BatchFile[]): z.input<typeof batchSchema> {
+export function presentBatch(b: Batch, files: readonly BatchFile[]): z.input<typeof batchSchema> {
   const accepted = files.filter((f) => f.fileId).length;
   return {
     id: b.id,
@@ -729,6 +735,12 @@ const parseRequestSchema = z.strictObject({
   recipeId: z.uuid().nullable().optional(),
   /** The account the file is for (FR 1); omitted — chosen later («Підтвердіть рахунок»). */
   accountId: z.uuid().nullable().optional(),
+  /**
+   * BUD-21 FR 2, IMP-08 FR 17 (row 243): «Імпортувати як виписку» for a file that looks like a history file — true: its
+   * columns of the user's own analysis (category, subcategory, transfer mark, tags) are not read; false: read again;
+   * omitted — the answer of the file's previous parse (none: read).
+   */
+  asStatement: z.boolean().optional(),
 });
 
 export const parseImportBatchRoute = defineRoute({
@@ -810,7 +822,34 @@ const parseFileSchema = z.object({
       accountMatch: z.enum(ACCOUNT_MATCHES).optional(),
     })
     .optional(),
+  /**
+   * BUD-21 FR 2, IMP-08 FR 17 (row 243): whether the file looks like a history file with the user's own analysis — a
+   * column of categories or of transfer marks (`looksLikeHistory`; the wizard then asks «вивести правила» or «імпортувати
+   * як виписку»); `columns` — the columns of that analysis by number and role, never a value; `asStatement` — the person
+   * chose «імпортувати як виписку» and those columns were not read. Absent until the file is parsed.
+   */
+  historyFile: z
+    .object({
+      looksLikeHistory: z.boolean(),
+      columns: z.array(
+        z.object({
+          column: z.number().int().min(1),
+          role: z.enum(USER_ANALYSIS_ROLES).meta({ "x-extensible-enum": true }),
+        }),
+      ),
+      asStatement: z.boolean(),
+    })
+    .optional(),
 });
+
+/** BUD-21 FR 2 (row 243): the file's columns of the user's analysis as stored (checked again by `maskedChecks`). */
+function presentHistoryFile(
+  checks: FileReview["checks"],
+  asStatement: boolean,
+): NonNullable<z.input<typeof parseFileSchema>["historyFile"]> {
+  const columns = (checks.userColumns ?? []).map((c) => ({ column: c.column, role: c.role }));
+  return { looksLikeHistory: looksLikeHistory(columns), columns, asStatement };
+}
 
 /** Only the three facts, each a short text; anything else a stored check holds is dropped (masked values only). */
 function presentDetected(
@@ -832,9 +871,11 @@ function presentDetected(
   };
 }
 
-/** The checks without `detected`: it is its own field (`detected`). */
+/** The checks without `detected` and `userColumns`: each is its own field (`detected`, `historyFile`). */
 function checksWithout(checks: FileReview["checks"]): unknown {
-  return Object.fromEntries(Object.entries(checks).filter(([key]) => key !== "detected"));
+  return Object.fromEntries(
+    Object.entries(checks).filter(([key]) => key !== "detected" && key !== "userColumns"),
+  );
 }
 
 function presentParse(
@@ -858,6 +899,7 @@ function presentParse(
     history: review ? { ...review.history } : null,
     previousFileId: review?.previousFileId ?? null,
     ...(review ? { detected: presentDetected(review.checks) } : {}),
+    ...(review ? { historyFile: presentHistoryFile(review.checks, p?.asStatement ?? false) } : {}),
   };
 }
 

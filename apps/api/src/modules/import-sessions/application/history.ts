@@ -1,6 +1,8 @@
 import type { HistoryParse, HistoryReadOptions } from "../../file-parsers/index.ts";
 import {
   classifyRows,
+  fileMayLeave,
+  stateAfterFileLeft,
   labelCounts,
   maskNumbers,
   splitTags,
@@ -28,6 +30,8 @@ import {
   ParseRateLimited,
   ParseRefused,
   SEALED_ROWS_MAX_BYTES,
+  stateOfParses,
+  type ParseBatchesTx,
   type ParseJob,
   type ParsePorts,
 } from "./parse.ts";
@@ -283,65 +287,9 @@ export async function uploadHistoryFile(
   let outcome: { readonly batch: Batch; readonly file: BatchFile | null; readonly existing: boolean };
   try {
     outcome = await run(async (tx) => {
-      await tx.lockContent(kept.sha256);
-      const at = deps.now();
-      const existingId = await tx.historyByContent(kept.sha256);
-      const existing = existingId ? await tx.lockBatch(existingId) : null;
-      if (existing) {
-        const batch = await tx.updateBatch(existing.id, existing.state, at);
-        handOffs.push(
-          await handOff(tx, deps, {
-            entityId: existing.id,
-            actorAccountId: caller.actorId,
-            action: "update",
-            changes: [{ field: "history.reopened", before: null, after: "true" }],
-          }),
-        );
-        return { batch, file: null, existing: true };
-      }
-      if ((await tx.parsesInLastHour()) + 1 > PARSE_FILES_PER_HOUR) throw new ParseRateLimited();
-      const batch: Batch = {
-        id: deps.newId(),
-        householdId: caller.householdId,
-        kind: "history",
-        name: null,
-        state: move("uploaded", "processing"),
-        createdBy: caller.actorId,
-        version: 1,
-        createdAt: at,
-        lastActionAt: at,
-      };
-      const file: BatchFile = {
-        id: deps.newId(),
-        batchId: batch.id,
-        position: 1,
-        fileName: kept.fileName,
-        fileId: kept.id,
-        format: kept.format,
-        sizeBytes: kept.sizeBytes,
-        rejectionCode: null,
-        contentSha256: kept.sha256,
-        createdAt: at,
-      };
-      await tx.insertBatch(batch);
-      await tx.insertFile(file);
-      const parse = pendingParse(deps, batch.id, file.id, caller.actorId, {}, at);
-      await tx.upsertHistoryParse(parse);
-      await tx.enqueueHistoryParse({ batchId: batch.id, batchFileId: file.id, parseId: parse.parseId });
-      handOffs.push(
-        await handOff(tx, deps, {
-          entityId: batch.id,
-          actorAccountId: caller.actorId,
-          action: "create",
-          // FR 26: «завантаження файлу історії» — the kind, the state and the format; never the name or the content.
-          changes: [
-            { field: "kind", before: null, after: "history" },
-            { field: "state", before: null, after: batch.state },
-            { field: "files.accepted", before: null, after: kept.format },
-          ],
-        }),
-      );
-      return { batch, file, existing: false };
+      const opened = await openHistoryBatch(deps, tx, caller, kept);
+      handOffs.push(...opened.handOffs);
+      return opened.result;
     });
   } catch (error) {
     await originals.remove(caller.householdId, kept.id, caller.actorId);
@@ -353,6 +301,173 @@ export async function uploadHistoryFile(
 }
 
 const NO_FILE = { uk: "Додайте файл історії.", en: "Add a history file." } as const;
+
+/** BUD-21 FR 2 (row 243): one transaction of the space over its statements' batches and its history batches. */
+export type MoveSpaceTx = <T>(
+  work: (tx: { readonly statement: ParseBatchesTx; readonly history: HistoryTx }) => Promise<T>,
+) => Promise<T>;
+
+/**
+ * «Вивести правила» in the statements' wizard (BUD-21@PoC FR 2, AC2; IMP-08@PoC FR 17; wave 2 row 243): one file of a
+ * statements' batch leaves it for a history batch of its own, which opens the step «Перевірка розпізнавання»; the other
+ * files stay in the batch and go on through the wizard. The client never sends the bytes again (Рішення ведучого
+ * (2026-11-28), BUD-21 FR 2): the server reads the stored original and stores it as «файл історії» under the same checks
+ * as an upload (FR 3), then — under the statements' batch's lock — the file leaves it with its parse, checks and
+ * decisions, and its «виписка» original goes. The same file already stored as a history file opens that batch (FR 3).
+ * No transaction is created. Audit entries hold states, counts and codes, never the file's name or content.
+ */
+export async function moveToHistoryFile(
+  deps: BatchesDeps & { readonly engineVersion: string },
+  run: MoveSpaceTx,
+  originals: Originals,
+  caller: { readonly actorId: string; readonly householdId: string },
+  batchId: string,
+  batchFileId: string,
+): Promise<
+  Handed<{
+    readonly batch: Batch;
+    readonly file: BatchFile | null;
+    readonly existing: boolean;
+    readonly statement: Batch;
+  }>
+> {
+  if (!originals.read) throw new Error("The originals cannot be read here");
+  const source = await run(async ({ statement }) => {
+    const batch = await statement.findBatch(batchId);
+    if (!batch) throw new BatchNotFoundError();
+    if (!fileMayLeave(batch.state)) throw new BatchStateErrorFor(batch.state);
+    const file = (await statement.files(batchId)).find((f) => f.id === batchFileId);
+    if (!file?.fileId) throw new BatchNotFoundError();
+    return { fileId: file.fileId, fileName: file.fileName };
+  });
+  const bytes = await originals.read(caller.householdId, source.fileId);
+  if (!bytes) throw new BatchNotFoundError();
+  const kept = await originals.store({
+    householdId: caller.householdId,
+    actorId: caller.actorId,
+    fileName: source.fileName,
+    kind: "history-file",
+    declaredBytes: bytes.byteLength,
+    budget: originals.budget(bytes.byteLength, HISTORY_FILE_BYTES),
+    body: (async function* () {
+      yield bytes;
+    })(),
+  });
+  const handOffs: BatchHandOff[] = [];
+  let outcome: Awaited<ReturnType<typeof moveToHistoryFile>>["result"];
+  try {
+    outcome = await run(async ({ statement, history }) => {
+      const batch = await statement.lockBatch(batchId);
+      if (!batch) throw new BatchNotFoundError();
+      if (!fileMayLeave(batch.state)) throw new BatchStateErrorFor(batch.state);
+      const files = await statement.files(batchId);
+      // The same file still in the batch: a parallel move of it, or its batch's deletion, finds it gone (404).
+      if (!files.some((f) => f.id === batchFileId && f.fileId === source.fileId))
+        throw new BatchNotFoundError();
+      const opened = await openHistoryBatch(deps, history, caller, kept, batchId);
+      handOffs.push(...opened.handOffs);
+      // The batch's own decisions go too: they were taken over the files as they were.
+      await statement.dropDecisions(batchId, batchFileId);
+      await statement.removeFile(batchId, batchFileId);
+      const left = files.filter((f) => f.id !== batchFileId && f.fileId !== null).length;
+      const next = stateAfterFileLeft(batch.state, left, await stateOfParses(statement, batchId));
+      const updated = await statement.updateBatch(batchId, next, deps.now());
+      handOffs.push(
+        await handOff(statement, deps, {
+          entityId: batchId,
+          actorAccountId: caller.actorId,
+          action: "update",
+          changes: [
+            { field: "state", before: batch.state, after: updated.state },
+            { field: "files.to-history", before: null, after: "1" },
+          ],
+        }),
+      );
+      return { ...opened.result, statement: updated };
+    });
+  } catch (error) {
+    await originals.remove(caller.householdId, kept.id, caller.actorId);
+    throw error;
+  }
+  if (outcome.existing) await originals.remove(caller.householdId, kept.id, caller.actorId);
+  // The «виписка» original is no batch's any more.
+  await originals.remove(caller.householdId, source.fileId, caller.actorId);
+  return { result: outcome, handOffs };
+}
+
+type StoredOriginal = Awaited<ReturnType<Originals["store"]>>;
+
+/**
+ * FR 3: under the content's lock, the history batch still stored with the same file is opened (an action), else a new
+ * history batch with this original and its read queued. `from` (FR 2, row 243): the statements' batch the file left.
+ */
+async function openHistoryBatch(
+  deps: BatchesDeps & { readonly engineVersion: string },
+  tx: HistoryTx,
+  caller: { readonly actorId: string; readonly householdId: string },
+  kept: StoredOriginal,
+  from?: string,
+): Promise<Handed<{ readonly batch: Batch; readonly file: BatchFile | null; readonly existing: boolean }>> {
+  await tx.lockContent(kept.sha256);
+  const at = deps.now();
+  const existingId = await tx.historyByContent(kept.sha256);
+  const existing = existingId ? await tx.lockBatch(existingId) : null;
+  if (existing) {
+    const batch = await tx.updateBatch(existing.id, existing.state, at);
+    const h = await handOff(tx, deps, {
+      entityId: existing.id,
+      actorAccountId: caller.actorId,
+      action: "update",
+      changes: [
+        { field: "history.reopened", before: null, after: "true" },
+        ...(from ? [{ field: "history.from", before: null, after: "statement-batch" }] : []),
+      ],
+    });
+    return { result: { batch, file: null, existing: true }, handOffs: [h] };
+  }
+  if ((await tx.parsesInLastHour()) + 1 > PARSE_FILES_PER_HOUR) throw new ParseRateLimited();
+  const batch: Batch = {
+    id: deps.newId(),
+    householdId: caller.householdId,
+    kind: "history",
+    name: null,
+    state: move("uploaded", "processing"),
+    createdBy: caller.actorId,
+    version: 1,
+    createdAt: at,
+    lastActionAt: at,
+  };
+  const file: BatchFile = {
+    id: deps.newId(),
+    batchId: batch.id,
+    position: 1,
+    fileName: kept.fileName,
+    fileId: kept.id,
+    format: kept.format,
+    sizeBytes: kept.sizeBytes,
+    rejectionCode: null,
+    contentSha256: kept.sha256,
+    createdAt: at,
+  };
+  await tx.insertBatch(batch);
+  await tx.insertFile(file);
+  const parse = pendingParse(deps, batch.id, file.id, caller.actorId, {}, at);
+  await tx.upsertHistoryParse(parse);
+  await tx.enqueueHistoryParse({ batchId: batch.id, batchFileId: file.id, parseId: parse.parseId });
+  const h = await handOff(tx, deps, {
+    entityId: batch.id,
+    actorAccountId: caller.actorId,
+    action: "create",
+    // FR 26: «завантаження файлу історії» — the kind, the state and the format; never the name or the content.
+    changes: [
+      { field: "kind", before: null, after: "history" },
+      { field: "state", before: null, after: batch.state },
+      { field: "files.accepted", before: null, after: kept.format },
+      ...(from ? [{ field: "history.from", before: null, after: "statement-batch" }] : []),
+    ],
+  });
+  return { result: { batch, file, existing: false }, handOffs: [h] };
+}
 
 function pendingParse(
   deps: BatchesDeps & { readonly engineVersion: string },

@@ -138,6 +138,11 @@ export interface Originals {
    * `actorId` null: the daily cleanup.
    */
   remove(householdId: string, fileId: string, actorId: string | null): Promise<void>;
+  /**
+   * BUD-21 FR 2 (row 243): an original's bytes, for a file that leaves its statements' batch for a history batch of its
+   * own; null — it is gone. Absent — not wired (the step answers 500).
+   */
+  read?(householdId: string, fileId: string): Promise<Uint8Array | null>;
 }
 
 export type OriginalsBudget = object;

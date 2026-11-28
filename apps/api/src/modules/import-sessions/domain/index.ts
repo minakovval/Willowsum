@@ -15,9 +15,11 @@ export {
 export type { BatchRejectionCode, BatchState } from "./batch.ts";
 export {
   batchStateAfterParse,
+  fileMayLeave,
   PARSE_FILES_PER_HOUR,
   PARSE_REFUSALS,
   PARSE_STATES,
+  stateAfterFileLeft,
   takesParse,
 } from "./parse.ts";
 export type { ParseRefusalCode, ParseState } from "./parse.ts";

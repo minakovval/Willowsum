@@ -23,6 +23,7 @@ import {
   labelActions,
   historyViewOf,
   maskedAnalysis,
+  moveToHistoryFile,
   parseRefusal,
   rereadHistoryFile,
   suggestedTransfers,
@@ -32,6 +33,7 @@ import {
   type HistoryLabelsPort,
   type HistoryView,
   type HistorySpaceTx,
+  type MoveSpaceTx,
 } from "../../application/index.ts";
 import {
   accountValues,
@@ -42,10 +44,10 @@ import {
   labelTree,
   maskNumbers,
 } from "../../domain/index.ts";
-import { historyTx } from "../db/store.ts";
+import { batchesTx, historyTx } from "../db/store.ts";
 import { storageRejection } from "../parse-ports.ts";
 import { decisionSchema, evidenceSchema, guessesSchema } from "./review-routes.ts";
-import { guarded, owner, uploadRefusal } from "./routes.ts";
+import { batchSchema, guarded, owner, presentBatch, uploadRefusal } from "./routes.ts";
 import { handOffNow, importSessionsServices } from "./services.ts";
 
 /**
@@ -764,8 +766,67 @@ export const deleteHistoryFileRoute = defineRoute({
   },
 });
 
+/**
+ * «Вивести правила» in the statements' wizard (BUD-21 FR 2, AC2; IMP-08 FR 17; row 243): the file leaves its
+ * statements' batch for a history batch of its own — the server reads its stored original, the client sends no bytes
+ * (Рішення ведучого (2026-11-28), BUD-21 FR 2).
+ */
+export const moveToHistoryFileRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/import/batches/{batchId}/files/{fileId}/history-file",
+  operationId: "moveToHistoryFile",
+  summary:
+    "«Вивести правила» (BUD-21 FR 2, AC2; IMP-08 FR 17): one file of a statements' batch leaves it for a history batch of its own (stored as «файл історії», read in the background, step «Перевірка розпізнавання»); the other files stay; no transaction is created; the same file already stored opens its batch (`existing`)",
+  access: WRITE,
+  rateLimit: "upload",
+  request: { params: z.object({ batchId: z.uuid(), fileId: z.uuid() }) },
+  problems: ["BATCH_STATE_CONFLICT", "FILE_REJECTED", "FILE_TOO_LARGE"],
+  response: {
+    status: 201,
+    description:
+      "The history file's batch, its read queued (or the batch of the same file already stored), and the statements' batch the file left",
+    schema: z.object({
+      batch: historyBatchSchema,
+      parseId: z.uuid(),
+      existing: z.boolean(),
+      /** The statements' batch without the file: «скасовано» when no accepted file is left in it. */
+      statement: batchSchema,
+    }),
+  },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    const { deps, originals, audit, open } = historyServices(ctx);
+    const { householdId, userId } = ctx.principal;
+    const run: MoveSpaceTx = (work) =>
+      ctx.inHousehold((q) => work({ statement: batchesTx(q), history: historyTx(q) }));
+    const handed = await uploadRefusal(() =>
+      moveToHistoryFile(
+        deps,
+        run,
+        originals,
+        { actorId: userId, householdId },
+        params.batchId,
+        params.fileId,
+      ),
+    );
+    await handOffNow(audit, householdId, handed.handOffs);
+    const { batch, statement } = handed.result;
+    const view = await historied(() => runHistory(ctx)((tx) => historyViewOf(tx, open, batch.id)));
+    const shown = await presentView(ctx, view);
+    const files = await ctx.inHousehold((q) => batchesTx(q).files(statement.id));
+    return {
+      batch: shown.batch,
+      parseId: shown.parseId,
+      existing: handed.result.existing,
+      statement: presentBatch(statement, files),
+    };
+  },
+});
+
 export const historyFileRoutes = [
   uploadHistoryFileRoute,
+  moveToHistoryFileRoute,
   getHistoryFileRoute,
   rereadHistoryFileRoute,
   confirmHistoryFileRoute,
