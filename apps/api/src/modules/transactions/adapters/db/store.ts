@@ -680,8 +680,11 @@ export interface CounterpartSide extends CandidateSide {
  * IMP-03@PoC FR 24 («Позначити як переказ» — ручне поєднання): the transaction `transactionId` of the space and the free
  * transactions of the opposite direction that could be its other side — on another account of the space (or another
  * currency of its account: an exchange, FR 2), posted, shown, not split and in no transfer; dated within `windowDays`
- * before or after it; in its currency only a credit not above the debit and at most `amountShare` of the chosen amount
- * below it (owner, 2026-11-27: the difference in one currency is only ever a fee), in another currency any amount. A
+ * before or after it; in its currency the pair «debit D, credit C» with D × (1 − `amountShare`) ≤ C ≤ D, whichever side is
+ * chosen (owner, 2026-11-27: the difference in one currency is only ever a fee; owner, 2026-11-28: the share is of the
+ * debit, so the pair is the same from either side). Chosen a credit C, the debits D are C ≤ D ≤ C ÷ (1 − share) rounded
+ * down to the minor unit: compared as D × (1 − share) ≤ C in exact `numeric`, which is the same set for amounts in minor
+ * units with no division or rounding (2 000,00 → 2 105,26 EUR). In another currency any amount. A
  * pair the user called «Не пара» stays a candidate: «Не пара» stops the proposals (FR 12), not the user's own choice.
  * Ordered by the days apart, then by the difference of the amounts (one currency first), then date and id; at most
  * `limit`. Null `chosen` — no such transaction in the space (another space's answers the same, П-5). Read only.
@@ -745,7 +748,7 @@ export async function counterpartCandidates(
         AND (c.currency <> $5
              OR CASE WHEN $3::numeric < 0
                      THEN abs(c.amount) BETWEEN abs($3::numeric) * (1 - $8::numeric) AND abs($3::numeric)
-                     ELSE abs(c.amount) BETWEEN abs($3::numeric) AND abs($3::numeric) * (1 + $8::numeric) END)
+                     ELSE abs(c.amount) >= abs($3::numeric) AND abs(c.amount) * (1 - $8::numeric) <= abs($3::numeric) END)
       ORDER BY abs(c.occurred_on - $6::date),
                CASE WHEN c.currency = $5 THEN abs(abs(c.amount) - abs($3::numeric)) END NULLS LAST,
                c.occurred_on, c.id
