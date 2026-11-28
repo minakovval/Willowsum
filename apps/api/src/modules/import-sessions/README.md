@@ -170,9 +170,16 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
   запечатані; `HISTORY_NOT_READY` 409, `HISTORY_ANSWER_INVALID` 422), `DELETE …/{batchId}` («Видалити файл»). Партія виду
   `history` ніколи не застосовується: маршрути виписок її не знаходять (404), у історії імпортів її немає; щоденне
   прибирання видаляє її через 30 днів без дії, як незастосовану. `historyTx(q)`, `PARSE_HISTORY_JOB` (важка задача,
-  щоденне відновлення `dead`), `HistoryServices { keys, accounts }` у `createImportSessionsServices({ …, history? })`;
-  `ParseModules.history` — `HistoryParser` модуля file-parsers. `importSessionsResealPart` запечатує заново й
-  `history_parses.parse_sealed`, `answers_sealed`.
+  щоденне відновлення `dead`), `HistoryServices { keys, accounts, labels? }` у `createImportSessionsServices({ …,
+  history? })`; `ParseModules.history` — `HistoryParser` модуля file-parsers. `importSessionsResealPart` запечатує
+  заново й `history_parses.parse_sealed`, `answers_sealed`.
+- Мітки файлу історії (BUD-21@PoC п. 7, 8, 25, частина b): `HistoryServices.labels` — `HistoryLabelsService`
+  (`createHistoryLabels` модуля categories, підключено в main.ts). `GET …/{batchId}` додає `recognition.mapping` —
+  кожна мітка з тим, що з нею станеться (`category` / `create` / `transfer` / `skip`), питаннями й групами; підсумок
+  рахує мітки-перекази і пропущені «Коригування» (`service-category`). `POST …/confirm` приймає `labels` (вибір
+  користувача для мітки) і до запечатування відповідей викликає `labels.confirm` — категорії створює модуль categories
+  своєю транзакцією; `HistoryAnswers.labels` — категорія кожної мітки для виведення (`rowCategories`). Без `labels`
+  `mapping` — null і категорії не створюються.
 - `BATCH_LIMITS` (50 файлів — рядків партії, прийнятих і відхилених; 150 МіБ), `BATCH_STATES`, `canMove`,
   `UNAPPLIED_RETENTION_DAYS`; тип `BatchState`.
 
@@ -238,4 +245,6 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
 `application/imp16-rollback-window.test.ts`, `test/imp04-rollback.it.test.ts` (відкат: сторно, залишки, змінені, злиті,
 7 днів, повтор, інший простір, гонка з новим застосуванням),
 `test/bud21-history-files.it.test.ts` (файл історії: завантаження, той самий файл, макроси, ролі, пропуски, виправлення,
-підтвердження, жодних транзакцій, прибирання й видалення, аудит, `dead` і відновлення, інший простір, прапорець).
+підтвердження, жодних транзакцій, прибирання й видалення, аудит, `dead` і відновлення, інший простір, прапорець),
+`domain/bud21-label-rows.test.ts`, `test/bud21-label-matching.it.test.ts` (мітки: зіставлення, створення, перекази,
+службові мітки, запам'ятоване зіставлення).

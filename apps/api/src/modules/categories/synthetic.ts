@@ -111,4 +111,21 @@ export const synthetic = [
         };
     },
   }),
+  // BUD-21 FR 25 (migrations/0004_history_labels.sql): confirmed matchings of history-file labels — a hash of a
+  // synthetic label, the space's first category or a transfer (null).
+  defineSyntheticTable({
+    table: "categories.history_label_mappings",
+    perHousehold: 3,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          label_hash: createHash("sha256").update(`${household.id}/label/${i}`).digest("hex"),
+          category_id: i % 2 === 0 ? key(household.id, "category", 0) : null,
+          confirmed_by: key(household.id, "member", 0),
+          confirmed_at: "2026-11-27T10:00:00Z",
+          batch_id: key(household.id, "history-batch", 0),
+        };
+    },
+  }),
 ];

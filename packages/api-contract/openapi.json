@@ -42389,7 +42389,8 @@
                                         "enum": [
                                           "date-unreadable",
                                           "amount-unreadable",
-                                          "no-categorisation"
+                                          "no-categorisation",
+                                          "service-category"
                                         ],
                                         "x-extensible-enum": true
                                       },
@@ -42427,6 +42428,344 @@
                                 ],
                                 "x-extensible-enum": true
                               }
+                            },
+                            "mapping": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "labels": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "category": {
+                                            "type": "string"
+                                          },
+                                          "subcategory": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          },
+                                          "rows": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "outcome": {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "category"
+                                                  },
+                                                  "categoryId": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "name": {
+                                                    "type": "string"
+                                                  },
+                                                  "hidden": {
+                                                    "type": "boolean"
+                                                  },
+                                                  "show": {
+                                                    "type": "boolean"
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "name",
+                                                      "remembered",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "categoryId",
+                                                  "name",
+                                                  "hidden",
+                                                  "show",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "create"
+                                                  },
+                                                  "name": {
+                                                    "type": [
+                                                      "string",
+                                                      "null"
+                                                    ]
+                                                  },
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "expense",
+                                                      "income"
+                                                    ]
+                                                  },
+                                                  "group": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "kind": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                          "group",
+                                                          "new",
+                                                          "history"
+                                                        ],
+                                                        "x-extensible-enum": true
+                                                      },
+                                                      "groupId": {
+                                                        "anyOf": [
+                                                          {
+                                                            "type": "string",
+                                                            "format": "uuid",
+                                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                          },
+                                                          {
+                                                            "type": "null"
+                                                          }
+                                                        ]
+                                                      },
+                                                      "name": {
+                                                        "type": [
+                                                          "string",
+                                                          "null"
+                                                        ]
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "groupId",
+                                                      "name"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "new",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "name",
+                                                  "kind",
+                                                  "group",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "transfer"
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "service",
+                                                      "remembered",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "skip"
+                                                  },
+                                                  "reason": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "service-category"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "reason"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          },
+                                          "questions": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "equal-signs",
+                                                "opposite-sign",
+                                                "hidden-category",
+                                                "duplicate-name",
+                                                "name-invalid"
+                                              ],
+                                              "x-extensible-enum": true
+                                            },
+                                            "description": "BUD-21 FR 7, EC 2–4: what the step asks about the label"
+                                          }
+                                        },
+                                        "required": [
+                                          "category",
+                                          "subcategory",
+                                          "rows",
+                                          "outcome",
+                                          "questions"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "groups": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "category": {
+                                            "type": "string"
+                                          },
+                                          "rows": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "expense",
+                                              "income"
+                                            ]
+                                          },
+                                          "target": {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "group",
+                                                  "new"
+                                                ],
+                                                "x-extensible-enum": true
+                                              },
+                                              "groupId": {
+                                                "anyOf": [
+                                                  {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  {
+                                                    "type": "null"
+                                                  }
+                                                ]
+                                              },
+                                              "name": {
+                                                "type": [
+                                                  "string",
+                                                  "null"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "groupId",
+                                              "name"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          "questions": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "equal-signs",
+                                                "opposite-sign",
+                                                "hidden-category",
+                                                "duplicate-name",
+                                                "name-invalid"
+                                              ],
+                                              "x-extensible-enum": true
+                                            },
+                                            "description": "BUD-21 FR 7, EC 2–4: what the step asks about the label"
+                                          }
+                                        },
+                                        "required": [
+                                          "category",
+                                          "rows",
+                                          "kind",
+                                          "target",
+                                          "questions"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "historyGroups": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "expense",
+                                              "income"
+                                            ]
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "name"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "more": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "labels",
+                                    "groups",
+                                    "historyGroups",
+                                    "more"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -42442,7 +42781,8 @@
                             "transfers",
                             "accounts",
                             "summary",
-                            "missing"
+                            "missing",
+                            "mapping"
                           ],
                           "additionalProperties": false
                         },
@@ -42635,6 +42975,59 @@
                       ],
                       "additionalProperties": false
                     }
+                  },
+                  "labels": {
+                    "maxItems": 1000,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "category": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "subcategory": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "action": {
+                          "type": "string",
+                          "enum": [
+                            "category",
+                            "create",
+                            "transfer"
+                          ]
+                        },
+                        "categoryId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "show": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "category",
+                        "subcategory",
+                        "action"
+                      ],
+                      "additionalProperties": false
+                    }
                   }
                 },
                 "required": [
@@ -42647,7 +43040,7 @@
         },
         "responses": {
           "200": {
-            "description": "The confirmed history file",
+            "description": "The confirmed history file; the labels' categories created (BUD-21 FR 7, one audit entry) and their matching kept for the next file (FR 25)",
             "content": {
               "application/json": {
                 "schema": {
@@ -44023,7 +44416,8 @@
                                         "enum": [
                                           "date-unreadable",
                                           "amount-unreadable",
-                                          "no-categorisation"
+                                          "no-categorisation",
+                                          "service-category"
                                         ],
                                         "x-extensible-enum": true
                                       },
@@ -44061,6 +44455,344 @@
                                 ],
                                 "x-extensible-enum": true
                               }
+                            },
+                            "mapping": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "labels": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "category": {
+                                            "type": "string"
+                                          },
+                                          "subcategory": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          },
+                                          "rows": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "outcome": {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "category"
+                                                  },
+                                                  "categoryId": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "name": {
+                                                    "type": "string"
+                                                  },
+                                                  "hidden": {
+                                                    "type": "boolean"
+                                                  },
+                                                  "show": {
+                                                    "type": "boolean"
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "name",
+                                                      "remembered",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "categoryId",
+                                                  "name",
+                                                  "hidden",
+                                                  "show",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "create"
+                                                  },
+                                                  "name": {
+                                                    "type": [
+                                                      "string",
+                                                      "null"
+                                                    ]
+                                                  },
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "expense",
+                                                      "income"
+                                                    ]
+                                                  },
+                                                  "group": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "kind": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                          "group",
+                                                          "new",
+                                                          "history"
+                                                        ],
+                                                        "x-extensible-enum": true
+                                                      },
+                                                      "groupId": {
+                                                        "anyOf": [
+                                                          {
+                                                            "type": "string",
+                                                            "format": "uuid",
+                                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                          },
+                                                          {
+                                                            "type": "null"
+                                                          }
+                                                        ]
+                                                      },
+                                                      "name": {
+                                                        "type": [
+                                                          "string",
+                                                          "null"
+                                                        ]
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "groupId",
+                                                      "name"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "new",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "name",
+                                                  "kind",
+                                                  "group",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "transfer"
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "service",
+                                                      "remembered",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "skip"
+                                                  },
+                                                  "reason": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "service-category"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "reason"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          },
+                                          "questions": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "equal-signs",
+                                                "opposite-sign",
+                                                "hidden-category",
+                                                "duplicate-name",
+                                                "name-invalid"
+                                              ],
+                                              "x-extensible-enum": true
+                                            },
+                                            "description": "BUD-21 FR 7, EC 2–4: what the step asks about the label"
+                                          }
+                                        },
+                                        "required": [
+                                          "category",
+                                          "subcategory",
+                                          "rows",
+                                          "outcome",
+                                          "questions"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "groups": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "category": {
+                                            "type": "string"
+                                          },
+                                          "rows": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "expense",
+                                              "income"
+                                            ]
+                                          },
+                                          "target": {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "group",
+                                                  "new"
+                                                ],
+                                                "x-extensible-enum": true
+                                              },
+                                              "groupId": {
+                                                "anyOf": [
+                                                  {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  {
+                                                    "type": "null"
+                                                  }
+                                                ]
+                                              },
+                                              "name": {
+                                                "type": [
+                                                  "string",
+                                                  "null"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "groupId",
+                                              "name"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          "questions": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "equal-signs",
+                                                "opposite-sign",
+                                                "hidden-category",
+                                                "duplicate-name",
+                                                "name-invalid"
+                                              ],
+                                              "x-extensible-enum": true
+                                            },
+                                            "description": "BUD-21 FR 7, EC 2–4: what the step asks about the label"
+                                          }
+                                        },
+                                        "required": [
+                                          "category",
+                                          "rows",
+                                          "kind",
+                                          "target",
+                                          "questions"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "historyGroups": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "expense",
+                                              "income"
+                                            ]
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "name"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "more": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "labels",
+                                    "groups",
+                                    "historyGroups",
+                                    "more"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -44076,7 +44808,8 @@
                             "transfers",
                             "accounts",
                             "summary",
-                            "missing"
+                            "missing",
+                            "mapping"
                           ],
                           "additionalProperties": false
                         },
@@ -45724,7 +46457,8 @@
                                         "enum": [
                                           "date-unreadable",
                                           "amount-unreadable",
-                                          "no-categorisation"
+                                          "no-categorisation",
+                                          "service-category"
                                         ],
                                         "x-extensible-enum": true
                                       },
@@ -45762,6 +46496,344 @@
                                 ],
                                 "x-extensible-enum": true
                               }
+                            },
+                            "mapping": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "labels": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "category": {
+                                            "type": "string"
+                                          },
+                                          "subcategory": {
+                                            "type": [
+                                              "string",
+                                              "null"
+                                            ]
+                                          },
+                                          "rows": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "outcome": {
+                                            "oneOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "category"
+                                                  },
+                                                  "categoryId": {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  "name": {
+                                                    "type": "string"
+                                                  },
+                                                  "hidden": {
+                                                    "type": "boolean"
+                                                  },
+                                                  "show": {
+                                                    "type": "boolean"
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "name",
+                                                      "remembered",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "categoryId",
+                                                  "name",
+                                                  "hidden",
+                                                  "show",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "create"
+                                                  },
+                                                  "name": {
+                                                    "type": [
+                                                      "string",
+                                                      "null"
+                                                    ]
+                                                  },
+                                                  "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "expense",
+                                                      "income"
+                                                    ]
+                                                  },
+                                                  "group": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                      "kind": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                          "group",
+                                                          "new",
+                                                          "history"
+                                                        ],
+                                                        "x-extensible-enum": true
+                                                      },
+                                                      "groupId": {
+                                                        "anyOf": [
+                                                          {
+                                                            "type": "string",
+                                                            "format": "uuid",
+                                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                          },
+                                                          {
+                                                            "type": "null"
+                                                          }
+                                                        ]
+                                                      },
+                                                      "name": {
+                                                        "type": [
+                                                          "string",
+                                                          "null"
+                                                        ]
+                                                      }
+                                                    },
+                                                    "required": [
+                                                      "kind",
+                                                      "groupId",
+                                                      "name"
+                                                    ],
+                                                    "additionalProperties": false
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "new",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "name",
+                                                  "kind",
+                                                  "group",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "transfer"
+                                                  },
+                                                  "source": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "service",
+                                                      "remembered",
+                                                      "choice"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "source"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "action": {
+                                                    "type": "string",
+                                                    "const": "skip"
+                                                  },
+                                                  "reason": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                      "service-category"
+                                                    ],
+                                                    "x-extensible-enum": true
+                                                  }
+                                                },
+                                                "required": [
+                                                  "action",
+                                                  "reason"
+                                                ],
+                                                "additionalProperties": false
+                                              }
+                                            ]
+                                          },
+                                          "questions": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "equal-signs",
+                                                "opposite-sign",
+                                                "hidden-category",
+                                                "duplicate-name",
+                                                "name-invalid"
+                                              ],
+                                              "x-extensible-enum": true
+                                            },
+                                            "description": "BUD-21 FR 7, EC 2–4: what the step asks about the label"
+                                          }
+                                        },
+                                        "required": [
+                                          "category",
+                                          "subcategory",
+                                          "rows",
+                                          "outcome",
+                                          "questions"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "groups": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "category": {
+                                            "type": "string"
+                                          },
+                                          "rows": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "expense",
+                                              "income"
+                                            ]
+                                          },
+                                          "target": {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "group",
+                                                  "new"
+                                                ],
+                                                "x-extensible-enum": true
+                                              },
+                                              "groupId": {
+                                                "anyOf": [
+                                                  {
+                                                    "type": "string",
+                                                    "format": "uuid",
+                                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                                  },
+                                                  {
+                                                    "type": "null"
+                                                  }
+                                                ]
+                                              },
+                                              "name": {
+                                                "type": [
+                                                  "string",
+                                                  "null"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "kind",
+                                              "groupId",
+                                              "name"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          "questions": {
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string",
+                                              "enum": [
+                                                "equal-signs",
+                                                "opposite-sign",
+                                                "hidden-category",
+                                                "duplicate-name",
+                                                "name-invalid"
+                                              ],
+                                              "x-extensible-enum": true
+                                            },
+                                            "description": "BUD-21 FR 7, EC 2–4: what the step asks about the label"
+                                          }
+                                        },
+                                        "required": [
+                                          "category",
+                                          "rows",
+                                          "kind",
+                                          "target",
+                                          "questions"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "historyGroups": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "expense",
+                                              "income"
+                                            ]
+                                          },
+                                          "name": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "kind",
+                                          "name"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "more": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "labels",
+                                    "groups",
+                                    "historyGroups",
+                                    "more"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -45777,7 +46849,8 @@
                             "transfers",
                             "accounts",
                             "summary",
-                            "missing"
+                            "missing",
+                            "mapping"
                           ],
                           "additionalProperties": false
                         },

@@ -5,7 +5,7 @@ import { categoryMerged } from "../../events.ts";
 
 /** The categories schema through the module's own role (migrations/0001_categories.sql). The row policy binds the space; SQL filters it too. */
 
-const GROUP_COLUMNS = `id, system_key, kind, name, renamed, tone, position, version`;
+const GROUP_COLUMNS = `id, system_key, kind, name, renamed, tone, position, version, history_kind`;
 const CATEGORY_COLUMNS = `id, group_id, kind, system_key, name, renamed, icon, color, essential, state, merged_into,
   position, version`;
 
@@ -18,6 +18,7 @@ interface GroupRow {
   tone: string;
   position: number;
   version: number;
+  history_kind: StoredGroup["historyKind"];
 }
 
 interface CategoryRow {
@@ -45,6 +46,7 @@ const group = (r: GroupRow): StoredGroup => ({
   tone: r.tone,
   position: r.position,
   version: r.version,
+  historyKind: r.history_kind,
 });
 
 const category = (r: CategoryRow): StoredCategory => ({
@@ -73,6 +75,7 @@ const groupParams = (householdId: string, g: StoredGroup) => [
   g.tone,
   g.position,
   g.version,
+  g.historyKind,
 ];
 
 const categoryParams = (householdId: string, c: StoredCategory) => [
@@ -93,7 +96,7 @@ const categoryParams = (householdId: string, c: StoredCategory) => [
 ];
 
 const INSERT_GROUP = `INSERT INTO category_groups (household_id, ${GROUP_COLUMNS})
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`;
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`;
 const INSERT_CATEGORY = `INSERT INTO categories (household_id, ${CATEGORY_COLUMNS})
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`;
 
@@ -250,6 +253,33 @@ export function categoriesTx(q: HouseholdQueryRunner): CategoriesTx {
         householdId,
         id,
       ]);
+    },
+    async lockTree(householdId) {
+      await q.query(
+        `SELECT 1 FROM category_groups WHERE household_id = $1 AND system_key = 'service' FOR UPDATE`,
+        [householdId],
+      );
+    },
+    async labelMappings(householdId, hashes) {
+      const { rows } = await q.query<{ label_hash: string; category_id: string | null; batch_id: string }>(
+        `SELECT label_hash, category_id, batch_id FROM history_label_mappings
+          WHERE household_id = $1 AND label_hash = ANY($2::text[])`,
+        [householdId, hashes],
+      );
+      return rows.map((r) => ({ hash: r.label_hash, categoryId: r.category_id, batchId: r.batch_id }));
+    },
+    async saveLabelMappings(householdId, rows, by, at, batchId) {
+      if (rows.length === 0) return;
+      await q.query(
+        `INSERT INTO history_label_mappings
+             (household_id, label_hash, category_id, confirmed_by, confirmed_at, batch_id)
+           SELECT $1, m.hash, m.category_id, $4, $5, $6
+             FROM unnest($2::text[], $3::uuid[]) AS m(hash, category_id)
+         ON CONFLICT (household_id, label_hash)
+           DO UPDATE SET category_id = EXCLUDED.category_id, confirmed_by = EXCLUDED.confirmed_by,
+                         confirmed_at = EXCLUDED.confirmed_at, batch_id = EXCLUDED.batch_id`,
+        [householdId, rows.map((r) => r.hash), rows.map((r) => r.categoryId), by, at, batchId],
+      );
     },
   };
 }

@@ -18483,6 +18483,70 @@ export interface operations {
                                 }[];
                                 more: boolean;
                             };
+                            mapping: {
+                                groups: {
+                                    category: string;
+                                    /** @enum {string} */
+                                    kind: "expense" | "income";
+                                    /** @description BUD-21 FR 7, EC 2–4: what the step asks about the label */
+                                    questions: ("equal-signs" | "opposite-sign" | "hidden-category" | "duplicate-name" | "name-invalid")[];
+                                    rows: number;
+                                    target: {
+                                        groupId: string | null;
+                                        /** @enum {string} */
+                                        kind: "group" | "new";
+                                        name: string | null;
+                                    };
+                                }[];
+                                historyGroups: {
+                                    /** @enum {string} */
+                                    kind: "expense" | "income";
+                                    name: string;
+                                }[];
+                                labels: {
+                                    category: string;
+                                    outcome: {
+                                        /** @constant */
+                                        action: "category";
+                                        /** Format: uuid */
+                                        categoryId: string;
+                                        hidden: boolean;
+                                        name: string;
+                                        show: boolean;
+                                        /** @enum {string} */
+                                        source: "name" | "remembered" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "create";
+                                        group: {
+                                            groupId: string | null;
+                                            /** @enum {string} */
+                                            kind: "group" | "new" | "history";
+                                            name: string | null;
+                                        };
+                                        /** @enum {string} */
+                                        kind: "expense" | "income";
+                                        name: string | null;
+                                        /** @enum {string} */
+                                        source: "new" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "transfer";
+                                        /** @enum {string} */
+                                        source: "service" | "remembered" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "skip";
+                                        /** @enum {string} */
+                                        reason: "service-category";
+                                    };
+                                    /** @description BUD-21 FR 7, EC 2–4: what the step asks about the label */
+                                    questions: ("equal-signs" | "opposite-sign" | "hidden-category" | "duplicate-name" | "name-invalid")[];
+                                    rows: number;
+                                    subcategory: string | null;
+                                }[];
+                                more: boolean;
+                            } | null;
                             missing: ("date" | "amount" | "description" | "categories")[];
                             numbers: {
                                 alternatives: {
@@ -18558,7 +18622,7 @@ export interface operations {
                                 skipped: {
                                     count: number;
                                     /** @enum {string} */
-                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation";
+                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation" | "service-category";
                                 }[];
                                 transfers: number;
                             };
@@ -18779,6 +18843,15 @@ export interface operations {
                         accountId: string | null;
                         value: string;
                     }[];
+                    labels?: {
+                        /** @enum {string} */
+                        action: "category" | "create" | "transfer";
+                        category: string | null;
+                        /** Format: uuid */
+                        categoryId?: string;
+                        show?: boolean;
+                        subcategory: string | null;
+                    }[];
                     /** Format: uuid */
                     parseId: string;
                     transferValues?: string[];
@@ -18786,7 +18859,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The confirmed history file */
+            /** @description The confirmed history file; the labels' categories created (BUD-21 FR 7, one audit entry) and their matching kept for the next file (FR 25) */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -18959,6 +19032,70 @@ export interface operations {
                                 }[];
                                 more: boolean;
                             };
+                            mapping: {
+                                groups: {
+                                    category: string;
+                                    /** @enum {string} */
+                                    kind: "expense" | "income";
+                                    /** @description BUD-21 FR 7, EC 2–4: what the step asks about the label */
+                                    questions: ("equal-signs" | "opposite-sign" | "hidden-category" | "duplicate-name" | "name-invalid")[];
+                                    rows: number;
+                                    target: {
+                                        groupId: string | null;
+                                        /** @enum {string} */
+                                        kind: "group" | "new";
+                                        name: string | null;
+                                    };
+                                }[];
+                                historyGroups: {
+                                    /** @enum {string} */
+                                    kind: "expense" | "income";
+                                    name: string;
+                                }[];
+                                labels: {
+                                    category: string;
+                                    outcome: {
+                                        /** @constant */
+                                        action: "category";
+                                        /** Format: uuid */
+                                        categoryId: string;
+                                        hidden: boolean;
+                                        name: string;
+                                        show: boolean;
+                                        /** @enum {string} */
+                                        source: "name" | "remembered" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "create";
+                                        group: {
+                                            groupId: string | null;
+                                            /** @enum {string} */
+                                            kind: "group" | "new" | "history";
+                                            name: string | null;
+                                        };
+                                        /** @enum {string} */
+                                        kind: "expense" | "income";
+                                        name: string | null;
+                                        /** @enum {string} */
+                                        source: "new" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "transfer";
+                                        /** @enum {string} */
+                                        source: "service" | "remembered" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "skip";
+                                        /** @enum {string} */
+                                        reason: "service-category";
+                                    };
+                                    /** @description BUD-21 FR 7, EC 2–4: what the step asks about the label */
+                                    questions: ("equal-signs" | "opposite-sign" | "hidden-category" | "duplicate-name" | "name-invalid")[];
+                                    rows: number;
+                                    subcategory: string | null;
+                                }[];
+                                more: boolean;
+                            } | null;
                             missing: ("date" | "amount" | "description" | "categories")[];
                             numbers: {
                                 alternatives: {
@@ -19034,7 +19171,7 @@ export interface operations {
                                 skipped: {
                                     count: number;
                                     /** @enum {string} */
-                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation";
+                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation" | "service-category";
                                 }[];
                                 transfers: number;
                             };
@@ -19363,6 +19500,70 @@ export interface operations {
                                 }[];
                                 more: boolean;
                             };
+                            mapping: {
+                                groups: {
+                                    category: string;
+                                    /** @enum {string} */
+                                    kind: "expense" | "income";
+                                    /** @description BUD-21 FR 7, EC 2–4: what the step asks about the label */
+                                    questions: ("equal-signs" | "opposite-sign" | "hidden-category" | "duplicate-name" | "name-invalid")[];
+                                    rows: number;
+                                    target: {
+                                        groupId: string | null;
+                                        /** @enum {string} */
+                                        kind: "group" | "new";
+                                        name: string | null;
+                                    };
+                                }[];
+                                historyGroups: {
+                                    /** @enum {string} */
+                                    kind: "expense" | "income";
+                                    name: string;
+                                }[];
+                                labels: {
+                                    category: string;
+                                    outcome: {
+                                        /** @constant */
+                                        action: "category";
+                                        /** Format: uuid */
+                                        categoryId: string;
+                                        hidden: boolean;
+                                        name: string;
+                                        show: boolean;
+                                        /** @enum {string} */
+                                        source: "name" | "remembered" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "create";
+                                        group: {
+                                            groupId: string | null;
+                                            /** @enum {string} */
+                                            kind: "group" | "new" | "history";
+                                            name: string | null;
+                                        };
+                                        /** @enum {string} */
+                                        kind: "expense" | "income";
+                                        name: string | null;
+                                        /** @enum {string} */
+                                        source: "new" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "transfer";
+                                        /** @enum {string} */
+                                        source: "service" | "remembered" | "choice";
+                                    } | {
+                                        /** @constant */
+                                        action: "skip";
+                                        /** @enum {string} */
+                                        reason: "service-category";
+                                    };
+                                    /** @description BUD-21 FR 7, EC 2–4: what the step asks about the label */
+                                    questions: ("equal-signs" | "opposite-sign" | "hidden-category" | "duplicate-name" | "name-invalid")[];
+                                    rows: number;
+                                    subcategory: string | null;
+                                }[];
+                                more: boolean;
+                            } | null;
                             missing: ("date" | "amount" | "description" | "categories")[];
                             numbers: {
                                 alternatives: {
@@ -19438,7 +19639,7 @@ export interface operations {
                                 skipped: {
                                     count: number;
                                     /** @enum {string} */
-                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation";
+                                    reason: "date-unreadable" | "amount-unreadable" | "no-categorisation" | "service-category";
                                 }[];
                                 transfers: number;
                             };
