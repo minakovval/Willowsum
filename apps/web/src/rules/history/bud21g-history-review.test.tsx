@@ -275,7 +275,7 @@ function choose(button: string, name: string) {
 }
 
 describe("BUD-21@PoC g) S-299 «Перевірка розпізнавання»", () => {
-  it("BUD-21@PoC AC1: without any answer the step shows the roles of all five columns, the examples, the file's categories and «прочитано 600»; nothing is written", async () => {
+  it("S-299 (the «Then» half of the history-upload scenario): without any answer the step shows the roles of all five columns, the examples, the file's categories and «прочитано 600»; nothing is written", async () => {
     const a = fake({ [`GET /v1/import/history-files/${BATCH}`]: get(view()) });
     open(a);
     await ready();
@@ -710,7 +710,7 @@ describe("BUD-21@PoC g) S-299 states", () => {
     ).toBeTruthy();
   });
 
-  it("BUD-21@PoC AC1 EC: the controls are real controls — every select has a name, the disabled confirmation says why, focus order follows the page", async () => {
+  it("S-299 controls: the controls are real controls — every select has a name, the disabled confirmation says why, focus order follows the page", async () => {
     const a = fake({
       [`GET /v1/import/history-files/${BATCH}`]: get(
         view(recognition({ missing: ["categories"] }), { canConfirm: false }),
@@ -752,7 +752,7 @@ describe("BUD-21@PoC g) S-197 and S-298 «Завантажити файл іст
     return screen.findByRole("dialog", { name: "Завантажити файл історії" });
   };
 
-  it("BUD-21@PoC FR 2: «Правила категорій» has the action «Завантажити файл історії» with its hint; it opens the dialog with the drop zone, formats and ceilings", async () => {
+  it("S-197 (the Rules-page half of BUD-21@PoC g, not the wizard entry): «Правила категорій» has the action «Завантажити файл історії» with its hint; it opens the dialog with the drop zone, formats and ceilings", async () => {
     const a = rulesPage();
     open(a, "#/money/transactions/rules");
     const button = await screen.findByRole("button", { name: "Завантажити файл історії" });
@@ -768,7 +768,7 @@ describe("BUD-21@PoC g) S-197 and S-298 «Завантажити файл іст
     expect(a.writes()).toEqual([]);
   });
 
-  it("BUD-21@PoC AC1: the chosen file is sent as one multipart upload and the step «Перевірка розпізнавання» of its batch opens", async () => {
+  it("S-298 (the upload half of the history-upload scenario): the chosen file is sent as one multipart upload and the step «Перевірка розпізнавання» of its batch opens", async () => {
     const a = rulesPage({
       "POST /v1/import/history-files": reply(
         { batch: batch("processing"), parseId: PARSE, existing: false },
