@@ -306,10 +306,15 @@ export async function createAcceptedTags(
   names: readonly string[],
   newId: () => string,
 ): Promise<number> {
-  const checked = tagNames(names);
-  if ("issue" in checked || checked.names.length === 0) return 0;
+  // The names of every accepted rule together: each checked on its own (a rule has at most 20, the acceptance many
+  // rules — `tagNames` is the limit of one transaction); an invalid name is left out, the others are still created.
+  const valid = new Map<string, string>();
+  for (const raw of names) {
+    const name = tagName(raw);
+    if (name !== undefined && !valid.has(tagKey(name))) valid.set(tagKey(name), name);
+  }
   const missing: string[] = [];
-  for (const name of checked.names)
+  for (const name of valid.values())
     if ((await tags.byKey(householdId, tagKey(name))) === null) missing.push(name);
   if (missing.length === 0) return 0;
   const ids = new Map<string, string>();
