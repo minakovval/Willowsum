@@ -47,3 +47,13 @@ export {
   type HistoryRow,
   type TopCategories,
 } from "./suggestion.ts";
+export {
+  DERIVATION_FOREGROUND_MAX,
+  DERIVATION_ROWS_MAX,
+  descriptionWords,
+  deriveSuggestions,
+  type DerivationRow,
+  type DerivedSuggestion,
+  type SuggestionCondition,
+  type SuggestionKind,
+} from "./history-derivation.ts";
