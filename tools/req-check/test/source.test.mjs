@@ -341,6 +341,8 @@ test('coverageSummary: FR, AC and EC covered / total per release, with the time 
   assert.deepEqual([poc.slices, poc.FR, poc.AC], [1, { covered: 1, total: 3 }, { covered: 1, total: 1 }]);
   assert.equal(poc.EC.covered, 1);
   assert.deepEqual(poc.items, { covered: poc.FR.covered + poc.AC.covered + poc.EC.covered, total: poc.FR.total + poc.AC.total + poc.EC.total });
+  // PRC-02 (owner, 2026-11-28): items named in any release, each once — one point of the page's history per merge.
+  assert.deepEqual(json.distinct, { covered: 3, mentions: 3 });
   // Without a commit the field is null, never a guess.
   assert.equal(coverageSummary(cov).sha, null);
 });

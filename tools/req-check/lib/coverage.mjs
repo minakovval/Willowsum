@@ -160,7 +160,9 @@ export function coverageSummary(cov, { sha = null, generatedAt = new Date().toIS
     const EC = sum('EC');
     releases.push({ release, slices: rs.length, FR, AC, EC, items: { covered: FR.covered + AC.covered + EC.covered, total: FR.total + AC.total + EC.total } });
   }
-  return { schema: 1, version: 2, generatedAt, sha, releases, ...(features ? { blocks: (features.blocks?.blocks ?? []).map((b) => ({ id: b.id, name: b.name, note: b.note })), features: featuresSummary(cov, features) } : {}) };
+  // distinct: items named by tests in any release (the «distinct items covered» of --coverage); the progress page's
+  // history adds one point of it per merge (tools/progress-dashboard/history.mjs).
+  return { schema: 1, version: 2, generatedAt, sha, releases, distinct: { covered: cov.items, mentions: cov.mentions }, ...(features ? { blocks: (features.blocks?.blocks ?? []).map((b) => ({ id: b.id, name: b.name, note: b.note })), features: featuresSummary(cov, features) } : {}) };
 }
 
 /** Ukrainian names of the requirement sections (ID prefix = folder of docs/requirements). An unknown prefix shows as itself. */
