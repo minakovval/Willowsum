@@ -30,6 +30,7 @@ import {
 import { createMerchantDirectory } from "../src/modules/merchants/index.ts";
 import { createTransactionLookup, createTransactionRuleInputs } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -335,7 +336,7 @@ describe("sec762: BUD-21@PoC «Права доступу», hard rule «Data acc
       });
     const read = await scoped("GET", `/v1/category-rule-derivations/${confirm.derivation.id}`);
     expect(read.statusCode, read.body).toBe(404);
-    expect(read.body).not.toContain("KAVA");
+    expect(leakText(read.body)).not.toContain("KAVA");
     // «Запис» is not a scoped member's at all (access-scope): refused before the handler.
     for (const role of ["editor", "viewer", "advisor"]) {
       const start = await scoped("POST", "/v1/category-rule-derivations", { batchId }, role);
@@ -347,7 +348,7 @@ describe("sec762: BUD-21@PoC «Права доступу», hard rule «Data acc
         role,
       );
       expect(again.statusCode).toBe(404);
-      expect(again.body).not.toContain("KAVA");
+      expect(leakText(again.body)).not.toContain("KAVA");
     }
     const { rows } = await db.owner.query(
       `SELECT 1 FROM categorization.history_derivations WHERE household_id = $1`,
@@ -399,7 +400,7 @@ describe("sec762: BUD-21@PoC «Права доступу», hard rule «Data acc
     };
     const res = await call(other, "POST", "/v1/category-rule-derivations", { batchId });
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain(batchId);
+    expect(leakText(res.body)).not.toContain(batchId);
     expect({
       runs: await count(
         `SELECT count(*) AS n FROM categorization.history_derivations WHERE household_id = ANY($1)`,
@@ -513,7 +514,7 @@ describe("sec762: what of the file reaches a response and the tables", () => {
     expect((await call(space, "POST", "/v1/category-rule-derivations", { batchId })).statusCode).toBe(404);
     const gone = await call(space, "GET", `/v1/category-rule-derivations/${confirm.derivation.id}`);
     expect(gone.statusCode).toBe(404);
-    expect(gone.body).not.toContain("KAVA");
+    expect(leakText(gone.body)).not.toContain("KAVA");
     const { rows } = await db.owner.query(
       `SELECT 1 FROM categorization.history_derivations WHERE household_id = $1`,
       [space.householdId],
