@@ -25,6 +25,7 @@ interface Row {
   tags: string[];
   version: number;
   created_at: string;
+  origin: "history" | null;
 }
 
 const toJson = (conditions: readonly RuleCondition[]): StoredCondition[] =>
@@ -53,6 +54,7 @@ const stored = (r: Row): StoredRule => ({
   tags: r.tags,
   version: r.version,
   createdAt: r.created_at,
+  origin: r.origin,
 });
 
 export function rulesTx(q: HouseholdQueryRunner): RulesTx {
@@ -64,7 +66,7 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
     },
     async rules(householdId) {
       const { rows } = await q.query<Row>(
-        `SELECT id, position, conditions, account_ids, category_id, enabled, tags, version,
+        `SELECT id, position, conditions, account_ids, category_id, enabled, tags, version, origin,
                 to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') AS created_at FROM rules
           WHERE household_id = $1 ORDER BY position`,
         [householdId],
@@ -74,8 +76,8 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
     async insertRule(householdId, rule, key) {
       await q.query(
         `INSERT INTO rules (household_id, id, position, conditions, account_ids, category_id, enabled, condition_key,
-                            tags)
-         VALUES ($1, $2, $3, $4::jsonb, $5::uuid[], $6, $7, $8, $9::text[])`,
+                            tags, origin)
+         VALUES ($1, $2, $3, $4::jsonb, $5::uuid[], $6, $7, $8, $9::text[], $10)`,
         [
           householdId,
           rule.id,
@@ -86,6 +88,7 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
           rule.enabled,
           key,
           rule.tags,
+          rule.origin ?? null,
         ],
       );
     },

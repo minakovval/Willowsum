@@ -1,6 +1,8 @@
 import {
   DERIVATION_FOREGROUND_MAX,
   deriveSuggestions,
+  historyCheck,
+  type HistoryCheck,
   type DerivationRow,
   type DerivedSuggestion,
 } from "../domain/index.ts";
@@ -56,6 +58,8 @@ export interface DerivationRun {
   readonly processed: number;
   readonly createdAt: number;
   readonly endedAt: number | null;
+  /** FR 18 (row 237): the check on the history of a completed run; null — running, failed or derived before it. */
+  readonly check?: HistoryCheck | null;
 }
 
 export interface StoredSuggestion extends DerivedSuggestion {
@@ -80,13 +84,31 @@ export interface DerivationsTx {
     status: "completed" | "failed",
     suggestions: readonly DerivedSuggestion[],
     at: number,
+    check?: HistoryCheck | null,
   ): Promise<void>;
   suggestions(householdId: string, derivationId: string): Promise<StoredSuggestion[]>;
   /** The batches the space has derivations of. */
   batches(householdId: string): Promise<string[]>;
   /** FR 24: the derivations of batches that are gone, with their suggestions; returns how many. */
   forget(householdId: string, batchIds: readonly string[]): Promise<number>;
+  /** BUD-14 FR 16 (row 237): the latest derivation of each batch, newest first. */
+  latestPerBatch(householdId: string): Promise<DerivationRun[]>;
+  /** FR 23 (row 237): the rejected suggestions of the space, as `rejectionKey`s. */
+  rejections(householdId: string): Promise<ReadonlySet<string>>;
+  /** FR 23: rejects for good; false — rejected already. */
+  reject(
+    householdId: string,
+    rejection: {
+      readonly key: string;
+      readonly categoryId: string;
+      readonly actorAccountId: string;
+      readonly at: number;
+    },
+  ): Promise<boolean>;
 }
+
+/** FR 23: a rejection is the suggestion's conditions (their canonical key) with its category. */
+export const rejectionKey = (key: string, categoryId: string): string => `${categoryId} ${key}`;
 
 export type DerivationsRun = <T>(householdId: string, work: (tx: DerivationsTx) => Promise<T>) => Promise<T>;
 
@@ -240,10 +262,12 @@ export async function executeDerivation(
       );
   }
   const suggestions = deriveSuggestions(prepared);
+  // FR 18 (row 237): the check on the history — the suggestions above are from the whole array all the same.
+  const check = historyCheck(prepared);
   await inSpace(householdId, async (tx) => {
     const locked = await tx.run(householdId, runId, true);
     if (locked?.status !== "running") return;
-    await tx.finish(householdId, runId, "completed", suggestions, deps.now());
+    await tx.finish(householdId, runId, "completed", suggestions, deps.now(), check);
   });
 }
 

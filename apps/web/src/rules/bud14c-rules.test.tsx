@@ -83,6 +83,7 @@ function rule(position: number, conditions: Condition[], categoryId: string, ove
     needsAttention: null,
     appliedCount: 0,
     tags: [],
+    origin: null,
     ...over,
   };
 }
@@ -90,6 +91,7 @@ function rule(position: number, conditions: Condition[], categoryId: string, ove
 const run = (over: Partial<Run> = {}): Run => ({
   id: "00000000-0000-4000-8000-0000000000f1",
   ruleId: ruleId(1),
+  derivationId: null,
   status: "completed",
   background: false,
   count: 14,

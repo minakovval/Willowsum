@@ -93,6 +93,14 @@ const auditSchema = z.strictObject({
           "notRestored",
           // BUD-21 FR 26: the start of a derivation — its history batch (an id), how many rows.
           "batchId",
+          // BUD-21 FR 22, FR 23, FR 26 (row 237): a rule «з історії», an acceptance (how many, the tags created, the run)
+          // and a rejection.
+          "origin",
+          "derivationId",
+          "accepted",
+          "tagsCreated",
+          "runId",
+          "rejected",
         ]),
         before: z.string().max(1000).nullable(),
         after: z.string().max(1000).nullable(),

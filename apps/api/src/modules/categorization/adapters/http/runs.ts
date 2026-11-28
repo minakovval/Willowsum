@@ -28,13 +28,18 @@ import { categorizationServices, rulesAuditNow } from "./services.ts";
 const MODULE = "categorization";
 const FEATURE = "categorization.rules";
 
-const reportSchema = z.object({
+export const reportSchema = z.object({
   id: z.uuid(),
   ruleId: z.uuid(),
   /** `running` — «Оброблено X з N»; `completed`; `undoing` — «Відмінити» in the background; `undone`. */
   status: z.enum(["running", "completed", "undoing", "undone"]),
   /** More than 500: the rest in the background (EC1). */
   background: z.boolean(),
+  /**
+   * BUD-21 FR 22 (row 237): the derivation whose accepted suggestions this run applies (each transaction by the first
+   * accepted rule that sets it; `ruleId` is the first of them); null — a run of one rule.
+   */
+  derivationId: z.uuid().nullable(),
   /** N: the transactions the rule matched when the run began. */
   count: z.number().int(),
   /** X of «Оброблено X з N». */
@@ -69,6 +74,7 @@ const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOStrin
 const present = (r: RunReport): z.input<typeof reportSchema> => ({
   id: r.run.id,
   ruleId: r.run.ruleId,
+  derivationId: r.run.derivationId ?? null,
   status: r.run.status,
   background: r.run.count > RUN_FOREGROUND_MAX,
   count: r.run.count,
@@ -96,7 +102,7 @@ function runDeps(ctx: ProtectedContext) {
   return { services, deps: services.rules.deps };
 }
 
-async function report(ctx: ProtectedContext, runId: string): Promise<z.input<typeof reportSchema>> {
+export async function report(ctx: ProtectedContext, runId: string): Promise<z.input<typeof reportSchema>> {
   const { services } = runDeps(ctx);
   const householdId = ctx.principal.householdId;
   const found = await ctx.inHousehold(async (q) => {
@@ -108,7 +114,7 @@ async function report(ctx: ProtectedContext, runId: string): Promise<z.input<typ
 }
 
 /** The parts of the request: until 500 records are processed (EC1) or the step is done; the worker does the rest. */
-async function foreground(ctx: ProtectedContext, runId: string): Promise<void> {
+export async function foreground(ctx: ProtectedContext, runId: string): Promise<void> {
   const { services, deps } = runDeps(ctx);
   const householdId = ctx.principal.householdId;
   for (let taken = 0; taken < RUN_FOREGROUND_MAX; taken += RUN_PART_SIZE) {
