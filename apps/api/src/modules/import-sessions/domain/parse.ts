@@ -1,4 +1,4 @@
-import type { BatchState } from "./batch.ts";
+import { move, type BatchState } from "./batch.ts";
 
 /**
  * The parse step's own rules (IMP-01@PoC FR 5, FR 6, FR 10, FR 13, FR 15; IMP-19@PoC FR 3–5): the state of each file's
@@ -67,3 +67,29 @@ export const PARSE_REFUSALS = {
   },
 } as const;
 export type ParseRefusalCode = keyof typeof PARSE_REFUSALS;
+
+/**
+ * BUD-21@PoC FR 2, IMP-08@PoC FR 17 (wave 2 row 243): the statements' batches a file may leave for a history batch of
+ * its own («вивести правила») — before its apply and while no file of it is being parsed.
+ */
+const LEAVES_FROM: ReadonlySet<BatchState> = new Set(["uploaded", "parsed", "needs-review", "failed"]);
+
+export function fileMayLeave(state: BatchState): boolean {
+  return LEAVES_FROM.has(state);
+}
+
+/**
+ * The statements' batch once a file has left it (row 243; Рішення ведучого (2026-11-28), BUD-21 FR 2): no accepted file
+ * left — «скасовано» (it closes without writing anything; a batch still «завантажено» stays open for other files);
+ * otherwise the state of the files that stay, as the last parse would leave it (`batchStateAfterParse`, given by the
+ * caller; null — no parse yet), so a batch that waited only for the file that left is «розібрано».
+ */
+export function stateAfterFileLeft(
+  state: BatchState,
+  acceptedLeft: number,
+  ofParses: BatchState | null,
+): BatchState {
+  if (state === "uploaded") return state;
+  if (acceptedLeft === 0) return move(state, "cancelled");
+  return ofParses ?? state;
+}

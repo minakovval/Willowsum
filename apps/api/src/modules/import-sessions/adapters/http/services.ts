@@ -42,7 +42,7 @@ export interface BatchOriginals extends Originals {
 }
 
 export function fileOriginals(
-  files: Pick<FileStorage, "store" | "remove" | "link" | "open">,
+  files: Pick<FileStorage, "store" | "remove" | "link" | "open"> & Partial<Pick<FileStorage, "read">>,
 ): BatchOriginals {
   return {
     async store(request) {
@@ -76,6 +76,19 @@ export function fileOriginals(
     },
     link: (householdId, fileId) => files.link(householdId, fileId),
     open: (householdId, token) => files.open(householdId, token),
+    // BUD-21 FR 2 (row 243): a statement's original read for the history batch it leaves for.
+    ...(files.read
+      ? {
+          async read(householdId: string, fileId: string) {
+            try {
+              return await files.read!(householdId, fileId);
+            } catch (error) {
+              if (error instanceof FileNotFoundError) return null;
+              throw error;
+            }
+          },
+        }
+      : {}),
   };
 }
 
@@ -215,7 +228,8 @@ export interface ImportSessionsServices {
 }
 
 export function createImportSessionsServices(options: {
-  readonly files: Pick<FileStorage, "store" | "remove" | "link" | "open">;
+  readonly files: Pick<FileStorage, "store" | "remove" | "link" | "open"> &
+    Partial<Pick<FileStorage, "read">>;
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;

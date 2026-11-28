@@ -39,9 +39,13 @@ export {
   HISTORY_ROLES,
   historyMissing,
   historyRows,
+  ignoringColumns,
   isTransferMark,
+  looksLikeHistory,
   statementView,
   transferValues,
+  USER_ANALYSIS_ROLES,
+  userAnalysisColumns,
   withColumnRoles,
 } from "./history.ts";
 export type {
@@ -52,6 +56,8 @@ export type {
   HistoryRole,
   HistoryRow,
   TransferValue,
+  UserAnalysisColumn,
+  UserAnalysisRole,
 } from "./history.ts";
 export { DATE_ORDERS } from "./values.ts";
 export type { DateOrder, DecimalSeparator, ThousandsSeparator } from "./values.ts";

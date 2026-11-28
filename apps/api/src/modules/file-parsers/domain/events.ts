@@ -128,6 +128,11 @@ export interface StatementOptions {
    * directory); none — no bank is detected.
    */
   readonly institutions?: readonly Institution[];
+  /**
+   * BUD-21@PoC FR 2, IMP-08@PoC FR 17 (row 243): «імпортувати як виписку» for a file that looks like a history file —
+   * the columns of the user's own analysis (category, subcategory, transfer mark, tags) are not read.
+   */
+  readonly userColumns?: "ignore";
 }
 
 export interface StatementEvents {

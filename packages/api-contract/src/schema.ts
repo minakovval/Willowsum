@@ -1311,6 +1311,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/import/batches/{batchId}/files/{fileId}/history-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Вивести правила» (BUD-21 FR 2, AC2; IMP-08 FR 17): one file of a statements' batch leaves it for a history batch of its own (stored as «файл історії», read in the background, step «Перевірка розпізнавання»); the other files stay; no transaction is created; the same file already stored opens its batch (`existing`) */
+        post: operations["moveToHistoryFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/import/batches/{batchId}/files/{fileId}/link": {
         parameters: {
             query?: never;
@@ -17520,6 +17537,165 @@ export interface operations {
             };
         };
     };
+    moveToHistoryFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchId: string;
+                fileId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The history file's batch, its read queued (or the batch of the same file already stored), and the statements' batch the file left */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        batch: {
+                            confirmedAt: string | null;
+                            createdAt: string;
+                            deleteAfter: string;
+                            fileName: string;
+                            /** @enum {string} */
+                            format: "csv" | "tsv" | "xlsx" | "xls";
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            sizeBytes: number;
+                            /** @enum {string} */
+                            state: "processing" | "parsed" | "failed";
+                            version: number;
+                        };
+                        existing: boolean;
+                        /** Format: uuid */
+                        parseId: string;
+                        statement: {
+                            applying: boolean;
+                            createdAt: string;
+                            files: {
+                                accepted: number;
+                                rejected: number;
+                            };
+                            /** Format: uuid */
+                            id: string;
+                            lastActionAt: string;
+                            name: string | null;
+                            rollbackUntil: string | null;
+                            /** @enum {string} */
+                            state: "uploaded" | "processing" | "parsed" | "needs-review" | "failed" | "applied" | "rolled-back" | "cancelled";
+                            version: number;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The batch's state does not allow this (BATCH_STATE_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The file is over a technical ceiling (FILE_TOO_LARGE) */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The file was not accepted (FILE_REJECTED) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 30 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     linkImportOriginal: {
         parameters: {
             query?: never;
@@ -18303,6 +18479,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
+                            historyFile?: {
+                                asStatement: boolean;
+                                columns: {
+                                    column: number;
+                                    /** @enum {string} */
+                                    role: "category" | "subcategory" | "transfer-flag" | "tags";
+                                }[];
+                                looksLikeHistory: boolean;
+                            };
                             position: number;
                             previousFileId: string | null;
                             recipe: {
@@ -18424,6 +18609,7 @@ export interface operations {
                 "application/json": {
                     files?: {
                         accountId?: string | null;
+                        asStatement?: boolean;
                         /** Format: uuid */
                         fileId: string;
                         recipeId?: string | null;

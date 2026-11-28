@@ -63,6 +63,11 @@ export interface FileParse {
   readonly requestedBy: string;
   readonly requestedAt: Date;
   readonly parsedAt: Date | null;
+  /**
+   * BUD-21@PoC FR 2, IMP-08@PoC FR 17 (row 243): «Імпортувати як виписку» — the columns of the user's own analysis are
+   * not read for this file. Absent — false.
+   */
+  readonly asStatement?: boolean;
 }
 
 /** The job of one file's parse: ids only (ADR-0015: nothing of the file in the queue). */
@@ -82,6 +87,8 @@ export interface ParseTx {
   parsesInLastHour(): Promise<number>;
   /** A new parse makes the batch's review stale: its checks and decisions go. */
   dropReview(batchId: string): Promise<void>;
+  /** BUD-21 FR 2 (row 243): a file leaves the batch, with its parse, checks and decisions. */
+  removeFile(batchId: string, batchFileId: string): Promise<void>;
 }
 
 export type ParseBatchesTx = ReviewBatchesTx & ParseTx;
@@ -91,6 +98,11 @@ export interface ParseRequest {
   readonly fileId: string;
   readonly recipeId?: string | null;
   readonly accountId?: string | null;
+  /**
+   * BUD-21 FR 2, IMP-08 FR 17: «Імпортувати як виписку» for a file that looks like a history file (true), or its
+   * columns of the user's analysis read again (false); absent — the answer of the file's previous parse.
+   */
+  readonly asStatement?: boolean;
 }
 
 export type ParseRequestIssue = "UNKNOWN_FILE" | "UNKNOWN_RECIPE" | "UNKNOWN_ACCOUNT";
@@ -153,6 +165,7 @@ export async function requestParse(
   });
   if ((await tx.parsesInLastHour()) + accepted.length > PARSE_FILES_PER_HOUR) throw new ParseRateLimited();
   const at = deps.now();
+  const before = new Map((await tx.parses(batchId)).map((p) => [p.batchFileId, p.asStatement ?? false]));
   await tx.dropReview(batchId);
   for (const f of accepted) {
     const r = chosen.get(f.id);
@@ -172,6 +185,7 @@ export async function requestParse(
       requestedBy: actorId,
       requestedAt: at,
       parsedAt: null,
+      asStatement: r?.asStatement ?? before.get(f.id) ?? false,
     };
     await tx.upsertParse(parse);
     await tx.enqueueParse({ batchId, batchFileId: f.id, parseId: parse.parseId });
@@ -335,6 +349,8 @@ export async function runParse(
         }
       : {}),
     ...(institutions.length > 0 ? { institutions } : {}),
+    // BUD-21 FR 2, IMP-08 FR 17: «Імпортувати як виписку» — the user's own analysis is not read.
+    ...(parse.asStatement ? { userColumns: "ignore" as const } : {}),
   });
   let account = chosen;
   let accountId = chosen ? parse.accountId : null;
@@ -492,6 +508,18 @@ function withRecipe(
   );
 }
 
+/** The batch's state from its files' parses and checks (FR 6, FR 10, IMP-19 FR 5); null — a file pending, or none. */
+export async function stateOfParses(tx: ParseBatchesTx, batchId: string): Promise<BatchState | null> {
+  const parses = await tx.parses(batchId);
+  const reviews = new Map((await tx.reviews(batchId)).map((r) => [r.batchFileId, r]));
+  return batchStateAfterParse(
+    parses.map((p) => {
+      const review = reviews.get(p.batchFileId);
+      return { state: p.state, needsReview: review ? needsReview(review.checks, review.accountId) : false };
+    }),
+  );
+}
+
 /** The last file done moves the batch out of «в обробці» (FR 6, FR 10, IMP-19 FR 5). */
 async function finishBatch(
   deps: BatchesDeps,
@@ -502,13 +530,7 @@ async function finishBatch(
   const batch = await tx.lockBatch(batchId);
   if (!batch || batch.state !== "processing") return [];
   const parses = await tx.parses(batchId);
-  const reviews = new Map((await tx.reviews(batchId)).map((r) => [r.batchFileId, r]));
-  const state = batchStateAfterParse(
-    parses.map((p) => {
-      const review = reviews.get(p.batchFileId);
-      return { state: p.state, needsReview: review ? needsReview(review.checks, review.accountId) : false };
-    }),
-  );
+  const state = await stateOfParses(tx, batchId);
   if (state === null) return [];
   const moved = await tx.updateBatch(batchId, move(batch.state, state), deps.now());
   return [

@@ -39,7 +39,13 @@ export {
   TABLE_LIMITS,
   TableLimitError,
 } from "./domain/index.ts";
-export { HISTORY_LIMITS, HISTORY_MISSING, HISTORY_ROLES } from "./domain/index.ts";
+export {
+  HISTORY_LIMITS,
+  HISTORY_MISSING,
+  HISTORY_ROLES,
+  looksLikeHistory,
+  USER_ANALYSIS_ROLES,
+} from "./domain/index.ts";
 export type {
   ColumnRole,
   HistoryColumn,
@@ -48,6 +54,8 @@ export type {
   HistoryRole,
   HistoryRow,
   TransferValue,
+  UserAnalysisColumn,
+  UserAnalysisRole,
 } from "./domain/index.ts";
 export {
   ACCOUNT_BINDINGS,
