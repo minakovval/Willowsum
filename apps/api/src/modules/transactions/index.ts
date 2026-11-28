@@ -190,8 +190,8 @@ export interface TransferCandidates {
   /**
    * IMP-03@PoC FR 24 («Позначити як переказ»): the transaction `transactionId` of the space (null `chosen` — none) and
    * the free transactions of the opposite direction on another account (or another currency of its account) within
-   * `windowDays` before or after it, in its currency a credit not above the debit and at most `amountShare` of the chosen
-   * amount below it, in another any amount; posted,
+   * `windowDays` before or after it, in its currency a credit not above the debit and at most `amountShare` of the debit
+   * below it whichever side is chosen (owner, 2026-11-28), in another any amount; posted,
    * shown, not split, in no transfer. By the days apart, then the difference of the amounts; at most `limit`. Read only.
    */
   counterpartsOf(
