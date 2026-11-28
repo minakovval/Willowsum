@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-28
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»). Each rule
@@ -68,7 +68,10 @@ proposals: [lead communication](references/lead-communication.md).
    tiers»): a `review-pr` reviewer and, for a PR labelled `sensitive`, a `security-review` reviewer. Brief: the
    PR number and head SHA, the tier, slot `k`, the scratchpad prefix; for `review-pr` also the diff, the
    requirement files and the items the PR closes (the reviewer reads the rest of the module only when needed);
-   `security-review` of a `sensitive` PR stays full. Checking CI is your job before merge.
+   `security-review` of a `sensitive` PR stays full. Checking CI is your job before merge: the author does not wait
+   for it. A red CI goes to a new agent with `investigate-ci-failure`; an author at ≈ 150 k tokens hands over
+   with a WIP commit and a state note, and you start a new author from the note (trial 2026-11-28;
+   [`implement-requirement`](../implement-requirement/SKILL.md), «Stop and hand over»).
 4. **Batch**: wait for both reviews, then send **one** fix request (`fix-review-findings`) to a fresh `pr-author`
    agent: the review IDs, which patch wins where reviewers conflict (your decision), which non-blocking items
    are fixed in this round and which are recorded (only money, data, security or a broken requirement item →
@@ -86,7 +89,11 @@ proposals: [lead communication](references/lead-communication.md).
    - **`sensitive` PR**: one agent confirms for both reviewers: it loads `review-pr`, `security-review` and both
      reviewers' findings and posts both verdicts as two PR reviews with `commit_id`. Full `security-review` §7 when the diff adds a guard, endpoint, query
      or sensitive path, or the PR gains a `sensitive:<category>`.
-   - An author's fix after «Changes requested» is confirmed only by a reviewer agent; the lead confirms only a
+   - **No agent when the fix equals the reviewers' patches verbatim** (trial 2026-11-28): save each patch
+     to a file and run `node tools/pr-rules/patch-equal.mjs <old-head> <new-head> <patch-file…>`. `equal` and
+     green CI on the new head → you confirm it yourself, as for a sync; `differs <files>` → a fresh reviewer
+     agent confirms.
+   - An author's fix after «Changes requested» is otherwise confirmed only by a reviewer agent; the lead confirms only a
      sync with an unchanged diff ([merge checklist](references/merge-checklist.md), «The lead confirms a sync
      itself»; `sensitive` too).
    - Models: [token economy](references/token-economy.md) item 1.

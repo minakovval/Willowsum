@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-27
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-28
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -45,8 +45,10 @@ test assert the behaviour (not just render)? Missing or weak rows are findings. 
 
 ## 3. Check the hard rules
 
-A finding is blocking only if it is a security bypass, data loss or leak, or a violation of the requirement
-the PR claims (its FR/AC) or of a shared rule (AGENTS.md, П-rules). Everything else is non-blocking.
+**Trial (owner, 2026-11-28; [decision](../../../docs/decisions/log/2026-11-28-owner-token-savings-trial-rules.md)).**
+`Verdict: Changes requested` only for: an acceptance criterion without a test or with a wrong test; a broken
+hard rule (AGENTS.md, П-rules); money, data or security (a bypass, a loss, a leak). Everything else is
+non-blocking: `Verdict: Ready` plus a follow-up (§5) or your patch (§7).
 
 Go through [the full checklist](references/hard-rules-checklist.md) (read at every review; it lists the
 blocking cases of each area): money, plans, scope and roles, audit, privacy, vault, security, module boundaries,
@@ -158,7 +160,10 @@ small patches to the PR branch yourself:
    - A patch never switches a test off, deletes a test file, removes or changes a test, suite or assertion, and
      never adds a directive comment: the list in [security-review](../security-review/SKILL.md) §0 «Light
      confirmation» applies in full (a changed test title is a text patch and stays allowed).
-2. One commit per reviewer per round, at the end of the review. At most 60 lines per PR, added plus deleted,
-   across all reviewers; anything larger is a normal author fix round.
+2. One commit per reviewer per round, at the end of the review. At most **150 lines** per PR, added plus deleted,
+   across all reviewers, for a PR not labelled `sensitive`; a `sensitive` PR keeps **60**. Files of the
+   foundation tier ([merge rules](../../references/merge-rules.md), «Review tiers») are never patched by you at
+   any size. Anything larger is a normal author fix round. The fix that applies your patches verbatim needs no
+   confirmation agent: `pr-pipeline` step 5.
 3. Every patch is listed in the PR body under «Reviewer patches». The verdict names your new head SHA; the lead
    merges only after green CI on that head.
