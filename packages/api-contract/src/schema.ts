@@ -689,6 +689,40 @@ export type paths = {
         patch: operations["renameCategoryGroup"];
         trace?: never;
     };
+    "/v1/category-rule-derivations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Derive rule suggestions from a confirmed history file: up to 2 000 rows at once, more in the background; while one runs, that one (BUD-21 FR 10, EC10) */
+        post: operations["startHistoryDerivation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/category-rule-derivations/{derivationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A derivation: «оброблено X з N рядків» and, once completed, its suggestions with evidence and exceptions in the file (BUD-21 FR 10–15, FR 17) */
+        get: operations["getHistoryDerivation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/category-rule-runs": {
         parameters: {
             query?: never;
@@ -10795,6 +10829,291 @@ export interface operations {
             };
         };
     };
+    startHistoryDerivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    batchId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The derivation; `started` false — the one already running for the file */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        derivation: {
+                            background: boolean;
+                            /** Format: uuid */
+                            batchId: string;
+                            count: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            endedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            processed: number;
+                            /** @enum {string} */
+                            status: "running" | "completed" | "failed";
+                        };
+                        started: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getHistoryDerivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                derivationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The derivation and its suggestions (empty until completed) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        derivation: {
+                            background: boolean;
+                            /** Format: uuid */
+                            batchId: string;
+                            count: number;
+                            /** Format: date-time */
+                            createdAt: string;
+                            endedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            processed: number;
+                            /** @enum {string} */
+                            status: "running" | "completed" | "failed";
+                        };
+                        suggestions: {
+                            agreeing: number;
+                            /** Format: uuid */
+                            categoryId: string;
+                            conditions: ({
+                                /** @constant */
+                                field: "merchant";
+                                /** @constant */
+                                operator: "equals";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "description";
+                                /** @constant */
+                                operator: "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "amount";
+                                /** @enum {string} */
+                                operator: "greater" | "less";
+                                value: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | {
+                                /** @constant */
+                                field: "account";
+                                /** @constant */
+                                operator: "equals";
+                                /** Format: uuid */
+                                value: string;
+                            })[];
+                            evidence: {
+                                more: boolean;
+                                rows: number[];
+                            };
+                            exceptions: {
+                                count: number;
+                                items: {
+                                    amount: string;
+                                    /** Format: uuid */
+                                    categoryId: string;
+                                    currency: string | null;
+                                    /** Format: date */
+                                    date: string;
+                                    description: string | null;
+                                    row: number;
+                                }[];
+                            };
+                            /** @enum {string} */
+                            kind: "confident" | "conflicting";
+                            matched: number;
+                            ordinal: number;
+                            since: string | null;
+                            tags: string[];
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listCategoryRuleRuns: {
         parameters: {
             query?: never;
@@ -18624,6 +18943,7 @@ export interface operations {
                                     /** @enum {string} */
                                     reason: "date-unreadable" | "amount-unreadable" | "no-categorisation" | "service-category";
                                 }[];
+                                tagsSkipped: number;
                                 transfers: number;
                             };
                             table: {
@@ -18859,7 +19179,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The confirmed history file; the labels' categories created (BUD-21 FR 7, one audit entry) and their matching kept for the next file (FR 25) */
+            /** @description The confirmed history file; the labels' categories created (BUD-21 FR 7, one audit entry) and their matching kept for the next file (FR 25); the derivation of rules started (FR 10, AC7) */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -18884,6 +19204,15 @@ export interface operations {
                         canConfirm: boolean;
                         confirmed: {
                             at: string;
+                        } | null;
+                        derivation: {
+                            background: boolean;
+                            count: number;
+                            /** Format: uuid */
+                            id: string;
+                            processed: number;
+                            /** @enum {string} */
+                            status: "running" | "completed" | "failed";
                         } | null;
                         parse: {
                             engineVersion: string;
@@ -19173,6 +19502,7 @@ export interface operations {
                                     /** @enum {string} */
                                     reason: "date-unreadable" | "amount-unreadable" | "no-categorisation" | "service-category";
                                 }[];
+                                tagsSkipped: number;
                                 transfers: number;
                             };
                             table: {
@@ -19641,6 +19971,7 @@ export interface operations {
                                     /** @enum {string} */
                                     reason: "date-unreadable" | "amount-unreadable" | "no-categorisation" | "service-category";
                                 }[];
+                                tagsSkipped: number;
                                 transfers: number;
                             };
                             table: {

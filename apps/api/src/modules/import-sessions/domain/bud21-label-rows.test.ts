@@ -50,6 +50,7 @@ describe("BUD-21@PoC edge cases of the rows", () => {
       read: 2,
       transfers: 1,
       skipped: [{ reason: "service-category", count: 1 }],
+      tagsSkipped: 0,
     });
   });
 });

@@ -26,7 +26,7 @@ import {
   createImportSessionsServices,
   createImportSessionsWorkerQueue,
 } from "../src/modules/import-sessions/index.ts";
-import { createMerchantDirectory } from "../src/modules/merchants/index.ts";
+import { createMerchantDirectory, normalizeDescription } from "../src/modules/merchants/index.ts";
 import { createTransactionLookup, createTransactionRuleInputs } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
@@ -382,6 +382,23 @@ describe("BUD-21@PoC FR 10: the derivation after the confirmation", () => {
     expect(rows).toHaveLength(0);
   });
 
+  it("BUD-21@PoC FR 9: the merchant comes from the counterparty column when the file has one (the descriptions differ), by the same cleaning, read only", async () => {
+    const space = await newSpace();
+    const out = ["Дата;Сума;Опис;Контрагент;Категорія"];
+    for (let i = 0; i < 5; i++)
+      out.push(`0${i + 1}.02.2025;-310,00;Покупка товарів ${i};ТОВ «НОВА ЛІНІЯ»;Дім`);
+    const { confirm } = await confirmed(space, Buffer.from(out.join("\r\n") + "\r\n", "utf8"));
+    const { suggestions } = await derivation(space, confirm.derivation.id);
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0]!.conditions).toEqual([
+      { field: "merchant", operator: "equals", value: normalizeDescription("ТОВ «НОВА ЛІНІЯ»")!.name },
+    ]);
+    const { rows } = await db.owner.query(`SELECT 1 FROM merchants.merchants WHERE household_id = $1`, [
+      space.householdId,
+    ]);
+    expect(rows).toHaveLength(0);
+  });
+
   it("BUD-21@PoC AC13: «Рахунок дорівнює» only for «Моно», the value matched with the space's account; «Готівка» gets no such condition", async () => {
     const space = await newSpace();
     const lines = mixed(
@@ -504,6 +521,14 @@ describe("BUD-21@PoC FR 10: in the background with progress", () => {
     const done = await derivation(space, confirm.derivation.id);
     expect(done.derivation).toMatchObject({ status: "completed", processed: 2_500 });
     expect(done.suggestions.length).toBeGreaterThan(0);
+    // Two starts at once after it: one new run; the other shows it.
+    const both = await Promise.all([
+      call(space, "POST", "/v1/category-rule-derivations", { batchId }),
+      call(space, "POST", "/v1/category-rule-derivations", { batchId }),
+    ]);
+    expect(both.map((r) => r.statusCode)).toEqual([201, 201]);
+    expect(both.map((r) => r.json().started as boolean).sort()).toEqual([false, true]);
+    expect(new Set(both.map((r) => r.json().derivation.id as string)).size).toBe(1);
   });
 
   it("BUD-21@PoC AC31: a file of 20 000 rows (the header and 19 999) is derived in the background with progress and completes within 60 seconds", async () => {

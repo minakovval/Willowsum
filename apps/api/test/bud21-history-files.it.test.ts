@@ -398,6 +398,7 @@ describe("BUD-21@PoC FR 4, FR 5: the step «Перевірка розпізна�
       read: 4,
       transfers: 1,
       skipped: [{ reason: "no-categorisation", count: 1 }],
+      tagsSkipped: 0,
     });
   });
 

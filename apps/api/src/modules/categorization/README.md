@@ -1,6 +1,6 @@
 # Модуль categorization
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-26 (FIN-03@PoC п. 22, рядок 222s: `createCategoryTransactions` — транзакції категорії для фільтра «Категорії» списку); 2026-11-26 (BUD-01@PoC AC 23: `holds.rules` — кількість правил категорії для діалогу видалення (правила її не тримають)); 2026-11-21 (BUD-02@PoC п. 23: `CategoryUsage.transactions`); 2026-11-20 (IMP-16 п. 4, рядок 44: `createTransactionCategoryRead` — категорії транзакцій для відкату партії; IMP-04 п. 5, #658: категорія ручної, злитої в банківський рядок при застосуванні — `createImportCategoryCarry`, подія `transactions.import-merged`; FIN-03 FR 30, FR 31: підказки категорії форми «Нова транзакція» — `/v1/category-suggestions`; BUD-14 b2: «Застосувати до N наявних», «Відмінити», «Видалити», дія «теги»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-28
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -38,6 +38,13 @@ BUD-14@PoC b2) (хвиля 2, рядок 23 — серверна частина,
 транзакцій» однією операцією: до 500 — одразу, решта — у фоні з прогресом; «Відмінити» 7 днів — лише незмінене відтоді),
 8 (кожен атрибут — від першого правила, що його задає; «Застосовано правила: №…»), 9 (ручна категорія лишається, теги
 правила додаються; «Пропущено: ручні зміни»), 15 («Видалити» правило); AC2–AC6, AC15, AC17, граничні випадки 1 і 5.
+
+BUD-21@PoC c) (хвиля 2, рядок 235 — серверна частина): п. 9 (мерчант рядка — очищенням модуля merchants, лише
+читання), 10 (виведення над усім масивом після підтвердження: до 2 000 рядків — у запиті, більше — у фоні з прогресом;
+20 000 рядків — до 60 с), 11 (детермінований рушій, лише умови редактора правил), 12 (порядок кандидатів), 13 (оцінка й
+пороги), 14 (винятки у файлі), 15 (зміна звички), 17 (теги); AC11–AC17, AC19, AC29, AC31, граничні випадки 7 і 10.
+Далі: пропозиції «Переказ» (п. 16, рядок 236), перевірки, наявні правила, прийняття й відхилення (п. 18–20, 22, 23,
+рядок 237), сторінка «Пропозиції правил» (п. 21, UI).
 
 FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): п. 30 (вибір відомого контрагента підставляє категорію за
 правилом або «як раніше» — остання ручна категорія мерчанта; категорія біля кожного відомого контрагента), п. 31 (перша
@@ -119,6 +126,31 @@ FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): �
   модуля categories, журнал аудиту; `rules` — `categorizationRulePorts({ accounts, merchants, inputs, tags? })` з
   `AccountDirectory`, `MerchantDirectory`, `TransactionRuleInputs` і `TransactionRuleTags` (без перших трьох маршрути
   правил — 500; без `tags` правила не додають тегів); `clock` — час запусків і 7 днів «Відмінити».
+- Виведення правил з файлу історії (BUD-21@PoC c; прапорець випуску і ключ функції `categorization.history-rules`, як у
+  файлу історії; дозвіл читання `household.data.read`, запуску — `household.data.write`; учасник з областю — 404;
+  партія чи виведення іншого простору — як неіснуючі):
+  - `POST /v1/category-rule-derivations` (`startHistoryDerivation`) — `{ batchId }` підтвердженої партії файлу історії →
+    201 `{ derivation, started }`: до 2 000 рядків (`DERIVATION_FOREGROUND_MAX`) виведено до відповіді, більше — у фоні
+    (`background`); поки виведення цієї партії триває — воно саме, `started: false` (EC10). Партії немає, вона не
+    підтверджена чи видалена — 404. Запис аудиту `categorization.history-derivation` / `create` (`batchId`, `count`,
+    `status`; без вмісту файлу).
+  - `GET /v1/category-rule-derivations/{derivationId}` (`getHistoryDerivation`) → `derivation` (`status` `running` /
+    `completed` / `failed`, `count`, `processed` — «оброблено X з N рядків», `background`) і `suggestions` у порядку:
+    `kind` (`confident` / `conflicting`), `conditions` (умови редактора: `merchant` `equals`, `description` `contains`,
+    `amount` `greater` / `less` з валютою, `account` `equals`), `categoryId`, `matched` (N), `agreeing`, `since` (дата
+    зміни звички), `tags`, `evidence` (рядки файлу, перші 100), `exceptions` (винятки у файлі — дата, сума, опис із
+    замаскованими IBAN і картками, категорія; перші 100 і кількість). Партію видалено — 404 (п. 24).
+  - Рушій — `deriveSuggestions` (domain/history-derivation.ts): мерчанти, уточнення змішаного мерчанта (поріг суми,
+    рахунок, слово опису — найчистіші групи), слова й фрази опису; рядки, пояснені раніше, далі не рахуються.
+- `createHistoryDerivations({ db, source, merchants, audit, newId, clock? })` → `{ start(householdId, actorId, batchId) }` —
+  порт `HistoryServices.derivation` модуля import-sessions (`src/main.ts`): підтвердження файлу історії запускає
+  виведення (AC7). `source` — `HistoryRowsSource` (`createHistoryDerivationRows` модуля import-sessions: категоризовані
+  рядки підтвердженої партії і `existing`), `merchants` — `categorizationRulePorts(…).merchants` (`knownNames`, лише
+  читання: мерчант не народжується, п. 9). `createCategorizationServices({ …, history? })` — `{ source, newId }` для
+  маршрутів (без нього — 500).
+- `createHistoryDerivationCleanup({ db, source, households })` → `{ run() }` — щоденна задача
+  `categorization.history-cleanup` (п. 24): виведення партій, яких модуль import-sessions уже не зберігає, зникають з
+  пропозиціями; подія логу `categorization.history_derivations_cleaned` (INFO, лише кількість).
 - `createImportCategoryCarry(db)` → `(householdId, { transactionId, duplicateId, actorAccountId })` (IMP-04@PoC п. 5,
   #658): банківський рядок, у який злито ручну при застосуванні партії, бере категорію ручної (її джерело й правило),
   якщо своєї немає або її джерело не «вручну» і не сильніше; рядок ручної не змінюється («Роз'єднати»); передача в
@@ -150,12 +182,14 @@ FIN-03@PoC (issue #438 — серверна частина S-048, крок 2): �
   `categorization.rule-run-part` (`RULE_RUN_PART_JOB`, BUD-14 п. 7: наступні 100 записів запуску чи його «Відмінити»),
   `categorization.category-merged` (`CATEGORY_MERGED_JOB`, подія `categories.merged`: транзакції й правила),
   `categorization.transaction-created` (`TRANSACTION_CREATED_JOB`, подія `transactions.created`: правила нової
-  транзакції) і `categorization.audit` (`AUDIT_JOB`, запис аудиту правила чи категорії «за правилом»).
+  транзакції), `categorization.audit` (`AUDIT_JOB`, запис аудиту правила чи категорії «за правилом») і
+  `categorization.history-derivation` (`HISTORY_DERIVATION_JOB`, важка: виведення правил з файлу історії у фоні; останній
+  аргумент `history` — `{ source, newId }`, без нього задача падає й чекає відновлення).
 - `createCategorizationRecovery(db, households)` → `{ run() }` — щоденна задача планувальника `categorization.recovery`
-  (до очищення черги): задачі `dead` усіх п'яти назв повертаються в чергу; подія логу
+  (до очищення черги): задачі `dead` усіх назв (і `categorization.history-derivation`) повертаються в чергу; подія логу
   `categorization.jobs_requeued` (WARN).
 - `createCategorizationErasure(db)` → `eraseHousehold(householdId)` → `{ transactionCategories, jobs }` — видалення
-  простору (NFR-12@PoC п. 3, крок `categorization.records`; правила теж); викликає лише `data-erasure`.
+  простору (NFR-12@PoC п. 3, крок `categorization.records`; правила й виведення з файлів історії теж); викликає лише `data-erasure`.
 - `CATEGORY_SOURCES`, `pickCategory` (п. 4: перше джерело з категорією вирішує), `proposalApplies` (автоматична
   пропозиція не замінює ручної і вищого джерела; граничний випадок 3), типи `CategorySource`, `TransactionCategory`.
 
@@ -209,6 +243,7 @@ transactions; повтор нічого не додає; запис аудиту
 | `transaction_categories` | Категорія транзакції: ідентифікатор транзакції (модуля transactions), категорія (дерева модуля categories) або null, джерело (`manual` · `rule` · `merchant` · `bank` · `dictionary` · `none`; null лише з `none`), версія, час зміни (`0001_transaction_categories.sql`) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0002_queue.sql`, дослівно `queue-tables.sql`); подій модуль не публікує |
 | `rule_runs`, `rule_run_items` | BUD-14 п. 7: запуск «Застосувати до N наявних…» (правило, автор, категорія й теги на початку, стан — один `running` / `undoing` на простір, кількість, час початку, кінця, відміни) і його записи по порядку (результат, категорія й теги до / після, версія після, результат «Відмінити») (`0004_rule_runs.sql`); `rules.tags`, `transaction_categories.tag_rule_id` — теги правила і правило, що задало теги |
+| `history_derivations`, `history_suggestions` | BUD-21 c: виведення правил з партії файлу історії модуля import-sessions (за ідентифікатором; хто, стан — одне `running` на партію, N, «оброблено X», час) і його пропозиції по порядку (вид, умови, категорія, N, скільки збігаються, дата зміни звички, теги, номери рядків файлу — доказів і винятків; самих рядків тут немає) (`0005_history_derivations.sql`) |
 | `rules` | Правило категорії: позиція (пріоритет, 1…n без пропусків, унікальна — перевіряється при коміті), умови (JSON), «Лише для рахунків», категорія, «Увімкнено», канонічний ключ умов (п. 11), версія (`0003_rules.sql`); `transaction_categories.rule_id` — правило, що задало категорію |
 
 Синтетичні дані: `synthetic.ts` (4 категорії транзакцій — серед них «Без категорії», 2 виконані задачі передачі й 1

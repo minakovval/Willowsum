@@ -81,7 +81,7 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 `transactions.merchants`, власник `product-owner`, перегляд до 2027-02-15.
 `categorization.suggestions` — `release` (FIN-03@PoC FR 30, FR 31: підказки категорії форми «Нова транзакція»,
 `/v1/category-suggestions`), потребує `categorization.rules`, власник `product-owner`, перегляд до 2027-02-17.
-`categorization.history-rules` — `release` (BUD-21@PoC a: файл історії з розбором, `/v1/import/history-files`), потребує
+`categorization.history-rules` — `release` (BUD-21@PoC a: файл історії з розбором, `/v1/import/history-files`; c: виведення правил, `/v1/category-rule-derivations`), потребує
 `data.import`, власник `product-owner`, перегляд до 2027-02-27.
 `transactions.review` — `release` (BUD-12@PoC a: «До розбору», `/v1/transaction-review`,
 `/v1/transactions/{id}/review/confirm`, `/reopen`, масова дія «Підтвердити категорії»), потребує `transactions.manual`,

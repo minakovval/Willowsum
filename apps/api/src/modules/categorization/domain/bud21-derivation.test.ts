@@ -408,7 +408,7 @@ describe("BUD-21@PoC FR 11: a deterministic engine", () => {
     expect(first.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("BUD-21@PoC FR 20: the order — confident first, more conditions, larger N, then the merchant or the word", () => {
+  it("BUD-21@PoC FR 11: the order of the suggestions — confident first, more conditions, larger N, then the merchant or the word", () => {
     const out = deriveSuggestions(sample());
     expect(out.map((s) => [s.kind, s.conditions.length, s.matched])).toEqual(
       [...out.map((s) => [s.kind, s.conditions.length, s.matched])].sort(
