@@ -514,7 +514,7 @@ describe("sec767: the space and the roles on the routes of the acceptance", () =
         if (method === "GET" && role !== "owner" && role !== "admin")
           expect(res.statusCode, `${role} ${method} ${url}`).toBe(404);
         expect(leakText(res.body)).not.toContain("SILPO");
-        expect(res.body).not.toContain(derivationId);
+        expect(leakText(res.body)).not.toContain(derivationId);
       }
     expect(await listRules(space)).toHaveLength(0);
     const { rows } = await db.owner.query(
