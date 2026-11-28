@@ -50,19 +50,19 @@ comments; no per-PR rows by hand, no snapshot comments.
 
 1. **At each agent start** append one line to `keep/ledger.tsv` (scratchpad): `PR<TAB>role<TAB>model<TAB>agentId`
    (role a/r/s/f/c = author/review/security/fix/confirm; model S/O/F; `agentId` as in `tasks/<agentId>.output`; a resumed agent
-   is the same line). **At a segment start** save the `get_session` result (no `session_id`) to `keep/snap-N-start.json`.
+   is the same line; optional 5th column on the `f`/`c` line: the reason of round 2 — `тест`, `правило`, `безпека` or `інше`). **At a segment start** save the `get_session` result (no `session_id`) to `keep/snap-N-start.json`.
 2. **At the end of a segment** (a lead session or a compaction; also before the daily summary) save
    `keep/snap-N-end.json` and run once, while the logs exist:
 ```bash
 gh api repos/{owner}/{repo}/issues/180 --jq .body > keep/body180.md
 node tools/token-report/index.mjs batch --ledger keep/ledger.tsv --tasks <tasks dir> --body keep/body180.md \
   --branches "#12=<branch>,…" [--types "#12=UI,…"] --start keep/snap-N-start.json --end keep/snap-N-end.json \
-  --segment "ведучий N" [--prs <#a,#b>] [--note "<текст>"] [--dry-run]
+  --segment "ведучий N" --lead <lead transcript.jsonl> [--prs <#a,#b>] [--note "<текст>"] [--dry-run]
 gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@keep/body180.md   # -F, not -f: -f erases the tables
 ```
    It adds a «PR» row for each ledger PR without one (the `usage` of every log, each `message.id` once per model;
    durations from the logs; CI from `--branches`; type `код` unless `--types`; note `a:S r:O` + «моделі») and the
-   «Сесії» row (cache read, output, USD = snapshot difference). A missing log → the row with what exists,
+   «Сесії» row (cache read total = snapshot difference, agents = sum of the PR rows, the lead alone = `--lead`; output, USD). The PR row also has cache write and input; rounds = 2 when the ledger has an `f` or `c` row. A missing log → the row with what exists,
    «журнал втрачено» and a warning; fix the row by hand or accept it. Check that the old rows and the new ones are
    in the body. Details: [README](../../../../tools/token-report/README.md); tests
    `node --test 'tools/token-report/**/*.test.mjs'`.

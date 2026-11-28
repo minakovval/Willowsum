@@ -14,6 +14,7 @@ Read when you are about to merge. The merge conditions and approvals themselves:
      checks once; it also reports the conditions below on the current head (verdicts, `owner-decision` line,
      `mergeable_state`, sync check) and lists the comments since the last review; `READY` is not the merge itself:
      the lead still applies the rules in this file;
+   - State of all open PRs in one call (head, CI, verdicts on the head, `behind_by`, `mergeable_state`, labels, agent): `node tools/pipeline-status/index.mjs [--ledger keep/ledger.tsv] [<PR> …]`.
    - the latest `Verdict: Ready` names that exact SHA, and for `sensitive` the latest `Security verdict: Ready`
      too; any later commit needs a re-review of that commit (exception: «The lead confirms a sync itself» below;
      a PR of the tier Документи: «The lead's check of a Документи PR» below);
