@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { addUpByModel, appendRow, archivePrRows, ARCHIVE_LINE, MAX_BODY, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, PR_TYPES, readSnapshot, sessionRow, sumUsage, UsageError } from "../lib.mjs";
+import { addUpByModel, appendRow, archivePrRows, ARCHIVE_LINE, MAX_BODY, collectUsage, ciMinutes, formatRow, main, modelNote, parseLedger, parseRun, PR_TYPES, ROUND_REASONS, readSnapshot, sessionRow, sumUsage, UsageError } from "../lib.mjs";
 
 const fx = (name) => fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
 const read = (name) => fs.readFileSync(fx(name), "utf8");
@@ -95,40 +95,36 @@ describe("ciMinutes: GitHub Actions runs of the PR branch (#178, comment 6866721
 });
 
 describe("parseRun: one agent run per --run", () => {
-  it("reads role, log, duration_ms and subagent_tokens", () => {
-    assert.deepEqual(parseRun("role=review,log=/x/tasks/a.output,ms=180000,tokens=154132"), {
-      role: "review",
-      log: "/x/tasks/a.output",
-      ms: 180000,
-      tokens: 154132,
-    });
+  it("reads role, log and duration_ms; a legacy tokens= is ignored (subagent_tokens is dropped, 2026-11-28)", () => {
+    const want = { role: "review", log: "/x/tasks/a.output", ms: 180000 };
+    assert.deepEqual(parseRun("role=review,log=/x/tasks/a.output,ms=180000"), want);
+    assert.deepEqual(parseRun("role=review,log=/x/tasks/a.output,ms=180000,tokens=154132"), want);
   });
 
-  it("rejects an unknown role and a missing ms or tokens", () => {
-    assert.throws(() => parseRun("role=lead,log=a,ms=1,tokens=1"), /role/);
+  it("rejects an unknown role and a missing ms", () => {
+    assert.throws(() => parseRun("role=lead,log=a,ms=1"), /role/);
     assert.throws(() => parseRun("role=author,log=a,tokens=1"), /ms/);
-    assert.throws(() => parseRun("role=author,log=a,ms=1"), /tokens/);
   });
 });
 
 describe("formatRow: the row of the table «PR» in #180", () => {
-  it("columns PR | Тип | Раунди | subagent_tokens | cache read, млн | output, тис. | автор, хв | рецензії, хв | CI, хв | Примітка", () => {
+  it("columns PR | Тип | Раунди | cache read, млн | cache write, млн | input, тис. | output, тис. | автор, хв | рецензії, хв | CI, хв | Примітка", () => {
     const row = formatRow({
       pr: "195",
       type: "процес",
       rounds: "1",
       runs: [
-        { role: "author", ms: 600000, tokens: 204431 },
-        { role: "fix", ms: 120000, tokens: 105870 },
-        { role: "review", ms: 180000, tokens: 154132 },
+        { role: "author", ms: 600000 },
+        { role: "fix", ms: 120000 },
+        { role: "review", ms: 180000 },
       ],
-      usage: { cacheRead: 8_000_000, output: 5000 },
+      usage: { cacheRead: 8_000_000, cacheCreation: 1_500_000, input: 12_000, output: 5000 },
       ci: 10,
       note: "",
     });
     assert.equal(
       row,
-      "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | — |",
+      "| #195 | процес | 1 | 8,0 | 1,5 | 12,0 | 5 | 12,0 | 3,0 | 10 | — |",
     );
   });
 });
@@ -143,15 +139,15 @@ describe("CLI", () => {
     "--rounds",
     "1",
     "--run",
-    `role=author,log=${fx("author.jsonl")},ms=600000,tokens=204431`,
+    `role=author,log=${fx("author.jsonl")},ms=600000`,
     "--run",
-    `role=fix,log=${fx("fix.jsonl")},ms=120000,tokens=105870`,
+    `role=fix,log=${fx("fix.jsonl")},ms=120000`,
     "--run",
-    `role=review,log=${fx("review.jsonl")},ms=180000,tokens=154132`,
+    `role=review,log=${fx("review.jsonl")},ms=180000`,
   ];
   // The existing columns are unchanged; the note gains the per-model split (the fixtures carry no model).
   const row =
-    "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | моделі: unknown 8,0 млн cache read |";
+    "| #195 | процес | 1 | 8,0 | 0,0 | 0,0 | 5 | 12,0 | 3,0 | 10 | моделі: unknown 8,0 млн cache read |";
 
   it("pr: prints the ready row from agent logs and a runs file", () => {
     const r = run([...pr, "--ci-runs", fx("runs.json")]);
@@ -163,12 +159,12 @@ describe("CLI", () => {
     const r = run([
       ...pr,
       "--run",
-      `role=author,log=${fx("author.jsonl")},ms=0,tokens=0`,
+      `role=author,log=${fx("author.jsonl")},ms=0`,
       "--ci-runs",
       fx("runs.json"),
     ]);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /\| 8,0 \| 5 \|/);
+    assert.match(r.out, /\| 8,0 \| 0,0 \| 0,0 \| 5 \|/);
   });
 
   it("pr --branch: reads the runs through `gh api` (fake here)", () => {
@@ -189,7 +185,7 @@ describe("CLI", () => {
         INDEX,
         ...pr,
         "--run",
-        `role=review,log=${fx("no-usage.jsonl")},ms=1,tokens=1`,
+        `role=review,log=${fx("no-usage.jsonl")},ms=1`,
         "--ci-runs",
         fx("runs.json"),
       ],
@@ -201,14 +197,14 @@ describe("CLI", () => {
   });
 
   it("pr: when no --run has log=, it fails with a clear message and prints no row (silent zero, #196)", () => {
-    const r = run(["pr", "--pr", "195", "--type", "процес", "--rounds", "1", "--run", "role=author,ms=1,tokens=1", "--ci-runs", fx("runs.json")]);
+    const r = run(["pr", "--pr", "195", "--type", "процес", "--rounds", "1", "--run", "role=author,ms=1", "--ci-runs", fx("runs.json")]);
     assert.equal(r.code, 1);
     assert.equal(r.out, "");
     assert.match(r.err, /no --run has log=/);
   });
 
   it("pr: a --run without log= among others is named in the note «журнал втрачено» (#196)", () => {
-    const r = run([...pr, "--run", "role=confirm,ms=1000,tokens=10", "--ci-runs", fx("runs.json")]);
+    const r = run([...pr, "--run", "role=confirm,ms=1000", "--ci-runs", fx("runs.json")]);
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /журнал втрачено: підтвердження/);
   });
@@ -216,7 +212,7 @@ describe("CLI", () => {
   it("pr: a missing log file fails with its path, not a stack trace (#196)", () => {
     const res = spawnSync(
       process.execPath,
-      [INDEX, "pr", "--pr", "195", "--type", "процес", "--rounds", "1", "--run", "role=author,log=/nonexistent/a.jsonl,ms=1,tokens=1", "--ci-runs", fx("runs.json")],
+      [INDEX, "pr", "--pr", "195", "--type", "процес", "--rounds", "1", "--run", "role=author,log=/nonexistent/a.jsonl,ms=1", "--ci-runs", fx("runs.json")],
       { encoding: "utf8" },
     );
     assert.equal(res.status, 1);
@@ -304,11 +300,11 @@ describe("per-model split (owner, 2026-11-15, #178, comment 6894721169)", () => 
       [rec("a", "claude-opus-5-5", 4_100_000, 100), rec("b", "claude-fable-5-2", 1_200_000, 50), rec("b", "claude-fable-5-2", 1_200_000, 60)].join("\n"),
     );
     const r = run(
-      ["pr", "--pr", "7", "--type", "код", "--rounds", "1", "--run", `role=author,log=${log},ms=60000,tokens=5`, "--ci-runs", fx("runs.json")],
+      ["pr", "--pr", "7", "--type", "код", "--rounds", "1", "--run", `role=author,log=${log},ms=60000`, "--ci-runs", fx("runs.json")],
     );
     assert.equal(r.code, 0, r.err);
     const [row, ...lines] = r.out.split("\n");
-    assert.equal(row, "| #7 | код | 1 | 5 | 5,3 | 0 | 1,0 | 0,0 | 10 | моделі: opus 4,1 млн / fable 1,2 млн cache read |");
+    assert.equal(row, "| #7 | код | 1 | 5,3 | 0,0 | 0,0 | 0 | 1,0 | 0,0 | 10 | моделі: opus 4,1 млн / fable 1,2 млн cache read |");
     assert.equal(lines.length, 2);
     assert.match(lines[0], /^ {2}модель claude-opus-5-5: 1 model calls, cache read 4 100 000, cache creation 10, input 1, output 100$/);
     assert.match(lines[1], /модель claude-fable-5-2: 1 model calls, cache read 1 200 000, .*output 60$/);
@@ -332,8 +328,8 @@ describe("per-model split (owner, 2026-11-15, #178, comment 6894721169)", () => 
 
 describe("append: a row into the body of #180 (owner, 2026-11-15, #178, comment 6899108018)", () => {
   const body = read("body180.md");
-  const prRow = "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | автор 204 431 |";
-  const sessionRow = "| ведучий 2 | 2026-11-14 | 2,0 млн | 0,2 млн | 2,0 | 2,0 | 2,0 | 0,2 | — |";
+  const prRow = "| #195 | процес | 1 | 8,0 | 1,5 | 12,0 | 5 | 12,0 | 3,0 | 10 | автор 204 431 |";
+  const sessionRow = "| ведучий 2 | 2026-11-14 | 2,0 млн | 1,0 млн | 1,0 млн | 0,2 млн | 2,0 | 2,0 | 2,0 | 0,2 | — |";
   const without = (text, line) => text.replace(`${line}\n`, "");
 
   it("adds the row after the last row of the table «PR»; every other byte stays the same", () => {
@@ -352,10 +348,10 @@ describe("append: a row into the body of #180 (owner, 2026-11-15, #178, comment 
   });
 
   it("refuses a row with the wrong number of cells, more than one line, or not a table line", () => {
-    assert.throws(() => appendRow(body, "| #195 | процес |"), /2 cells, the table «PR» has 10/);
+    assert.throws(() => appendRow(body, "| #195 | процес |"), /2 cells, the table «PR» has 11/);
     assert.throws(() => appendRow(body, `${prRow}\n${prRow}`), /one table line/);
     assert.throws(() => appendRow(body, "#195 процес"), /one table line/);
-    assert.throws(() => appendRow(body, prRow, { table: "sessions" }), /10 cells, the table «Сесії» has 9/);
+    assert.throws(() => appendRow(body, "| ведучий 3 | x |", { table: "sessions" }), /2 cells, the table «Сесії» has 11/);
   });
 
   it("refuses a row whose PR or segment is already in the table", () => {
@@ -387,7 +383,7 @@ describe("append: a row into the body of #180 (owner, 2026-11-15, #178, comment 
     assert.equal(res.status, 0, res.stderr);
     assert.equal(fs.readFileSync(file, "utf8"), appendRow(body, prRow));
     assert.match(res.stderr, /-F body=@/);
-    const again = run(["append", "--body", file, "--sessions", "--row", "| ведучий 1 | x | x | x | x | x | x | x | x |"]);
+    const again = run(["append", "--body", file, "--sessions", "--row", "| ведучий 1 | x | x | x | x | x | x | x | x | x | x |"]);
     assert.equal(again.code, 1);
     assert.equal(fs.readFileSync(file, "utf8"), appendRow(body, prRow));
     assert.match(run(["append", "--body", file]).err, /--body and --row are required/);
@@ -396,7 +392,7 @@ describe("append: a row into the body of #180 (owner, 2026-11-15, #178, comment 
 
 describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 6904503474)", () => {
   const body = read("body180.md");
-  const prRow = (note) => `| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | ${note} |`;
+  const prRow = (note) => `| #195 | процес | 1 | 8,0 | 1,5 | 12,0 | 5 | 12,0 | 3,0 | 10 | ${note} |`;
 
   it("append accepts a note of 120 characters and refuses one of 121 (exit 1, file untouched)", () => {
     assert.doesNotThrow(() => appendRow(body, prRow("н".repeat(120))));
@@ -411,7 +407,7 @@ describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 69045
   });
 
   it("the «Сесії» table has its own cap: 250 characters pass, 251 fail (process review 15, proposal 4)", () => {
-    const row = (n) => `| ведучий 2 | 2026-11-14 | 1 | 1 | 1 | 1 | 1 | 1 | ${"x".repeat(n)} |`;
+    const row = (n) => `| ведучий 2 | 2026-11-14 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | ${"x".repeat(n)} |`;
     assert.doesNotThrow(() => appendRow(body, row(250), { table: "sessions" }));
     assert.throws(() => appendRow(body, row(251), { table: "sessions" }), /251 characters, the limit is 250/);
   });
@@ -419,9 +415,9 @@ describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 69045
   it("pr: a typical row (three agent runs, two models, long --note within reason) passes the cap; the per-agent list is gone", () => {
     const r = run([
       "pr", "--pr", "195", "--type", "процес", "--rounds", "1",
-      "--run", `role=author,log=${fx("author.jsonl")},ms=600000,tokens=204431`,
-      "--run", `role=fix,log=${fx("fix.jsonl")},ms=120000,tokens=105870`,
-      "--run", `role=review,log=${fx("review.jsonl")},ms=180000,tokens=154132`,
+      "--run", `role=author,log=${fx("author.jsonl")},ms=600000`,
+      "--run", `role=fix,log=${fx("fix.jsonl")},ms=120000`,
+      "--run", `role=review,log=${fx("review.jsonl")},ms=180000`,
       "--ci-runs", fx("runs.json"), "--note", "1 синхронізація",
     ]);
     assert.equal(r.code, 0, r.err);
@@ -433,7 +429,7 @@ describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 69045
 
   it("--note text counts: a long --note makes the row from `pr` fail on append", () => {
     const r = run([
-      "pr", "--pr", "7", "--type", "код", "--rounds", "1", "--run", `role=author,log=${fx("author.jsonl")},ms=60000,tokens=5`,
+      "pr", "--pr", "7", "--type", "код", "--rounds", "1", "--run", `role=author,log=${fx("author.jsonl")},ms=60000`,
       "--ci-runs", fx("runs.json"), "--note", "д".repeat(100),
     ]);
     assert.equal(r.code, 0, r.err);
@@ -526,7 +522,7 @@ describe("accounting without gaps (owner, 2026-11-16, process review 15, proposa
     usage: { cache_read_tokens: 1_346_500_000, output_tokens: 5_120_000, cost_usd: 555.75 },
   });
   const row =
-    "| ведучий 14 | 2026-11-16 13:20 → 15:26 UTC | 346,5 млн | 1,12 млн | 155,5 | 2,1 | 0,1 | 0,1 | 2 PR (#101, #102); ретро — коментар 1 |";
+    "| ведучий 14 | 2026-11-16 13:20 → 15:26 UTC | 346,5 млн | 3,0 млн | — | 1,12 млн | 155,5 | 2,1 | 0,1 | 0,1 | 2 PR (#101, #102); ретро — коментар 1 |";
 
   it("readSnapshot: the get_session result and the short form; a missing field or time fails", () => {
     assert.deepEqual(readSnapshot(JSON.parse(fs.readFileSync(start, "utf8")), "s"), {
@@ -548,7 +544,7 @@ describe("accounting without gaps (owner, 2026-11-16, process review 15, proposa
     assert.match(none, /\| 0,0 \| 0,0 \| 0 PR \|$/);
     assert.throws(() => sessionRow(body, { segment: "x", start: s, end: e, prs: ["#999"] }), /#999 has no row/);
     assert.throws(() => sessionRow(body, { segment: "x", start: e, end: s, prs: [] }), /not later/);
-    const lost = body.replace("| #102 | процес | 2 | 200 | 2,0 | 2 | 2,0 | 2,0 | 2 |", "| #102 | процес | 2 | 200 | 2,0 | 2 | 2,0 | 2,0 | — |");
+    const lost = body.replace("| #102 | процес | 2 | 2,0 | 0,2 | 2,0 | 2 | 2,0 | 2,0 | 2 |", "| #102 | процес | 2 | 2,0 | 0,2 | 2 | 2 | 2,0 | 2,0 | — |");
     assert.throws(() => sessionRow(lost, { segment: "x", start: s, end: e, prs: ["#102"] }), /not a number/);
   });
 
@@ -569,14 +565,14 @@ describe("accounting without gaps (owner, 2026-11-16, process review 15, proposa
   });
 
   it("append --sessions --row refuses an empty «Час агентів» or CI cell", () => {
-    const hand = "| ведучий 13 | 2026-11-16 | — | — | 103,6 | 3,1 | — | — | 9 PR |";
+    const hand = "| ведучий 13 | 2026-11-16 | — | — | — | — | 103,6 | 3,1 | — | — | 9 PR |";
     assert.throws(() => appendRow(body, hand, { table: "sessions" }), /«Час агентів, год» cell is empty/);
     assert.throws(() => appendRow(body, hand.replace("| — | — | 9 PR", "| 1,0 | — | 9 PR"), { table: "sessions" }), /«CI, год» cell is empty/);
   });
 
   const pr = (type, runs) => [
     "pr", "--pr", "7", "--type", type, "--rounds", "1",
-    "--run", `role=author,log=${fx("author.jsonl")},ms=60000,tokens=5`, "--ci-runs", runs,
+    "--run", `role=author,log=${fx("author.jsonl")},ms=60000`, "--ci-runs", runs,
   ];
 
   it("pr: refuses a type outside the list (e.g. «code/docs»)", () => {
@@ -649,8 +645,8 @@ describe("batch: PR rows from the ledger and the agent logs (owner, 2026-11-27, 
     assert.equal(r.code, 0, r.err);
     const [row, ...lines] = r.out.split("\n");
     // cache read 3,0 (sonnet) + 1,0 (opus) + 0,5 (fable) = 4,5; output 2000+1000+3000+1000 = 7 тис.; author 10,0 min; review 5,0 min; CI 10
-    assert.match(row, /^\| #201 \| код \| 2 \| /);
-    assert.match(row, / \| 4,5 \| 7 \| 10,0 \| 5,0 \| 10 \| a:S r:O; журнал втрачено: r:gone; моделі: sonnet 3,0 млн/);
+    assert.match(row, /^\| #201 \| код \| 1 \| /);
+    assert.match(row, / \| 4,5 \| 0,0 \| 0,0 \| 7 \| 10,0 \| 5,0 \| 10 \| a:S r:O; журнал втрачено: r:gone; моделі: sonnet 3,0 млн/);
     assert.equal(lines.length, 3);
     assert.match(r.err, /warning: #201: log .*gone\.output is missing/);
     assert.match(r.err, /dry run/);
@@ -661,7 +657,7 @@ describe("batch: PR rows from the ledger and the agent logs (owner, 2026-11-27, 
     const dir = setup();
     const r = run(args(dir, "--prs", "#202"), ci);
     assert.equal(r.code, 0, r.err);
-    assert.match(r.out, /^\| #202 \| процес \| 1 \| 0 \| 0,0 \| 0 \| 0,0 \| 0,0 \| 10 \| a:S; журнал втрачено: a:none2 \|/);
+    assert.match(r.out, /^\| #202 \| процес \| 1 \| 0,0 \| 0,0 \| 0,0 \| 0 \| 0,0 \| 0,0 \| 10 \| a:S; журнал втрачено: a:none2 \|/);
     assert.match(r.err, /warning: #202: log .*none2\.output is missing/);
     assert.match(fs.readFileSync(`${dir}/body.md`, "utf8"), /\n\| #202 \| процес /);
   });
@@ -688,12 +684,62 @@ describe("batch: PR rows from the ledger and the agent logs (owner, 2026-11-27, 
     snap("e", "2026-01-01T12:00:00Z", 9_000_000, 400_000, 12);
     const ok = run(args(dir, "--prs", "#201", "--start", `${dir}/s.json`, "--end", `${dir}/e.json`, "--segment", "ведучий 9"), ci);
     assert.equal(ok.code, 0, ok.err);
-    assert.match(ok.out, /\| ведучий 9 \| 2026-01-01 09:00 → 12:00 UTC \| 9,0 млн \| 0,40 млн \| 12,0 \| 3,0 \| /);
+    assert.match(ok.out, /\| ведучий 9 \| 2026-01-01 09:00 → 12:00 UTC \| 9,0 млн \| 4,5 млн \| — \| 0,40 млн \| 12,0 \| 3,0 \| /);
     const dir2 = setup();
     const zero = run(args(dir2, "--prs", "#201"), () => JSON.stringify({ total_count: 0, workflow_runs: [] }));
     assert.equal(zero.code, 1);
     assert.match(zero.err, /CI = 0/);
     assert.equal(fs.readFileSync(`${dir2}/body.md`, "utf8"), read("body180.md"));
+  });
+
+  it("cache write and input of the agents are columns of the row (usage of the logs, each message.id once)", () => {
+    const dir = setup();
+    const r = run(args(dir, "--prs", "#201", "--dry-run"), ci);
+    // cache creation 20 + 10 + 10 = 40, input 2 + 1 + 1 = 4 (before rounding to млн and тис.)
+    assert.match(r.out.split("\n")[0], / \| 4,5 \| 0,0 \| 0,0 \| 7 \| /);
+    const big = fs.readFileSync(`${dir}/tasks/aaa.output`, "utf8").replace(/"cache_creation_input_tokens":10/g, '"cache_creation_input_tokens":1500000').replace(/"input_tokens":1,/g, '"input_tokens":2500,');
+    fs.writeFileSync(`${dir}/tasks/aaa.output`, big);
+    const r2 = run(args(dir, "--prs", "#201", "--dry-run"), ci);
+    // m1 and m2 count once: cache write 3,0 млн, input 5,0 тис.
+    assert.match(r2.out.split("\n")[0], / \| 4,5 \| 3,0 \| 5,0 \| /);
+  });
+
+  it("rounds come from f/c rows, not from the number of r rows; r2 reason from the 5th ledger column goes into the note", () => {
+    const dir = setup();
+    fs.writeFileSync(
+      `${dir}/ledger.tsv`,
+      ["#201\ta\tS\taaa", "#201\tr\tO\trrr", "#201\tr\tO\trrr2", "#201\tf\tS\tfff\tтест", "#201\tc\tO\tccc", "#202\ta\tS\tx", "#202\tc\tO\ty\t", ""].join("\n"),
+    );
+    const r = run(args(dir, "--dry-run"), ci);
+    assert.equal(r.code, 0, r.err);
+    const rows = r.out.split("\n").filter((l) => l.startsWith("| #"));
+    assert.match(rows[0], /^\| #201 \| код \| 2 \| /);
+    assert.match(rows[0], / a:S r:O f:S c:O r2: тест/);
+    assert.match(rows[1], /^\| #202 \| процес \| 2 \| /);
+    assert.ok(!rows[1].includes("r2:"), "no reason in the ledger → no r2 in the note");
+  });
+
+  it("an invalid reason fails; a missing one is allowed; a 4-column ledger still parses", () => {
+    assert.throws(() => parseLedger("#1\tf\tS\tx\tтест2\n"), /reason «тест2»/);
+    assert.deepEqual(parseLedger("#1\tf\tS\tx\n#1\tf\tS\ty\t\n#1\tc\tS\tz\tбезпека\n").map((e) => e.reason), [undefined, undefined, "безпека"]);
+    assert.throws(() => parseLedger("#1\tf\tS\tx\tтест\textra\n"), /need PR/);
+    for (const reason of ROUND_REASONS) assert.doesNotThrow(() => parseLedger(`#1\tf\tS\tx\t${reason}\n`));
+  });
+
+  it("the three cache-read columns of «Сесії»: total, agents (from the PR rows), the lead alone (--lead transcript in the snapshot window)", () => {
+    const dir = setup();
+    const t = (id, ts, cr) => msg(id, "claude-opus-5-5", ts, cr, 1);
+    fs.writeFileSync(
+      `${dir}/lead.jsonl`,
+      [t("l1", "2026-01-01T08:00:00Z", 900_000_000), t("l2", "2026-01-01T10:00:00Z", 2_000_000), t("l3", "2026-01-01T11:00:00Z", 1_500_000), t("l4", "2026-01-01T13:00:00Z", 700_000_000)].join("\n"),
+    );
+    const snap = (n, at, cr) => fs.writeFileSync(`${dir}/${n}.json`, JSON.stringify({ at, usage: { cache_read_tokens: cr, output_tokens: 0, cost_usd: 0 } }));
+    snap("s", "2026-01-01T09:00:00Z", 0);
+    snap("e", "2026-01-01T12:00:00Z", 9_000_000);
+    const r = run(args(dir, "--prs", "#201", "--start", `${dir}/s.json`, "--end", `${dir}/e.json`, "--segment", "ведучий 9", "--lead", `${dir}/lead.jsonl`), ci);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /\| ведучий 9 \| 2026-01-01 09:00 → 12:00 UTC \| 9,0 млн \| 4,5 млн \| 3,5 млн \| /);
+    assert.match(fs.readFileSync(`${dir}/body.md`, "utf8"), /\| ведучий 9 \|.*\| 3,5 млн \|/);
   });
 
   it("a malformed ledger line fails", () => {

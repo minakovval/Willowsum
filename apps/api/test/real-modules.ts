@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { inject } from "vitest";
 import { enableContextLogin, enableModuleLogin, migrate } from "../src/platform/db/migrate.ts";
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import type { SchemaExemptions } from "../src/platform/db/schema-rules.ts";
@@ -97,9 +98,25 @@ export interface RealModulesDatabase {
   close(): Promise<void>;
 }
 
-/** A throw-away database with every real module migrated, for module integration tests (no driver import there). */
+declare module "vitest" {
+  export interface ProvidedContext {
+    /** The database the integration run migrated once (test/real-modules-template.ts); absent in other configs. */
+    realModulesTemplate?: string;
+  }
+}
+
+/**
+ * A throw-away database with every real module migrated, for module integration tests (no driver import there).
+ *
+ * In the integration config it is a copy of the run's template database, which `test/real-modules-template.ts`
+ * migrated once with the same runner (CI run 46156297565: a full migration per suite took 15–18 s locally and up to 30 s on CI,
+ * the whole hookTimeout). The copy is migrated again: that grants CONNECT on the new database to the module roles
+ * (database privileges are not copied), checks the isolation guard and the roles, and applies nothing. Tests of the
+ * migrations themselves (schema.it, migration order, idempotency, «old code + new schema») migrate on their own.
+ */
 export async function setupRealModules(poolSize = 2): Promise<RealModulesDatabase> {
-  const db = await createTestDatabase();
+  const template = inject("realModulesTemplate");
+  const db = await createTestDatabase(template === undefined ? {} : { template });
   const owner = new pg.Client({ connectionString: db.url });
   const password = randomBytes(12).toString("hex");
   let databases: ModuleDatabases;
