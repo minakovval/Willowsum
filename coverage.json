@@ -1,26 +1,26 @@
 {
   "schema": 1,
   "version": 2,
-  "generatedAt": "2026-11-28T11:59:08.825Z",
-  "sha": "886f134b37c0d5491d609e81d59f6b1bc04b9a7a",
+  "generatedAt": "2026-11-28T12:47:26.669Z",
+  "sha": "3c34c1f3f3dddca71ee7f8633c7a4df35b6f20aa",
   "releases": [
     {
       "release": "PoC",
       "slices": 153,
       "FR": {
-        "covered": 925,
+        "covered": 926,
         "total": 1479
       },
       "AC": {
-        "covered": 721,
+        "covered": 722,
         "total": 1135
       },
       "EC": {
-        "covered": 142,
+        "covered": 143,
         "total": 211
       },
       "items": {
-        "covered": 1788,
+        "covered": 1791,
         "total": 2825
       }
     },
@@ -28,7 +28,7 @@
       "release": "PoC v2",
       "slices": 120,
       "FR": {
-        "covered": 465,
+        "covered": 466,
         "total": 1258
       },
       "AC": {
@@ -36,11 +36,11 @@
         "total": 1037
       },
       "EC": {
-        "covered": 89,
+        "covered": 90,
         "total": 245
       },
       "items": {
-        "covered": 950,
+        "covered": 952,
         "total": 2540
       }
     },
@@ -48,7 +48,7 @@
       "release": "MVP",
       "slices": 343,
       "FR": {
-        "covered": 547,
+        "covered": 548,
         "total": 3457
       },
       "AC": {
@@ -56,11 +56,11 @@
         "total": 3003
       },
       "EC": {
-        "covered": 102,
+        "covered": 103,
         "total": 723
       },
       "items": {
-        "covered": 1135,
+        "covered": 1137,
         "total": 7183
       }
     },
@@ -96,11 +96,11 @@
         "total": 1655
       },
       "EC": {
-        "covered": 44,
+        "covered": 45,
         "total": 486
       },
       "items": {
-        "covered": 304,
+        "covered": 305,
         "total": 3913
       }
     },
@@ -2620,7 +2620,7 @@
       "sectionName": "Фінанси",
       "block": "money",
       "FR": {
-        "covered": 10,
+        "covered": 11,
         "total": 11
       },
       "AC": {
@@ -2632,11 +2632,11 @@
         "total": 3
       },
       "items": {
-        "covered": 20,
+        "covered": 21,
         "total": 21
       },
       "fingerprintErrors": 0,
-      "status": "у роботі"
+      "status": "готово"
     },
     {
       "id": "FIN-12",
@@ -2649,15 +2649,15 @@
         "total": 15
       },
       "AC": {
-        "covered": 16,
+        "covered": 17,
         "total": 19
       },
       "EC": {
-        "covered": 0,
+        "covered": 1,
         "total": 2
       },
       "items": {
-        "covered": 30,
+        "covered": 32,
         "total": 36
       },
       "fingerprintErrors": 0,
