@@ -159,7 +159,7 @@ skill or add one). Agent types for PR work (`.claude/agents/`): `pr-author`, `pr
 
 ## Definition of Done
 
-- Every acceptance criterion and edge case has an automated test; CI green.
+- Every acceptance criterion and edge case has an automated test; CI green (the lead checks it before merge; the author does not wait for it).
 - Permission tests for every role and for a scoped member when data access changed.
 - Entitlement check with the feature key; audit entries written; feature flag for new functions.
 - Empty / loading / error states, WCAG 2.2 AA, i18n strings, widths 390, 768 and 1280 px (PoC and PoC v2:

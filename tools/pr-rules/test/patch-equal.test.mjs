@@ -80,6 +80,6 @@ test('patch-equal: usage and git errors exit 2', () => {
 test('parseHunks: a removed line that starts with dashes is not a header; counts end a hunk', () => {
   const m = parseHunks('--- a/f\n+++ b/f\n@@ -1,2 +1,1 @@\n--- sql comment\n ctx\n+++ b/g\n');
   assert.deepEqual([...m.keys()], ['f']);
-  assert.deepEqual(m.get('f'), ['--- sql comment']);
+  assert.deepEqual(m.get('f'), ['@1\n--- sql comment']);
   assert.deepEqual(differingFiles(m, parseHunks('--- a/f\n+++ b/f\n@@ -1 +0,0 @@\n--- sql comment\n')), []);
 });

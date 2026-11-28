@@ -164,6 +164,6 @@ small patches to the PR branch yourself:
    across all reviewers, for a PR not labelled `sensitive`; a `sensitive` PR keeps **60**. Files of the
    foundation tier ([merge rules](../../references/merge-rules.md), «Review tiers») are never patched by you at
    any size. Anything larger is a normal author fix round. The fix that applies your patches verbatim needs no
-   confirmation agent: `pr-pipeline` step 5.
+   confirmation agent on a PR not labelled `sensitive`: `pr-pipeline` step 5.
 3. Every patch is listed in the PR body under «Reviewer patches». The verdict names your new head SHA; the lead
    merges only after green CI on that head.

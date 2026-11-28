@@ -89,10 +89,11 @@ proposals: [lead communication](references/lead-communication.md).
    - **`sensitive` PR**: one agent confirms for both reviewers: it loads `review-pr`, `security-review` and both
      reviewers' findings and posts both verdicts as two PR reviews with `commit_id`. Full `security-review` §7 when the diff adds a guard, endpoint, query
      or sensitive path, or the PR gains a `sensitive:<category>`.
-   - **No agent when the fix equals the reviewers' patches verbatim** (trial 2026-11-28): save each patch
-     to a file and run `node tools/pr-rules/patch-equal.mjs <old-head> <new-head> <patch-file…>`. `equal` and
-     green CI on the new head → you confirm it yourself, as for a sync; `differs <files>` → a fresh reviewer
-     agent confirms.
+   - **No agent when the fix equals the reviewers' patches verbatim** (trial 2026-11-28), **only for a PR not
+     labelled `sensitive`**: save each patch to a file and run
+     `node tools/pr-rules/patch-equal.mjs <old-head> <new-head> <patch-file…>`. `equal` and green CI on the new
+     head → you confirm it yourself, as for a sync; `differs <files>` → a fresh reviewer agent confirms. A
+     `sensitive` PR's fix is always confirmed by the agent above (`security-review` §7), `equal` or not.
    - An author's fix after «Changes requested» is otherwise confirmed only by a reviewer agent; the lead confirms only a
      sync with an unchanged diff ([merge checklist](references/merge-checklist.md), «The lead confirms a sync
      itself»; `sensitive` too).

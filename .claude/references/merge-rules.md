@@ -33,7 +33,7 @@ which reviews a PR gets («Review tiers» below).
    broken requirement item (a PR or issue, not the same PR); a smaller item is fixed in the same fix round or not
    recorded. «Changes requested» itself is limited to three grounds (`review-pr` §3, trial 2026-11-28); every
    other finding is «Ready» plus a follow-up or a reviewer patch. A non-blocking finding never starts a commit before the merge, except the reviewer patches
-   (`review-pr` §7; limit: 150 lines, 60 for `sensitive`): the lead merges it when the reviewer's verdict names that new head, CI is green on it and no
+   (`review-pr` §7): the lead merges it when the reviewer's verdict names that new head, CI is green on it and no
    new review round is needed. Exception, tier Фундамент only («Review tiers» below): a non-blocking item the reviewer marks as
    cheap and safe to fold in may still be added before merge, at the lead's choice (it then needs a re-review of
    that commit, as above). The exception is dropped for the tiers Функціональність, Локальні інструменти and Документи; every such commit
