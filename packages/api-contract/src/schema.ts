@@ -2302,7 +2302,7 @@ export type paths = {
         get: operations["getTransaction"];
         put?: never;
         post?: never;
-        /** «Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35). An imported one is hidden instead, its journal entry kept (FR 16, AC9; IMP-04 FR 9) */
+        /** «Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35). An imported one is hidden instead, its journal entry kept (FR 16, AC9; IMP-04 FR 9) — not while it is a «Можливий дубль» of a manual one (FR 18: 409 TRANSACTION_NOT_HIDEABLE) */
         delete: operations["deleteTransaction"];
         options?: never;
         head?: never;
@@ -2354,7 +2354,7 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** «Приховати транзакцію»: out of the list, the budget and the reports; a manual copy leaves the balance (its journal entry is reversed), «Показати» posts it again (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18) */
+        /** «Приховати транзакцію»: out of the list, the budget and the reports; a manual copy leaves the balance (its journal entry is reversed), «Показати» posts it again (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18), nor a side of a «Можливий дубль» of a manual and an imported transaction (FR 17, FR 18) */
         post: operations["hideTransaction"];
         delete?: never;
         options?: never;
@@ -2405,7 +2405,7 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** «Об'єднати» a «Можливий дубль» / «Об'єднати з іншою»: the duplicate is merged into this transaction, which keeps its fields; the operation counts once (FIN-03 FR 11, FR 12, FR 27) */
+        /** «Об'єднати» a «Можливий дубль» / «Об'єднати з іншою»: the duplicate is merged into this transaction, which keeps its fields; the operation counts once (FIN-03 FR 11, FR 12, FR 27). Of a manual and an imported transaction the imported one stays, whichever was named, and takes the manual one's category (FR 17); the response is the one that stays */
         post: operations["mergeDuplicate"];
         /** «Роз'єднати»: a merged duplicate comes back with its own fields (on the transaction that stays: every one merged into it; FIN-03 edge case 4) */
         delete: operations["unmergeDuplicate"];
@@ -27522,7 +27522,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED); Only a duplicate or a technical record can be hidden (TRANSACTION_NOT_HIDEABLE) */
             409: {
                 headers: {
                     [name: string]: unknown;

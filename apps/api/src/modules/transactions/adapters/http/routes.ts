@@ -596,9 +596,9 @@ export const deleteTransactionRoute = defineRoute({
   path: "/v1/transactions/{transactionId}",
   operationId: "deleteTransaction",
   summary:
-    "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35). An imported one is hidden instead, its journal entry kept (FR 16, AC9; IMP-04 FR 9)",
+    "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35). An imported one is hidden instead, its journal entry kept (FR 16, AC9; IMP-04 FR 9) — not while it is a «Можливий дубль» of a manual one (FR 18: 409 TRANSACTION_NOT_HIDEABLE)",
   access: { permission: "household.data.write", feature: FEATURE },
-  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED", "TRANSACTION_NOT_HIDEABLE"],
   request: { params },
   response: {
     status: 200,
@@ -904,7 +904,7 @@ const visibilityRoute = (hidden: boolean) =>
     path: `/v1/transactions/{transactionId}/${hidden ? "hide" : "show"}`,
     operationId: hidden ? "hideTransaction" : "showTransaction",
     summary: hidden
-      ? "«Приховати транзакцію»: out of the list, the budget and the reports; a manual copy leaves the balance (its journal entry is reversed), «Показати» posts it again (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18)"
+      ? "«Приховати транзакцію»: out of the list, the budget and the reports; a manual copy leaves the balance (its journal entry is reversed), «Показати» posts it again (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18), nor a side of a «Можливий дубль» of a manual and an imported transaction (FR 17, FR 18)"
       : "A hidden transaction is shown again (FIN-03 FR 16); a merged duplicate only by «Роз'єднати»",
     access: { permission: "household.data.write", feature: STATES_FLAG },
     problems: hidden
@@ -1223,7 +1223,7 @@ export const mergeDuplicateRoute = defineRoute({
   path: "/v1/transactions/{transactionId}/merge",
   operationId: "mergeDuplicate",
   summary:
-    "«Об'єднати» a «Можливий дубль» / «Об'єднати з іншою»: the duplicate is merged into this transaction, which keeps its fields; the operation counts once (FIN-03 FR 11, FR 12, FR 27)",
+    "«Об'єднати» a «Можливий дубль» / «Об'єднати з іншою»: the duplicate is merged into this transaction, which keeps its fields; the operation counts once (FIN-03 FR 11, FR 12, FR 27). Of a manual and an imported transaction the imported one stays, whichever was named, and takes the manual one's category (FR 17); the response is the one that stays",
   access: { permission: "household.data.write", feature: DUPLICATES_FLAG },
   bodyLimitBytes: 1024,
   problems: ["ACCOUNT_CLOSED"],

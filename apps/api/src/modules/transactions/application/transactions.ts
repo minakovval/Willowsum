@@ -68,7 +68,7 @@ export interface TransactionsTx {
     id: string,
     accountId: string,
     windowDays: number,
-  ): Promise<readonly DuplicatePairSides[]>;
+  ): Promise<readonly HidingPairSides[]>;
   /**
    * FR 35: the manual transactions hidden as a duplicate (not merged, no side of a transfer) that `side` — a shown
    * transaction as it is now — is a possible-duplicate pair of within `windowDays`, the pair not «Не дубль»; by id.
@@ -84,6 +84,15 @@ export interface TransactionsTx {
   enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
   /** BUD-14 FR 8: «Нова транзакція» (`transactions.created`) in the outbox, in this transaction. */
   publishCreated(householdId: string, transactionId: string): Promise<void>;
+  /**
+   * FIN-03 FR 11, FR 17: a manual transaction (`duplicateId`) merged by the user into the bank's (`transactionId`) —
+   * `transactions.import-merged` in the outbox, in this transaction; module categorization carries the manual one's
+   * category to the bank's transaction, as on an import's merge.
+   */
+  publishImportMerged(
+    householdId: string,
+    merge: { readonly transactionId: string; readonly duplicateId: string; readonly actorAccountId: string },
+  ): Promise<void>;
 }
 
 export interface TransactionsDeps extends HandOffDeps {
@@ -113,6 +122,21 @@ export interface DuplicateSideFound {
 export interface DuplicatePairSides {
   readonly first: DuplicateSideFound;
   readonly second: DuplicateSideFound;
+}
+
+/** A pair found for hiding (FR 17, FR 18): its sides with where each came from — entered by hand or imported. */
+export interface HidingPairSides {
+  readonly first: DuplicateSideFound & { readonly source: StoredTransaction["source"] };
+  readonly second: DuplicateSideFound & { readonly source: StoredTransaction["source"] };
+}
+
+/**
+ * FR 17, FR 18: whether the transaction is a side of a «Можливий дубль» of a manual and an imported transaction — while
+ * that mark is on, neither is hidden (nor «Видалити» the imported one, which hides it): the user chooses «Об'єднати»
+ * (the bank's posting stays) or «Не дубль».
+ */
+export function inManualImportedDuplicate(rule: DuplicateCheck, pairs: readonly HidingPairSides[]): boolean {
+  return rule.isPossibleDuplicate(pairs.filter((p) => p.first.source !== p.second.source));
 }
 
 /** Module duplicate-matching's rule (wired in src/main.ts), pure: the window of the search and the decision. */
@@ -348,6 +372,9 @@ export async function updateTransaction(
   );
   if (checked === "closed") return { kind: "closed" };
   if ("issues" in checked) return { kind: "invalid", issues: checked.issues };
+  // FR 37: «Витрата» ↔ «Дохід» only for one entered by hand — the bank sets the sign of an imported one.
+  if (current.source === "imported" && checked.amount.isNegative() !== current.amount.isNegative())
+    return { kind: "invalid", issues: [{ field: "amount", issue: "sign" }] };
   const moneyChanged =
     checked.subaccount.subaccountId !== current.subaccountId ||
     !checked.amount.equals(current.amount) ||
@@ -485,6 +512,7 @@ export async function deleteTransaction(
   | { readonly kind: "closed" }
   | { readonly kind: "in-transfer" }
   | { readonly kind: "merged" }
+  | { readonly kind: "not-hideable" }
   | { readonly kind: "not-found" }
 > {
   const householdId = caller.householdId;
@@ -503,6 +531,17 @@ export async function deleteTransaction(
   // its journal event stays (hand-off), so the balance matches the bank and the next import still finds it.
   if (current.source === "imported") {
     if (current.hidden) return { kind: "ok", handOff: null, shown: [] };
+    // FR 18: «Видалити», which hides it, is not for one side of a «Можливий дубль» with a manual transaction (under the
+    // space's lock of duplicates, taken by lockWithCopies when the rule is wired).
+    const rule = deps.duplicates;
+    if (
+      rule !== null &&
+      inManualImportedDuplicate(
+        rule,
+        await tx.duplicatesForHiding(householdId, id, current.accountId, rule.windowDays),
+      )
+    )
+      return { kind: "not-hideable" };
     const row = await tx.update(householdId, { ...current, hidden: true, version: current.version + 1 });
     return { kind: "ok", handOff: await handOff(tx, caller, "hide", current, row), shown: [] };
   }
@@ -536,6 +575,8 @@ export async function setHidden(
       if (rule === null) throw new Error("the duplicate rule is not wired");
       const pairs = await tx.duplicatesForHiding(caller.householdId, id, current.accountId, rule.windowDays);
       if (!rule.isPossibleDuplicate(pairs)) return "not-hideable";
+      // FR 17, FR 18: a pair of a manual and an imported transaction is merged or called «Не дубль», never hidden.
+      if (inManualImportedDuplicate(rule, pairs)) return "not-hideable";
     }
     return { ...current, hidden };
   });

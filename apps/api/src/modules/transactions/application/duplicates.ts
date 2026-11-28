@@ -1,4 +1,11 @@
-import { dismissalPair, dismissIssues, mergeIssues, type FieldIssue } from "../domain/index.ts";
+import {
+  dismissalPair,
+  dismissIssues,
+  issuesOfRequest,
+  mergeIssues,
+  mergeRoles,
+  type FieldIssue,
+} from "../domain/index.ts";
 import { transactionAuditValues, type TransactionHandOff } from "./hand-off.ts";
 import type { StoredTransaction } from "./stored.ts";
 import { showLonelyCopies, type Caller, type TransactionsDeps, type TransactionsTx } from "./transactions.ts";
@@ -45,7 +52,11 @@ async function enqueue(
 
 /**
  * «Об'єднати»: `duplicateId` merged into `id`, which stays — on one account with the same amount and currency, neither
- * hidden, in a transfer or merged, the duplicate not one others were merged into (domain mergeIssues).
+ * hidden, in a transfer or merged, the duplicate not one others were merged into (domain mergeIssues). Of a manual and
+ * an imported transaction the imported one stays whichever the user acted on (FR 11, FR 17, AC26; domain mergeRoles):
+ * the manual one is merged into it — not a split one, whose parts would not go over — and `transactions.import-merged`
+ * in the outbox gives the bank's transaction the manual one's category (module categorization). The result is the one
+ * that stays.
  */
 export async function mergeDuplicate(
   deps: TransactionsDeps,
@@ -56,13 +67,15 @@ export async function mergeDuplicate(
 ): Promise<DuplicateResult> {
   const householdId = caller.householdId;
   return inTransactions(async (tx) => {
-    const [kept, duplicate] = await lockBoth(tx, householdId, id, duplicateId);
-    if (!kept) return { kind: "not-found" };
+    const [requested, other] = await lockBoth(tx, householdId, id, duplicateId);
+    if (!requested) return { kind: "not-found" };
     // Another space's transaction and an unknown one answer the same (П-5).
-    if (!duplicate) return { kind: "invalid", issues: [{ field: "duplicateId", issue: "not_found" }] };
-    const nested = (await tx.duplicatesOf(householdId, duplicateId)).length > 0;
+    if (!other) return { kind: "invalid", issues: [{ field: "duplicateId", issue: "not_found" }] };
+    const { kept, duplicate, swapped, intoBank } = mergeRoles(requested, other);
+    const nested = (await tx.duplicatesOf(householdId, duplicate.id)).length > 0;
     const issues = mergeIssues(kept, duplicate, nested);
-    if (issues.length > 0) return { kind: "invalid", issues };
+    if (intoBank && duplicate.split !== null) issues.push({ field: "duplicateId", issue: "split" });
+    if (issues.length > 0) return { kind: "invalid", issues: issuesOfRequest(issues, swapped) };
     if (await anyClosed(deps, tx, householdId, [kept])) return { kind: "closed" };
     const merged = await tx.update(householdId, {
       ...duplicate,
@@ -70,6 +83,12 @@ export async function mergeDuplicate(
       mergedInto: kept.id,
       version: duplicate.version + 1,
     });
+    if (intoBank)
+      await tx.publishImportMerged(householdId, {
+        transactionId: kept.id,
+        duplicateId: duplicate.id,
+        actorAccountId: caller.accountId,
+      });
     return {
       kind: "ok",
       transaction: kept,
