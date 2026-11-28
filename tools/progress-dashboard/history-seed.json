@@ -1,6 +1,7 @@
 {
  "schema": 1,
- "note": "Seed of the progress page history (PRC-02, owner decision 2026-11-28): one point per first-parent commit of main from #166, [commit, time UTC, PR, distinct items covered, PoC items covered, PoC items total]. CI appends a point after every merge (tools/progress-dashboard/history.mjs). umbrella: PRs merged into another PR branch, not into main, mapped to that PR.",
+ "note": "Seed of the progress page history (PRC-02, owner decision 2026-11-28): one point per first-parent commit of main from #166, [commit, time UTC, PR, distinct items covered, PoC items covered, PoC items total]. CI appends a point after every merge (tools/progress-dashboard/history.mjs). umbrella: PRs merged into another PR branch, not into main, mapped to that PR. corrections: PRs of owner corrections to requirements after the code was built (shown as «корекція вимог», out of the «код» price).",
+ "corrections": [705, 722],
  "umbrella": {
   "697": 695,
   "699": 695,

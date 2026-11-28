@@ -118,9 +118,11 @@ table.eff { border-collapse: collapse; width: 100%; font-size: 13px; }
 table.eff th, table.eff td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 table.eff th { color: var(--muted); font-weight: 600; border-top: 0; white-space: nowrap; }
 table.eff td.dt { white-space: nowrap; }
-table.eff td:nth-child(n+4) { white-space: nowrap; }
+table.eff td:nth-child(n+3) { min-width: 130px; }
 table.eff .good { color: var(--product); }
 table.eff .bad { color: var(--warn-ink); }
+table.eff .noise { color: var(--muted); font-weight: 500; }
+table.eff .act + .act { margin-top: 6px; }
 footer { color: var(--muted); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
 </style>
@@ -173,10 +175,11 @@ footer { color: var(--muted); font-size: 12px; }
     <h2 id="h-eff">Ціна пункту вимоги</h2>
     <div class="pace">
       <div><b id="eItems">–</b><span>нових пунктів, названих тестами</span></div>
-      <div><b id="ePer">–</b><span>млн cache read агентів на пункт, увесь час</span></div>
-      <div><b id="ePer7">–</b><span>млн на пункт, останні 7 днів</span></div>
+      <div><b id="ePer">–</b><span>умовних млн cache read агентів на пункт, увесь час</span></div>
+      <div><b id="ePer7">–</b><span>умовних млн на пункт, останні 7 днів</span></div>
       <div><b id="eUsd">–</b><span id="eUsdNote">≈ USD на пункт</span></div>
-      <div><b id="eIdle">–</b><span>токенів — на PR без нових пунктів</span></div>
+      <div><b id="eLead">–</b><span id="eLeadNote">млн cache read ведучого на PR</span></div>
+      <div><b id="eIdle">–</b><span id="eIdleNote">cache read — на PR без нових пунктів</span></div>
     </div>
     <p class="note" id="effnote">Завантажую облік токенів…</p>
     <h2 class="sub" id="h-fc">Прогноз до кінця PoC</h2>
@@ -190,11 +193,12 @@ footer { color: var(--muted); font-size: 12px; }
     <h2 class="sub" id="h-roll">Ковзна ціна пункту і дії з оптимізації</h2>
     <div class="effchart" id="effchart"></div>
     <div class="legend"><span style="--c:var(--product)">PR «код»</span><span style="--c:var(--accent)">PR UI</span><span style="--c:var(--muted)">пунктир — дія з оптимізації (наведіть, щоб побачити)</span></div>
-    <p class="note">Для кожного PR: cache read ÷ нові пункти за останні 20 PR того самого типу.</p>
-    <h2 class="sub" id="h-act">До і після дій</h2>
+    <p class="note">Для кожного PR: умовні токени ÷ нові пункти за останні 20 PR того самого типу. Умовні — cache read у ціні Opus: Sonnet × 0,5, Fable × 2 (за цінами моделей; рядок без розподілу за моделями — як Opus). PR корекцій вимог власника (#705, #722) — окремий тип, поза «код».</p>
+    <h2 class="sub" id="h-act">До і після пакетів дій</h2>
     <div class="tblwrap"><table class="eff" id="efftbl" aria-labelledby="h-act"></table></div>
     <details class="effold" id="effold" hidden><summary id="effoldsum">Давніші дії</summary><div class="tblwrap"><table class="eff" id="efftblold" aria-labelledby="effoldsum"></table></div></details>
-    <p class="note">Ціна пункту за 20 PR типу до дії і після неї; «усі PR» — cache read на PR за 30 PR до і після. Зміна на −10 % і більше виділена. Поряд можуть бути інші дії, тому це підказка, а не доказ.</p>
+    <p class="note">Дії, злиті протягом доби, — один пакет: їхній ефект не розділити. Ціна пункту за 20 PR типу до першої дії пакета і після останньої; «усі PR» — умовні токени на PR за 30 PR до і після (залежить від того, як ріжуть PR). 90 % інтервал — повторна вибірка PR кожного вікна (1 000 разів).</p>
+    <p class="note" id="effnoise"></p>
   </section>
 
   <div class="facts">
@@ -211,18 +215,25 @@ footer { color: var(--muted); font-size: 12px; }
 </div>
 
 <script id="eff-lib">
-/* Price of a requirement item (PRC-02, owner decision 2026-11-28, docs/decisions/log/2026-11-28-owner-dashboard-token-efficiency.md).
+/* Price of a requirement item (PRC-02, owner decisions 2026-11-28, docs/decisions/log/2026-11-28-owner-dashboard-token-efficiency.md).
    An item is a numbered FR, AC or EC of docs/requirements that a test names; the items a PR adds = the growth of
    «distinct items covered» (req-check --coverage) at its merge commit on main. Tokens = agents' cache read from the
-   «PR» rows of #180 and its archive; dollars = the «Сесії» rows (they include the lead). Pure functions, no DOM:
-   tools/progress-dashboard/test/efficiency.test.mjs runs this block in node. */
+   «PR» rows of #180 and its archive, weighted by model price (Opus 1, Sonnet 0.5, Fable 2: «умовні млн»); the lead's
+   own tokens come from the «Сесії» notes; dollars from the «Сесії» rows. Actions merged within 24 hours form one
+   package; each package shows a 90 % bootstrap interval, and the page shows the spread at random points without an
+   action (placebo). Method review: docs/validation/token-review-2026-11-28.md, part A.
+   Pure functions, no DOM: tools/progress-dashboard/test/efficiency.test.mjs runs this block in node. */
 var WillowsumEfficiency = (function () {
   'use strict';
   var TYPES = { code: 'код', docs: 'вимоги' };
-  var WINDOW = 20;        // PRs of one type in the rolling price and on each side of an action
+  var CORRECTION = 'корекція вимог';   // PRs of history.corrections: owner corrections after the code was built
+  var WEIGHT = { opus: 1, sonnet: 0.5, fable: 2 };   // price per token relative to Opus (input, output and cache alike)
+  var WINDOW = 20;        // PRs of one type in the rolling price and on each side of a package
   var MIN_ROLL = 10;      // the rolling line starts at the 10th PR of a type
   var MIN_SIDE = 5;       // fewer PRs on a side: no number
-  var ALL_SIDE = 30;      // PRs of all types on each side of an action, for «млн на PR»
+  var ALL_SIDE = 30;      // PRs of all types on each side of a package, for «умовні млн на PR»
+  var PACKAGE_MS = 864e5; // actions merged within 24 hours of the package's first action are one package
+  var BOOT = 1000;        // bootstrap resamples
   var DAY = 864e5;
 
   function num(t) {
@@ -234,12 +245,37 @@ var WillowsumEfficiency = (function () {
   function sum(xs, f) { return xs.reduce(function (a, x) { return a + (f(x) || 0); }, 0); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function r2(v) { return Math.round(v * 100) / 100; }
+  function quantile(sorted, q) { return sorted.length ? sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))] : null; }
+
+  // PR numbers in a text; «#181–#186» is the whole range.
+  function prNumbers(text) {
+    var out = [];
+    String(text || '').replace(/#(\d+)(?:\s*[–-]\s*#(\d+))?/g, function (m, a, b) {
+      a = Number(a); b = b ? Number(b) : a;
+      if (b < a || b - a > 50) b = a;
+      for (var n = a; n <= b; n++) out.push(n);
+      return m;
+    });
+    return out.filter(function (n, i) { return out.indexOf(n) === i; });
+  }
 
   // Issue numbers of the PR-row archives named in the #180 body («Архів рядків PR: #499, #812»).
   function archives(body) {
     var m = /Архів рядків PR:([^\n]*)/.exec(body || '');
     if (!m) return [];
     return (m[1].match(/#\d+/g) || []).map(function (x) { return Number(x.slice(1)); });
+  }
+
+  // Model-weighted cache read of a row: «моделі: opus 34,1 млн / fable 6,1 млн / sonnet 1,1 млн»; the part the note
+  // does not split (or a row without the split) counts as Opus.
+  function weighted(cr, note) {
+    var m = /моделі:([^|;]*)/.exec(note || '');
+    if (!m) return cr;
+    var named = 0, w = 0;
+    m[1].replace(/(opus|sonnet|fable)\s+([\d\s,]+?)\s*млн/g, function (x, model, v) {
+      v = num(v) || 0; named += v; w += v * WEIGHT[model]; return x;
+    });
+    return w + Math.max(0, cr - named);
   }
 
   // «PR» rows: | #N | type | rounds | subagent_tokens | cache read, млн | output, тис. | author, хв | reviews, хв | CI, хв | note |
@@ -253,28 +289,29 @@ var WillowsumEfficiency = (function () {
         var cr = num(c[4]);
         if (c.length < 9 || cr == null) return;
         var pr = Number(c[0].slice(1));
-        rows[pr] = { pr: pr, type: TYPES[c[1]] || c[1], cr: cr, hours: ((num(c[6]) || 0) + (num(c[7]) || 0)) / 60 };
+        rows[pr] = { pr: pr, type: TYPES[c[1]] || c[1], cr: cr, w: weighted(cr, c.slice(9).join('|')), hours: ((num(c[6]) || 0) + (num(c[7]) || 0)) / 60 };
       });
     });
     return rows;
   }
 
   // «Сесії» rows: | ведучий N | period | cache read | output | ≈ USD | hours | agents, h | CI, h | note with the PR numbers |
+  // usd is dropped when the note says the session's usage leaves the agents out; lead = the lead's own cache read
+  // («Сам ведучий … — 62,0 млн») when the note gives it.
   function parseSessions(body) {
     var out = [];
     String(body || '').split('\n').forEach(function (line) {
       if (!/^\| ведуч/.test(line)) return;
       var c = cells(line);
-      var seen = {};
-      var prs = (c.slice(8).join('|').match(/#\d+/g) || []).map(function (x) { return Number(x.slice(1)); })
-        .filter(function (n) { if (seen[n]) return false; seen[n] = true; return true; });
-      out.push({ name: c[0], usd: num(c[4]), prs: prs });
+      var note = c.slice(8).join('|');
+      var own = /[Сс]ам ведучий[^—|]*—\s*([\d\s,]+)\s*млн/.exec(note);
+      out.push({ name: c[0], usd: /агентів не включає/.test(note) ? null : num(c[4]), lead: own ? num(own[1]) : null, prs: prNumbers(note) });
     });
     return out;
   }
 
-  // history: { umbrella: {child: parent}, points: [[commit, at, pr, distinct covered, PoC covered, PoC total], …] }
-  // in main's first-parent order. Each point gets the growth of distinct covered items since the point before.
+  // history: { umbrella: {child: parent}, corrections: [PR], points: [[commit, at, pr, distinct covered, PoC covered,
+  // PoC total], …] } in main's first-parent order. Each point gets the growth of distinct covered items since the point before.
   function commits(history) {
     var prev = null;
     return (history && history.points || []).map(function (p) {
@@ -284,12 +321,14 @@ var WillowsumEfficiency = (function () {
     });
   }
 
-  // One entry per PR on main that has a «PR» row: its type, merge time, new items and cache read. A row of a PR
-  // merged into another PR's branch (history.umbrella) is added to that PR; the type of the bigger part wins.
-  // Rows of PRs not on main and not in umbrella stay out of the per-PR numbers and are counted in `unmatched`.
+  // One entry per PR on main that has a «PR» row: its type, merge time, new items, cache read (cr) and weighted (w).
+  // A row of a PR merged into another PR's branch (history.umbrella) is added to that PR; the type of the bigger part
+  // wins, except PRs of history.corrections, which are «корекція вимог». Rows of PRs not on main and not in umbrella
+  // stay out of the per-PR numbers and are counted in `unmatched`.
   function join(rows, history) {
     var cs = commits(history);
     var umbrella = history && history.umbrella || {};
+    var corrections = history && history.corrections || [];
     var byPr = {};
     cs.forEach(function (c) { if (c.pr != null) byPr[c.pr] = c; });
     var acc = {};
@@ -298,28 +337,39 @@ var WillowsumEfficiency = (function () {
       var r = rows[k];
       var target = byPr[r.pr] ? r.pr : umbrella[r.pr];
       if (!target || !byPr[target]) { unmatched.prs += 1; unmatched.cr += r.cr; return; }
-      var a = acc[target] || (acc[target] = { pr: target, cr: 0, hours: 0, top: -1, type: r.type, parts: 0 });
-      a.cr += r.cr; a.hours += r.hours; a.parts += 1;
+      var a = acc[target] || (acc[target] = { pr: target, cr: 0, w: 0, hours: 0, top: -1, type: r.type, parts: 0 });
+      a.cr += r.cr; a.w += r.w; a.hours += r.hours; a.parts += 1;
       if (r.cr > a.top) { a.top = r.cr; a.type = r.type; }
     });
     var prs = Object.keys(acc).map(function (k) {
       var a = acc[k];
       var c = byPr[a.pr];
-      return { pr: a.pr, at: c.at, type: a.type, items: c.items, cr: r1(a.cr), hours: r1(a.hours), parts: a.parts };
+      return { pr: a.pr, at: c.at, type: corrections.indexOf(a.pr) >= 0 ? CORRECTION : a.type, items: c.items, cr: r1(a.cr), w: r1(a.w), hours: r1(a.hours), parts: a.parts };
     }).sort(function (x, y) { return x.at < y.at ? -1 : x.at > y.at ? 1 : x.pr - y.pr; });
     unmatched.cr = r1(unmatched.cr);
     return { prs: prs, unmatched: unmatched, commits: cs };
   }
 
-  function price(w) { var it = sum(w, function (r) { return r.items; }); return it > 0 ? sum(w, function (r) { return r.cr; }) / it : null; }
+  function price(w, key) {
+    var it = sum(w, function (r) { return r.items; });
+    return it > 0 ? sum(w, function (r) { return r[key || 'w']; }) / it : null;
+  }
 
-  // Dollars per item: sessions with a price and at least one new item in their PRs.
-  function sessionPrices(sessions, prs) {
-    var items = {};
+  // Sessions with their new items; a PR named by two sessions counts in the first only.
+  function sessionItems(sessions, prs) {
+    var items = {}, taken = {};
     prs.forEach(function (p) { items[p.pr] = p.items; });
     return sessions.map(function (s) {
-      return { name: s.name, usd: s.usd, items: sum(s.prs, function (n) { return items[n]; }) };
-    }).filter(function (s) { return s.usd > 0 && s.items > 0; });
+      var mine = s.prs.filter(function (n) { if (taken[n] || items[n] == null) return false; taken[n] = true; return true; });
+      return { name: s.name, usd: s.usd, lead: s.lead, prs: mine.length, items: sum(mine, function (n) { return items[n]; }) };
+    });
+  }
+
+  // The lead's own cache read per merged PR, from the sessions whose note gives it.
+  function leadPerPr(sessions, prs) {
+    var s = sessionItems(sessions, prs).filter(function (x) { return x.lead > 0 && x.prs > 0; });
+    var n = sum(s, function (x) { return x.prs; });
+    return n ? { perPr: r1(sum(s, function (x) { return x.lead; }) / n), sessions: s.length } : null;
   }
 
   function lastDays(prs, days) {
@@ -330,22 +380,28 @@ var WillowsumEfficiency = (function () {
 
   function totals(prs, sessions) {
     var cr = sum(prs, function (p) { return p.cr; });
+    var w = sum(prs, function (p) { return p.w; });
     var items = sum(prs, function (p) { return p.items; });
-    var idle = sum(prs.filter(function (p) { return !(p.items > 0); }), function (p) { return p.cr; });
-    var s = sessionPrices(sessions, prs);
+    var none = prs.filter(function (p) { return !(p.items > 0); });
+    var noneBuild = none.filter(function (p) { return p.type === 'код' || p.type === 'UI'; });
+    var s = sessionItems(sessions, prs).filter(function (x) { return x.usd > 0 && x.items > 0; });
     var usd = sum(s, function (x) { return x.usd; });
     var sItems = sum(s, function (x) { return x.items; });
     var w7 = lastDays(prs, 7);
+    var lead = leadPerPr(sessions, prs);
     return {
-      prs: prs.length, items: items, cr: r1(cr),
+      prs: prs.length, items: items, cr: r1(cr), w: r1(w),
+      wPerItem: items > 0 ? r1(w / items) : null,
+      wPerItem7: price(w7) == null ? null : r1(price(w7)),
       crPerItem: items > 0 ? r1(cr / items) : null,
-      crPerItem7: price(w7) == null ? null : r1(price(w7)),
-      idlePct: cr > 0 ? Math.round(idle / cr * 100) : null,
+      nonePct: cr > 0 ? Math.round(sum(none, function (p) { return p.cr; }) / cr * 100) : null,
+      noneBuildPct: cr > 0 ? Math.round(sum(noneBuild, function (p) { return p.cr; }) / cr * 100) : null,
       usdPerItem: sItems > 0 ? r2(usd / sItems) : null, usdSessions: s.length, usd: Math.round(usd), usdItems: sItems,
+      leadPerPr: lead && lead.perPr, leadSessions: lead ? lead.sessions : 0,
     };
   }
 
-  // For every PR of type «код» or «UI» from the 10th on: cache read ÷ new items over the last 20 PRs of that type.
+  // For every PR of type «код» or «UI» from the 10th on: weighted cache read ÷ new items over the last 20 PRs of that type.
   function rolling(prs) {
     var out = { 'код': [], 'UI': [] };
     Object.keys(out).forEach(function (type) {
@@ -366,49 +422,105 @@ var WillowsumEfficiency = (function () {
   }
   function change(a, b) { return a && b != null ? Math.round((b - a) / a * 100) : null; }
 
-  // For every action: the price of an item over the 20 PRs of a type before it and after it, and cache read per PR
-  // over the 30 PRs of all types before and after. `after` is the number of PRs of the type after it.
+  // A small seeded generator: the same data gives the same interval on every load and in the tests.
+  function rng(seed) {
+    var s = seed >>> 0 || 1;
+    return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  }
+  function resample(rows, rand) {
+    var out = [];
+    for (var i = 0; i < rows.length; i++) out.push(rows[Math.floor(rand() * rows.length)]);
+    return out;
+  }
+  // 90 % interval of the change in price (after ÷ before − 1, in %) from resampling each window with replacement.
+  function interval(before, after, seed) {
+    var rand = rng(seed), xs = [];
+    for (var i = 0; i < BOOT; i++) {
+      var b = price(resample(before, rand)), a = price(resample(after, rand));
+      if (b > 0 && a != null) xs.push((a / b - 1) * 100);
+    }
+    xs.sort(function (x, y) { return x - y; });
+    return xs.length < BOOT / 2 ? null : [Math.round(quantile(xs, 0.05)), Math.round(quantile(xs, 0.95))];
+  }
+
+  // Spread of the before/after change at every point of a type's history, without any action: 10th and 90th percentile
+  // and the share of points beyond ±25 %. A package's change inside this band is not told apart from chance.
+  function placebo(prs) {
+    var out = {};
+    ['код', 'UI'].forEach(function (type) {
+      var rows = prs.filter(function (p) { return p.type === type; }), xs = [];
+      for (var k = WINDOW; k + WINDOW <= rows.length; k++) {
+        var b = price(rows.slice(k - WINDOW, k)), a = price(rows.slice(k, k + WINDOW));
+        if (b > 0 && a != null) xs.push((a / b - 1) * 100);
+      }
+      xs.sort(function (x, y) { return x - y; });
+      out[type] = xs.length ? { p10: Math.round(quantile(xs, 0.1)), p90: Math.round(quantile(xs, 0.9)), beyond25: Math.round(xs.filter(function (x) { return Math.abs(x) > 25; }).length / xs.length * 100), points: xs.length } : null;
+    });
+    return out;
+  }
+
+  // Actions merged within 24 hours of the first one are one package: their effects cannot be told apart.
+  function packages(events) {
+    var evs = (events || []).slice().sort(function (a, b) { return Date.parse(a.at) - Date.parse(b.at); });
+    var out = [];
+    evs.forEach(function (e) {
+      var last = out[out.length - 1];
+      if (last && Date.parse(e.at) - Date.parse(last.actions[0].at) <= PACKAGE_MS) last.actions.push(e);
+      else out.push({ actions: [e] });
+    });
+    return out;
+  }
+
+  // For every package: the weighted price of an item over the 20 PRs of a type before its first action and after its
+  // last (the action's own PR counts before; events.json has minutes only, so its merge commit gives the time), with a
+  // 90 % bootstrap interval; and weighted cache read per PR over 30 PRs of all types. `noise`: the interval contains 0.
   function effects(prs, events) {
-    return (events || []).map(function (e) {
-      // The action's own PR and everything merged with it or before is «before»; its merge commit gives the time
-      // (events.json has minutes only).
+    var timeOf = function (e) {
       var own = prs.filter(function (p) { return p.pr === e.pr; })[0];
-      var when = own ? Date.parse(own.at) : Date.parse(e.at);
-      var o = { at: e.at, pr: e.pr, category: e.category, label: e.label, effect: e.effect, source: e.source };
-      [['code', 'код'], ['ui', 'UI']].forEach(function (t) {
+      return own ? Date.parse(own.at) : Date.parse(e.at);
+    };
+    return packages(events).map(function (pk, idx) {
+      var first = Math.min.apply(null, pk.actions.map(timeOf));
+      var last = Math.max.apply(null, pk.actions.map(timeOf));
+      var o = { at: pk.actions[0].at, until: pk.actions[pk.actions.length - 1].at, actions: pk.actions };
+      [['code', 'код'], ['ui', 'UI']].forEach(function (t, ti) {
         var rows = prs.filter(function (p) { return p.type === t[1]; });
-        var k = split(rows, when);
-        var b = rows.slice(Math.max(0, k - WINDOW), k);
-        var a = rows.slice(k, k + WINDOW);
+        var b = rows.slice(Math.max(0, split(rows, first) - WINDOW), split(rows, first));
+        var a = rows.slice(split(rows, last), split(rows, last) + WINDOW);
         var pb = b.length >= MIN_SIDE ? price(b) : null;
         var pa = a.length >= MIN_SIDE ? price(a) : null;
-        o[t[0]] = { before: pb == null ? null : r1(pb), after: pa == null ? null : r1(pa), after_n: a.length };
-        o[t[0]].change = change(o[t[0]].before, o[t[0]].after);
+        var x = { before: pb == null ? null : r1(pb), after: pa == null ? null : r1(pa), after_n: a.length };
+        x.change = change(x.before, x.after);
+        x.ci = x.change == null ? null : interval(b, a, 7919 * (idx + 1) + ti);
+        x.noise = x.ci ? x.ci[0] <= 0 && x.ci[1] >= 0 : null;
+        o[t[0]] = x;
       });
-      var k = split(prs, when);
-      var per = function (w) { return w.length ? r1(sum(w, function (p) { return p.cr; }) / w.length) : null; };
-      var b = prs.slice(Math.max(0, k - ALL_SIDE), k);
-      var a = prs.slice(k, k + ALL_SIDE);
+      var per = function (w) { return w.length ? r1(sum(w, function (p) { return p.w; }) / w.length) : null; };
+      var b = prs.slice(Math.max(0, split(prs, first) - ALL_SIDE), split(prs, first));
+      var a = prs.slice(split(prs, last), split(prs, last) + ALL_SIDE);
       o.all = { before: per(b), after: per(a), after_n: a.length };
       o.all.change = change(o.all.before, o.all.after);
       return o;
     });
   }
 
-  // PoC items without tests × the price of an item over the last 7 and 14 days of PRs (tokens), over all sessions with
-  // a price and the last 5 of them (dollars); days at the pace of new items over the last 7 and 14 days. A range,
-  // low to high, never a single date.
+  // PoC items without tests × the price of an item over the last 7 and 14 days of PRs (agents' cache read, not
+  // weighted, plus the lead's own cache read per PR × PRs per item), dollars over all priced sessions and the last 5;
+  // days at the pace of new items over the last 7 and 14 days. A range, low to high, never a single date.
   function forecast(prs, sessions, cs) {
     var pts = cs.filter(function (c) { return c.pocTotal > 0; });
     if (!pts.length || !prs.length) return null;
     var last = pts[pts.length - 1];
     var left = last.pocTotal - last.pocCovered;
+    var lead = leadPerPr(sessions, prs);
     var win = function (days) {
       var w = lastDays(prs, days);
-      return { per: price(w), pace: sum(w, function (p) { return p.items; }) / days };
+      var it = sum(w, function (p) { return p.items; });
+      var agents = price(w, 'cr');
+      return { per: agents == null ? null : agents + (lead && it > 0 ? lead.perPr * w.length / it : 0), pace: it / days };
     };
     var w7 = win(7), w14 = win(14);
-    var s = sessionPrices(sessions, prs);
+    var s = sessionItems(sessions, prs).filter(function (x) { return x.usd > 0 && x.items > 0; });
     var s5 = s.slice(-5);
     var u = function (xs) { var it = sum(xs, function (x) { return x.items; }); return it > 0 ? sum(xs, function (x) { return x.usd; }) / it : null; };
     var ua = u(s), u5 = u(s5);
@@ -416,7 +528,7 @@ var WillowsumEfficiency = (function () {
     var per = both(w7.per, w14.per), usd = both(ua, u5), pace = both(w7.pace, w14.pace);
     return {
       at: last.at, pocCovered: last.pocCovered, pocTotal: last.pocTotal, pocTotalFirst: pts[0].pocTotal, left: left,
-      per7: w7.per == null ? null : r1(w7.per), per14: w14.per == null ? null : r1(w14.per),
+      per7: w7.per == null ? null : r1(w7.per), per14: w14.per == null ? null : r1(w14.per), withLead: !!lead,
       tokensLowBn: per.length ? r1(left * Math.min.apply(null, per) / 1000) : null,
       tokensHighBn: per.length ? r1(left * Math.max.apply(null, per) / 1000) : null,
       usdAll: ua == null ? null : r2(ua), usdLast5: u5 == null ? null : r2(u5),
@@ -435,11 +547,11 @@ var WillowsumEfficiency = (function () {
     var sessions = parseSessions(body180);
     return {
       prs: j.prs, unmatched: j.unmatched, totals: totals(j.prs, sessions), rolling: rolling(j.prs),
-      effects: effects(j.prs, events), forecast: forecast(j.prs, sessions, j.commits),
+      effects: effects(j.prs, events), placebo: placebo(j.prs), forecast: forecast(j.prs, sessions, j.commits),
     };
   }
 
-  return { archives: archives, parsePrRows: parsePrRows, parseSessions: parseSessions, commits: commits, join: join, totals: totals, rolling: rolling, effects: effects, forecast: forecast, build: build, WINDOW: WINDOW };
+  return { archives: archives, prNumbers: prNumbers, weighted: weighted, parsePrRows: parsePrRows, parseSessions: parseSessions, commits: commits, join: join, totals: totals, rolling: rolling, packages: packages, interval: interval, placebo: placebo, effects: effects, forecast: forecast, build: build, WINDOW: WINDOW, CORRECTION: CORRECTION };
 })();
 </script>
 <script>
@@ -815,25 +927,31 @@ var WillowsumEfficiency = (function () {
       text('effnote', 'Немає даних: не вдалося прочитати history.json (його пише CI після злиття в main) або облік токенів у #180.');
       return;
     }
-    var t = eff.totals, f = eff.forecast;
+    var t = eff.totals, f = eff.forecast, pl = eff.placebo;
     text('eItems', n0(t.items));
-    text('ePer', n1(t.crPerItem));
-    text('ePer7', n1(t.crPerItem7));
+    text('ePer', n1(t.wPerItem));
+    text('ePer7', n1(t.wPerItem7));
     text('eUsd', t.usdPerItem == null ? '–' : '$' + n2(t.usdPerItem));
     text('eUsdNote', '≈ USD сесій ведучого з агентами: ' + t.usdSessions + ' сесій, $' + n0(t.usd) + ' на ' + n0(t.usdItems) + ' пунктів');
-    text('eIdle', t.idlePct == null ? '–' : t.idlePct + ' %');
-    text('effnote', t.prs + ' злитих PR з обліком, ' + n1(t.cr / 1000) + ' млрд cache read агентів' +
+    text('eIdle', t.nonePct == null ? '–' : t.nonePct + ' %');
+    text('eIdleNote', 'cache read — на PR без нових пунктів; з них PR «код» і UI — ' + (t.noneBuildPct == null ? '–' : t.noneBuildPct + ' %'));
+    text('eLead', t.leadPerPr == null ? '–' : n1(t.leadPerPr));
+    text('eLeadNote', 'млн cache read самого ведучого на злитий PR (' + t.leadSessions + ' сесій з власним обліком); у ціну пункту не входить');
+    text('effnote', t.prs + ' злитих PR з обліком: ' + n1(t.cr / 1000) + ' млрд cache read агентів, ' + n1(t.w / 1000) + ' млрд умовних' +
       (eff.unmatched.prs ? '; ще ' + eff.unmatched.prs + ' рядків (' + n1(eff.unmatched.cr) + ' млн) — PR, не злиті в main, у ціну за PR не входять' : '') + '.');
     if (f) {
       text('fLeft', n0(f.left));
       text('fLeftNote', 'пунктів PoC без тестів: ' + n0(f.pocCovered) + ' з ' + n0(f.pocTotal) + ' покрито' + (f.pocTotal !== f.pocTotalFirst ? ' (PoC виріс з ' + n0(f.pocTotalFirst) + ')' : ''));
       text('fTok', range(f.tokensLowBn, f.tokensHighBn, n1));
-      text('fTokNote', 'млрд cache read агентів, за ціною пункту ' + n1(f.per14) + ' (14 днів) і ' + n1(f.per7) + ' (7 днів) млн');
+      text('fTokNote', 'млрд cache read' + (f.withLead ? ' агентів і ведучого' : ' агентів') + ', за ціною пункту ' + n1(f.per14) + ' (14 днів) і ' + n1(f.per7) + ' (7 днів) млн');
       text('fUsd', f.usdLow == null ? '–' : '$' + range(f.usdLow, f.usdHigh, n0));
       text('fUsdNote', 'за $' + n2(f.usdAll) + ' на пункт (усі сесії з ціною) і $' + n2(f.usdLast5) + ' (останні 5)');
       text('fDays', range(f.daysLow, f.daysHigh, n0));
       text('fDaysNote', 'днів при темпі ' + n1(f.pace14) + ' (14 днів) і ' + n1(f.pace7) + ' (7 днів) пунктів на добу');
     }
+    var band = function (k, name) { return pl[k] ? name + ' від ' + pl[k].p10 + ' до +' + pl[k].p90 + ' % (понад ±25 % — у ' + pl[k].beyond25 + ' % точок)' : ''; };
+    text('effnoise', 'Звичайний розкид без жодної дії (10–90 % випадкових точок історії): ' + [band('код', '«код»'), band('UI', 'UI')].filter(Boolean).join('; ') +
+      '. Зміна, чий 90 % інтервал містить нуль, сіра: її не відрізнити від випадку.');
     renderEffChart();
     renderEffTable();
   }
@@ -857,11 +975,13 @@ var WillowsumEfficiency = (function () {
     for (var d = new Date(t0); d.getTime() <= t1; d = new Date(d.getTime() + 7 * 864e5)) {
       s += '<text x="' + x(d.toISOString()) + '" y="' + (H - 6) + '" text-anchor="middle">' + esc(d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })) + '</text>';
     }
-    eff.effects.forEach(function (e) {
-      if (Date.parse(e.at) < t0 || Date.parse(e.at) > t1) return;
-      var ex = x(e.at);
-      s += '<g class="ev"><title>' + esc(fmtDate(new Date(e.at)) + ' · #' + e.pr + ' · ' + e.category + ': ' + e.label) + '</title>' +
-        '<line x1="' + ex + '" x2="' + ex + '" y1="' + T + '" y2="' + (H - B) + '"/><line class="hit" x1="' + ex + '" x2="' + ex + '" y1="' + T + '" y2="' + (H - B) + '"/></g>';
+    eff.effects.forEach(function (pk) {
+      pk.actions.forEach(function (e) {
+        if (Date.parse(e.at) < t0 || Date.parse(e.at) > t1) return;
+        var ex = x(e.at);
+        s += '<g class="ev"><title>' + esc(fmtDate(new Date(e.at)) + ' · #' + e.pr + ' · ' + e.category + ': ' + e.label) + '</title>' +
+          '<line x1="' + ex + '" x2="' + ex + '" y1="' + T + '" y2="' + (H - B) + '"/><line class="hit" x1="' + ex + '" x2="' + ex + '" y1="' + T + '" y2="' + (H - B) + '"/></g>';
+      });
     });
     // A line breaks where a type has no PR for more than 2 days: a straight line across the gap would invent prices.
     [[code, 'code', 'код'], [ui, 'ui', 'UI']].forEach(function (k) {
@@ -871,7 +991,7 @@ var WillowsumEfficiency = (function () {
         if (i && Date.parse(p.at) - Date.parse(k[0][i - 1].at) > 2 * 864e5) parts.push([]);
         parts[parts.length - 1].push(x(p.at).toFixed(1) + ',' + y(p.v).toFixed(1));
       });
-      var tip = '<title>' + esc(k[2] + ': зараз ' + n1(k[0][k[0].length - 1].v) + ' млн на пункт') + '</title>';
+      var tip = '<title>' + esc(k[2] + ': зараз ' + n1(k[0][k[0].length - 1].v) + ' умовних млн на пункт') + '</title>';
       parts.forEach(function (pts) {
         if (pts.length === 1) { var c = pts[0].split(','); s += '<circle class="dot ' + k[1] + '" cx="' + c[0] + '" cy="' + c[1] + '" r="2.5">' + tip + '</circle>'; }
         else s += '<polyline class="ln ' + k[1] + '" points="' + pts.join(' ') + '">' + tip + '</polyline>';
@@ -883,21 +1003,25 @@ var WillowsumEfficiency = (function () {
   function cellOf(x) {
     if (!x || x.before == null) return '<td class="na">–</td>';
     if (x.after == null) return '<td>' + n1(x.before) + ' → <span class="note">мало PR</span></td>';
-    var few = x.after_n < WillowsumEfficiency.WINDOW ? ' <span class="note">(після ' + x.after_n + ' PR)</span>' : '';
-    var cls = x.change <= -10 ? 'good' : x.change >= 10 ? 'bad' : '';
-    return '<td>' + n1(x.before) + ' → ' + n1(x.after) + ' <b class="' + cls + '">' + (x.change > 0 ? '+' : '') + x.change + ' %</b>' + few + '</td>';
+    var few = x.after_n < WillowsumEfficiency.WINDOW ? '<br><span class="note">після ' + x.after_n + ' PR</span>' : '';
+    var cls = x.noise ? 'noise' : x.noise === false ? (x.change < 0 ? 'good' : 'bad') : '';
+    var ci = x.ci ? '<br><span class="note">90 %: ' + (x.ci[0] > 0 ? '+' : '') + x.ci[0] + '…' + (x.ci[1] > 0 ? '+' : '') + x.ci[1] + ' %' + (x.noise ? ', у межах шуму' : '') + '</span>' : '';
+    return '<td>' + n1(x.before) + ' → ' + n1(x.after) + ' <b class="' + cls + '">' + (x.change > 0 ? '+' : '') + x.change + ' %</b>' + ci + few + '</td>';
   }
-  var RECENT = 8;           // the newest actions are open; the older ones are under «Ще N дій»
+  var RECENT = 4;           // the newest packages are open; the older ones are under «Ще N пакетів»
   function renderEffTable() {
-    var rows = eff.effects.slice().reverse().map(function (e) {
-      return '<tr><td class="dt">' + esc(fmtDate(new Date(e.at))) + '</td><td><a href="https://github.com/' + REPO + '/pull/' + e.pr + '">#' + e.pr + '</a></td>' +
-        '<td><span class="badge">' + esc(e.category) + '</span> ' + esc(e.label) + '<br><span class="note">очікували: ' + esc(e.effect) + '</span></td>' +
-        cellOf(e.code) + cellOf(e.ui) + cellOf(e.all) + '</tr>';
+    var rows = eff.effects.slice().reverse().map(function (pk) {
+      var when = fmtDate(new Date(pk.at)) + (pk.until.slice(0, 10) !== pk.at.slice(0, 10) ? ' – ' + fmtDate(new Date(pk.until)) : '');
+      var acts = pk.actions.map(function (e) {
+        return '<div class="act"><a href="https://github.com/' + REPO + '/pull/' + e.pr + '">#' + e.pr + '</a> <span class="badge">' + esc(e.category) + '</span> ' + esc(e.label) +
+          '<br><span class="note">очікували: ' + esc(e.effect) + '</span></div>';
+      }).join('');
+      return '<tr><td class="dt">' + esc(when) + '</td><td>' + acts + '</td>' + cellOf(pk.code) + cellOf(pk.ui) + cellOf(pk.all) + '</tr>';
     });
-    var head = '<thead><tr><th>Дата</th><th>PR</th><th>Дія</th><th>«код», млн на пункт</th><th>UI, млн на пункт</th><th>усі PR, млн на PR</th></tr></thead>';
+    var head = '<thead><tr><th>Дата</th><th>Дії пакета</th><th>«код», умовних млн на пункт</th><th>UI, умовних млн на пункт</th><th>усі PR, умовних млн на PR</th></tr></thead>';
     $('efftbl').innerHTML = head + '<tbody>' + rows.slice(0, RECENT).join('') + '</tbody>';
     $('effold').hidden = rows.length <= RECENT;
-    text('effoldsum', 'Ще ' + (rows.length - RECENT) + ' давніших дій');
+    text('effoldsum', 'Ще ' + (rows.length - RECENT) + ' давніших пакетів');
     $('efftblold').innerHTML = head + '<tbody>' + rows.slice(RECENT).join('') + '</tbody>';
   }
 

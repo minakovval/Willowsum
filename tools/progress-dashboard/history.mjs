@@ -57,7 +57,7 @@ export function merge(seed, prev, point) {
     for (const p of i >= 0 ? prev.points.slice(i + 1) : []) if (!seen.has(p[0])) { points.push(p); seen.add(p[0]); }
   }
   if (!seen.has(point[0])) points.push(point);
-  return { schema: 1, generatedAt: point[1], umbrella: seed.umbrella || {}, points };
+  return { schema: 1, generatedAt: point[1], umbrella: seed.umbrella || {}, corrections: seed.corrections || [], points };
 }
 
 export function main(argv, io = { warn: (m) => console.error(m) }) {
