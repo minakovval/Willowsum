@@ -34,6 +34,26 @@ test('PRC-02 (owner, 2026-11-28): «PR» rows of #180 and its archive — type, 
   assert.equal(rows[10].hours, 0.6);
 });
 
+// #775 (2026-11-28) changed the #180 tables: «PR» gained cache write and input and lost subagent_tokens, «Сесії» has
+// three cache read columns. The archive keeps the old layout, so every table is read by its own header.
+test('PRC-02 (owner, 2026-11-28): the #180 tables are read by their headers — the old archive layout and the layout since #775', () => {
+  const NEW = '| PR | Тип | Раунди | Агенти: cache read, млн | Агенти: cache write, млн | Агенти: input, тис. | Агенти: output, тис. | Час автора, хв | Час рецензій, хв | CI, хв | Примітка |';
+  const body = `## Сесії\n| Сесія | Період | cache read, разом | cache read, агенти | cache read, сам ведучий | output | ≈ USD | Тривалість, год | Час агентів, год | CI, год | Примітка |\n| --- |\n` +
+    '| ведучий 39 | 2026-11-28 | 1,2 млрд | 1,0 млрд | 200,0 млн | 3 млн | 450,5 | 5 | 4 | 1 | 2 PR (#767, #770) |\n' +
+    '| ведучий 4 | 2026-11-14 | 308,6 млн | — | — | 1,12 млн | 146,5 | 6 | 9 | 3 | Сам ведучий (`tools/token-report session`) — 74,8 млн cache read; #213 |\n' +
+    `## PR\n${NEW}\n| --- |\n| #767 | код | 2 | 38,7 | 3,8 | 0,7 | 254 | 163,4 | 193,4 | 71 | моделі: opus 28,8 млн / fable 9,2 млн / sonnet 0,7 млн cache read |\n`;
+  const archive = `${HEAD}\n${row(181, 'процес', 13.2)}`;
+  const rows = plain(E.parsePrRows([archive, body]));
+  assert.equal(rows[767].cr, 38.7);
+  assert.ok(Math.abs(rows[767].w - (28.8 + 9.2 * 2 + 0.7 * 0.5)) < 1e-9, String(rows[767].w));
+  assert.ok(Math.abs(rows[767].hours - (163.4 + 193.4) / 60) < 1e-9);
+  assert.deepEqual([rows[181].cr, rows[181].type], [13.2, 'процес']);
+  assert.deepEqual(plain(E.parseSessions(body)), [
+    { name: 'ведучий 39', usd: 450.5, lead: 200, prs: [767, 770] },
+    { name: 'ведучий 4', usd: 146.5, lead: 74.8, prs: [213] },
+  ]);
+});
+
 // Review 2026-11-28, A1: models are priced differently; the page weighs cache read by the model price relative to Opus.
 test('PRC-02 (owner, 2026-11-28): tokens are weighted by model — Sonnet × 0.5, Fable × 2, the part without a model split as Opus', () => {
   assert.equal(E.weighted(41.2, 'a:opus s:fable; моделі: opus 34,1 млн / fable 6,1 млн / sonnet 1,0 млн cache read'), 34.1 + 12.2 + 0.5);

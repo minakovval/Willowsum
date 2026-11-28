@@ -278,34 +278,60 @@ var WillowsumEfficiency = (function () {
     return w + Math.max(0, cr - named);
   }
 
-  // «PR» rows: | #N | type | rounds | subagent_tokens | cache read, млн | output, тис. | author, хв | reviews, хв | CI, хв | note |
+  // Column positions from a table's header row, by name; `fallback` for a column the header does not name. The «PR»
+  // table changed on 2026-11-28 (#775: cache write and input added, subagent_tokens dropped), the archive keeps the
+  // old layout, so every table is read by its own header.
+  function columns(headerLine, spec) {
+    var h = headerLine ? cells(headerLine) : [];
+    var out = {};
+    Object.keys(spec).forEach(function (k) {
+      var i = -1;
+      for (var j = 0; j < h.length && i < 0; j++) if (spec[k][0].test(h[j])) i = j;
+      out[k] = i >= 0 ? i : spec[k][1];
+    });
+    return out;
+  }
+  var PR_COLS = { cr: [/cache read/, 4], author: [/Час автора/, 6], review: [/Час рецензій/, 7], note: [/Примітка/, 9] };
+  var SESSION_COLS = { usd: [/USD/, 4], lead: [/сам ведучий/, -1], note: [/Примітка/, 8] };
+  // A number with its unit: «3,06 млрд» → 3060, «62,0 млн» → 62 (in millions).
+  function mln(t) { var v = num(t); return v == null ? null : /млрд/.test(t) ? v * 1000 : v; }
+
+  // «PR» rows: | #N | type | rounds | … cache read, млн … | author, хв | reviews, хв | CI, хв | note |, columns by header.
   // The later body wins for a PR that is in two bodies.
   function parsePrRows(bodies) {
     var rows = {};
     bodies.forEach(function (body) {
+      var col = columns(null, PR_COLS);
       String(body || '').split('\n').forEach(function (line) {
+        if (/^\| PR \|/.test(line)) { col = columns(line, PR_COLS); return; }
         if (!/^\| #\d+ \|/.test(line)) return;
         var c = cells(line);
-        var cr = num(c[4]);
-        if (c.length < 9 || cr == null) return;
+        var cr = num(c[col.cr]);
+        if (c.length <= col.note || cr == null) return;
         var pr = Number(c[0].slice(1));
-        rows[pr] = { pr: pr, type: TYPES[c[1]] || c[1], cr: cr, w: weighted(cr, c.slice(9).join('|')), hours: ((num(c[6]) || 0) + (num(c[7]) || 0)) / 60 };
+        rows[pr] = { pr: pr, type: TYPES[c[1]] || c[1], cr: cr, w: weighted(cr, c.slice(col.note).join('|')), hours: ((num(c[col.author]) || 0) + (num(c[col.review]) || 0)) / 60 };
       });
     });
     return rows;
   }
 
   // «Сесії» rows: | ведучий N | period | cache read | output | ≈ USD | hours | agents, h | CI, h | note with the PR numbers |
+  // (before #775; since then three cache read columns: разом, агенти, сам ведучий).
   // usd is dropped when the note says the session's usage leaves the agents out; lead = the lead's own cache read
   // («Сам ведучий … — 62,0 млн») when the note gives it.
+  // Columns by header (since #775: «cache read, сам ведучий»); the note's «Сам ведучий … — N млн» wins over the column,
+  // because old rows were migrated with «—» there.
   function parseSessions(body) {
     var out = [];
+    var col = columns(null, SESSION_COLS);
     String(body || '').split('\n').forEach(function (line) {
+      if (/^\| (Сесія|Сегмент) \|/.test(line)) { col = columns(line, SESSION_COLS); return; }
       if (!/^\| ведуч/.test(line)) return;
       var c = cells(line);
-      var note = c.slice(8).join('|');
+      var note = c.slice(col.note).join('|');
       var own = /[Сс]ам ведучий[^—|]*—\s*([\d\s,]+)\s*млн/.exec(note);
-      out.push({ name: c[0], usd: /агентів не включає/.test(note) ? null : num(c[4]), lead: own ? num(own[1]) : null, prs: prNumbers(note) });
+      var lead = own ? num(own[1]) : col.lead >= 0 ? mln(c[col.lead]) : null;
+      out.push({ name: c[0], usd: /агентів не включає/.test(note) ? null : num(c[col.usd]), lead: lead, prs: prNumbers(note) });
     });
     return out;
   }
