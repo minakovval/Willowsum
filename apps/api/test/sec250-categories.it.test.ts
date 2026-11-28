@@ -10,11 +10,18 @@ import { createCategoriesErasure, createCategoriesServices } from "../src/module
 
 /**
  * Security review of PR #250 (BUD-01 a): household isolation of the categories schema in the database (row policies
- * on all five tables, the module role sees only its own schema), the merge event carries only the space's ids, a
+ * on all six tables, the module role sees only its own schema), the merge event carries only the space's ids, a
  * scoped member never reaches a write, erasure removes every category row of a space. Synthetic data only.
  */
 const WEB = "http://localhost:5173";
-const TABLES = ["categories", "category_groups", "idempotency_keys", "outbox_events", "jobs"];
+const TABLES = [
+  "categories",
+  "category_groups",
+  "history_label_mappings",
+  "idempotency_keys",
+  "outbox_events",
+  "jobs",
+];
 
 let db: RealModulesDatabase;
 let spaces: HouseholdSpaces;
@@ -90,7 +97,7 @@ afterAll(async () => {
 });
 
 describe("SEC-250: the categories schema is isolated by household in the database", () => {
-  it("SEC-250: row policies are on and forced on all five tables of the categories schema", async () => {
+  it("SEC-250: row policies are on and forced on all six tables of the categories schema", async () => {
     const { rows } = await db.owner.query(
       `SELECT c.relname AS t, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced,
               (SELECT count(*)::int FROM pg_policy p WHERE p.polrelid = c.oid) AS policies
@@ -206,7 +213,7 @@ describe("SEC-250: merge, scope and erasure", () => {
     expect(strip(own.body)).toEqual(strip(alien.body));
   });
 
-  it("SEC-250: erasure removes every row of the space in all five tables, the stored create responses included", async () => {
+  it("SEC-250: erasure removes every row of the space in all six tables, the stored create responses included", async () => {
     const a = await newSpace();
     const b = await newSpace();
     for (const space of [a, b]) {
@@ -226,6 +233,12 @@ describe("SEC-250: merge, scope and erasure", () => {
       `INSERT INTO categories.jobs (household_id, name, dedupe_key, payload) VALUES ($1, 'sec250.probe', 'k', '{}'::jsonb)`,
       [a.householdId],
     );
+    // BUD-21 FR 25: a remembered matching of a history file (its `batch_id` too) goes with the space.
+    await db.owner.query(
+      `INSERT INTO categories.history_label_mappings (household_id, label_hash, category_id, confirmed_by, confirmed_at, batch_id)
+         VALUES ($1, repeat('a', 64), NULL, $2, now(), $3)`,
+      [a.householdId, a.accountId, randomUUID()],
+    );
     const count = async (householdId: string) => {
       const out: Record<string, number> = {};
       for (const t of TABLES)
@@ -238,7 +251,11 @@ describe("SEC-250: merge, scope and erasure", () => {
         );
       return out;
     };
-    expect(await count(a.householdId)).toMatchObject({ idempotency_keys: 1, jobs: 1 });
+    expect(await count(a.householdId)).toMatchObject({
+      idempotency_keys: 1,
+      jobs: 1,
+      history_label_mappings: 1,
+    });
     const bBefore = await count(b.householdId);
     await createCategoriesErasure(db.databases.for("categories")).eraseHousehold(a.householdId);
     expect(await count(a.householdId)).toEqual(Object.fromEntries(TABLES.map((t) => [t, 0])));

@@ -441,4 +441,58 @@ describe("sec759: a confirmation that fails after the categories were created", 
     const names = (await categories(space.householdId)).map((c) => c.name).filter((n) => n.startsWith("Кав"));
     expect(names).toEqual(["Кав'ярні"]);
   });
+
+  it("sec759 FR 7: retried after the created category was merged away — «створити нову» creates a category in use, not the retired one", async () => {
+    const space = await newSpace();
+    const { batchId, view } = await uploaded(space, FILE);
+    const body = { labels: [{ category: "Кав'ярні", subcategory: null, action: "create" }] };
+    failAnswersSeal = 1;
+    expect((await confirm(space, batchId, view.parseId, body)).statusCode).toBe(500);
+    failAnswersSeal = 0;
+    const first = (await named(space.householdId, "Кав'ярні"))!;
+    await db.owner.query(
+      `UPDATE categories.categories SET state = 'retired', merged_into = $3 WHERE household_id = $1 AND id = $2`,
+      [space.householdId, first.id, (await named(space.householdId, "Продукти"))!.id],
+    );
+    const again = await confirm(space, batchId, view.parseId, body);
+    expect(again.statusCode, again.body).toBe(200);
+    const live = (await categories(space.householdId)).filter(
+      (c) => c.name.startsWith("Кав") && c.state !== "retired",
+    );
+    expect(live).toHaveLength(1);
+    expect(live[0]!.id).not.toBe(first.id);
+  });
+
+  it("sec759 FR 7: a retry of a second file takes the category that file created, not the first file's and not a third", async () => {
+    const space = await newSpace();
+    const body = { labels: [{ category: "Кав'ярні", subcategory: null, action: "create" }] };
+    const a = await uploaded(space, FILE);
+    expect((await confirm(space, a.batchId, a.view.parseId, body)).statusCode).toBe(200);
+    expect((await call(space, "DELETE", `/v1/import/history-files/${a.batchId}`)).statusCode).toBe(200);
+    const b = await uploaded(space, history(times(3, ["Кав'ярні", "", "-40,00"]), "Інший"));
+    failAnswersSeal = 1;
+    expect((await confirm(space, b.batchId, b.view.parseId, body)).statusCode).toBe(500);
+    failAnswersSeal = 0;
+    const again = await confirm(space, b.batchId, b.view.parseId, body);
+    expect(again.statusCode, again.body).toBe(200);
+    const names = (await categories(space.householdId))
+      .map((c) => c.name)
+      .filter((n) => n.startsWith("Кав"))
+      .sort();
+    expect(names).toEqual(["Кав'ярні", "Кав'ярні 2"]);
+  });
+
+  it("sec759 FR 7: two confirmations of one file at once — one succeeds, the other is refused, one category and one audit entry", async () => {
+    const space = await newSpace();
+    const { batchId, view } = await uploaded(space, FILE);
+    const body = { labels: [{ category: "Кав'ярні", subcategory: null, action: "create" }] };
+    const results = await Promise.all([
+      confirm(space, batchId, view.parseId, body),
+      confirm(space, batchId, view.parseId, body),
+    ]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    const names = (await categories(space.householdId)).map((c) => c.name).filter((n) => n.startsWith("Кав"));
+    expect(names).toEqual(["Кав'ярні"]);
+    expect(await auditOf(space.householdId, "categories.history")).toHaveLength(1);
+  });
 });
